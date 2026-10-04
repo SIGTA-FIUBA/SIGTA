@@ -29,3 +29,7 @@ docs: describe the ports and adapters
 ```
 
 Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` y `revert`.
+
+La convención la valida [commitlint](https://commitlint.js.org/) con la configuración convencional, mediante un hook de [husky](https://typicode.github.io/husky/) que se instala solo al correr `npm install` en la raíz del repositorio. En cada pull request, la integración continua valida el título con la misma configuración.
+
+Los pull requests se integran con squash merge, así que el título del pull request es el commit que queda en `main` y sigue la misma convención.
