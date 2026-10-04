@@ -4,7 +4,7 @@
 
 ## Issue / historia relacionada
 
-<!-- Ej: Closes #123 -->
+<!-- Título e identificador del ticket de Linear. Ej: "Repositorio e integración continua" (SIG-5). -->
 
 ## Cómo probarlo
 
@@ -19,4 +19,3 @@
 - [ ] El pipeline de CI está en verde.
 - [ ] Se actualizó la documentación (README, docs, comentarios) si corresponde.
 - [ ] No hay conflictos con `main`.
-- [ ] Al menos un integrante del equipo revisó y aprobó el PR.
