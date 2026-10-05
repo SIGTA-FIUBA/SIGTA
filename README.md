@@ -8,7 +8,7 @@ Plataforma web para iniciar, gestionar y seguir los trámites de la Secretaría 
 
 Trabajo Profesional de Ingeniería en Informática, Facultad de Ingeniería de la Universidad de Buenos Aires.
 
-[Resumen](#resumen) | [Modelo de dominio](#modelo-de-dominio) | [Arquitectura](#arquitectura) | [Inteligencia artificial](#inteligencia-artificial) | [Decisiones de diseño](#decisiones-de-diseño) | [Contribuir](CONTRIBUTING.md)
+[Resumen](#resumen) | [Modelo de dominio](#modelo-de-dominio) | [Arquitectura](#arquitectura) | [Inteligencia artificial](#inteligencia-artificial) | [Decisiones de diseño](#decisiones-de-diseño) | [Decisiones abiertas](#decisiones-abiertas) | [Contribuir](CONTRIBUTING.md)
 
 </div>
 
@@ -52,11 +52,11 @@ Cada tipo de trámite se define como configuración versionada; incorporar uno n
 - Todos los entornos usan datos sintéticos o anonimizados.
 - SIGTA no se integra con SIU Guaraní ni con el expediente electrónico: lo que ocurre allí lo registra el personal de la Secretaría.
 - SIGTA no implementa firma digital con validez legal ni resuelve el dictamen académico de un trámite.
-- Todo el sistema es autoalojable, sin depender de una nube en particular.
+- Todo el sistema es autoalojable, sin depender de una nube en particular. Usar un modelo por API externa depende del tratamiento de los datos personales.
 
 ## Modelo de dominio
 
-Cada operación sobre un trámite es una acción que un actor ejecuta sobre un paso, y se registra como un evento en el historial. El modelo es el mismo para los cinco trámites: lo que cambia entre uno y otro es su configuración.
+Cada operación sobre un trámite es una acción que un actor ejecuta sobre un paso, y queda registrada en el historial del trámite. El modelo es el mismo para los cinco trámites: lo que cambia entre uno y otro es su configuración.
 
 | Acción | Qué registra | Efecto |
 | --- | --- | --- |
@@ -86,76 +86,113 @@ stateDiagram-v2
 
 ## Arquitectura
 
-La arquitectura objetivo es un conjunto chico de servicios autoalojables que se comunican por eventos, detrás de un único punto de entrada. El sistema arranca como un monolito modular en Go y cada servicio se separa cuando hay un motivo concreto (lenguaje, carga, aislamiento o ciclo de despliegue), sin cambiar el dominio.
+SIGTA se entrega como un monolito modular en Go con un único servicio aparte, el de inteligencia artificial en Python, que se separa por el lenguaje y por su ciclo de evaluación. Todo lo demás vive en PostgreSQL. Cada componente adicional tiene un disparador explícito y se suma solo cuando se cumple.
+
+### Arquitectura para la defensa
 
 ```mermaid
 flowchart LR
     U(["Titular y personal<br/>de la Secretaría"])
+    IDP["Ingreso institucional<br/>OpenID Connect"]
 
     subgraph SIGTA["SIGTA"]
+        PX["Proxy inverso"]
         SPA["Frontend<br/>React y TypeScript"]
-        IDP["Proveedor de identidad<br/>OpenID Connect"]
-        GW["API gateway"]
         CORE["Servicio de trámites<br/>Go"]
-        BUS{{"Bus de eventos y colas<br/>NATS JetStream"}}
-        AST["Servicio de inteligencia<br/>artificial, Python"]
-        NOT["Servicio de notificaciones<br/>Go"]
+        AI["Servicio de inteligencia<br/>artificial, Python"]
         DB[("PostgreSQL")]
-        OBJ[("Almacenamiento<br/>de objetos")]
+        DOC[("Almacenamiento<br/>de documentos")]
     end
 
-    INST["Ingreso institucional"]
     MOD["Modelos de clasificación<br/>y de generación"]
     SMTP["Correo"]
 
-    U --> SPA --> GW
-    INST -.->|federación| IDP
-    IDP -.->|tokens| GW
-    GW --> CORE
-    GW --> AST
+    U --> PX
+    PX --> SPA
+    PX --> CORE
+    IDP -.->|tokens| CORE
     CORE --> DB
-    CORE --> OBJ
-    CORE <--> BUS
-    BUS <--> AST
-    BUS --> NOT
-    AST --> MOD
-    NOT --> SMTP
+    CORE --> DOC
+    CORE --> SMTP
+    CORE -->|trabajos de la cola| AI
+    AI --> DB
+    AI --> MOD
 ```
 
-| Componente | Responsabilidad | Tecnología candidata | Etapa |
-| --- | --- | --- | --- |
-| API gateway | Único punto de entrada: HTTPS, validación de tokens, límites de uso y ruteo a los servicios | Traefik, KrakenD o el proxy de la infraestructura de destino | 2 |
-| Frontend | Interfaz del titular y bandeja de la Secretaría, con un cliente tipado generado desde OpenAPI | React, TypeScript, Vite | 1 |
-| Servicio de trámites | Dominio, motor de pasos, permisos e historial; dueño de los datos de los trámites | Go | 1 |
-| Servicio de inteligencia artificial | Asistente, validación asistida y borradores de actas; recuperación y evaluación | Python | 2 |
-| Servicio de notificaciones | Avisos por correo a partir de eventos | Go | 2 |
-| Proveedor de identidad | Inicio de sesión, usuarios, roles y federación con el ingreso institucional | Keycloak, Zitadel o el proveedor institucional | 2 |
-| Bus de eventos y colas | Eventos entre servicios y colas de trabajo (validaciones, avisos y tareas pendientes), con entrega garantizada | NATS JetStream | 2 |
-| Base de datos | Eventos de cada trámite, proyecciones de lectura, búsqueda de texto completo y vectores | PostgreSQL con pgvector | 1 |
-| Almacenamiento de objetos | Documentos de los trámites | Compatible con S3, autoalojado o en la nube | 1 |
-| Modelos | Clasificación y generación de texto | Laya, Claude u otro modelo, local o por API | 1 |
-| Observabilidad | Trazas, métricas y logs de punta a punta, incluido el costo y la latencia de cada llamada a un modelo | OpenTelemetry, Prometheus, Grafana | 3 |
+| Componente | Responsabilidad | Tecnología |
+| --- | --- | --- |
+| Proxy inverso | HTTPS, ruteo al frontend y a la API, límites de uso | El de la infraestructura de destino; nginx en desarrollo |
+| Frontend | Interfaz del titular y bandeja de la Secretaría, con un cliente tipado generado desde OpenAPI | React, TypeScript, Vite |
+| Servicio de trámites | Dominio, motor de pasos, permisos, historial, cola de trabajos y avisos por correo; única API pública | Go |
+| Servicio de inteligencia artificial | Asistente, validación asistida y borradores de actas, con su base de conocimiento y sus evaluaciones | Python |
+| Base de datos | Estado e historial de los trámites, cola de trabajos, búsqueda de texto completo y vectores | PostgreSQL con pgvector |
+| Almacenamiento de documentos | Documentos de los trámites, que se descargan siempre a través del servicio de trámites | Sistema de archivos detrás de un puerto |
+| Modelos | Clasificación y generación de texto | Reglas en código, Laya, Claude u otro modelo, detrás de puertos |
 
 ### Evolución
 
-| Etapa | Qué incluye | Por qué en ese orden |
+Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su disparador. Como todos están detrás de un puerto, sumarlos cambia un adaptador y no el dominio.
+
+| Componente | Se suma cuando | Hasta entonces |
 | --- | --- | --- |
-| 1. Monolito modular | Servicio de trámites en Go con puertos y adaptadores, frontend, PostgreSQL, almacenamiento de objetos y los modelos detrás de puertos | El dominio es lo que más tiene que estabilizarse; separar antes multiplica el costo de cada cambio |
-| 2. Servicios | Inteligencia artificial en Python, notificaciones, bus de eventos, gateway y proveedor de identidad | Los componentes de inteligencia artificial tienen otro lenguaje, otra carga y otro ciclo de evaluación |
-| 3. Operación | Observabilidad completa, despliegue automático en la infraestructura de destino y endurecimiento | Hace falta para validar con la Secretaría y sostener el sistema después del proyecto |
+| Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
+| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos |
+| Proveedor de identidad propio (Keycloak o Zitadel) | La Subsecretaría de TICs no habilita el ingreso institucional para SIGTA | Ingreso institucional, y enlace por correo para titulares sin cuenta institucional |
+| Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
+| API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
+
+### Arquitectura objetivo
+
+Con todos los disparadores cumplidos, los componentes nuevos (con borde punteado) se suman así:
+
+```mermaid
+flowchart LR
+    U(["Titular y personal<br/>de la Secretaría"])
+    INST["Ingreso institucional"]
+
+    subgraph SIGTA["SIGTA"]
+        GW["API gateway"]
+        SPA["Frontend<br/>React y TypeScript"]
+        IDP["Proveedor de identidad<br/>OpenID Connect"]
+        CORE["Servicio de trámites<br/>Go"]
+        BUS{{"Bus de eventos<br/>NATS JetStream"}}
+        AI["Servicio de inteligencia<br/>artificial, Python"]
+        DB[("PostgreSQL")]
+        OBJ[("Almacenamiento<br/>compatible con S3")]
+    end
+
+    MOD["Modelos de clasificación<br/>y de generación"]
+    SMTP["Correo"]
+
+    U --> GW
+    GW --> SPA
+    GW --> CORE
+    INST -.->|federación| IDP
+    IDP -.->|tokens| GW
+    CORE --> DB
+    CORE --> OBJ
+    CORE --> SMTP
+    CORE <--> BUS
+    BUS <--> AI
+    AI --> DB
+    AI --> MOD
+
+    classDef nuevo stroke-dasharray: 5 5
+    class GW,IDP,BUS,OBJ nuevo
+```
 
 ### Datos y comunicación
 
-- **Historial como fuente de verdad.** Cada trámite es una secuencia de eventos que no se modifica (event sourcing). El estado y las bandejas son proyecciones que se recalculan a partir de esos eventos, así la trazabilidad no es una tabla aparte sino el modelo mismo.
-- **Eventos entre servicios con outbox.** El servicio de trámites guarda el cambio y el evento a publicar en la misma transacción, y un proceso aparte los publica en el bus. Ningún evento se pierde ni se publica sin que el cambio haya ocurrido.
-- **Contrato primero.** La API pública se describe con OpenAPI y los eventos con AsyncAPI; el código de los dos lados se genera desde esas especificaciones.
+- **Historial de acciones.** Cada acción sobre un trámite se guarda en una tabla que solo crece, en la misma transacción que actualiza su estado. El historial alcanza para auditar sin reconstruir el estado a partir de eventos.
+- **Cola de trabajos en PostgreSQL.** El trabajo asincrónico (validaciones, avisos por correo, recordatorios) se encola en la misma transacción que el cambio que lo origina, así ningún trabajo se pierde ni se encola sin que el cambio haya ocurrido. Un worker del servicio de trámites toma cada trabajo con `FOR UPDATE SKIP LOCKED`. Un trabajo puede ejecutarse más de una vez, así que cada uno es idempotente.
+- **Cada servicio es dueño de sus datos.** Los dos servicios comparten la instancia de PostgreSQL, no los esquemas: el de trámites es dueño de los trámites, el historial y la cola; el de inteligencia artificial, de la base de conocimiento y sus vectores. Ninguno lee las tablas del otro.
+- **Contrato primero.** La API pública y la API interna del servicio de inteligencia artificial se describen con OpenAPI, y el código de los dos lados se genera desde esa especificación.
 
 ### Autenticación y autorización
 
-- **OpenID Connect.** Un proveedor de identidad autoalojado emite los tokens y se federa con el ingreso institucional si la facultad lo habilita; mientras tanto, gestiona usuarios propios.
-- **El gateway valida el token** antes de llegar a cualquier servicio.
-- **Cada servicio autoriza** según rol, área y perfil: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
-- **Documentos con acceso controlado:** se descargan con enlaces firmados de vida corta, emitidos solo a quien tiene permiso sobre el trámite.
+- **OpenID Connect.** El inicio de sesión se delega en el ingreso institucional, si la Subsecretaría de TICs lo habilita para SIGTA. Los titulares sin cuenta institucional, como los de un pase desde otra universidad, ingresan con un enlace de un solo uso enviado por correo.
+- **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
+- **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
 ### Diseño interno de cada servicio
 
@@ -166,9 +203,8 @@ flowchart LR
     subgraph AE["Adaptadores de entrada"]
         direction TB
         REST["API REST<br/>contrato OpenAPI"]
-        EVIN["Eventos entrantes"]
+        WRK["Trabajos de la cola"]
         JOBS["Tareas programadas"]
-        EVAL["Conjuntos de evaluación"]
     end
 
     subgraph NUC["Núcleo"]
@@ -180,11 +216,11 @@ flowchart LR
         direction TB
         DEF["Configuración de trámites"]
         DB["PostgreSQL"]
-        DOC["Almacenamiento compatible con S3"]
-        CLS["Clasificación"]
-        GEN["Generación de texto"]
+        Q["Cola de trabajos"]
+        DOC["Almacenamiento de documentos"]
+        AIS["Servicio de inteligencia artificial"]
         ID["Identidad"]
-        EVT["Eventos salientes, outbox"]
+        MAIL["Correo"]
     end
 
     AE --> NUC
@@ -194,19 +230,23 @@ flowchart LR
 | Puerto de salida | Adaptadores | Estado |
 | --- | --- | --- |
 | Definiciones de trámites | Archivos de configuración versionados; a futuro, un editor dentro de la aplicación | Elegido |
-| Persistencia y búsqueda | PostgreSQL con texto completo y pgvector | Elegido |
-| Documentos | Almacenamiento compatible con S3, autoalojado o en la nube | En evaluación |
-| Clasificación | El servicio de inteligencia artificial; en la etapa 1, reglas en código o un modelo llamado directamente (por ejemplo, Laya) | En evaluación |
-| Generación de texto | El servicio de inteligencia artificial; en la etapa 1, un modelo llamado directamente (por ejemplo, Claude o un modelo local) | En evaluación |
-| Identidad | Proveedor OpenID Connect: autoalojado o el ingreso institucional | Propuesto |
-| Eventos | Outbox en PostgreSQL publicado en NATS JetStream | Propuesto |
+| Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
+| Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
+| Documentos | Sistema de archivos; almacenamiento compatible con S3 si la infraestructura lo ofrece | Elegido |
+| Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
+| Identidad | Ingreso institucional por OpenID Connect y enlace por correo; un proveedor propio si no se habilita el ingreso institucional | A acordar con la Subsecretaría de TICs |
+| Correo | El servidor de correo de la infraestructura de destino | Propuesto |
 
-Cada puerto tiene además un adaptador en memoria para las pruebas, así el dominio se prueba sin base de datos ni servicios externos. Cuando un caso de uso pasa a otro servicio, el núcleo lo sigue viendo como un puerto: solo cambia el adaptador.
+El servicio de inteligencia artificial sigue la misma estructura. Sus puertos de salida son la clasificación y la generación de texto, con adaptadores para reglas en código, modelos de pesos abiertos como Laya y modelos por API como Claude; los conjuntos de evaluación son uno más de sus adaptadores de entrada.
+
+Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servicios externos. Las de cada adaptador corren contra la dependencia real en un contenedor, para que los dos no diverjan.
 
 ### Despliegue
 
-- Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, todo levanta con Docker Compose.
-- GitHub Actions ejecuta lint, pruebas, escenarios Gherkin y conjuntos de evaluación en cada pull request, y construye las imágenes al integrar en `main`. Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
+- Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
+- La integración continua corre en GitHub Actions. Hoy valida el título de cada pull request; con el código suma lint, pruebas y escenarios Gherkin en cada pull request, y la construcción de imágenes al integrar en `main`.
+- Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
+- Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
 
 ## Inteligencia artificial
 
@@ -222,51 +262,72 @@ Recorrido de punta a punta de la validación asistida: el procesamiento es asinc
 sequenceDiagram
     actor T as Titular
     actor S as Personal de la Secretaría
-    participant GW as API gateway
     participant TR as Servicio de trámites
-    participant OBJ as Almacenamiento de objetos
-    participant BUS as Bus de eventos y colas
+    participant DOC as Almacenamiento de documentos
+    participant DB as PostgreSQL
     participant AI as Servicio de inteligencia artificial
     participant M as Modelo de clasificación
 
-    T->>GW: Carga un documento
-    GW->>TR: Reenvía el pedido con el token validado
-    TR->>OBJ: Guarda el documento
-    TR->>TR: Registra el evento y el outbox en una transacción
+    T->>TR: Carga un documento
+    TR->>DOC: Guarda el documento
+    TR->>DB: Registra la acción y encola la validación en una transacción
     TR-->>T: Documento recibido
-    TR->>BUS: Publica "documento cargado"
-    BUS->>AI: Entrega el trabajo de la cola
+    TR->>DB: Un worker toma el trabajo de la cola
+    TR->>AI: Pide la validación del documento
+    AI->>AI: Extrae el texto del documento
     AI->>M: Clasifica el documento y verifica cada criterio
     M-->>AI: Etiquetas con su confianza
-    AI->>BUS: Publica "hallazgos generados"
-    BUS->>TR: Entrega los hallazgos
-    TR->>TR: Actualiza la vista del trámite
-    S->>GW: Abre el trámite
-    GW->>TR: Reenvía el pedido
+    AI-->>TR: Hallazgos con la parte del documento de la que salen
+    TR->>DB: Guarda los hallazgos
+    S->>TR: Abre el trámite
     TR-->>S: Hallazgos con la parte del documento de la que salen
-    S->>GW: Acepta o descarta cada hallazgo
-    GW->>TR: Reenvía la decisión
-    TR->>TR: Registra la decisión en el historial
+    S->>TR: Acepta o descarta cada hallazgo
+    TR->>DB: Registra la decisión en el historial
 ```
 
-Cada componente tiene un conjunto de evaluación propio, que corre en la integración continua e incluye documentos ambiguos, contradictorios y maliciosos y casos de inyección de instrucciones. Se mide la proporción de respuestas con fuente citada y de consultas fuera de cobertura bien derivadas, los hallazgos correctos por requisito y los borradores aprobados sin corregir campos estructurados. Los umbrales se fijan después de medir la línea de base. Como los puertos admiten adaptadores distintos, la misma evaluación compara reglas, modelos de pesos abiertos y modelos por API en calidad, latencia y costo.
+Cada componente tiene un conjunto de evaluación propio, con documentos ambiguos, contradictorios y maliciosos y casos de inyección de instrucciones. Las respuestas esperadas las etiqueta alguien ajeno al equipo, para que la evaluación no mida contra lo que el mismo equipo fabricó. Se mide la proporción de respuestas con fuente citada y de consultas fuera de cobertura bien derivadas, los hallazgos correctos y los omitidos por requisito, y los borradores aprobados sin corregir campos estructurados. En operación, la aceptación o el descarte de cada hallazgo por parte del personal queda registrado y amplía el conjunto. Los umbrales se fijan después de medir la línea de base.
+
+Cada llamada a un modelo registra costo, latencia y versión del prompt desde el inicio. Como los puertos admiten adaptadores distintos, la misma evaluación compara reglas, modelos de pesos abiertos y modelos por API en calidad, latencia y costo.
 
 ## Stack tecnológico
 
 | Capa | Tecnología |
 | --- | --- |
-| Lenguajes | Go (servicios de trámites y notificaciones), Python (servicio de inteligencia artificial), TypeScript (frontend) |
-| Contratos | OpenAPI para la API pública, AsyncAPI para los eventos, con código generado |
+| Lenguajes | Go (servicio de trámites), Python (servicio de inteligencia artificial), TypeScript (frontend) |
+| Contratos | OpenAPI, con código generado para el servidor y los clientes |
 | Frontend | React, Vite, TanStack Query, React Router |
-| Datos | PostgreSQL con pgvector, event sourcing con proyecciones de lectura |
-| Mensajería | NATS JetStream para eventos y colas de trabajo, patrón outbox |
-| Identidad | OpenID Connect con Keycloak o Zitadel, federado con el ingreso institucional |
-| Entrada | API gateway (Traefik o KrakenD) |
-| Modelos | Laya, Claude u otro modelo, local o por API, detrás de puertos |
-| Pruebas | Escenarios Gherkin con godog, go test, pytest, Vitest, Playwright |
-| Observabilidad | OpenTelemetry, Prometheus, Grafana |
+| Datos | PostgreSQL con pgvector |
+| Trabajo asincrónico | Cola de trabajos en PostgreSQL |
+| Documentos | Sistema de archivos detrás de un puerto |
+| Identidad | OpenID Connect contra el ingreso institucional |
+| Entrada | Proxy inverso de la infraestructura de destino; nginx en desarrollo |
+| Modelos | Reglas en código, Laya, Claude u otro modelo, local o por API, detrás de puertos |
+| Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog en las reglas del motor |
+| Observabilidad | Logs estructurados y registro de cada llamada a un modelo |
 | Infraestructura | Contenedores, Docker Compose |
 | Integración continua | GitHub Actions |
+
+### Alternativas descartadas
+
+Los criterios son los del anteproyecto: costo para la institución, integración con GitHub Actions y mantenimiento posterior.
+
+| Alternativa | Por qué no |
+| --- | --- |
+| Java con Spring Boot | Más memoria por proceso y más framework que operar en un servidor compartido; Go compila a un binario único y liviano |
+| Python en todo el backend | El dominio y el motor de pasos ganan con tipado estático; Python queda donde están sus librerías, en el servicio de inteligencia artificial |
+| Next.js | El renderizado en servidor no aporta en una aplicación detrás de inicio de sesión, y suma un servidor Node.js que operar |
+| Event sourcing con proyecciones | Exige versionar eventos con un dominio que todavía cambia, y complica la rectificación y la supresión de datos personales sobre eventos inmutables |
+| NATS JetStream, RabbitMQ o Kafka desde el inicio | Otro servicio con estado que operar y respaldar para una carga que PostgreSQL sostiene; NATS queda como evolución con disparador |
+| Base vectorial aparte (Qdrant, Weaviate) o MongoDB | Una base más que operar y respaldar; pgvector cubre los vectores y el dominio es relacional |
+| AsyncAPI con código generado | Los generadores para Go todavía son inmaduros, y con una cola interna alcanza con OpenAPI |
+| MinIO | En 2025 la edición comunitaria perdió la consola de administración y dejó de publicar imágenes, y en 2026 el repositorio quedó archivado |
+| Amazon S3 u otra nube | Costo en dólares y documentos con datos personales fuera de la institución |
+| Keycloak o Zitadel desde el inicio | Es lo más pesado de operar para la Subsecretaría de TICs; queda como evolución si no se habilita el ingreso institucional |
+| Usuarios y contraseñas propios | Guardar credenciales es un riesgo evitable, y el personal ya tiene cuenta institucional |
+| API gateway (Traefik, KrakenD, Kong) | Con una sola API pública no agrega nada que no haga el proxy inverso |
+| Kubernetes | Sobra para un solo servidor, y no se sabe si la infraestructura de destino lo ofrece |
+| Prometheus y Grafana desde el inicio | Tres servicios más sin usuarios ni carga que observar |
+| GitLab CI o Jenkins | El repositorio está en GitHub, y GitHub Actions no tiene costo para repositorios públicos |
 
 ## Decisiones de diseño
 
@@ -275,12 +336,29 @@ Cada componente tiene un conjunto de evaluación propio, que corre en la integra
 - **La inteligencia artificial propone y una persona decide:** un error en un trámite afecta la situación académica de alguien.
 - **Los sistemas institucionales se registran, no se integran:** el personal confirma en SIGTA lo que hace en SIU Guaraní o en el expediente electrónico, y queda registrado quién lo declaró.
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
-- **Monolito modular primero, servicios cuando se justifican:** separar antes de que el dominio se estabilice multiplica el costo de cada cambio; cada separación tiene un motivo explícito.
-- **Historial como fuente de verdad:** un trámite se audita, no solo se consulta; con event sourcing la trazabilidad es el modelo mismo.
-- **Eventos entre servicios:** los servicios no se llaman en cadena; publican y consumen eventos, con outbox para no perder ninguno.
-- **Una sola base relacional:** PostgreSQL con pgvector cubre eventos, proyecciones, búsqueda de texto en español y vectores, sin una base más que operar.
-- **Contrato primero:** los servicios y el frontend están en lenguajes distintos; OpenAPI y AsyncAPI generan el código de los dos lados para que no se desfasen.
-- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución.
+- **Monolito modular y un solo servicio aparte:** el de inteligencia artificial se separa desde el inicio porque usa otro lenguaje y tiene su propio ciclo de evaluación. Cualquier otra separación espera a que se cumpla su disparador.
+- **Historial de acciones sin event sourcing:** un trámite se audita, no solo se consulta. El historial se escribe en la misma transacción que el estado, y eso alcanza para auditar.
+- **Cola en PostgreSQL:** encolar en la misma transacción que el cambio garantiza que ningún trabajo se pierda, sin otro servicio que operar.
+- **Una sola base relacional:** PostgreSQL con pgvector cubre estado, historial, cola, búsqueda de texto en español y vectores.
+- **Contrato primero:** el frontend, el servicio de trámites y el de inteligencia artificial están en lenguajes distintos; OpenAPI genera el código de cada lado para que no se desfasen.
+- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución. Usar un modelo por API externa depende de cómo se resuelva el tratamiento de esos datos.
+
+## Decisiones abiertas
+
+| Tema | Qué falta definir | Depende de |
+| --- | --- | --- |
+| Dónde corren los modelos | Si la infraestructura de destino tiene GPU para un modelo de pesos abiertos, o si se usa un modelo por API y con qué datos | Subsecretaría de TICs y datos personales |
+| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento, cómo se ejercen la rectificación y la supresión, y si un documento puede salir de la institución hacia un modelo por API (Ley 25.326) | Secretaría y área legal de la facultad |
+| Etiquetado de la evaluación | Quién ajeno al equipo etiqueta las respuestas esperadas, cuántos casos y cómo se mide el acuerdo entre etiquetadores | Equipo y Secretaría |
+| Extracción de texto | Cómo se extrae el texto de un documento escaneado antes de clasificarlo | Pruebas con documentos de ejemplo |
+| Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
+| Integridad del historial | Si alcanzan los permisos de la base o hace falta encadenar hashes para que una modificación quede en evidencia | Equipo |
+| Cambios de configuración | Qué pasa con un trámite en curso cuando cambia la versión de su configuración | Equipo |
+| Desistimiento y vencimiento | Cómo se cierra un trámite si el titular desiste o no responde a tiempo | Secretaría |
+| Respaldo | Cuántos datos se pueden perder y en cuánto tiempo se recupera el servicio, con simulacros de restauración | Subsecretaría de TICs |
+| Accesibilidad | Qué nivel de las pautas WCAG se cumple (Ley 26.653) y cómo se verifica en la integración continua | Equipo |
+| Hosting, costo e identidad | Infraestructura de destino, costo mensual estimado e ingreso institucional | Subsecretaría de TICs |
+| Operación posterior | Quién opera el sistema y mantiene la base de conocimiento del asistente cuando termine el proyecto | Secretaría y Subsecretaría de TICs |
 
 ## Estado del proyecto
 
