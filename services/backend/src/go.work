@@ -1,0 +1,10 @@
+go 1.26.8
+
+use (
+	./adapters
+	./adapters/rest
+	./application
+	./ports
+	./ports/input
+	./ports/output
+)
