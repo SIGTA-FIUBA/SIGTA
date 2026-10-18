@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/http"
-	"rest"
-	"application"
+	"backend/src/adapters/rest"
+	"backend/src/application"
 )
 
 func main() {

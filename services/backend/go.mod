@@ -1,6 +1,8 @@
-module adapters
+module backend
 
 go 1.26.8
+
+tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
@@ -21,5 +23,3 @@ require (
 	golang.org/x/tools v0.48.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen

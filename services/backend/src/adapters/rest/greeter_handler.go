@@ -2,7 +2,7 @@ package rest
 
 import (
 	"context"
-	ports "input"
+	ports "backend/src/ports/input"
 )
 
 type GreeterHandler struct{
