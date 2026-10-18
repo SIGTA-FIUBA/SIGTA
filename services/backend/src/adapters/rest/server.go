@@ -5,5 +5,5 @@ type Server struct {
 }
 
 func NewServer(greeter *GreeterHandler) *Server {
-      return &Server{GreeterHandler: greeter}
+	return &Server{GreeterHandler: greeter}
 }
