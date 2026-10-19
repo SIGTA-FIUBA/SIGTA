@@ -13,7 +13,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
-    directory: /
+    directories: ["/", "/web"]
     schedule:
       interval: weekly
     cooldown:
