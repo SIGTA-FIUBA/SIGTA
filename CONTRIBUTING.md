@@ -6,8 +6,10 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 
 1. Cada cambio parte de un ticket de Linear (acceso restringido al equipo).
 2. Se trabaja en una rama con el nombre que propone Linear para el ticket.
-3. Se abre un pull request contra `main` con la plantilla del repositorio completa.
+3. Se abre un pull request contra `develop` con la plantilla del repositorio completa.
 4. El pull request entra con la aprobación de otro integrante y la integración continua sin errores.
+
+`develop` integra el trabajo del sprint; `main` recibe `develop` solo cuando hay una versión para mostrar, como una demo o una validación con la Secretaría.
 
 ## Convenciones
 
@@ -15,7 +17,7 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 - **Comportamiento primero:** cada historia de usuario se especifica con escenarios Gherkin antes de implementarse.
 - **Contrato primero:** un cambio en la API empieza por la especificación OpenAPI.
 - **Documentación en el mismo pull request:** si un cambio modifica el comportamiento, la arquitectura o la configuración de trámites, la documentación se actualiza junto con el código.
-- **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra en la sección "Decisiones de diseño" del README.
+- **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en [docs/04-decisiones-adr.md](docs/04-decisiones-adr.md). El README muestra solo el resultado vigente y se actualiza en el mismo pull request.
 - **Datos:** nunca se suben datos personales reales; solo datos sintéticos o anonimizados.
 
 ## Commits
@@ -32,4 +34,4 @@ Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 La convención la valida [commitlint](https://commitlint.js.org/) con la configuración convencional, mediante un hook de [husky](https://typicode.github.io/husky/) que se instala solo al correr `npm install` en la raíz del repositorio. En cada pull request, la integración continua valida el título con la misma configuración.
 
-Los pull requests se integran con squash merge, así que el título del pull request es el commit que queda en `main` y sigue la misma convención.
+Los pull requests se integran con squash merge, así que el título del pull request es el commit que queda en `develop` y sigue la misma convención.

@@ -18,4 +18,4 @@
 - [ ] Todos los tests pasan localmente.
 - [ ] El pipeline de CI está en verde.
 - [ ] Se actualizó la documentación (README, docs, comentarios) si corresponde.
-- [ ] No hay conflictos con `main`.
+- [ ] No hay conflictos con `develop`.
