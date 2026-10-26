@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 7
     commit-message:
@@ -22,4 +22,23 @@ updates:
       prefix: build
     groups:
       npm:
+        patterns: ["*"]
+    ignore:
+      # openapi-typescript does not support the TypeScript 7 compiler API yet
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # the types follow the Node version used in CI and in the images
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: gomod
+    directory: /services/backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+    groups:
+      gomod:
         patterns: ["*"]
