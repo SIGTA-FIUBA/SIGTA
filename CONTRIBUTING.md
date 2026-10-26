@@ -5,7 +5,7 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 ## Flujo
 
 1. Cada cambio parte de un ticket de Linear (acceso restringido al equipo).
-2. Se trabaja en una rama con el nombre que propone Linear para el ticket.
+2. Se trabaja en una rama `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket de Linear, por ejemplo `ci/sig-59-ci-on-develop`. No se usa el nombre que propone Linear.
 3. Se abre un pull request contra `develop` con la plantilla del repositorio completa.
 4. El pull request entra con la aprobación de otro integrante y la integración continua sin errores.
 

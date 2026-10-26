@@ -80,7 +80,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 
 - **Idioma:** código, endpoints y nombres técnicos en inglés; documentación en español.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
-- **Ramas:** el nombre que propone Linear para el ticket. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
+- **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
 - **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, y cada escenario referencia su historia (`USxx`).
 - **Pruebas:** el dominio se prueba con adaptadores en memoria; cada adaptador, contra la dependencia real en un contenedor.
 - **Documentación en el mismo PR** (ADR-007): si cambia comportamiento, arquitectura o configuración de trámites, se actualizan docs, README del módulo y este archivo. Un PR sin su documentación no cumple la definición de terminado.
@@ -95,7 +95,6 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 - Cada épica es un proyecto de Linear (`EP00` a `EP14`), y cada sprint es el ciclo del mismo número.
 - Etiquetas: `s01` a `s18` (sprint), `b1` a `b4` (bloque) y `Feature`, `Bug`, `Improvement`.
 - Estados: `Backlog` → `Todo` → `In Progress` → `In Review` → `Done`, más `Canceled` y `Duplicate`.
-- La rama de cada ticket es la que propone Linear (`gitBranchName`), por ejemplo `epereza/sig-11-autenticacion-con-proveedor-abstraido`.
 - Un agente lee tickets libremente, pero no crea, cierra ni cambia el estado de un ticket sin que se lo pidan.
 
 ## Estado actual
