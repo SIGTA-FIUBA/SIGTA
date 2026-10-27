@@ -9,11 +9,14 @@ import (
 // IdentityProvider delegates the login to an external provider, such as the
 // institutional OpenID Connect login. SIGTA never sees a password.
 type IdentityProvider interface {
-	// AuthorizationURL is where the browser goes to log in. The provider sends
-	// it back to the callback with a code and the same state.
-	AuthorizationURL(state, loginHint string) string
-	// Exchange trades the code from the callback for the identity it proves.
-	Exchange(ctx context.Context, code string) (Identity, error)
+	// AuthorizationURL is where the browser goes to log in. It carries the
+	// pending login's state, nonce and PKCE code challenge; the provider sends
+	// the browser back to the callback with a code and the same state.
+	AuthorizationURL(pending PendingLogin, loginHint string) string
+	// Exchange trades the code from the callback for the identity it proves,
+	// sending the PKCE code verifier and checking the ID token's nonce
+	// against the pending login.
+	Exchange(ctx context.Context, code string, pending PendingLogin) (Identity, error)
 }
 
 type UserRepository interface {

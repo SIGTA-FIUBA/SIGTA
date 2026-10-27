@@ -2,14 +2,12 @@ package rest
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
 	"domain"
-	"encoding/base64"
 	"errors"
 	ports "input"
 	"net/http"
 	out "output"
+	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -33,25 +31,20 @@ func NewAuthHandler(auth ports.Authenticator, appURL string, secureCookies bool)
 }
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req BeginLoginRequestObject) (BeginLoginResponseObject, error) {
-	state, err := newState()
+	location, pending, err := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
 	if err != nil {
 		return nil, err
 	}
-	loginHint := ""
-	if req.Params.LoginHint != nil {
-		loginHint = *req.Params.LoginHint
-	}
-	location := h.auth.BeginLogin(state, loginHint)
-	cookie := h.cookie(loginStateCookie, state, loginStateMaxAge)
+	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending), loginStateMaxAge)
 	return BeginLogin302Response{Headers: BeginLogin302ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
 }
 
 func (h *AuthHandler) CompleteLogin(ctx context.Context, req CompleteLoginRequestObject) (CompleteLoginResponseObject, error) {
-	expected := req.Params.SigtaLoginState
-	if expected == nil || subtle.ConstantTimeCompare([]byte(*expected), []byte(req.Params.State)) != 1 {
-		return CompleteLogin401JSONResponse{unauthorized("El ingreso no coincide con el que se inició.")}, nil
+	pending := decodePendingLogin(valueOf(req.Params.SigtaLoginState))
+	token, err := h.auth.CompleteLogin(ctx, req.Params.Code, req.Params.State, pending)
+	if errors.Is(err, out.ErrLoginStateMismatch) {
+		return CompleteLogin401JSONResponse{unauthorized("El ingreso no coincide con el que se inició. Volvé a intentarlo.")}, nil
 	}
-	token, err := h.auth.CompleteLogin(ctx, req.Params.Code)
 	if errors.Is(err, out.ErrDomainNotAllowed) {
 		return CompleteLogin401JSONResponse{unauthorized("Ingresá con tu cuenta institucional.")}, nil
 	}
@@ -148,10 +141,16 @@ func valueOf(s *string) string {
 	return *s
 }
 
-func newState() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+// The pending login travels in an HttpOnly cookie between leaving for the
+// provider and coming back. Its values are base64url, so a dot separates them.
+func encodePendingLogin(p out.PendingLogin) string {
+	return strings.Join([]string{p.State, p.Nonce, p.CodeVerifier}, ".")
+}
+
+func decodePendingLogin(cookie string) out.PendingLogin {
+	parts := strings.Split(cookie, ".")
+	if len(parts) != 3 {
+		return out.PendingLogin{}
 	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	return out.PendingLogin{State: parts[0], Nonce: parts[1], CodeVerifier: parts[2]}
 }

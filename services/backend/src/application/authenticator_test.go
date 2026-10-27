@@ -7,6 +7,7 @@ import (
 	"domain"
 	"errors"
 	"memory"
+	"net/url"
 	out "output"
 	"strings"
 	"testing"
@@ -21,6 +22,7 @@ var (
 )
 
 type fixture struct {
+	t      *testing.T
 	auth   *application.AuthService
 	mailer *outbox
 	now    time.Time
@@ -28,7 +30,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	f := &fixture{mailer: &outbox{}, now: time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC)}
+	f := &fixture{t: t, mailer: &outbox{}, now: time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC)}
 	f.auth = application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
@@ -48,6 +50,26 @@ func newFixture(t *testing.T) *fixture {
 
 func (f *fixture) advance(d time.Duration) { f.now = f.now.Add(d) }
 
+// login goes through the provider like a browser would: BeginLogin, then the
+// callback with the code and state the provider sends back.
+func (f *fixture) login(email string) (string, error) {
+	code, state, pending := f.begin(email)
+	return f.auth.CompleteLogin(context.Background(), code, state, pending)
+}
+
+func (f *fixture) begin(email string) (code, state string, pending out.PendingLogin) {
+	f.t.Helper()
+	location, pending, err := f.auth.BeginLogin(email)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	u, err := url.Parse(location)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return u.Query().Get("code"), u.Query().Get("state"), pending
+}
+
 type outbox struct{ links map[string]string }
 
 func (o *outbox) SendLoginLink(_ context.Context, to, link string) error {
@@ -64,7 +86,7 @@ func TestCompleteLoginResolvesProfileFromSIGTA(t *testing.T) {
 
 	// The provider sends back the email with different casing; the profile
 	// still comes from SIGTA's own records.
-	token, err := f.auth.CompleteLogin(ctx, "Operativo@FI.UBA.AR")
+	token, err := f.login("Operativo@FI.UBA.AR")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +102,7 @@ func TestCompleteLoginResolvesProfileFromSIGTA(t *testing.T) {
 func TestCompleteLoginRejectsIdentityUnknownToSIGTA(t *testing.T) {
 	f := newFixture(t)
 
-	_, err := f.auth.CompleteLogin(context.Background(), "nadie@fi.uba.ar")
+	_, err := f.login("nadie@fi.uba.ar")
 	if !errors.Is(err, domain.ErrUnknownUser) {
 		t.Fatalf("got %v, want ErrUnknownUser", err)
 	}
@@ -91,7 +113,7 @@ func TestCompleteLoginOnlyAcceptsTheAllowedDomain(t *testing.T) {
 
 	// Lookalike domains are rejected too.
 	for _, email := range []string{"titular@example.com", "operativo@evilfi.uba.ar", "operativo@fi.uba.ar.evil.com"} {
-		if _, err := f.auth.CompleteLogin(context.Background(), email); !errors.Is(err, out.ErrDomainNotAllowed) {
+		if _, err := f.login(email); !errors.Is(err, out.ErrDomainNotAllowed) {
 			t.Fatalf("%s: got %v, want ErrDomainNotAllowed", email, err)
 		}
 	}
@@ -100,7 +122,7 @@ func TestCompleteLoginOnlyAcceptsTheAllowedDomain(t *testing.T) {
 func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 	f := newFixture(t)
 
-	_, err := f.auth.CompleteLogin(context.Background(), "")
+	_, err := f.login("")
 	if !errors.Is(err, out.ErrLoginRejected) {
 		t.Fatalf("got %v, want ErrLoginRejected", err)
 	}
@@ -109,7 +131,7 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 func TestSessionExpiresAfterInactivity(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	token, err := f.auth.CompleteLogin(ctx, operative.Email)
+	token, err := f.login(operative.Email)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +156,7 @@ func TestSessionExpiresAfterInactivity(t *testing.T) {
 func TestLogoutClosesTheSession(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	token, _ := f.auth.CompleteLogin(ctx, operative.Email)
+	token, _ := f.login(operative.Email)
 
 	if err := f.auth.Logout(ctx, token); err != nil {
 		t.Fatal(err)
@@ -213,5 +235,55 @@ func TestLoginLinkOnlyAcceptsTheAllowedDomain(t *testing.T) {
 	}
 	if len(f.mailer.links) != 0 {
 		t.Fatalf("sent links to %v", f.mailer.links)
+	}
+}
+
+func TestBeginLoginCreatesAFreshPendingLoginEachTime(t *testing.T) {
+	f := newFixture(t)
+
+	_, _, a := f.begin(operative.Email)
+	_, _, b := f.begin(operative.Email)
+	for _, p := range []out.PendingLogin{a, b} {
+		if p.State == "" || p.Nonce == "" || p.CodeVerifier == "" {
+			t.Fatalf("incomplete pending login %+v", p)
+		}
+	}
+	if a.State == b.State || a.Nonce == b.Nonce || a.CodeVerifier == b.CodeVerifier {
+		t.Fatalf("pending logins share values: %+v, %+v", a, b)
+	}
+}
+
+func TestCompleteLoginRejectsACallbackThisBrowserDidNotStart(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	code, state, pending := f.begin(operative.Email)
+
+	cases := map[string]struct {
+		state   string
+		pending out.PendingLogin
+	}{
+		"forged state":        {"forged", pending},
+		"no pending login":    {state, out.PendingLogin{}},
+		"empty state on both": {"", out.PendingLogin{Nonce: pending.Nonce, CodeVerifier: pending.CodeVerifier}},
+	}
+	for name, c := range cases {
+		if _, err := f.auth.CompleteLogin(ctx, code, c.state, c.pending); !errors.Is(err, out.ErrLoginStateMismatch) {
+			t.Fatalf("%s: got %v, want ErrLoginStateMismatch", name, err)
+		}
+	}
+}
+
+func TestCompleteLoginRejectsAStolenCode(t *testing.T) {
+	f := newFixture(t)
+
+	// An attacker who got the victim's code and state from the URL, but not
+	// their cookie, completes it with a login of their own.
+	code, state, _ := f.begin(operative.Email)
+	_, _, attacker := f.begin(operative.Email)
+	attacker.State = state
+
+	_, err := f.auth.CompleteLogin(context.Background(), code, state, attacker)
+	if !errors.Is(err, out.ErrLoginRejected) {
+		t.Fatalf("got %v, want ErrLoginRejected", err)
 	}
 }

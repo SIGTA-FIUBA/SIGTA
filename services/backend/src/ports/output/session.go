@@ -6,12 +6,27 @@ import (
 )
 
 var (
-	ErrLoginRejected    = errors.New("identity provider rejected the login")
-	ErrDomainNotAllowed = errors.New("email domain not allowed for this login")
-	ErrInvalidLoginLink = errors.New("login link is invalid, expired or already used")
-	ErrSessionNotFound  = errors.New("session not found")
-	ErrSessionExpired   = errors.New("session expired")
+	ErrLoginStateMismatch = errors.New("login callback does not match the login this browser started")
+	ErrLoginRejected      = errors.New("identity provider rejected the login")
+	ErrDomainNotAllowed   = errors.New("email domain not allowed for this login")
+	ErrInvalidLoginLink   = errors.New("login link is invalid, expired or already used")
+	ErrSessionNotFound    = errors.New("session not found")
+	ErrSessionExpired     = errors.New("session expired")
 )
+
+// PendingLogin is what a login started with the identity provider needs to
+// finish: it is created when the browser leaves for the provider and checked
+// when it comes back to the callback.
+type PendingLogin struct {
+	// State ties the callback to the browser that started the login.
+	State string
+	// Nonce ties the ID token to this login, so an old token cannot be
+	// replayed.
+	Nonce string
+	// CodeVerifier is the PKCE secret: the provider only gets its hash up
+	// front, so a leaked code is useless without it.
+	CodeVerifier string
+}
 
 // Identity is what an identity provider asserts about whoever just logged in.
 type Identity struct {

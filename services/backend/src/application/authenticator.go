@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"domain"
 	"encoding/base64"
 	"encoding/hex"
@@ -57,15 +58,29 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) BeginLogin(state, loginHint string) string {
-	return s.identity.AuthorizationURL(state, loginHint)
+// BeginLogin starts a login with the identity provider. The caller keeps the
+// pending login, which only the browser that started it should hold, and
+// hands it back to CompleteLogin.
+func (s *AuthService) BeginLogin(loginHint string) (string, out.PendingLogin, error) {
+	var pending out.PendingLogin
+	for _, field := range []*string{&pending.State, &pending.Nonce, &pending.CodeVerifier} {
+		value, err := newToken()
+		if err != nil {
+			return "", out.PendingLogin{}, err
+		}
+		*field = value
+	}
+	return s.identity.AuthorizationURL(pending, loginHint), pending, nil
 }
 
 // CompleteLogin opens a session for whoever the provider vouches for, as long
 // as their email is in the allowed domain and SIGTA already knows them:
 // profiles are managed in SIGTA, not created on first login.
-func (s *AuthService) CompleteLogin(ctx context.Context, code string) (string, error) {
-	identity, err := s.identity.Exchange(ctx, code)
+func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending out.PendingLogin) (string, error) {
+	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
+		return "", out.ErrLoginStateMismatch
+	}
+	identity, err := s.identity.Exchange(ctx, code, pending)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", out.ErrLoginRejected, err)
 	}

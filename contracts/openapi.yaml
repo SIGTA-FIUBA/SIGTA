@@ -22,7 +22,9 @@ paths:
               schema:
                 type: string
             Set-Cookie:
-              description: Cookie con el estado que se verifica al volver del proveedor
+              description: >
+                Cookie con el ingreso pendiente (state, nonce y code verifier de
+                PKCE) que se verifica al volver del proveedor
               schema:
                 type: string
   /auth/callback:
