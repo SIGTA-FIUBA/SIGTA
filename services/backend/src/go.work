@@ -1,0 +1,13 @@
+go 1.26.8
+
+use (
+	./adapters
+	./adapters/dev
+	./adapters/memory
+	./adapters/rest
+	./application
+	./domain
+	./ports
+	./ports/input
+	./ports/output
+)
