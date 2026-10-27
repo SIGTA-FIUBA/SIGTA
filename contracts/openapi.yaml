@@ -3,17 +3,181 @@ info:
   title: SIGTA
   version: 0.1.0
 paths:
-  /hello:
+  /auth/login:
     get:
-      operationId: getHello
+      operationId: beginLogin
+      summary: Redirige al proveedor de identidad
+      parameters:
+        - name: login_hint
+          in: query
+          required: false
+          description: Correo sugerido al proveedor de identidad
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirección al proveedor de identidad
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              description: Cookie con el estado que se verifica al volver del proveedor
+              schema:
+                type: string
+  /auth/callback:
+    get:
+      operationId: completeLogin
+      summary: Recibe la respuesta del proveedor de identidad y abre la sesión
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: sigta_login_state
+          in: cookie
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Sesión abierta; redirección a la aplicación
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              description: Cookie de sesión
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/login-links:
+    post:
+      operationId: requestLoginLink
+      summary: Envía por correo un enlace de ingreso de un solo uso
+      description: >
+        Solo acepta correos del dominio institucional. Dentro de ese dominio,
+        responde igual exista o no una cuenta con ese correo, para no revelar
+        quién tiene cuenta en SIGTA.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          description: Pedido aceptado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /auth/login-links/redeem:
+    post:
+      operationId: redeemLoginLink
+      summary: Canjea un enlace de ingreso y abre la sesión
+      description: >
+        El canje es un POST desde el frontend y no un GET sobre el enlace, para
+        que los filtros de correo que abren los enlaces no lo consuman.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "204":
+          description: Sesión abierta
+          headers:
+            Set-Cookie:
+              description: Cookie de sesión
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      operationId: logout
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "204":
+          description: Sesión cerrada
+          headers:
+            Set-Cookie:
+              description: Cookie de sesión vencida
+              schema:
+                type: string
+  /me:
+    get:
+      operationId: getCurrentUser
+      summary: Perfil de la persona con sesión abierta
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
       responses:
         "200":
-          description: Saludo
+          description: Perfil
           content:
             application/json:
               schema:
-                type: object
-                required: [message]
-                properties:
-                  message:
-                    type: string
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+components:
+  parameters:
+    SessionCookie:
+      name: sigta_session
+      in: cookie
+      required: false
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Pedido inválido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Sin sesión válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    Role:
+      type: string
+      enum: [applicant, staff_operative, staff_approver]
+    User:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"

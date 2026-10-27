@@ -137,7 +137,7 @@ Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su d
 | --- | --- | --- |
 | Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
 | Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos |
-| Proveedor de identidad propio (Keycloak o Zitadel) | La Subsecretaría de TICs no habilita el ingreso institucional para SIGTA | Ingreso institucional, y enlace por correo para titulares sin cuenta institucional |
+| Proveedor de identidad propio (Keycloak o Zitadel) | La Subsecretaría de TICs no habilita el ingreso institucional para SIGTA | Ingreso institucional, y enlace por correo para titulares con correo `fi.uba.ar` |
 | Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
 | API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
 
@@ -190,7 +190,7 @@ flowchart LR
 
 ### Autenticación y autorización
 
-- **OpenID Connect.** El inicio de sesión se delega en el ingreso institucional, si la Subsecretaría de TICs lo habilita para SIGTA. Los titulares sin cuenta institucional, como los de un pase desde otra universidad, ingresan con un enlace de un solo uso enviado por correo.
+- **OpenID Connect.** El inicio de sesión se delega en el ingreso institucional, si la Subsecretaría de TICs lo habilita para SIGTA. Solo ingresan cuentas del dominio `fi.uba.ar`; los titulares también pueden ingresar con un enlace de un solo uso enviado a ese correo.
 - **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
