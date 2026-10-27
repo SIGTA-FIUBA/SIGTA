@@ -13,7 +13,7 @@ Trabajo Profesional de Ingeniería en Informática, Facultad de Ingeniería de l
 </div>
 
 > [!NOTE]
-> SIGTA es un trabajo académico en etapa de diseño: este repositorio todavía no tiene código. No es un sistema oficial de la FIUBA ni está en uso.
+> SIGTA es un trabajo académico en desarrollo. No es un sistema oficial de la FIUBA ni está en uso.
 
 **Abstract.** SIGTA (Integrated Academic Procedures Management System) is a web platform for starting, managing and tracking the administrative procedures of the Academic Affairs Office of the School of Engineering, University of Buenos Aires (FIUBA). It adds three artificial intelligence components with bounded autonomy: an assistant that answers applicants' questions with cited sources, assisted validation of submitted documents, and generation of draft records. None of them makes decisions on a procedure. The technical contribution is the design and experimental evaluation of these components against predefined test sets that include ambiguous, contradictory and malicious documents. SIGTA is a Computer Engineering capstone project at FIUBA.
 
@@ -93,7 +93,7 @@ SIGTA se entrega como un monolito modular en Go con un único servicio aparte, e
 ```mermaid
 flowchart LR
     U(["Titular y personal<br/>de la Secretaría"])
-    IDP["Ingreso institucional<br/>OpenID Connect"]
+    IDP["Cuenta de Google<br/>de la UBA"]
 
     subgraph SIGTA["SIGTA"]
         PX["Proxy inverso"]
@@ -137,7 +137,6 @@ Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su d
 | --- | --- | --- |
 | Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
 | Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos |
-| Proveedor de identidad propio (Keycloak o Zitadel) | La Subsecretaría de TICs no habilita el ingreso institucional para SIGTA | Ingreso institucional, y enlace por correo para titulares sin cuenta institucional |
 | Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
 | API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
 
@@ -148,12 +147,11 @@ Con todos los disparadores cumplidos, los componentes nuevos (con borde punteado
 ```mermaid
 flowchart LR
     U(["Titular y personal<br/>de la Secretaría"])
-    INST["Ingreso institucional"]
+    INST["Cuenta de Google<br/>de la UBA"]
 
     subgraph SIGTA["SIGTA"]
         GW["API gateway"]
         SPA["Frontend<br/>React y TypeScript"]
-        IDP["Proveedor de identidad<br/>OpenID Connect"]
         CORE["Servicio de trámites<br/>Go"]
         BUS{{"Bus de eventos<br/>NATS JetStream"}}
         AI["Servicio de inteligencia<br/>artificial, Python"]
@@ -167,8 +165,7 @@ flowchart LR
     U --> GW
     GW --> SPA
     GW --> CORE
-    INST -.->|federación| IDP
-    IDP -.->|tokens| GW
+    INST -.->|tokens| GW
     CORE --> DB
     CORE --> OBJ
     CORE --> SMTP
@@ -178,7 +175,7 @@ flowchart LR
     AI --> MOD
 
     classDef nuevo stroke-dasharray: 5 5
-    class GW,IDP,BUS,OBJ nuevo
+    class GW,BUS,OBJ nuevo
 ```
 
 ### Datos y comunicación
@@ -190,7 +187,7 @@ flowchart LR
 
 ### Autenticación y autorización
 
-- **OpenID Connect.** El inicio de sesión se delega en el ingreso institucional, si la Subsecretaría de TICs lo habilita para SIGTA. Los titulares sin cuenta institucional, como los de un pase desde otra universidad, ingresan con un enlace de un solo uso enviado por correo.
+- **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
 - **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
@@ -234,7 +231,7 @@ flowchart LR
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
 | Documentos | Sistema de archivos; almacenamiento compatible con S3 si la infraestructura lo ofrece | Elegido |
 | Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
-| Identidad | Ingreso institucional por OpenID Connect y enlace por correo; un proveedor propio si no se habilita el ingreso institucional | A acordar con la Subsecretaría de TICs |
+| Identidad | Cuenta de Google de la UBA; un adaptador falso en desarrollo y pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |
 
 El servicio de inteligencia artificial sigue la misma estructura. Sus puertos de salida son la clasificación y la generación de texto, con adaptadores para reglas en código, modelos de pesos abiertos como Laya y modelos por API como Claude; los conjuntos de evaluación son uno más de sus adaptadores de entrada.
@@ -244,7 +241,7 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 ### Despliegue
 
 - Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
-- La integración continua corre en GitHub Actions. Hoy valida el título de cada pull request; con el código suma lint, pruebas y escenarios Gherkin en cada pull request, y la construcción de imágenes al integrar en `main`.
+- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas, la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose; los escenarios Gherkin se suman con el motor de pasos. Al integrar en `main` se construyen las imágenes.
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
 
@@ -299,7 +296,7 @@ Cada llamada a un modelo registra costo, latencia y versión del prompt desde el
 | Datos | PostgreSQL con pgvector |
 | Trabajo asincrónico | Cola de trabajos en PostgreSQL |
 | Documentos | Sistema de archivos detrás de un puerto |
-| Identidad | OpenID Connect contra el ingreso institucional |
+| Identidad | Cuenta de Google de la UBA |
 | Entrada | Proxy inverso de la infraestructura de destino; nginx en desarrollo |
 | Modelos | Reglas en código, Laya, Claude u otro modelo, local o por API, detrás de puertos |
 | Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog en las reglas del motor |
@@ -322,8 +319,8 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | AsyncAPI con código generado | Los generadores para Go todavía son inmaduros, y con una cola interna alcanza con OpenAPI |
 | MinIO | En 2025 la edición comunitaria perdió la consola de administración y dejó de publicar imágenes, y en 2026 el repositorio quedó archivado |
 | Amazon S3 u otra nube | Costo en dólares y documentos con datos personales fuera de la institución |
-| Keycloak o Zitadel desde el inicio | Es lo más pesado de operar para la Subsecretaría de TICs; queda como evolución si no se habilita el ingreso institucional |
-| Usuarios y contraseñas propios | Guardar credenciales es un riesgo evitable, y el personal ya tiene cuenta institucional |
+| Keycloak o Zitadel | Es lo más pesado de operar para la Subsecretaría de TICs, y la cuenta de la UBA ya cubre a todos los usuarios |
+| Usuarios y contraseñas propios | Guardar credenciales es un riesgo evitable, y todos los usuarios ya tienen cuenta UBA |
 | API gateway (Traefik, KrakenD, Kong) | Con una sola API pública no agrega nada que no haga el proxy inverso |
 | Kubernetes | Sobra para un solo servidor, y no se sabe si la infraestructura de destino lo ofrece |
 | Prometheus y Grafana desde el inicio | Tres servicios más sin usuarios ni carga que observar |
@@ -357,7 +354,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Desistimiento y vencimiento | Cómo se cierra un trámite si el titular desiste o no responde a tiempo | Secretaría |
 | Respaldo | Cuántos datos se pueden perder y en cuánto tiempo se recupera el servicio, con simulacros de restauración | Subsecretaría de TICs |
 | Accesibilidad | Qué nivel de las pautas WCAG se cumple (Ley 26.653) y cómo se verifica en la integración continua | Equipo |
-| Hosting, costo e identidad | Infraestructura de destino, costo mensual estimado e ingreso institucional | Subsecretaría de TICs |
+| Hosting, costo e ingreso | Infraestructura de destino, costo mensual estimado, y cómo se registra SIGTA en el ingreso con la cuenta de la UBA | Subsecretaría de TICs |
 | Operación posterior | Quién opera el sistema y mantiene la base de conocimiento del asistente cuando termine el proyecto | Secretaría y Subsecretaría de TICs |
 
 ## Estado del proyecto
