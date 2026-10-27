@@ -14,7 +14,7 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 ## Convenciones
 
 - **Idioma:** el código, los endpoints y los nombres técnicos van en inglés; la documentación, en español.
-- **Comportamiento primero:** cada historia de usuario se especifica con escenarios Gherkin antes de implementarse.
+- **Comportamiento primero:** cada historia de usuario se especifica con escenarios Gherkin antes de implementarse. Van en inglés, en `features/`, con las etiquetas de la historia y del ticket (`@US14 @SIG-17`).
 - **Contrato primero:** un cambio en la API empieza por la especificación OpenAPI.
 - **Documentación en el mismo pull request:** si un cambio modifica el comportamiento, la arquitectura o la configuración de trámites, la documentación se actualiza junto con el código.
 - **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en [docs/04-decisiones-adr.md](docs/04-decisiones-adr.md). El README muestra solo el resultado vigente y se actualiza en el mismo pull request.

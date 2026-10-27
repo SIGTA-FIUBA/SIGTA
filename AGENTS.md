@@ -28,19 +28,24 @@ Todo lo que produce un agente pasa por la revisión de un par, y la autoría del
 
 Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, escenarios y documentación. Los que más se confunden:
 
-| Término | Significa | No confundir con |
-| --- | --- | --- |
-| Titular | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
-| Paso | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
-| Derivación | Salida del trámite hacia un evaluador externo | Devolución |
-| Devolución | Vuelta a un paso anterior, decidida por la Secretaría | Subsanación |
-| Subsanación | Pedido puntual al titular, sin cerrar ni reiniciar el trámite | Devolución |
-| Retorno | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |
-| Preacta | Borrador generado desde una plantilla; siempre es borrador | Acta |
-| Evaluador externo | Comisión o unidad académica que dictamina; no usa la plataforma | Un rol de SIGTA |
+| Término | En código y escenarios | Significa | No confundir con |
+| --- | --- | --- | --- |
+| Tipo de trámite | procedure type | Definición configurada de un trámite | — |
+| Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
+| Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
+| Secretario | staff, con perfil `operator` o `approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
+| Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
+| Requisito | requirement | Documento, dato o condición que el trámite exige | — |
+| Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
+| Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |
+| Dictamen | ruling | Lo que resuelve el evaluador; se adjunta y se comunica | Un estado del trámite |
+| Devolución | send back | Vuelta a un paso anterior, decidida por la Secretaría | Subsanación |
+| Subsanación | correction request | Pedido puntual al titular, sin cerrar ni reiniciar el trámite | Devolución |
+| Preacta | draft record | Borrador generado desde una plantilla; siempre es borrador | Acta (record) |
+| Evaluador externo | external evaluator | Comisión o unidad académica que dictamina; no usa la plataforma | Un rol de SIGTA |
+| Hallazgo | finding | Resultado de la validación asistida sobre un requisito | Una decisión |
 
-Las acciones del modelo de dominio son **cargar dato**, **cargar documento**, **confirmar hecho externo** y **decidir** (continuar, devolver, pedir información, derivar o aprobar).
+Las acciones del modelo de dominio son **cargar dato** (`enter data`), **cargar documento** (`upload document`), **confirmar hecho externo** (`confirm external fact`) y **decidir** (`decide`: continuar, devolver, pedir información, derivar o aprobar).
 
 ## Arquitectura
 
@@ -62,6 +67,8 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
+| `features/` | Escenarios Gherkin de cada historia y su matriz de trazabilidad |
+| `.claude/skills/` | Rutinas para las tareas recurrentes (ver más abajo) |
 | `compose.yaml` | Entorno local completo |
 
 El servicio de IA en Python todavía no existe en el repositorio.
@@ -81,11 +88,21 @@ El servicio de IA en Python todavía no existe en el repositorio.
 - **Idioma:** código, endpoints y nombres técnicos en inglés; documentación en español.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
 - **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
-- **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, y cada escenario referencia su historia (`USxx`).
+- **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`.
 - **Pruebas:** el dominio se prueba con adaptadores en memoria; cada adaptador, contra la dependencia real en un contenedor.
 - **Documentación en el mismo PR** (ADR-007): si cambia comportamiento, arquitectura o configuración de trámites, se actualizan docs, README del módulo y este archivo. Un PR sin su documentación no cumple la definición de terminado.
 - **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en `docs/04-decisiones-adr.md`, y el README se actualiza con el resultado vigente en el mismo PR. Un ADR no se borra: se marca como reemplazado.
 - **Componentes de IA:** cada llamada a un modelo registra costo, latencia y versión del prompt. Los modelos van detrás de puertos; en la CI se usan adaptadores deterministas.
+
+## Rutinas
+
+Las tareas recurrentes tienen una rutina en `.claude/skills/`. Seguirla cuando se pida la tarea correspondiente:
+
+| Rutina | Para |
+| --- | --- |
+| `gherkin-scenarios` | Redactar los escenarios de una historia desde sus criterios de aceptación |
+| `new-procedure-type` | Preparar el borrador de configuración de un tipo de trámite nuevo |
+| `open-pr` | Armar la rama, los commits y el PR con la plantilla completa |
 
 ## Linear
 
