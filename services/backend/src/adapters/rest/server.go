@@ -3,8 +3,9 @@ package rest
 type Server struct {
 	*GreeterHandler
 	*AuthHandler
+	*DocumentHandler
 }
 
-func NewServer(greeter *GreeterHandler, auth *AuthHandler) *Server {
-	return &Server{GreeterHandler: greeter, AuthHandler: auth}
+func NewServer(greeter *GreeterHandler, auth *AuthHandler, documents *DocumentHandler) *Server {
+	return &Server{GreeterHandler: greeter, AuthHandler: auth, DocumentHandler: documents}
 }

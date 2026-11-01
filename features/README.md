@@ -11,3 +11,4 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | Historia | Ticket | Archivo | Escenarios |
 | --- | --- | --- | --- |
 | US06 | SIG-11 | [authentication.feature](authentication.feature) | 12 |
+| US15 | SIG-18 | [document-storage.feature](document-storage.feature) | 10 |

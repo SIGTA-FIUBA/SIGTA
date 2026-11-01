@@ -11,7 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -38,6 +41,23 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Document defines model for Document.
+type Document struct {
+	// ContentType Tipo detectado a partir del contenido
+	ContentType string `json:"contentType"`
+	Filename    string `json:"filename"`
+	Id          string `json:"id"`
+	ProcedureId string `json:"procedureId"`
+
+	// RequirementId Requisito que cubre; falta si no cubre ninguno
+	RequirementId *string   `json:"requirementId,omitempty"`
+	Size          int64     `json:"size"`
+	UploadedAt    time.Time `json:"uploadedAt"`
+
+	// UploadedBy Identificador de quien lo adjuntó
+	UploadedBy string `json:"uploadedBy"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
@@ -54,11 +74,20 @@ type User struct {
 	Role  Role                `json:"role"`
 }
 
+// ProcedureId defines model for ProcedureId.
+type ProcedureId = string
+
 // SessionCookie defines model for SessionCookie.
 type SessionCookie = string
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -96,11 +125,31 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// UploadDocumentMultipartBody defines parameters for UploadDocument.
+type UploadDocumentMultipartBody struct {
+	File openapi_types.File `json:"file"`
+}
+
+// UploadDocumentParams defines parameters for UploadDocument.
+type UploadDocumentParams struct {
+	// RequirementId Requisito que cubre el documento
+	RequirementId *string        `form:"requirementId,omitempty" json:"requirementId,omitempty"`
+	SigtaSession  *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// GetDocumentContentParams defines parameters for GetDocumentContent.
+type GetDocumentContentParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // RequestLoginLinkJSONRequestBody defines body for RequestLoginLink for application/json ContentType.
 type RequestLoginLinkJSONRequestBody RequestLoginLinkJSONBody
 
 // RedeemLoginLinkJSONRequestBody defines body for RedeemLoginLink for application/json ContentType.
 type RedeemLoginLinkJSONRequestBody RedeemLoginLinkJSONBody
+
+// UploadDocumentMultipartRequestBody defines body for UploadDocument for multipart/form-data ContentType.
+type UploadDocumentMultipartRequestBody UploadDocumentMultipartBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -125,6 +174,12 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
+	// UploadDocument Adjunta un documento al trámite
+	// (POST /procedures/{procedureId}/documents)
+	UploadDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params UploadDocumentParams)
+	// GetDocumentContent Descarga el archivo de un documento del trámite
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	GetDocumentContent(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params GetDocumentContentParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -342,6 +397,116 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// UploadDocument operation middleware
+func (siw *ServerInterfaceWrapper) UploadDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadDocumentParams
+
+	// ------------- Optional query parameter "requirementId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "requirementId", r.URL.Query(), &params.RequirementId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "requirementId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requirementId", Err: err})
+		}
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadDocument(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDocumentContent operation middleware
+func (siw *ServerInterfaceWrapper) GetDocumentContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDocumentContentParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDocumentContent(w, r, procedureId, documentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -469,11 +634,17 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login-links/redeem", wrapper.RedeemLoginLink)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.UploadDocument)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.GetDocumentContent)
 
 	return m
 }
 
 type BadRequestJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
+type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -698,6 +869,180 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
+type UploadDocumentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      UploadDocumentParams
+	Body        *multipart.Reader
+}
+
+type UploadDocumentResponseObject interface {
+	VisitUploadDocumentResponse(w http.ResponseWriter) error
+}
+
+type UploadDocument201JSONResponse Document
+
+func (response UploadDocument201JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadDocument400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UploadDocument400JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadDocument401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UploadDocument401JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadDocument403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UploadDocument403JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadDocument413JSONResponse Error
+
+func (response UploadDocument413JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadDocument415JSONResponse Error
+
+func (response UploadDocument415JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDocumentContentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	DocumentId  string      `json:"documentId"`
+	Params      GetDocumentContentParams
+}
+
+type GetDocumentContentResponseObject interface {
+	VisitGetDocumentContentResponse(w http.ResponseWriter) error
+}
+
+type GetDocumentContent200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type GetDocumentContent200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	Headers       GetDocumentContent200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetDocumentContent200ApplicationoctetStreamResponse) VisitGetDocumentContentResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetDocumentContent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDocumentContent401JSONResponse) VisitGetDocumentContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDocumentContent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDocumentContent403JSONResponse) VisitGetDocumentContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDocumentContent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetDocumentContent404JSONResponse) VisitGetDocumentContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -721,6 +1066,12 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// UploadDocument Adjunta un documento al trámite
+	// (POST /procedures/{procedureId}/documents)
+	UploadDocument(ctx context.Context, request UploadDocumentRequestObject) (UploadDocumentResponseObject, error)
+	// GetDocumentContent Descarga el archivo de un documento del trámite
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	GetDocumentContent(ctx context.Context, request GetDocumentContentRequestObject) (GetDocumentContentResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -945,6 +1296,68 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadDocument operation middleware
+func (sh *strictHandler) UploadDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params UploadDocumentParams) {
+	var request UploadDocumentRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadDocument(ctx, request.(UploadDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadDocumentResponseObject); ok {
+		if err := validResponse.VisitUploadDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDocumentContent operation middleware
+func (sh *strictHandler) GetDocumentContent(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params GetDocumentContentParams) {
+	var request GetDocumentContentRequestObject
+
+	request.ProcedureId = procedureId
+	request.DocumentId = documentId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDocumentContent(ctx, request.(GetDocumentContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDocumentContent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDocumentContentResponseObject); ok {
+		if err := validResponse.VisitGetDocumentContentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

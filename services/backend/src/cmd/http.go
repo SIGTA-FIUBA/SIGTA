@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"backend/src/adapters/dev"
+	"backend/src/adapters/filesystem"
 	"backend/src/adapters/memory"
 	"backend/src/adapters/rest"
 	"backend/src/application"
@@ -41,10 +42,29 @@ func main() {
 		time.Now,
 	)
 
+	store, err := filesystem.NewDocumentStore(envOr("SIGTA_DOCUMENTS_DIR", "data/documents"))
+	if err != nil {
+		logger.Error("cannot open the document storage", "error", err)
+		os.Exit(1)
+	}
+
+	// The procedures are a stand-in until the procedure model (SIG-12) and
+	// authorization (SIG-14) exist.
+	procedures := memory.NewProcedures(devProcedures()...)
+	documents := application.NewDocumentService(
+		application.DocumentConfig{UnlinkedRule: pdfUpTo10MB},
+		procedures,
+		procedures,
+		memory.NewDocumentRepository(),
+		store,
+		time.Now,
+	)
+
 	greeter := &application.GreeterService{}
 	api := rest.NewServer(
 		rest.NewGreeterHandler(greeter),
 		rest.NewAuthHandler(auth, appURL, false),
+		rest.NewDocumentHandler(auth, documents),
 	)
 
 	router := http.NewServeMux()
@@ -69,6 +89,17 @@ func devUsers() []domain.User {
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
 	}
+}
+
+var pdfUpTo10MB = domain.DocumentRule{AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20}
+
+// devProcedures are synthetic procedures for local development.
+func devProcedures() []memory.Procedure {
+	return []memory.Procedure{{
+		ID:           "dev-procedure",
+		ApplicantID:  "dev-student",
+		Requirements: map[string]domain.DocumentRule{"transcript": pdfUpTo10MB},
+	}}
 }
 
 func envOr(key, fallback string) string {

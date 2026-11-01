@@ -127,6 +127,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjunta un documento al trámite
+         * @description El tipo del archivo se detecta por su contenido, no por el nombre ni por el tipo que declara el navegador, y junto con el tamaño se valida contra la configuración del requisito que cubre. El titular solo adjunta documentos que cubren un requisito; la Secretaría puede adjuntar también documentos que no cubren ninguno, como el documento resolutivo.
+         */
+        post: operations["uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descarga el archivo de un documento del trámite
+         * @description Se verifica el permiso sobre el trámite en cada descarga. El archivo siempre se entrega como adjunto, nunca para mostrarse dentro de la aplicación, porque lo aportó una persona usuaria.
+         */
+        get: operations["getDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -142,6 +182,21 @@ export interface components {
             email: string;
             name: string;
             role: components["schemas"]["Role"];
+        };
+        Document: {
+            id: string;
+            procedureId: string;
+            /** @description Requisito que cubre; falta si no cubre ninguno */
+            requirementId?: string;
+            filename: string;
+            /** @description Tipo detectado a partir del contenido */
+            contentType: string;
+            /** Format: int64 */
+            size: number;
+            /** @description Identificador de quien lo adjuntó */
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
         };
     };
     responses: {
@@ -163,8 +218,27 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Sin permiso sobre el trámite, o el trámite no existe */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description No existe */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
+        ProcedureId: string;
         SessionCookie: string;
     };
     requestBodies: never;
@@ -342,6 +416,90 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    uploadDocument: {
+        parameters: {
+            query?: {
+                /** @description Requisito que cubre el documento */
+                requirementId?: string;
+            };
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Documento guardado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description El archivo supera el tamaño que admite el requisito */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description El requisito no admite ese tipo de archivo */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDocumentContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                documentId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contenido del archivo */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

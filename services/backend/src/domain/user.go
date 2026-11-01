@@ -27,3 +27,9 @@ type User struct {
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
+
+// IsStaff tells whether the user belongs to the Secretaría, whatever their
+// profile.
+func (u User) IsStaff() bool {
+	return u.Role == RoleStaffOperative || u.Role == RoleStaffApprover
+}

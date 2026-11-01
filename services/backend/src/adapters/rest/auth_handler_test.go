@@ -43,7 +43,7 @@ func newServer(t *testing.T) (*httptest.Server, *outbox) {
 		mail,
 		time.Now,
 	)
-	api := rest.NewServer(nil, rest.NewAuthHandler(auth, srv.URL+"/me", false))
+	api := rest.NewServer(nil, rest.NewAuthHandler(auth, srv.URL+"/me", false), nil)
 	rest.HandlerFromMux(rest.NewStrictHandler(api, nil), mux)
 	return srv, mail
 }

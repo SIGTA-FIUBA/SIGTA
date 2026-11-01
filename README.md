@@ -190,6 +190,7 @@ flowchart LR
 - **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
 - **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
+- **Documentos como contenido no confiable.** El tipo de cada archivo se detecta por su contenido, no por el nombre ni por lo que declara el navegador, y junto con el tamaño se valida contra la configuración del requisito que cubre. En disco, el archivo se guarda con el identificador del documento y nunca con el nombre que le puso quien lo subió. Siempre se descarga como adjunto, sin que el navegador adivine su tipo. El directorio se configura con `SIGTA_DOCUMENTS_DIR`; en Docker Compose es el volumen `documents`.
 
 ### Diseño interno de cada servicio
 

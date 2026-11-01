@@ -153,8 +153,104 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /procedures/{procedureId}/documents:
+    post:
+      operationId: uploadDocument
+      summary: Adjunta un documento al trámite
+      description: >
+        El tipo del archivo se detecta por su contenido, no por el nombre ni
+        por el tipo que declara el navegador, y junto con el tamaño se valida
+        contra la configuración del requisito que cubre. El titular solo
+        adjunta documentos que cubren un requisito; la Secretaría puede
+        adjuntar también documentos que no cubren ninguno, como el documento
+        resolutivo.
+      parameters:
+        - $ref: "#/components/parameters/ProcedureId"
+        - name: requirementId
+          in: query
+          required: false
+          description: Requisito que cubre el documento
+          schema:
+            type: string
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Documento guardado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: El archivo supera el tamaño que admite el requisito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "415":
+          description: El requisito no admite ese tipo de archivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /procedures/{procedureId}/documents/{documentId}/content:
+    get:
+      operationId: getDocumentContent
+      summary: Descarga el archivo de un documento del trámite
+      description: >
+        Se verifica el permiso sobre el trámite en cada descarga. El archivo
+        siempre se entrega como adjunto, nunca para mostrarse dentro de la
+        aplicación, porque lo aportó una persona usuaria.
+      parameters:
+        - $ref: "#/components/parameters/ProcedureId"
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Contenido del archivo
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    ProcedureId:
+      name: procedureId
+      in: path
+      required: true
+      schema:
+        type: string
     SessionCookie:
       name: sigta_session
       in: cookie
@@ -170,6 +266,18 @@ components:
             $ref: "#/components/schemas/Error"
     Unauthorized:
       description: Sin sesión válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Sin permiso sobre el trámite, o el trámite no existe
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No existe
       content:
         application/json:
           schema:
@@ -197,3 +305,28 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/Role"
+    Document:
+      type: object
+      required: [id, procedureId, filename, contentType, size, uploadedBy, uploadedAt]
+      properties:
+        id:
+          type: string
+        procedureId:
+          type: string
+        requirementId:
+          type: string
+          description: Requisito que cubre; falta si no cubre ninguno
+        filename:
+          type: string
+        contentType:
+          type: string
+          description: Tipo detectado a partir del contenido
+        size:
+          type: integer
+          format: int64
+        uploadedBy:
+          type: string
+          description: Identificador de quien lo adjuntó
+        uploadedAt:
+          type: string
+          format: date-time
