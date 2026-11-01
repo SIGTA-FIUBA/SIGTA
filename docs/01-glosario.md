@@ -9,7 +9,13 @@ Las entradas marcadas con **(V)** deben validarse con la Secretaría antes de co
 ## Dominio del trámite
 
 **Tipo de trámite**
-Definición reutilizable de un procedimiento administrativo: sus requisitos, los documentos que exige, la secuencia de pasos, los estados posibles y los roles responsables de cada paso. Vive como configuración versionada en el repositorio.
+Definición reutilizable de un procedimiento administrativo: los datos y documentos que pide, la secuencia de pasos, y el área de cada paso con su perfil, salvo en los pasos del titular. Se va a editar desde la interfaz de SIGTA (ADR-013), y cada publicación genera una versión nueva (ADR-012).
+
+**Versión de un tipo de trámite**
+Contenido publicado de un tipo de trámite, con su número, su hash, quién la propuso, quién la aprobó y cuándo. No se modifica: un trámite sigue de punta a punta la versión con la que empezó.
+
+**Borrador de un tipo de trámite**
+Definición en edición que todavía no se publicó. No confundir con la preacta ni con los borradores de configuración que prepara un agente para que el equipo los revise.
 
 **Trámite (o solicitud)**
 Instancia concreta de un tipo de trámite, iniciada por un titular. Tiene un titular, un estado, un historial de pasos y un conjunto de documentos. Es la unidad de seguimiento del sistema.
@@ -18,18 +24,26 @@ Instancia concreta de un tipo de trámite, iniciada por un titular. Tiene un tit
 Forma general que toma la secuencia de pasos de un tipo de trámite. **Ninguno de los cinco trámites se resuelve íntegramente dentro del área**: todos salen hacia al menos un evaluador externo y vuelven. Lo que diferencia un circuito de otro es cuántos evaluadores intervienen y cuántas idas y vueltas hay.
 
 **Paso**
-Unidad mínima de avance dentro de un trámite. Tiene un responsable (rol), un tipo de acción y un resultado registrado. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
+Unidad mínima de avance dentro de un trámite. Tiene un área responsable, un perfil salvo en los pasos del titular, una acción y lo que se registró al cumplirlo. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
 
-**Tipo de acción de un paso** **(V)**
-Categorías abstractas derivadas de la planilla de circuitos:
-- *Carga de documento:* alguien adjunta un archivo.
-- *Carga de dato:* alguien completa uno o más campos.
-- *Confirmación:* alguien declara que ejecutó una acción fuera de la plataforma ("listo, ya lo cargué").
-- *Aprobación:* alguien con perfil de aprobación da conformidad a un paso y el trámite avanza. Es la aprobación de un paso del proceso, no el resultado del trámite (ADR-009).
-- *Firma:* caso particular de aprobación sobre un documento. **La plataforma no implementa firma digital con validez legal.**
+**Acción de un paso**
+Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuitos:
+- *Cargar dato* (`enter_data`): alguien completa uno o más datos.
+- *Cargar documento* (`upload_document`): alguien adjunta uno o más archivos.
+- *Confirmar hecho externo* (`confirm_external_fact`): alguien declara que algo pasó fuera de la plataforma, como una carátula, una firma o una carga en SIU Guaraní. Queda registrada la declaración, no el hecho. **La plataforma no implementa firma digital con validez legal.**
+- *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso con perfil de aprobación: lo que la distingue es el perfil, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
+
+**Salida** (`outcome`)
+Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
+
+**Área**
+Quien tiene a cargo un paso: el titular (`applicant`), un área de la facultad (`office`), como la Dirección de Alumnos o Mesa de Entradas, o un evaluador externo (`external`), como una Comisión Curricular. Las áreas son comunes a todos los tipos de trámite.
+
+**Pase**
+Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
 
 **Estado del trámite**
-Situación en la que se encuentra el trámite en un momento dado, derivada del último paso confirmado. El conjunto de estados válidos es parte de la configuración del tipo de trámite.
+Situación en la que se encuentra el trámite en un momento dado, derivada del tipo de área del paso abierto: esperando al titular, en el área, derivado o cerrado. La configuración del tipo de trámite no declara estados. A confirmar con la Secretaría: si un trámite cerrado guarda su motivo de cierre (resuelto y, según se defina, desistido o vencido). El motivo de cierre no sería el resultado del trámite.
 
 **Resultado del trámite**
 Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. **La plataforma no lo modela ni lo interpreta** (ADR-009): lo recibe como documento y lo comunica al titular. Para la plataforma, los tres casos son el mismo evento.
@@ -38,7 +52,7 @@ Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. 
 Actor ajeno a la Secretaría que dictamina sobre el contenido académico del trámite: comisión curricular, departamento u otra unidad académica, según el trámite. No usa la plataforma (duda pendiente, ver alcance).
 
 **Derivación**
-Salida del trámite hacia un evaluador externo o un sistema externo (expediente electrónico). Se registra como un paso con responsable, destino, fecha y, si corresponde, número de expediente. La acción ocurre afuera.
+Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de un área `external`, que registra el destino, la fecha y, si corresponde, el número de expediente. La acción ocurre afuera.
 
 **Retorno**
 Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009).
@@ -64,7 +78,7 @@ Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y n
 ## Documentos
 
 **Requisito**
-Condición que el trámite exige para poder avanzar. Puede ser un documento, un dato o una condición académica. Forma parte de la configuración del tipo de trámite y es la base contra la que trabaja la validación asistida.
+Condición que el trámite exige para poder avanzar. Puede ser un documento, un dato o una condición académica. En el modelo, los datos (`fields`) y documentos (`documents`) se declaran en cada tipo de trámite. Las condiciones académicas todavía no están en el modelo: a confirmar cómo se declaran, porque son la base contra la que trabaja la validación asistida.
 
 **Preacta**
 Borrador de un documento formal generado por la plataforma a partir de una plantilla, con campos completados desde los datos del trámite. **Siempre es un borrador**: no tiene valor hasta que una persona lo revisa y lo aprueba.
@@ -93,7 +107,7 @@ Componente conversacional que responde consultas sobre requisitos y documentaci�
 Comparación automática de la documentación cargada contra los requisitos configurados del trámite, que produce un checklist con hallazgos para que una persona decida. No aprueba ni rechaza por sí sola.
 
 **Configuración versionada**
-Archivos que definen los tipos de trámite, mantenidos en el repositorio y modificados por el equipo mediante pull request. No existe editor dinámico (ADR-001); es una duda pendiente con la Secretaría.
+Término reemplazado. Con ADR-001, los tipos de trámite iban a ser archivos en el repositorio editados por pull request; ADR-013 lo reemplazó por la edición desde la interfaz, con versiones en la base. Ver "Versión de un tipo de trámite".
 
 **Ingreso institucional**
 Inicio de sesión con la cuenta de Google de la UBA. Es la única forma de ingresar a SIGTA, confirmada con la Subsecretaría de TICs el 9/10 (ADR-010). En la reunión del 16/09 se había considerado el FUA, el ingreso unificado de la facultad.

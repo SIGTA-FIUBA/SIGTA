@@ -61,7 +61,7 @@ Sobre ambas, tres usos de inteligencia artificial acotados (ver `04-decisiones-a
 
 ## 6. Alcance en una línea
 
-Los cinco trámites priorizados por la Secretaría (equivalencia entre asignaturas, reconocimiento de créditos, intercambios académicos, pase de universidad extranjera y pase de universidad dentro de la UBA), tratados como una familia, con sus definiciones mantenidas como configuración versionada e incorporación incremental. Detalle completo en `03-scope.md`.
+Los cinco trámites priorizados por la Secretaría (equivalencia entre asignaturas, reconocimiento de créditos, intercambios académicos, pase de universidad extranjera y pase de universidad dentro de la UBA), tratados como una familia, con sus definiciones editables desde la interfaz (a confirmar con los directores, ver ADR-013), una versión por publicación, e incorporación incremental. Detalle completo en `03-scope.md`.
 
 ## 7. Restricciones
 
