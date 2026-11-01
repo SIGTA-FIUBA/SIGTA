@@ -33,7 +33,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Tipo de trámite | procedure type | Definición configurada de un trámite | — |
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | staff, con perfil `operator` o `approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
+| Secretario | staff, con perfil `staff_operative` o `staff_approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | requirement | Documento, dato o condición que el trámite exige | — |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
