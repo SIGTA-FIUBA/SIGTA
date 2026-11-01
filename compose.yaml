@@ -17,6 +17,9 @@ services:
     build: ./services/backend
     environment:
       SIGTA_DATABASE_URL: postgres://backend:backend@db:5432/sigta?sslmode=disable
+      SIGTA_ENV: development
+      SIGTA_PUBLIC_URL: http://localhost:${SIGTA_PORT:-8000}/api
+      SIGTA_APP_URL: http://localhost:${SIGTA_PORT:-8000}/
     depends_on:
       db:
         condition: service_healthy

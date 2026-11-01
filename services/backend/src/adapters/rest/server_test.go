@@ -11,7 +11,7 @@ import (
 )
 
 func newRouter() http.Handler {
-	api := rest.NewServer(rest.NewGreeterHandler(&application.GreeterService{}))
+	api := rest.NewServer(rest.NewGreeterHandler(&application.GreeterService{}), nil)
 	return rest.HandlerFromMux(rest.NewStrictHandler(api, nil), http.NewServeMux())
 }
 
