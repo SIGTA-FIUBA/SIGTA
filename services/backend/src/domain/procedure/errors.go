@@ -8,6 +8,8 @@ import (
 var (
 	ErrInvalidDefinition = errors.New("invalid procedure type definition")
 	ErrInvalidAreas      = errors.New("invalid areas")
+	ErrInvalidAuthorship = errors.New("invalid authorship")
+	ErrAlteredContent    = errors.New("content does not match its digest")
 )
 
 // InvalidError is what Validate returns: the kind of failure, which errors.Is
