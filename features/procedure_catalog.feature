@@ -52,7 +52,7 @@ Feature: Browse the catalog of procedure types
     Then it lists 1 procedure types
     And "subject equivalence" is described as "Nueva descripción"
 
-  Scenario: an altered version is not shown
+  Scenario: the catalog fails if a version was altered
     Given the stored content of the latest version no longer matches its digest
     When the catalog is opened
     Then the catalog is not shown

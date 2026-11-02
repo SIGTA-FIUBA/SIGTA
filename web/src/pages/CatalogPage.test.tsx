@@ -68,6 +68,20 @@ describe('CatalogPage', () => {
 
     await screen.findByRole('heading', { name: 'Trámite B' })
     expect(screen.queryByRole('heading', { name: 'Plazos' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Condiciones de admisibilidad' })).not.toBeInTheDocument()
+  })
+
+  it('shows a document of an older format without types or size', async () => {
+    const document = { id: 'letter', name: 'Carta', required: true, accepted_types: [], max_size: 0 }
+    renderCatalog(200, [{ ...equivalence, description: '', documents: [document] }])
+
+    expect(await screen.findByText('Carta (Obligatorio).')).toBeInTheDocument()
+  })
+
+  it('shows repeated deadlines', async () => {
+    renderCatalog(200, [{ ...equivalence, deadlines: ['Hasta el viernes', 'Hasta el viernes'] }])
+
+    expect(await screen.findAllByText('Hasta el viernes')).toHaveLength(2)
   })
 
   it('says when there are no procedure types', async () => {

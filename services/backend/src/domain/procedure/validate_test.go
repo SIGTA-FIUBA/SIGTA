@@ -292,7 +292,12 @@ func TestInvalidCatalogTexts(t *testing.T) {
 			definition.Documents[0].AcceptedTypes = []string{"text/plain; charset=utf-8"}
 		}, CodeInvalidAcceptedType},
 		"uppercase type": {func(definition *Definition) { definition.Documents[0].AcceptedTypes = []string{"Application/PDF"} }, CodeInvalidAcceptedType},
-		"negative size":  {func(definition *Definition) { definition.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
+		"wildcard type":  {func(definition *Definition) { definition.Documents[0].AcceptedTypes = []string{"image/*"} }, CodeInvalidAcceptedType},
+		"any type":       {func(definition *Definition) { definition.Documents[0].AcceptedTypes = []string{"*/*"} }, CodeInvalidAcceptedType},
+		"repeated type": {func(definition *Definition) {
+			definition.Documents[0].AcceptedTypes = []string{"application/pdf", "application/pdf"}
+		}, CodeRepeatedAcceptedType},
+		"negative size": {func(definition *Definition) { definition.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
 	}
 	for name, testCase := range cases {
 		t.Run(name, func(t *testing.T) {

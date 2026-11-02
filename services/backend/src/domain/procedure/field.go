@@ -62,10 +62,15 @@ func validateDocuments(documents []Document, seen map[string]bool) []Problem {
 		if len(doc.AcceptedTypes) == 0 {
 			problems = append(problems, Problem{Code: CodeNoAcceptedTypes, Path: []Ref{ref}})
 		}
-		for _, accepted := range doc.AcceptedTypes {
-			if !validMediaType(accepted) {
-				problems = append(problems, Problem{Code: CodeInvalidAcceptedType, Path: []Ref{ref}, Value: accepted})
+		accepted := map[string]bool{}
+		for _, mediaType := range doc.AcceptedTypes {
+			switch {
+			case !validMediaType(mediaType):
+				problems = append(problems, Problem{Code: CodeInvalidAcceptedType, Path: []Ref{ref}, Value: mediaType})
+			case accepted[mediaType]:
+				problems = append(problems, Problem{Code: CodeRepeatedAcceptedType, Path: []Ref{ref}, Value: mediaType})
 			}
+			accepted[mediaType] = true
 		}
 		if doc.MaxSize <= 0 {
 			problems = append(problems, Problem{Code: CodeNoMaxSize, Path: []Ref{ref}})
@@ -74,10 +79,11 @@ func validateDocuments(documents []Document, seen map[string]bool) []Problem {
 	return problems
 }
 
-// validMediaType accepts a lowercase type and subtype, without parameters.
+// validMediaType accepts a lowercase type and subtype, without parameters or
+// wildcards: "*/*" would let any file through the upload check.
 func validMediaType(value string) bool {
-	parsed, params, err := mime.ParseMediaType(value)
-	return err == nil && parsed == value && len(params) == 0 && strings.Contains(value, "/")
+	parsed, _, err := mime.ParseMediaType(value)
+	return err == nil && parsed == value && strings.Contains(value, "/") && !strings.Contains(value, "*")
 }
 
 func validateOptions(f Field) []Problem {

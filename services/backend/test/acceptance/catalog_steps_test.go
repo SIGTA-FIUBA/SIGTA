@@ -102,18 +102,17 @@ func catalogDefinition(name, description string) procedure.Definition {
 }
 
 func (w *catalogWorld) publishDefinition(name string, definition procedure.Definition) error {
-	typeID, known := w.types[name]
-	if !known {
-		typeID = int64(len(w.types) + 1)
-		w.types[name] = typeID
-	}
 	base := 0
+	typeID, known := w.types[name]
 	if known {
 		number, err := w.latestNumber(typeID)
 		if err != nil {
 			return err
 		}
 		base = number
+	} else {
+		typeID = int64(len(w.types) + 1)
+		w.types[name] = typeID
 	}
 	_, err := w.service.Publish(context.Background(), input.Publication{
 		ProcedureType: typeID,
@@ -121,7 +120,9 @@ func (w *catalogWorld) publishDefinition(name string, definition procedure.Defin
 		Definition:    definition,
 		Authorship:    procedure.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
 	})
-	w.latest[name] = definition
+	if err == nil {
+		w.latest[name] = definition
+	}
 	return err
 }
 
@@ -295,11 +296,10 @@ func (w *catalogWorld) thenAccepts(id, mediaType string, size int64) error {
 		return w.err
 	}
 	for _, entry := range w.entries {
-		requirement, found, err := w.document(entry.Name, id)
-		if err != nil {
-			return err
-		}
-		if found {
+		for _, requirement := range entry.Documents {
+			if requirement.Document.ID != id {
+				continue
+			}
 			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSize != size {
 				return fmt.Errorf("document %q = %+v", id, requirement.Document)
 			}

@@ -116,7 +116,3 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 - Etiquetas: `s01` a `s18` (sprint), `b1` a `b4` (bloque) y `Feature`, `Bug`, `Improvement`.
 - Estados: `Backlog` → `Todo` → `In Progress` → `In Review` → `Done`, más `Canceled` y `Duplicate`.
 - Un agente lee tickets libremente, pero no crea, cierra ni cambia el estado de un ticket sin que se lo pidan.
-
-## Estado actual
-
-Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base (CI y Docker Compose), el ingreso con proveedor de identidad abstraído el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia, y el catálogo de trámites, la primera pantalla. Los escenarios de `features/` corren en el pipeline. Lo que viene, en orden: ingreso con Google y perfiles, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.

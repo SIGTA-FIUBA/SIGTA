@@ -50,6 +50,7 @@ const (
 	CodeBlankText             Code = "blank_text"
 	CodeNoAcceptedTypes       Code = "no_accepted_types"
 	CodeInvalidAcceptedType   Code = "invalid_accepted_type"
+	CodeRepeatedAcceptedType  Code = "repeated_accepted_type"
 	CodeNoMaxSize             Code = "no_max_size"
 )
 
@@ -190,6 +191,8 @@ func (p Problem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("%s accepts no file types", last), true
 	case CodeInvalidAcceptedType:
 		return fmt.Sprintf("%q is not a media type", p.Value), false
+	case CodeRepeatedAcceptedType:
+		return fmt.Sprintf("%s accepts %q twice", last, p.Value), true
 	case CodeNoMaxSize:
 		return fmt.Sprintf("%s has no maximum size", last), true
 	}

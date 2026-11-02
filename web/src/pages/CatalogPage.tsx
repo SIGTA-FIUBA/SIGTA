@@ -27,21 +27,24 @@ function requiredText(required: boolean) {
   return required ? 'Obligatorio' : 'Opcional'
 }
 
-function DocumentItem({ document }: { document: DocumentRequirement }) {
-  const types = document.accepted_types.map(typeName).join(', ')
-  return (
-    <li>
-      {document.name} ({requiredText(document.required)}). Formatos: {types}. Tamaño máximo:{' '}
-      {sizeText(document.max_size)}.
-    </li>
-  )
+// A version of an older format has no accepted types or size, so each part is
+// shown only when it is known.
+function documentText(document: DocumentRequirement) {
+  const parts = [`${document.name} (${requiredText(document.required)}).`]
+  if (document.accepted_types.length > 0) {
+    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
+  }
+  if (document.max_size > 0) {
+    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
+  }
+  return parts.join(' ')
 }
 
 function Entry({ entry }: { entry: CatalogEntry }) {
   return (
     <article>
       <h2>{entry.name}</h2>
-      <p>{entry.description}</p>
+      {entry.description !== '' && <p>{entry.description}</p>}
       {entry.fields.length > 0 && (
         <section>
           <h3>Datos</h3>
@@ -59,7 +62,7 @@ function Entry({ entry }: { entry: CatalogEntry }) {
           <h3>Documentos</h3>
           <ul>
             {entry.documents.map((document) => (
-              <DocumentItem key={document.id} document={document} />
+              <li key={document.id}>{documentText(document)}</li>
             ))}
           </ul>
         </section>
@@ -68,8 +71,8 @@ function Entry({ entry }: { entry: CatalogEntry }) {
         <section>
           <h3>Plazos</h3>
           <ul>
-            {entry.deadlines.map((deadline) => (
-              <li key={deadline}>{deadline}</li>
+            {entry.deadlines.map((deadline, index) => (
+              <li key={index}>{deadline}</li>
             ))}
           </ul>
         </section>
@@ -78,8 +81,8 @@ function Entry({ entry }: { entry: CatalogEntry }) {
         <section>
           <h3>Condiciones de admisibilidad</h3>
           <ul>
-            {entry.admissibility.map((condition) => (
-              <li key={condition}>{condition}</li>
+            {entry.admissibility.map((condition, index) => (
+              <li key={index}>{condition}</li>
             ))}
           </ul>
         </section>

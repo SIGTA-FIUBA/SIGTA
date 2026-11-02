@@ -47,9 +47,13 @@ func main() {
 
 	secureCookies := strings.HasPrefix(publicURL, "https://")
 	procedureTypes := application.NewProcedureTypeService(memory.NewProcedureVersions(), memory.NewAreaCatalog(devAreas()...), time.Now)
-	if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
-		logger.Error("publish the example procedure type", "error", err)
-		os.Exit(1)
+	// The check above already stops production, but the example must not
+	// reach the public catalog when that check goes away with SIG-61.
+	if os.Getenv("SIGTA_ENV") == "development" {
+		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
+			logger.Error("publish the example procedure type", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies), rest.NewCatalogHandler(procedureTypes))

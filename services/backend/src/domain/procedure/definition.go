@@ -9,8 +9,7 @@ import (
 // closes it. Areas are shared by every procedure type, while fields and
 // documents belong to the one that declares them.
 type Definition struct {
-	Name string `json:"name"`
-	// Description explains the procedure type in plain language.
+	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	// Deadlines and Admissibility are text for the applicant to read: nothing
 	// enforces them yet.
