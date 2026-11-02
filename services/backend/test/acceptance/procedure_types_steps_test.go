@@ -10,34 +10,34 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/adapters/memory"
-	"backend/src/application"
-	"backend/src/domain/procedure"
-	"backend/src/ports/input"
-	"backend/src/ports/output"
+	"backend/src/procedure/adapters/memory"
+	"backend/src/procedure/application"
+	"backend/src/procedure/domain"
+	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 const procedureType int64 = 1
 
 // procedureTypeWorld is the state of one scenario of US08.
 type procedureTypeWorld struct {
-	areas    []procedure.Area
+	areas    []domain.Area
 	versions *memory.ProcedureVersions
-	authors  procedure.Authorship
+	authors  domain.Authorship
 	now      time.Time
 
-	definition procedure.Definition
+	definition domain.Definition
 	revisions  int
 
-	// The outcome of the last publication.
-	published procedure.Version
+	// The result of the last publication.
+	published domain.Version
 	err       error
 	before    int
-	problem   procedure.Code
+	problem   domain.Code
 
-	followed     procedure.Version
+	followed     domain.Version
 	previousName string
-	requested    procedure.Version
+	requested    domain.Version
 }
 
 func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
@@ -50,7 +50,6 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^"([^"]*)" proposes and "([^"]*)" approves every publication$`, w.givenAuthors)
 	sc.Given(`^version (\d+) of "([^"]*)" is published$`, w.givenPublished)
 	sc.Given(`^version (\d+) of "([^"]*)" was proposed by "([^"]*)" and approved by "([^"]*)"$`, w.givenPublishedBy)
-	sc.Given(`^version (\d+) of "([^"]*)" was published from version \d+$`, w.givenPublished)
 	sc.Given(`^a procedure that started with version (\d+) of "([^"]*)"$`, w.givenProcedure)
 	sc.Given(`^the stored content of version (\d+) no longer matches its digest$`, w.givenAlteredVersion)
 
@@ -91,7 +90,7 @@ func (w *procedureTypeWorld) latest() (int, error) {
 	return v.Number, err
 }
 
-func (w *procedureTypeWorld) publish(base int, d procedure.Definition) error {
+func (w *procedureTypeWorld) publish(base int, d domain.Definition) error {
 	before, err := w.latest()
 	if err != nil {
 		return err
@@ -107,30 +106,30 @@ func (w *procedureTypeWorld) publish(base int, d procedure.Definition) error {
 	return nil
 }
 
-// valid is a definition that uses the four actions and every kind of area.
-func (w *procedureTypeWorld) valid(name string) procedure.Definition {
-	return procedure.Definition{
+// validDefinition uses the four actions and every kind of area.
+func validDefinition(name string) domain.Definition {
+	return domain.Definition{
 		Name:      name,
-		Fields:    []procedure.Field{{ID: "full_name", Name: "Nombre completo", Type: procedure.FieldText}},
-		Documents: []procedure.Document{{ID: "transcript", Name: "Certificado analítico"}, {ID: "ruling", Name: "Dictamen"}},
-		Steps: []procedure.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
+		Fields:    []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
+		Documents: []domain.Document{{ID: "transcript", Name: "Certificado analítico"}, {ID: "ruling", Name: "Dictamen"}},
+		Steps: []domain.Step{
+			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
 			{
-				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionDecide,
-				Outcomes: []procedure.Outcome{
+				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionDecide,
+				Outcomes: []domain.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				},
 			},
-			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
-			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: procedure.ProfileStaffApprover, Action: procedure.ActionConfirmExternalFact},
+			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
+			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: domain.ProfileStaffApprover, Action: domain.ActionConfirmExternalFact},
 		},
 	}
 }
 
 // revised returns the current definition with a visible change.
-func (w *procedureTypeWorld) revised() procedure.Definition {
+func (w *procedureTypeWorld) revised() domain.Definition {
 	w.revisions++
 	d := w.definition
 	d.Documents = slices.Clone(d.Documents)
@@ -155,10 +154,10 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 }
 
 func (w *procedureTypeWorld) givenAreas(applicant, office, external string) error {
-	w.areas = []procedure.Area{
-		{ID: areaID(applicant), Name: applicant, Kind: procedure.AreaApplicant},
-		{ID: areaID(office), Name: office, Kind: procedure.AreaOffice},
-		{ID: areaID(external), Name: external, Kind: procedure.AreaExternal},
+	w.areas = []domain.Area{
+		{ID: areaID(applicant), Name: applicant, Kind: domain.AreaApplicant},
+		{ID: areaID(office), Name: office, Kind: domain.AreaOffice},
+		{ID: areaID(external), Name: external, Kind: domain.AreaExternal},
 	}
 	return nil
 }
@@ -166,12 +165,12 @@ func (w *procedureTypeWorld) givenAreas(applicant, office, external string) erro
 func areaID(name string) string { return strings.ReplaceAll(name, " ", "_") }
 
 func (w *procedureTypeWorld) givenAuthors(proposer, approver string) error {
-	w.authors = procedure.Authorship{ProposedBy: proposer, ApprovedBy: approver}
+	w.authors = domain.Authorship{ProposedBy: proposer, ApprovedBy: approver}
 	return nil
 }
 
 func (w *procedureTypeWorld) givenPublished(number int, name string) error {
-	w.definition = w.valid(name)
+	w.definition = validDefinition(name)
 	return w.publishUpTo(number)
 }
 
@@ -194,15 +193,15 @@ func (w *procedureTypeWorld) givenProcedure(number int, name string) error {
 // givenAlteredVersion stores a version whose content is not the one its digest
 // covers, as if someone had changed it directly in the store.
 func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
-	w.definition = w.valid("subject equivalence")
-	encoded, err := procedure.NewContent(w.definition, w.areas).Encode()
+	w.definition = validDefinition("subject equivalence")
+	encoded, err := domain.NewContent(w.definition, w.areas).Encode()
 	if err != nil {
 		return err
 	}
-	return w.versions.Add(context.Background(), procedure.Version{
+	return w.versions.Add(context.Background(), domain.Version{
 		ProcedureType: procedureType,
 		Number:        number,
-		Digest:        procedure.Digest(encoded),
+		Digest:        domain.Digest(encoded),
 		Encoded:       append(encoded, ' '),
 		Authorship:    w.authors,
 		PublishedAt:   w.now,
@@ -210,7 +209,7 @@ func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 }
 
 func (w *procedureTypeWorld) publishValid(name string, base int) error {
-	return w.publish(base, w.valid(name))
+	return w.publish(base, validDefinition(name))
 }
 
 func (w *procedureTypeWorld) publishSame(base int) error {
@@ -236,11 +235,11 @@ func (w *procedureTypeWorld) publishBy(proposer, approver, name string) error {
 	if err := w.givenAuthors(proposer, approver); err != nil {
 		return err
 	}
-	return w.publish(0, w.valid(name))
+	return w.publish(0, validDefinition(name))
 }
 
 func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
-	d := w.valid(name)
+	d := validDefinition(name)
 	const (
 		document  = 1
 		decision  = 2
@@ -250,25 +249,25 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	switch problem {
 	case "a step with an action outside the four":
 		d.Steps[0].Action = "approve"
-		w.problem = procedure.CodeUnknownAction
+		w.problem = domain.CodeUnknownAction
 	case "a step in an unknown area":
 		d.Steps[decision].Area = "nowhere"
-		w.problem = procedure.CodeUnknownArea
+		w.problem = domain.CodeUnknownArea
 	case "a reference to an undeclared document":
 		d.Steps[document].Documents = []string{"transcript", "undeclared"}
-		w.problem = procedure.CodeUnknownDocument
+		w.problem = domain.CodeUnknownDocument
 	case "a step unreachable from the first one":
-		d.Steps = append(d.Steps, procedure.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact})
-		w.problem = procedure.CodeUnreachableStep
+		d.Steps = append(d.Steps, domain.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
+		w.problem = domain.CodeUnreachableStep
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
-		w.problem = procedure.CodeStepNeverCloses
+		w.problem = domain.CodeStepNeverCloses
 	case "a field no step uses":
-		d.Fields = append(d.Fields, procedure.Field{ID: "unused", Name: extraName, Type: procedure.FieldText})
-		w.problem = procedure.CodeUnusedField
+		d.Fields = append(d.Fields, domain.Field{ID: "unused", Name: extraName, Type: domain.FieldText})
+		w.problem = domain.CodeUnusedField
 	case "an office step without a profile":
 		d.Steps[decision].Profile = ""
-		w.problem = procedure.CodeInvalidProfile
+		w.problem = domain.CodeInvalidProfile
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}
@@ -337,7 +336,7 @@ func (w *procedureTypeWorld) thenStillRecords(proposer, approver string) error {
 	if err != nil {
 		return err
 	}
-	want := procedure.Authorship{ProposedBy: proposer, ApprovedBy: approver}
+	want := domain.Authorship{ProposedBy: proposer, ApprovedBy: approver}
 	if stored.Authorship != want || w.published.Authorship != want {
 		return fmt.Errorf("stored %+v and returned %+v, want %+v", stored.Authorship, w.published.Authorship, want)
 	}
@@ -359,17 +358,18 @@ func (w *procedureTypeWorld) thenNoVersion() error {
 }
 
 func (w *procedureTypeWorld) thenAskedToStartAgain(number int) error {
-	if !errors.Is(w.err, input.ErrOutdatedBase) {
+	outdated, ok := errors.AsType[*input.OutdatedBaseError](w.err)
+	if !ok {
 		return fmt.Errorf("got %w, want ErrOutdatedBase", w.err)
 	}
-	if want := fmt.Sprintf("the latest is %d", number); !strings.Contains(w.err.Error(), want) {
-		return fmt.Errorf("%w does not say %q", w.err, want)
+	if outdated.Latest != number {
+		return fmt.Errorf("asked to start again from version %d, want %d", outdated.Latest, number)
 	}
 	return nil
 }
 
 func (w *procedureTypeWorld) thenProblemReported() error {
-	for _, p := range procedure.ProblemsOf(w.err) {
+	for _, p := range domain.ProblemsOf(w.err) {
 		if p.Code == w.problem {
 			return nil
 		}
@@ -397,14 +397,14 @@ func (w *procedureTypeWorld) thenShowsPreviousName(number int) error {
 	if err != nil {
 		return err
 	}
-	if !slices.ContainsFunc(c.Areas, func(a procedure.Area) bool { return a.Name == w.previousName }) {
+	if !slices.ContainsFunc(c.Areas, func(a domain.Area) bool { return a.Name == w.previousName }) {
 		return fmt.Errorf("version %d shows %+v, want the name %q", number, c.Areas, w.previousName)
 	}
 	return nil
 }
 
 func (w *procedureTypeWorld) thenVersionNotReturned() error {
-	if !errors.Is(w.err, procedure.ErrAlteredContent) {
+	if !errors.Is(w.err, domain.ErrAlteredContent) {
 		return fmt.Errorf("got %w, want ErrAlteredContent", w.err)
 	}
 	if w.requested.Number != 0 {
@@ -421,7 +421,7 @@ func (w *procedureTypeWorld) thenNothingOnTop() error {
 	if err := w.publish(latest, w.revised()); err != nil {
 		return err
 	}
-	if !errors.Is(w.err, procedure.ErrAlteredContent) {
+	if !errors.Is(w.err, domain.ErrAlteredContent) {
 		return fmt.Errorf("got %w, want ErrAlteredContent", w.err)
 	}
 	return w.thenNoVersion()

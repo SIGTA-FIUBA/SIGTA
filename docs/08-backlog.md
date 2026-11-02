@@ -47,6 +47,7 @@
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
 | US06 | SIG-11 | Autenticación con proveedor abstraído | 8 | 2 |
+| US06 | SIG-61 | Ingreso con la cuenta de Google de la UBA |  | 3 |
 | US07 | SIG-14 | Perfiles y autorización | 3 | 3 |
 
 ### EP02 — Configuración de trámites

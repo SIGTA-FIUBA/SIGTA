@@ -30,7 +30,7 @@ Feature: Define and publish a procedure type
     Then version 2 of "subject equivalence" is published
 
   Scenario: a definition edited from an outdated version is rejected
-    Given version 2 of "subject equivalence" was published from version 1
+    Given version 2 of "subject equivalence" is published
     When a different definition is published from version 1
     Then no version is published
     And whoever published it is asked to start again from version 2

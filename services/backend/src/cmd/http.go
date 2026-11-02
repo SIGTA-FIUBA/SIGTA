@@ -2,20 +2,19 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"backend/src/adapters/dev"
-	"backend/src/adapters/google"
-	"backend/src/adapters/memory"
-	"backend/src/adapters/rest"
-	"backend/src/application"
-	"backend/src/domain"
-	out "backend/src/ports/output"
+	"backend/src/api"
+	"backend/src/auth/adapters/dev"
+	"backend/src/auth/adapters/google"
+	"backend/src/auth/adapters/memory"
+	authrest "backend/src/auth/adapters/rest"
+	"backend/src/auth/application"
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 )
 
 func main() {
@@ -45,7 +44,7 @@ func run(logger *slog.Logger) error {
 			IdleTimeout:   30 * time.Minute,
 			LoginLinkTTL:  15 * time.Minute,
 			AllowedDomain: cfg.allowedDomain,
-			LoginLinkURL:  cfg.appURL + "login/link#token=",
+			LoginLinkURL:  cfg.loginLinkURL(),
 		},
 		identity,
 		memory.NewUserRepository(users...),
@@ -55,11 +54,10 @@ func run(logger *slog.Logger) error {
 		time.Now,
 	)
 
-	secureCookies := strings.HasPrefix(cfg.publicURL, "https://")
-	api := rest.NewServer(rest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), secureCookies))
+	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 
 	router := http.NewServeMux()
-	rest.Mount(router, api, logger)
+	api.Mount(router, authHandler, logger)
 
 	server := &http.Server{
 		Addr:              ":8080",
@@ -80,7 +78,7 @@ func usersOf(cfg config) ([]domain.User, error) {
 
 func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
 	if cfg.identityProvider == identityDev {
-		return dev.NewIdentityProvider(cfg.callbackURL(), devUsers()[0].Email), nil
+		return dev.NewIdentityProvider(cfg.callbackURL(), devApplicantEmail), nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -93,26 +91,24 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 	}, logger)
 }
 
-// errNoMailer answers a login link request outside development: there is no
-// mail adapter yet, and whether login links stay at all is pending with the
-// Secretaría.
-var errNoMailer = errors.New("login links are not available outside development")
-
-type noMailer struct{}
-
-func (noMailer) SendLoginLink(context.Context, string, string) error { return errNoMailer }
-
+// mailerOf is nil, which turns login links off, everywhere but development:
+// there is no mail adapter yet, and whether login links stay at all is
+// pending with the Secretaría.
 func mailerOf(cfg config, logger *slog.Logger) out.Mailer {
 	if cfg.development() {
 		return dev.NewMailer(logger)
 	}
-	return noMailer{}
+	return nil
 }
+
+// devApplicantEmail is who the development identity provider logs in by
+// default.
+const devApplicantEmail = "titular@fi.uba.ar"
 
 // devUsers are synthetic accounts, one per role, for local development.
 func devUsers() []domain.User {
 	return []domain.User{
-		{ID: "dev-student", Email: "alumno@fi.uba.ar", Name: "Alumno de prueba", Role: domain.RoleApplicant},
+		{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba", Role: domain.RoleApplicant},
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
 	}
