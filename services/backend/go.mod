@@ -5,8 +5,11 @@ go 1.26.8
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/cucumber/godog v0.16.0
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/oapi-codegen/runtime v1.8.0
+	golang.org/x/oauth2 v0.37.0
 )
 
 require (

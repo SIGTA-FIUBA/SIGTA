@@ -58,6 +58,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
 - **Cada servicio es dueño de sus datos.** Comparten la instancia de PostgreSQL pero no los esquemas; ninguno lee las tablas del otro.
 - **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; roles, áreas y perfiles se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.
+- **Interfaz:** componentes de Mantine, con el aspecto definido solo en `web/src/theme/theme.ts` (ADR-015). Las reglas de diseño y su motivo están en [web/DESIGN.md](web/DESIGN.md), y el lint rechaza estilos, colores y medidas fuera del tema.
 - **No sumar componentes** (NATS, S3, gateway, observabilidad completa) sin que se cumpla su disparador, listado en la sección "Evolución" del README.
 
 ## Estructura del repositorio
@@ -65,9 +66,9 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`, `dev/`), `cmd/` |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
-| `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
+| `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
 | `features/` | Escenarios Gherkin de cada historia y su matriz de trazabilidad |
@@ -106,6 +107,13 @@ Las tareas recurrentes tienen una rutina en `.claude/skills/`. Seguirla cuando s
 | `gherkin-scenarios` | Redactar los escenarios de una historia desde sus criterios de aceptación |
 | `new-procedure-type` | Preparar el borrador de configuración de un tipo de trámite nuevo |
 | `open-pr` | Armar la rama, los commits y el PR con la plantilla completa |
+| `break-ui` | Probar una pantalla con datos extremos (nombres largos, listas vacías, un solo elemento) antes de darla por terminada |
+| `web-design-guidelines` | Revisar la accesibilidad, el foco, los formularios y los textos de una pantalla |
+| `mantine-form` | Armar formularios con `@mantine/form` |
+| `mantine-combobox` | Armar selectores y buscadores a medida |
+| `mantine-custom-components` | Crear componentes propios que tomen el aspecto del tema |
+
+Las cinco últimas son de terceros: cada carpeta tiene su licencia y un `SOURCE.md` con el repositorio y el commit de origen. Si una choca con `web/DESIGN.md` (por ejemplo, en el idioma o las mayúsculas de los textos), vale `web/DESIGN.md`.
 
 ## Linear
 

@@ -9,17 +9,17 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/adapters/memory"
-	"backend/src/application"
-	"backend/src/domain/procedure"
-	"backend/src/ports/input"
+	"backend/src/procedure/adapters/memory"
+	"backend/src/procedure/application"
+	"backend/src/procedure/domain"
+	"backend/src/procedure/ports/input"
 )
 
 // catalogWorld is the state of one scenario of US13.
 type catalogWorld struct {
 	service *application.ProcedureTypeService
 	types   map[string]int64
-	latest  map[string]procedure.Definition
+	latest  map[string]domain.Definition
 
 	entries []input.CatalogEntry
 	err     error
@@ -29,13 +29,13 @@ type catalogWorld struct {
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
 	areas := memory.NewAreaCatalog(
-		procedure.Area{ID: "titular", Name: "Titular", Kind: procedure.AreaApplicant},
-		procedure.Area{ID: "secretaria", Name: "Secretaría", Kind: procedure.AreaOffice},
+		domain.Area{ID: "titular", Name: "Titular", Kind: domain.AreaApplicant},
+		domain.Area{ID: "secretaria", Name: "Secretaría", Kind: domain.AreaOffice},
 	)
 	world := &catalogWorld{
 		service: application.NewProcedureTypeService(versions, areas, time.Now),
 		types:   map[string]int64{},
-		latest:  map[string]procedure.Definition{},
+		latest:  map[string]domain.Definition{},
 	}
 
 	sc.Given(`^a published "([^"]*)" procedure type described as "([^"]*)"$`, world.givenPublished)
@@ -68,7 +68,7 @@ type tamperableVersions struct {
 	altered bool
 }
 
-func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]procedure.Version, error) {
+func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]domain.Version, error) {
 	versions, err := s.ProcedureVersions.LatestOfEach(ctx)
 	if err == nil && s.altered {
 		versions[0].Encoded = append(versions[0].Encoded, ' ')
@@ -76,32 +76,32 @@ func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]procedure.Vers
 	return versions, err
 }
 
-func catalogDefinition(name, description string) procedure.Definition {
-	return procedure.Definition{
+func catalogDefinition(name, description string) domain.Definition {
+	return domain.Definition{
 		Name:          name,
 		Description:   description,
 		Deadlines:     []string{"Hasta 30 días antes de cursar"},
 		Admissibility: []string{"Ser estudiante regular"},
-		Fields: []procedure.Field{
-			{ID: "full_name", Name: "Nombre completo", Type: procedure.FieldText},
-			{ID: "reason", Name: "Motivo", Type: procedure.FieldLongText},
-			{ID: "file_number", Name: "Número de expediente", Type: procedure.FieldText},
+		Fields: []domain.Field{
+			{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText},
+			{ID: "reason", Name: "Motivo", Type: domain.FieldLongText},
+			{ID: "file_number", Name: "Número de expediente", Type: domain.FieldText},
 		},
-		Documents: []procedure.Document{
+		Documents: []domain.Document{
 			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 		},
-		Steps: []procedure.Step{
-			{ID: "request", Name: "Solicitud", Area: "titular", Action: procedure.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "titular", Action: procedure.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
-			{ID: "ruling", Name: "Dictamen", Area: "secretaria", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
-			{ID: "record", Name: "Registro", Area: "secretaria", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact, Fields: []string{"file_number"}},
+		Steps: []domain.Step{
+			{ID: "request", Name: "Solicitud", Area: "titular", Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Area: "titular", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
+			{ID: "ruling", Name: "Dictamen", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
+			{ID: "record", Name: "Registro", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
 	}
 }
 
-func (w *catalogWorld) publishDefinition(name string, definition procedure.Definition) error {
+func (w *catalogWorld) publishDefinition(name string, definition domain.Definition) error {
 	base := 0
 	typeID, known := w.types[name]
 	if known {
@@ -118,7 +118,7 @@ func (w *catalogWorld) publishDefinition(name string, definition procedure.Defin
 		ProcedureType: typeID,
 		Base:          base,
 		Definition:    definition,
-		Authorship:    procedure.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
+		Authorship:    domain.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
 	})
 	if err == nil {
 		w.latest[name] = definition
@@ -154,8 +154,8 @@ func (w *catalogWorld) givenMandatoryLater(field string) error {
 	for name, definition := range w.latest {
 		definition.Steps = slices.Clone(definition.Steps)
 		definition.Steps[0].Next = "more"
-		definition.Steps = slices.Insert(definition.Steps, 1, procedure.Step{
-			ID: "more", Name: "Ampliación", Area: "titular", Action: procedure.ActionEnterData, Fields: []string{field}, Next: "documents",
+		definition.Steps = slices.Insert(definition.Steps, 1, domain.Step{
+			ID: "more", Name: "Ampliación", Area: "titular", Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
 		if err := w.publishDefinition(name, definition); err != nil {
 			return err
@@ -241,17 +241,17 @@ func (w *catalogWorld) thenField(name, id, kind string) error {
 	return fmt.Errorf("field %q is not shown", id)
 }
 
-func (w *catalogWorld) document(name, id string) (procedure.DocumentRequirement, bool, error) {
+func (w *catalogWorld) document(name, id string) (domain.DocumentRequirement, bool, error) {
 	entry, err := w.entry(name)
 	if err != nil {
-		return procedure.DocumentRequirement{}, false, err
+		return domain.DocumentRequirement{}, false, err
 	}
 	for _, requirement := range entry.Documents {
 		if requirement.Document.ID == id {
 			return requirement, true, nil
 		}
 	}
-	return procedure.DocumentRequirement{}, false, nil
+	return domain.DocumentRequirement{}, false, nil
 }
 
 func (w *catalogWorld) thenDocument(name, id, kind string) error {
@@ -332,20 +332,20 @@ func (w *catalogWorld) thenCondition(name, text string) error {
 }
 
 func (w *catalogWorld) thenNotShown() error {
-	if !errors.Is(w.err, procedure.ErrAlteredContent) {
-		return fmt.Errorf("Catalog() error = %w, want %w", w.err, procedure.ErrAlteredContent)
+	if !errors.Is(w.err, domain.ErrAlteredContent) {
+		return fmt.Errorf("Catalog() error = %w, want %w", w.err, domain.ErrAlteredContent)
 	}
 	return nil
 }
 
 func (w *catalogWorld) thenRejected(code string) error {
-	if !errors.Is(w.publish, procedure.ErrInvalidDefinition) {
+	if !errors.Is(w.publish, domain.ErrInvalidDefinition) {
 		return fmt.Errorf("Publish() error = %w, want an invalid definition", w.publish)
 	}
-	for _, problem := range procedure.ProblemsOf(w.publish) {
+	for _, problem := range domain.ProblemsOf(w.publish) {
 		if string(problem.Code) == code {
 			return nil
 		}
 	}
-	return fmt.Errorf("problems = %v, want %q", procedure.ProblemsOf(w.publish), code)
+	return fmt.Errorf("problems = %v, want %q", domain.ProblemsOf(w.publish), code)
 }

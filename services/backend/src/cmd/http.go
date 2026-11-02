@@ -2,81 +2,126 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"backend/src/adapters/dev"
-	"backend/src/adapters/memory"
-	"backend/src/adapters/rest"
-	"backend/src/application"
-	"backend/src/domain"
-	"backend/src/domain/procedure"
-	"backend/src/ports/input"
+	"backend/src/api"
+	"backend/src/auth/adapters/dev"
+	"backend/src/auth/adapters/google"
+	"backend/src/auth/adapters/memory"
+	authrest "backend/src/auth/adapters/rest"
+	"backend/src/auth/application"
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
+	proceduremem "backend/src/procedure/adapters/memory"
+	procedurerest "backend/src/procedure/adapters/rest"
+	procedureapp "backend/src/procedure/application"
+	procedure "backend/src/procedure/domain"
+	"backend/src/procedure/ports/input"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	// Only the development adapters exist so far; the institutional OpenID
-	// Connect adapter comes with SIG-61.
-	if os.Getenv("SIGTA_ENV") != "development" {
-		logger.Error("no production identity provider yet; run with SIGTA_ENV=development")
+	if err := run(logger); err != nil {
+		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
 
-	publicURL := envOr("SIGTA_PUBLIC_URL", "http://localhost:8080")
-	appURL := envOr("SIGTA_APP_URL", "http://localhost:5173/")
+func run(logger *slog.Logger) error {
+	cfg, err := loadConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
+	users, err := usersOf(cfg)
+	if err != nil {
+		return err
+	}
+	identity, err := identityProviderOf(cfg, logger)
+	if err != nil {
+		return err
+	}
 
 	auth := application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			LoginLinkTTL:  15 * time.Minute,
-			AllowedDomain: envOr("SIGTA_ALLOWED_DOMAIN", "fi.uba.ar"),
-			LoginLinkURL:  appURL + "login/link#token=",
+			AllowedDomain: cfg.allowedDomain,
+			LoginLinkURL:  cfg.loginLinkURL(),
 		},
-		dev.NewIdentityProvider(publicURL+"/auth/callback"),
-		memory.NewUserRepository(devUsers()...),
+		identity,
+		memory.NewUserRepository(users...),
 		memory.NewSessionStore(),
 		memory.NewLoginLinkStore(),
-		dev.NewMailer(logger),
+		mailerOf(cfg, logger),
 		time.Now,
 	)
 
-	secureCookies := strings.HasPrefix(publicURL, "https://")
-	procedureTypes := application.NewProcedureTypeService(memory.NewProcedureVersions(), memory.NewAreaCatalog(devAreas()...), time.Now)
-	// The check above already stops production, but the example must not
-	// reach the public catalog when that check goes away with SIG-61.
-	if os.Getenv("SIGTA_ENV") == "development" {
+	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
+	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), proceduremem.NewAreaCatalog(devAreas()...), time.Now)
+	if cfg.development() {
 		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
-			logger.Error("publish the example procedure type", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
-
-	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies), rest.NewCatalogHandler(procedureTypes))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
 
 	router := http.NewServeMux()
-	rest.Mount(router, api, logger)
+	api.Mount(router, app, logger)
 
 	server := &http.Server{
 		Addr:              ":8080",
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-
-	if err := server.ListenAndServe(); err != nil {
-		logger.Error("server stopped", "error", err)
-		os.Exit(1)
-	}
+	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
+	return server.ListenAndServe()
 }
+
+func usersOf(cfg config) ([]domain.User, error) {
+	if cfg.usersFile != "" {
+		return loadUsers(cfg.usersFile, cfg.allowedDomain)
+	}
+	// loadConfig asks for a users file everywhere but development.
+	return devUsers(), nil
+}
+
+func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
+	if cfg.identityProvider == identityDev {
+		return dev.NewIdentityProvider(cfg.callbackURL(), devApplicantEmail), nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return google.NewIdentityProvider(ctx, google.Config{
+		Issuer:       google.Issuer,
+		ClientID:     cfg.googleClient.id,
+		ClientSecret: cfg.googleClient.secret,
+		RedirectURL:  cfg.callbackURL(),
+		HostedDomain: cfg.allowedDomain,
+	}, logger)
+}
+
+// mailerOf is nil, which turns login links off, everywhere but development:
+// there is no mail adapter yet, and whether login links stay at all is
+// pending with the Secretaría.
+func mailerOf(cfg config, logger *slog.Logger) out.Mailer {
+	if cfg.development() {
+		return dev.NewMailer(logger)
+	}
+	return nil
+}
+
+// devApplicantEmail is who the development identity provider logs in by
+// default.
+const devApplicantEmail = "titular@fi.uba.ar"
 
 // devUsers are synthetic accounts, one per role, for local development.
 func devUsers() []domain.User {
 	return []domain.User{
-		{ID: "dev-student", Email: "alumno@fi.uba.ar", Name: "Alumno de prueba", Role: domain.RoleApplicant},
+		{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba", Role: domain.RoleApplicant},
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
 	}
@@ -114,11 +159,4 @@ func devProcedureType() input.Publication {
 			},
 		},
 	}
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

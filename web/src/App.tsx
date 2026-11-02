@@ -1,11 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router'
-import { CatalogPage } from './pages/CatalogPage'
-import { HomePage } from './pages/HomePage'
+import { routes } from './routes'
 
-const router = createBrowserRouter([
-  { path: '/', element: <HomePage /> },
-  { path: '/catalog', element: <CatalogPage /> },
-])
+const router = createBrowserRouter(routes)
 
 export function App() {
   return <RouterProvider router={router} />

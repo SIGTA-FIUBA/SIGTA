@@ -274,6 +274,46 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
+
+**Decisión.**
+- `services/backend/src/` se divide por módulo: `auth/` (ingreso y sesiones) y `procedure/` (tipos de trámite y versiones).
+- Dentro de cada módulo se mantienen los componentes de puertos y adaptadores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/`.
+- Un módulo no importa el núcleo de otro; si lo necesita, lo hace a través de un puerto.
+- El contrato sigue siendo uno solo. Su código generado vive en `api/`, junto con el montaje de la API, y lo importan los adaptadores REST de cada módulo. `cmd/` compone los handlers de todos los módulos en el servidor.
+
+**Consecuencias.**
+- Un módulo nuevo es una carpeta nueva con los mismos componentes, sin tocar las de los demás.
+- Las ramas abiertas al momento del cambio tienen que moverse a la estructura nueva al integrarse.
+- Partir el contrato por módulo queda como alternativa si el archivo único se vuelve difícil de mantener.
+
+---
+
+## ADR-015: La interfaz se arma con Mantine y toma su aspecto de un único tema
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** ADR-011 fijó React, TypeScript y Vite, pero no cómo se construye la interfaz. El equipo revisa con dificultad el código de frontend, y la mayor parte la va a escribir un agente. Las opciones evaluadas en noviembre de 2026 fueron: shadcn/ui, que copia los componentes al repositorio y los estiliza con cadenas largas de clases de Tailwind; Base UI y React Aria, que no traen estilo y dejan todo el CSS a cargo del equipo; Radix Themes, sin versiones nuevas desde enero de 2026; IBM Carbon, pesado y difícil de alejar del aspecto de IBM; y Mantine, una biblioteca completa (formularios, fechas, menús, notificaciones) que se configura con propiedades y un objeto de tema.
+
+**Decisión.**
+- La interfaz se construye con componentes de Mantine 9, sin Tailwind ni CSS propio.
+- El aspecto (colores, tipografía, radios, valores por defecto de cada componente) se define solo en `web/src/theme/theme.ts`.
+- Las pantallas usan valores del tema, nunca colores ni medidas escritos a mano. Lo controla el lint con `react/forbid-component-props`, `react/forbid-dom-props`, `no-restricted-imports` y una regla propia en `web/lint/design-rules.js`.
+- Las reglas de diseño, con su motivo, están en `web/DESIGN.md`.
+- La única excepción es el botón "Iniciar sesión con Google", que Google exige con colores y tipografía propios.
+
+**Consecuencias.**
+- Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en un solo archivo.
+- La paleta institucional queda a confirmar hasta que se defina la identidad visual. Mientras tanto se usa el azul de Mantine.
+- El frontend depende de Mantine: cambiar de biblioteca implica reescribir las pantallas.
+- El frontend compilado pesa 533 kB sin comprimir (166 kB comprimido), por encima del aviso de 500 kB de Vite. A revisar con división por rutas cuando crezca la cantidad de pantallas.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |

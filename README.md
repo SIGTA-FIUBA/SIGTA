@@ -188,6 +188,8 @@ flowchart LR
 ### Autenticación y autorización
 
 - **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
+- **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/auth/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
+- **Quién puede ingresar.** Cualquier cuenta del dominio institucional. La primera vez que ingresa una cuenta que SIGTA no conoce, se registra como titular, con el nombre que informa el proveedor; los perfiles del personal se asignan en SIGTA. Hasta que los usuarios se guarden en PostgreSQL, las cuentas registradas así se pierden al reiniciar el servicio, y el personal se carga desde el archivo de `SIGTA_USERS_FILE` (ver "Configuración del servicio de trámites"); en desarrollo hay tres usuarios sintéticos, uno por rol.
 - **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
@@ -234,6 +236,17 @@ flowchart LR
 | Identidad | Cuenta de Google de la UBA; un adaptador falso en desarrollo y pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |
 
+En el código, el servicio de trámites se divide primero por módulo y, dentro de cada módulo, por componente (ADR-014):
+
+| Ruta en `services/backend/src/` | Contenido |
+| --- | --- |
+| `auth/` | Ingreso y sesiones: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
+| `procedure/` | Tipos de trámite y sus versiones, con los mismos componentes |
+| `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
+| `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
+
+Un módulo no importa el núcleo de otro; si lo necesita, lo hace a través de un puerto. Un módulo nuevo (por ejemplo, el de trámites iniciados) suma su carpeta con los mismos componentes.
+
 El servicio de inteligencia artificial sigue la misma estructura. Sus puertos de salida son la clasificación y la generación de texto, con adaptadores para reglas en código, modelos de pesos abiertos como Laya y modelos por API como Claude; los conjuntos de evaluación son uno más de sus adaptadores de entrada.
 
 Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servicios externos. Las de cada adaptador corren contra la dependencia real en un contenedor, para que los dos no diverjan.
@@ -244,6 +257,20 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 - La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose. Al integrar en `main` se construyen las imágenes.
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
+
+#### Configuración del servicio de trámites
+
+| Variable | Valor | Si falta |
+| --- | --- | --- |
+| `SIGTA_ENV` | `development` o `production`. Solo `development` tiene los usuarios sintéticos, el adaptador de identidad de desarrollo y el correo que escribe los enlaces en el log | No arranca |
+| `SIGTA_IDENTITY_PROVIDER` | `dev` o `google`. `dev` ingresa como el correo de `/api/auth/login?login_hint=<correo>`, o como `titular@fi.uba.ar` sin él, y solo arranca con `SIGTA_ENV=development` | `dev` en desarrollo, `google` en producción |
+| `SIGTA_PUBLIC_URL` | La API como la ve el navegador, por ejemplo `https://<host>/api`. Con Google tiene que ser `https` (o `localhost`), y `<SIGTA_PUBLIC_URL>/auth/callback` tiene que estar registrada en el cliente de Google | `http://localhost:8080` en desarrollo; en producción no arranca |
+| `SIGTA_APP_URL` | El frontend, terminado en `/`. El ingreso fallido vuelve a `<SIGTA_APP_URL>login` | `http://localhost:5173/` en desarrollo; en producción no arranca |
+| `SIGTA_ALLOWED_DOMAIN` | Dominio de los correos y del claim `hd` | `fi.uba.ar` en desarrollo; en producción no arranca |
+| `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` | Credenciales del cliente OAuth de tipo "aplicación web". Son secretos del despliegue: nunca van al repositorio | Con Google no arranca |
+| `SIGTA_USERS_FILE` | Archivo JSON con las personas que ya tienen perfil en SIGTA, como el personal: una lista de objetos con `id`, `email`, `name` y `role` (`applicant`, `staff_operative` o `staff_approver`). Tiene datos personales, así que se guarda con los secretos del despliegue y nunca en el repositorio. Una entrada inválida impide arrancar | En desarrollo, los usuarios sintéticos; en producción no arranca |
+
+Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona. Fuera de desarrollo no hay adaptador de correo, así que pedir un enlace de ingreso responde 503 para cualquier correo; si el enlace se mantiene está pendiente con la Secretaría.
 
 ## Inteligencia artificial
 
@@ -292,7 +319,7 @@ Cada llamada a un modelo registra costo, latencia y versión del prompt desde el
 | --- | --- |
 | Lenguajes | Go (servicio de trámites), Python (servicio de inteligencia artificial), TypeScript (frontend) |
 | Contratos | OpenAPI, con código generado para el servidor y los clientes |
-| Frontend | React, Vite, TanStack Query, React Router |
+| Frontend | React, Vite, Mantine, TanStack Query, React Router |
 | Datos | PostgreSQL con pgvector |
 | Trabajo asincrónico | Cola de trabajos en PostgreSQL |
 | Documentos | Sistema de archivos detrás de un puerto |

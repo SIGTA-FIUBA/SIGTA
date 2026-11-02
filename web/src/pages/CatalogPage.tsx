@@ -1,3 +1,4 @@
+import { Alert, Container, List, Loader, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
@@ -40,54 +41,32 @@ function documentText(document: DocumentRequirement) {
   return parts.join(' ')
 }
 
+function Section({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) {
+    return null
+  }
+  return (
+    <Stack gap="xs">
+      <Title order={3}>{title}</Title>
+      <List>
+        {items.map((item, index) => (
+          <List.Item key={index}>{item}</List.Item>
+        ))}
+      </List>
+    </Stack>
+  )
+}
+
 function Entry({ entry }: { entry: CatalogEntry }) {
   return (
-    <article>
-      <h2>{entry.name}</h2>
-      {entry.description !== '' && <p>{entry.description}</p>}
-      {entry.fields.length > 0 && (
-        <section>
-          <h3>Datos</h3>
-          <ul>
-            {entry.fields.map((field) => (
-              <li key={field.id}>
-                {field.name} ({requiredText(field.required)})
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {entry.documents.length > 0 && (
-        <section>
-          <h3>Documentos</h3>
-          <ul>
-            {entry.documents.map((document) => (
-              <li key={document.id}>{documentText(document)}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {entry.deadlines.length > 0 && (
-        <section>
-          <h3>Plazos</h3>
-          <ul>
-            {entry.deadlines.map((deadline, index) => (
-              <li key={index}>{deadline}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {entry.admissibility.length > 0 && (
-        <section>
-          <h3>Condiciones de admisibilidad</h3>
-          <ul>
-            {entry.admissibility.map((condition, index) => (
-              <li key={index}>{condition}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </article>
+    <Stack component="article" gap="sm">
+      <Title order={2}>{entry.name}</Title>
+      {entry.description !== '' && <Text>{entry.description}</Text>}
+      <Section title="Datos" items={entry.fields.map((field) => `${field.name} (${requiredText(field.required)})`)} />
+      <Section title="Documentos" items={entry.documents.map(documentText)} />
+      <Section title="Plazos" items={entry.deadlines} />
+      <Section title="Condiciones de admisibilidad" items={entry.admissibility} />
+    </Stack>
   )
 }
 
@@ -105,14 +84,20 @@ export function CatalogPage() {
 
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
-    <main>
-      <h1>Trámites</h1>
-      {catalog.isPending && <p>Cargando…</p>}
-      {catalog.isError && <p role="alert">No pudimos cargar los trámites. Probá de nuevo más tarde.</p>}
-      {catalog.isSuccess && entries.length === 0 && <p>Todavía no hay trámites disponibles.</p>}
-      {entries.map((entry) => (
-        <Entry key={entry.id} entry={entry} />
-      ))}
-    </main>
+    <Container size="md" py="md">
+      <Stack gap="lg">
+        <Title order={1}>Trámites</Title>
+        {catalog.isPending && <Loader aria-label="Cargando los trámites" />}
+        {catalog.isError && (
+          <Alert color="red" role="alert">
+            No pudimos cargar los trámites. Volvé a intentarlo más tarde.
+          </Alert>
+        )}
+        {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
+        {entries.map((entry) => (
+          <Entry key={entry.id} entry={entry} />
+        ))}
+      </Stack>
+    </Container>
   )
 }

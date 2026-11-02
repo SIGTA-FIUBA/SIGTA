@@ -1,13 +1,14 @@
+import { Anchor, Stack, Text, Title } from '@mantine/core'
 import { Link } from 'react-router'
 
 export function HomePage() {
   return (
-    <main>
-      <h1>SIGTA</h1>
-      <p>Sistema Integral de Gestión de Trámites Académicos</p>
-      <p>
-        <Link to="/catalog">Ver los trámites disponibles</Link>
-      </p>
-    </main>
+    <Stack gap="xs">
+      <Title order={1}>Inicio</Title>
+      <Text c="dimmed">Sistema Integral de Gestión de Trámites Académicos</Text>
+      <Anchor component={Link} to="/catalog">
+        Ver los trámites disponibles
+      </Anchor>
+    </Stack>
   )
 }

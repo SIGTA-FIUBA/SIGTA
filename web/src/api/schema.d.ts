@@ -30,7 +30,7 @@ export interface paths {
         };
         /**
          * Recibe la respuesta del proveedor de identidad y abre la sesión
-         * @description El ingreso pendiente sirve una sola vez: tanto el 302 como el 401 vencen la cookie sigta_login_state, así que el 302 lleva dos encabezados Set-Cookie.
+         * @description Es una navegación del navegador, así que siempre redirige: a la aplicación si se abrió la sesión, y a la página de ingreso con el parámetro error (un LoginError) si no. El ingreso pendiente sirve una sola vez: las dos redirecciones vencen la cookie sigta_login_state, así que la de la sesión abierta lleva dos encabezados Set-Cookie.
          */
         get: operations["completeLogin"];
         put?: never;
@@ -52,7 +52,7 @@ export interface paths {
         put?: never;
         /**
          * Envía por correo un enlace de ingreso de un solo uso
-         * @description Solo acepta correos del dominio institucional. Dentro de ese dominio, responde igual exista o no una cuenta con ese correo, para no revelar quién tiene cuenta en SIGTA.
+         * @description Solo acepta correos del dominio institucional. Dentro de ese dominio, responde igual exista o no una cuenta con ese correo, para no revelar quién tiene cuenta en SIGTA. En un entorno sin correo responde 503 a todo pedido, antes de mirar el correo.
          */
         post: operations["requestLoginLink"];
         delete?: never;
@@ -141,6 +141,11 @@ export interface components {
         Error: {
             message: string;
         };
+        /**
+         * @description Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
+         * @enum {string}
+         */
+        LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
         /** @enum {string} */
         Role: "applicant" | "staff_operative" | "staff_approver";
         FieldRequirement: {
@@ -236,8 +241,11 @@ export interface operations {
     completeLogin: {
         parameters: {
             query: {
-                code: string;
+                /** @description Falta cuando el proveedor responde con error */
+                code?: string;
                 state: string;
+                /** @description Error del proveedor, por ejemplo access_denied cuando la persona cancela el ingreso */
+                error?: string;
             };
             header?: never;
             path?: never;
@@ -247,18 +255,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Sesión abierta; redirección a la aplicación */
+            /** @description Redirección a la aplicación con la sesión abierta, o a la página de ingreso con el parámetro error */
             302: {
                 headers: {
                     Location?: string;
-                    /** @description Cookie de sesión y cookie del ingreso pendiente vencida */
+                    /** @description Cookie del ingreso pendiente vencida y, si se abrió la sesión, cookie de sesión */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
         };
     };
     requestLoginLink: {
@@ -285,6 +292,15 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            /** @description El ingreso por enlace no está disponible en este entorno */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     redeemLoginLink: {
