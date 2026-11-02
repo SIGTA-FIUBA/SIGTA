@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -29,6 +30,21 @@ func (s *ProcedureVersions) Latest(_ context.Context, procedureType int64) (proc
 		return procedure.Version{}, output.ErrNoVersion
 	}
 	return clone(stored[len(stored)-1]), nil
+}
+
+func (s *ProcedureVersions) LatestOfEach(context.Context) ([]procedure.Version, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	latest := make([]procedure.Version, 0, len(s.versions))
+	for _, stored := range s.versions {
+		if len(stored) > 0 {
+			latest = append(latest, clone(stored[len(stored)-1]))
+		}
+	}
+	slices.SortFunc(latest, func(left, right procedure.Version) int {
+		return cmp.Compare(left.ProcedureType, right.ProcedureType)
+	})
+	return latest, nil
 }
 
 func (s *ProcedureVersions) Get(_ context.Context, procedureType int64, number int) (procedure.Version, error) {

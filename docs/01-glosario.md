@@ -9,7 +9,7 @@ Las entradas marcadas con **(V)** deben validarse con la Secretaría antes de co
 ## Dominio del trámite
 
 **Tipo de trámite**
-Definición reutilizable de un procedimiento administrativo: los datos y documentos que pide, la secuencia de pasos, y el área de cada paso con su perfil, salvo en los pasos del titular. Se va a editar desde la interfaz de SIGTA (ADR-013), y cada publicación genera una versión nueva (ADR-012).
+Definición reutilizable de un procedimiento administrativo: su descripción en lenguaje llano, sus plazos y condiciones de admisibilidad (como texto que el titular lee), los datos y documentos que pide, la secuencia de pasos, y el área de cada paso con su perfil, salvo en los pasos del titular. Se va a editar desde la interfaz de SIGTA (ADR-013), y cada publicación genera una versión nueva (ADR-012).
 
 **Versión de un tipo de trámite**
 Contenido publicado de un tipo de trámite, con su número, su hash, quién la propuso, quién la aprobó y cuándo. No se modifica: un trámite sigue de punta a punta la versión con la que empezó.
@@ -78,7 +78,7 @@ Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y n
 ## Documentos
 
 **Requisito**
-Condición que el trámite exige para poder avanzar. Puede ser un documento, un dato o una condición académica. En el modelo, los datos (`fields`) y documentos (`documents`) se declaran en cada tipo de trámite. Las condiciones académicas todavía no están en el modelo: a confirmar cómo se declaran, porque son la base contra la que trabaja la validación asistida.
+Condición que el trámite exige para poder avanzar. Puede ser un documento, un dato o una condición académica. En el modelo, los datos (`fields`) y documentos (`documents`) se declaran en cada tipo de trámite. Las condiciones académicas se guardan solo como texto (`admissibility`) y nada las aplica: a confirmar cómo se declaran para que se puedan verificar, porque son la base contra la que trabaja la validación asistida.
 
 **Preacta**
 Borrador de un documento formal generado por la plataforma a partir de una plantilla, con campos completados desde los datos del trámite. **Siempre es un borrador**: no tiene valor hasta que una persona lo revisa y lo aprueba.

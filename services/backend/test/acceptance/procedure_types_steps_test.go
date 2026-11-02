@@ -110,9 +110,13 @@ func (w *procedureTypeWorld) publish(base int, d procedure.Definition) error {
 // valid is a definition that uses the four actions and every kind of area.
 func (w *procedureTypeWorld) valid(name string) procedure.Definition {
 	return procedure.Definition{
-		Name:      name,
-		Fields:    []procedure.Field{{ID: "full_name", Name: "Nombre completo", Type: procedure.FieldText}},
-		Documents: []procedure.Document{{ID: "transcript", Name: "Certificado analítico"}, {ID: "ruling", Name: "Dictamen"}},
+		Name:        name,
+		Description: "Un trámite de prueba",
+		Fields:      []procedure.Field{{ID: "full_name", Name: "Nombre completo", Type: procedure.FieldText}},
+		Documents: []procedure.Document{
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+		},
 		Steps: []procedure.Step{
 			{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},

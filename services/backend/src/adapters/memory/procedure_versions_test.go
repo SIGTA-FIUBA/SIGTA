@@ -59,6 +59,28 @@ func TestProcedureVersions(t *testing.T) {
 	}
 }
 
+func TestLatestOfEach(t *testing.T) {
+	ctx := t.Context()
+	s := NewProcedureVersions()
+	if got, err := s.LatestOfEach(ctx); err != nil || len(got) != 0 {
+		t.Fatalf("LatestOfEach() = %v, %v, want nothing", got, err)
+	}
+	for _, add := range []struct {
+		procedureType int64
+		number        int
+	}{{2, 1}, {1, 1}, {1, 2}} {
+		added := version(add.number, "Trámite")
+		added.ProcedureType = add.procedureType
+		if err := s.Add(ctx, added); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.LatestOfEach(ctx)
+	if err != nil || len(got) != 2 || got[0].ProcedureType != 1 || got[0].Number != 2 || got[1].ProcedureType != 2 || got[1].Number != 1 {
+		t.Errorf("LatestOfEach() = %+v, %v", got, err)
+	}
+}
+
 func TestProcedureVersionsDoNotShareMemory(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureVersions()

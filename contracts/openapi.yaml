@@ -148,6 +148,23 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /procedure-types:
+    get:
+      operationId: listProcedureTypes
+      summary: Catálogo de los tipos de trámite publicados
+      description: >
+        Es público: sirve para saber si un trámite corresponde antes de tener
+        una sesión. Muestra la última versión de cada tipo de trámite y solo lo
+        que le toca aportar al titular.
+      responses:
+        "200":
+          description: Tipos de trámite
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogEntry"
 components:
   parameters:
     SessionCookie:
@@ -179,6 +196,66 @@ components:
     Role:
       type: string
       enum: [applicant, staff_operative, staff_approver]
+    FieldRequirement:
+      type: object
+      required: [id, name, required]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+    DocumentRequirement:
+      type: object
+      required: [id, name, required, accepted_types, max_size]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+        accepted_types:
+          type: array
+          description: Tipos de medio aceptados, como application/pdf
+          items:
+            type: string
+        max_size:
+          type: integer
+          format: int64
+          description: Tamaño máximo en bytes
+    CatalogEntry:
+      type: object
+      required:
+        [id, version, name, description, deadlines, admissibility, fields, documents]
+      properties:
+        id:
+          type: integer
+          format: int64
+        version:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        deadlines:
+          type: array
+          items:
+            type: string
+        admissibility:
+          type: array
+          description: Condiciones de admisibilidad, como texto informativo
+          items:
+            type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
     User:
       type: object
       required: [id, email, name, role]

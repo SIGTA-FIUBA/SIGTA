@@ -2,7 +2,7 @@
 
 SIGTA (Sistema Integral de Gestión de Trámites Académicos) es una plataforma web para iniciar, gestionar y seguir los trámites de la Secretaría de Gestión Académica de la FIUBA, con tres componentes de IA que proponen y nunca deciden. Es un Trabajo Profesional de Ingeniería en Informática: cuatro integrantes, sprints de dos semanas, cierre en mayo de 2027.
 
-Este archivo resume lo que un agente necesita para trabajar en el repositorio. El detalle está en el [README](README.md), en [CONTRIBUTING.md](CONTRIBUTING.md) y en [docs/](docs/README.md). Se actualiza en el mismo PR que cambia una convención.
+Este archivo resume lo que un agente necesita para trabajar en el repositorio. El detalle está en el [README](README.md), en [CONTRIBUTING.md](CONTRIBUTING.md) y en [docs/](docs/README.md). Se actualiza en el mismo PR que cambia una convención. Dónde está el proyecto (hitos, sprint actual y orden de lo que viene) no se repite acá: está en [docs/10-roadmap.md](docs/10-roadmap.md) y [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md).
 
 ## Reglas que no se negocian
 
@@ -35,7 +35,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
 | Secretario | staff, con perfil `staff_operative` o `staff_approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
-| Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que todavía no está en el modelo |
+| Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
 | Área | area (`applicant`, `office` o `external`) | Quien tiene a cargo un paso | Rol o perfil |
 | Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
@@ -116,7 +116,3 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 - Etiquetas: `s01` a `s18` (sprint), `b1` a `b4` (bloque) y `Feature`, `Bug`, `Improvement`.
 - Estados: `Backlog` → `Todo` → `In Progress` → `In Review` → `Done`, más `Canceled` y `Duplicate`.
 - Un agente lee tickets libremente, pero no crea, cierra ni cambia el estado de un ticket sin que se lo pidan.
-
-## Estado actual
-
-Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base (CI y Docker Compose), el ingreso con proveedor de identidad abstraído y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Los escenarios de `features/` corren en el pipeline. Lo que viene, en orden: ingreso con Google y perfiles, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.

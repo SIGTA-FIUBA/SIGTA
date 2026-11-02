@@ -47,7 +47,7 @@ func newServer(t *testing.T) (*httptest.Server, *outbox) {
 		mail,
 		time.Now,
 	)
-	api := rest.NewServer(rest.NewAuthHandler(auth, srv.URL+"/me", false))
+	api := rest.NewServer(rest.NewAuthHandler(auth, srv.URL+"/me", false), nil)
 	rest.Mount(mux, api, slog.Default())
 	return srv, mail
 }
@@ -237,7 +237,7 @@ type brokenAuth struct{ ports.Authenticator }
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 
 func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
-	handler := rest.Mount(http.NewServeMux(), rest.NewServer(rest.NewAuthHandler(brokenAuth{}, "", false)), slog.New(slog.DiscardHandler))
+	handler := rest.Mount(http.NewServeMux(), rest.NewServer(rest.NewAuthHandler(brokenAuth{}, "", false), nil), slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 

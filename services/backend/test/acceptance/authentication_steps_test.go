@@ -115,7 +115,7 @@ func (w *authenticationWorld) server() http.Handler {
 			w,
 			func() time.Time { return w.now },
 		)
-		api := rest.NewServer(rest.NewAuthHandler(auth, baseURL+"/", false))
+		api := rest.NewServer(rest.NewAuthHandler(auth, baseURL+"/", false), nil)
 		w.handler = rest.Mount(http.NewServeMux(), api, slog.New(slog.DiscardHandler))
 	}
 	return w.handler
