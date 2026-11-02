@@ -81,18 +81,18 @@ func (v stepValidator) contents(s Step) []Problem {
 			problems = append(problems, Problem{Code: CodeEnterDataNoFields})
 		}
 		if hasDocuments {
-			problems = append(problems, Problem{Code: CodeEnterDataDocuments})
+			problems = append(problems, Problem{Code: CodeEnterDataWithDocuments})
 		}
 	case ActionUploadDocument:
 		if !hasDocuments {
 			problems = append(problems, Problem{Code: CodeUploadNoDocuments})
 		}
 		if hasFields {
-			problems = append(problems, Problem{Code: CodeUploadFields})
+			problems = append(problems, Problem{Code: CodeUploadWithFields})
 		}
 	case ActionConfirmExternalFact:
 		if hasDocuments {
-			problems = append(problems, Problem{Code: CodeConfirmDocuments})
+			problems = append(problems, Problem{Code: CodeConfirmWithDocuments})
 		}
 	case ActionDecide:
 		// The fields and documents of a decision are its grounds, recorded
@@ -106,19 +106,16 @@ func (v stepValidator) contents(s Step) []Problem {
 func (v stepValidator) outcomes(s Step) []Problem {
 	var problems []Problem
 	if s.Next != "" {
-		problems = append(problems, Problem{Code: CodeDecideNext})
+		problems = append(problems, Problem{Code: CodeDecideWithNext})
 	}
 	if len(s.Outcomes) < 2 {
-		problems = append(problems, Problem{Code: CodeDecideOutcomes})
+		problems = append(problems, Problem{Code: CodeDecideFewOutcomes})
 	}
 	seenIDs := map[string]bool{}
 	seenNames := map[string]bool{}
 	for _, o := range s.Outcomes {
 		problems = append(problems, validateEntry(KindOutcome, o.ID, o.Name, seenIDs)...)
-		if seenNames[o.Name] {
-			problems = append(problems, Problem{Code: CodeRepeatedName, Path: []Ref{{Kind: KindOutcome}}, Value: o.Name})
-		}
-		seenNames[o.Name] = true
+		problems = append(problems, repeatedName(KindOutcome, o.Name, seenNames)...)
 		outcome := Ref{Kind: KindOutcome, ID: o.ID}
 		if _, ok := v.steps[o.Next]; !ok {
 			problems = append(problems, within(outcome, []Problem{{Code: CodeUnknownNextStep, Value: o.Next}})...)
@@ -142,18 +139,18 @@ func (v stepValidator) next(s Step) []Problem {
 }
 
 func validateReferences(unknown, repeated Code, ids []string, declared map[string]bool) []Problem {
-	var errs []Problem
+	var problems []Problem
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if !declared[id] {
-			errs = append(errs, Problem{Code: unknown, Value: id})
+			problems = append(problems, Problem{Code: unknown, Value: id})
 		}
 		if seen[id] {
-			errs = append(errs, Problem{Code: repeated, Value: id})
+			problems = append(problems, Problem{Code: repeated, Value: id})
 		}
 		seen[id] = true
 	}
-	return errs
+	return problems
 }
 
 func (s Step) successors() []string {

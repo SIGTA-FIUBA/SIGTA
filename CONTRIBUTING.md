@@ -64,7 +64,7 @@ Se rechaza:
 - Una salida que lleva a su propio paso.
 - Pasos inalcanzables desde el inicio o que nunca llegan a cerrar el trámite.
 
-Cada problema es un dato, no un texto: un `code` estable (por ejemplo `unknown_next_step`), un `path` que lo ubica (`[{"kind":"step","id":"review"},{"kind":"outcome","id":"complete"}]`) y el `value` involucrado. `ProblemsOf` los saca del error de la validación. El editor muestra su propio texto para cada código, así que el idioma de la interfaz no depende del dominio; el texto en inglés del dominio es solo para logs y pruebas. Los códigos están en `problem.go`. Un elemento sin `id`, o con uno inválido, se ubica sin `id` y el problema lleva el valor inválido.
+Cada problema es un dato, no un texto: un `Code` estable (por ejemplo `unknown_next_step`), un `Path` que lo ubica (el paso `review` y dentro de él la salida `complete`) y el `Value` involucrado. El dominio no define cómo se escriben en JSON: eso lo hará el adaptador REST según el contrato. `ProblemsOf` los saca del error de la validación. El editor muestra su propio texto para cada código, así que el idioma de la interfaz no depende del dominio; el texto en inglés del dominio es solo para logs y pruebas. Los códigos están en `problem.go`. Un elemento sin `id`, o con uno inválido, se ubica sin `id` y el problema lleva el valor inválido.
 
 ### Versiones
 

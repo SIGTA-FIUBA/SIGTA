@@ -10,42 +10,42 @@ import (
 type Code string
 
 const (
-	CodeNoID                  Code = "no_id"
-	CodeInvalidID             Code = "invalid_id"
-	CodeNoName                Code = "no_name"
-	CodeNameWithSpaces        Code = "name_with_spaces"
-	CodeDeclaredTwice         Code = "declared_twice"
-	CodeRepeatedName          Code = "repeated_name"
-	CodeNameInUse             Code = "name_in_use"
-	CodeNoSteps               Code = "no_steps"
-	CodeUnusedField           Code = "unused_field"
-	CodeUnusedDocument        Code = "unused_document"
-	CodeUnreachableStep       Code = "unreachable_step"
-	CodeStepNeverCloses       Code = "step_never_closes"
-	CodeUnknownArea           Code = "unknown_area"
-	CodeUnknownAreaKind       Code = "unknown_area_kind"
-	CodeApplicantAreas        Code = "applicant_areas"
-	CodeApplicantWithProfile  Code = "applicant_with_profile"
-	CodeApplicantAction       Code = "applicant_action"
-	CodeInvalidProfile        Code = "invalid_profile"
-	CodeUnknownAction         Code = "unknown_action"
-	CodeUnknownField          Code = "unknown_field"
-	CodeUnknownDocument       Code = "unknown_document"
-	CodeRepeatedField         Code = "repeated_field"
-	CodeRepeatedDocument      Code = "repeated_document"
-	CodeEnterDataNoFields     Code = "enter_data_no_fields"
-	CodeEnterDataDocuments    Code = "enter_data_with_documents"
-	CodeUploadNoDocuments     Code = "upload_no_documents"
-	CodeUploadFields          Code = "upload_with_fields"
-	CodeConfirmDocuments      Code = "confirm_with_documents"
-	CodeDecideNext            Code = "decide_with_next"
-	CodeDecideOutcomes        Code = "decide_few_outcomes"
-	CodeOutcomesOutsideDecide Code = "outcomes_outside_decide"
-	CodeUnknownNextStep       Code = "unknown_next_step"
-	CodeOutcomeLoops          Code = "outcome_loops"
-	CodeUnknownFieldType      Code = "unknown_field_type"
-	CodeOptionsOutsideOption  Code = "options_outside_option"
-	CodeOptionFieldNoOptions  Code = "option_field_no_options"
+	CodeNoID                   Code = "no_id"
+	CodeInvalidID              Code = "invalid_id"
+	CodeNoName                 Code = "no_name"
+	CodeNameWithSpaces         Code = "name_with_spaces"
+	CodeDeclaredTwice          Code = "declared_twice"
+	CodeRepeatedName           Code = "repeated_name"
+	CodeNameInUse              Code = "name_in_use"
+	CodeNoSteps                Code = "no_steps"
+	CodeUnusedField            Code = "unused_field"
+	CodeUnusedDocument         Code = "unused_document"
+	CodeUnreachableStep        Code = "unreachable_step"
+	CodeStepNeverCloses        Code = "step_never_closes"
+	CodeUnknownArea            Code = "unknown_area"
+	CodeUnknownAreaKind        Code = "unknown_area_kind"
+	CodeApplicantAreas         Code = "applicant_areas"
+	CodeApplicantWithProfile   Code = "applicant_with_profile"
+	CodeApplicantAction        Code = "applicant_action"
+	CodeInvalidProfile         Code = "invalid_profile"
+	CodeUnknownAction          Code = "unknown_action"
+	CodeUnknownField           Code = "unknown_field"
+	CodeUnknownDocument        Code = "unknown_document"
+	CodeRepeatedField          Code = "repeated_field"
+	CodeRepeatedDocument       Code = "repeated_document"
+	CodeEnterDataNoFields      Code = "enter_data_no_fields"
+	CodeEnterDataWithDocuments Code = "enter_data_with_documents"
+	CodeUploadNoDocuments      Code = "upload_no_documents"
+	CodeUploadWithFields       Code = "upload_with_fields"
+	CodeConfirmWithDocuments   Code = "confirm_with_documents"
+	CodeDecideWithNext         Code = "decide_with_next"
+	CodeDecideFewOutcomes      Code = "decide_few_outcomes"
+	CodeOutcomesOutsideDecide  Code = "outcomes_outside_decide"
+	CodeUnknownNextStep        Code = "unknown_next_step"
+	CodeOutcomeLoops           Code = "outcome_loops"
+	CodeUnknownFieldType       Code = "unknown_field_type"
+	CodeOptionsOutsideOption   Code = "options_outside_option"
+	CodeOptionFieldNoOptions   Code = "option_field_no_options"
 )
 
 type Kind string
@@ -63,8 +63,8 @@ const (
 // Ref points at one element of a definition. An element that has no id, or
 // whose id is not valid, has an empty ID.
 type Ref struct {
-	Kind Kind   `json:"kind"`
-	ID   string `json:"id,omitempty"`
+	Kind Kind
+	ID   string
 }
 
 func (r Ref) String() string {
@@ -77,10 +77,10 @@ func (r Ref) String() string {
 // Problem is one thing wrong in a definition: what (Code), where (Path, from
 // the outermost element to the innermost) and the values involved.
 type Problem struct {
-	Code  Code   `json:"code"`
-	Path  []Ref  `json:"path,omitempty"`
-	Value string `json:"value,omitempty"`
-	Other string `json:"other,omitempty"`
+	Code  Code
+	Path  []Ref
+	Value string
+	Other string
 }
 
 // String is the English text of the problem, for logs and tests.
@@ -153,17 +153,17 @@ func (p Problem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("document %q is listed twice", p.Value), false
 	case CodeEnterDataNoFields:
 		return "enter_data needs at least one field", false
-	case CodeEnterDataDocuments:
+	case CodeEnterDataWithDocuments:
 		return "enter_data takes no documents", false
 	case CodeUploadNoDocuments:
 		return "upload_document needs at least one document", false
-	case CodeUploadFields:
+	case CodeUploadWithFields:
 		return "upload_document takes no fields", false
-	case CodeConfirmDocuments:
+	case CodeConfirmWithDocuments:
 		return "confirm_external_fact takes no documents", false
-	case CodeDecideNext:
+	case CodeDecideWithNext:
 		return "decide goes on through its outcomes, not next", false
-	case CodeDecideOutcomes:
+	case CodeDecideFewOutcomes:
 		return "decide needs at least two outcomes", false
 	case CodeOutcomesOutsideDecide:
 		return "only decide has outcomes", false

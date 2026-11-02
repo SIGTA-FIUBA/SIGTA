@@ -91,28 +91,28 @@ func TestVerifyIgnoresLaterValidationRules(t *testing.T) {
 }
 
 func TestContentRejectsUnknownKeys(t *testing.T) {
+	known := []byte(`{"format":1,"definition":{"name":"Trámite","steps":[]}}`)
+	if _, err := (Version{Encoded: known}).Content(); err != nil {
+		t.Fatalf("Content(%s) = %v, want nil", known, err)
+	}
 	encoded := []byte(`{"format":1,"definition":{"name":"Trámite","steps":[]},"deadline_days":10}`)
 	v := Version{ProcedureType: 1, Number: 1, Digest: Digest(encoded), Encoded: encoded}
 	if err := v.Verify(); err != nil {
 		t.Errorf("Verify() = %v, want nil", err)
 	}
-	if _, err := v.Content(); err == nil || err.Error() != `decode content: json: unknown field "deadline_days"` {
-		t.Errorf("Content() = %v, want the unknown key rejected", err)
+	if _, err := v.Content(); err == nil {
+		t.Errorf("Content(%s) = nil error, want the unknown key rejected", encoded)
 	}
 }
 
 func TestContentRejectsAnotherFormat(t *testing.T) {
-	tests := []struct {
-		encoded string
-		want    string
-	}{
-		{`{"format":2,"definition":{"name":"Trámite"}}`, "content format 2 is not 1"},
-		{`{"definition":{"name":"Trámite"}}`, "content format 0 is not 1"},
-	}
-	for _, tt := range tests {
-		v := Version{Number: 1, Digest: Digest([]byte(tt.encoded)), Encoded: []byte(tt.encoded)}
-		if _, err := v.Content(); err == nil || err.Error() != tt.want {
-			t.Errorf("Content(%s) = %v, want %q", tt.encoded, err, tt.want)
+	for _, encoded := range []string{
+		`{"format":2,"definition":{"name":"Trámite"}}`,
+		`{"definition":{"name":"Trámite"}}`,
+	} {
+		v := Version{Number: 1, Digest: Digest([]byte(encoded)), Encoded: []byte(encoded)}
+		if _, err := v.Content(); !errors.Is(err, ErrUnknownFormat) {
+			t.Errorf("Content(%s) = %v, want ErrUnknownFormat", encoded, err)
 		}
 	}
 }
@@ -126,12 +126,12 @@ func TestAuthorship(t *testing.T) {
 		a    Authorship
 		want string
 	}{
-		{"no proposer", Authorship{ApprovedBy: "beto"}, "a version needs who proposed it"},
-		{"no approver", Authorship{ProposedBy: "ana"}, "a version needs who approved it"},
-		{"same person", Authorship{ProposedBy: "ana", ApprovedBy: "ana"}, "the approver must be someone other than the proposer"},
-		{"same person in capitals", Authorship{ProposedBy: "ana", ApprovedBy: "Ana"}, "the approver must be someone other than the proposer"},
-		{"proposer with a space", Authorship{ProposedBy: "ana ", ApprovedBy: "ana"}, `proposer "ana " has surrounding spaces or invisible characters`},
-		{"approver with an invisible character", Authorship{ProposedBy: "ana", ApprovedBy: "ana\u200b"}, `approver "ana\u200b" has surrounding spaces or invisible characters`},
+		{name: "no proposer", a: Authorship{ApprovedBy: "beto"}, want: "a version needs who proposed it"},
+		{name: "no approver", a: Authorship{ProposedBy: "ana"}, want: "a version needs who approved it"},
+		{name: "same person", a: Authorship{ProposedBy: "ana", ApprovedBy: "ana"}, want: "the approver must be someone other than the proposer"},
+		{name: "same person in capitals", a: Authorship{ProposedBy: "ana", ApprovedBy: "Ana"}, want: "the approver must be someone other than the proposer"},
+		{name: "proposer with a space", a: Authorship{ProposedBy: "ana ", ApprovedBy: "ana"}, want: `proposer "ana " has surrounding spaces or invisible characters`},
+		{name: "approver with an invisible character", a: Authorship{ProposedBy: "ana", ApprovedBy: "ana\u200b"}, want: `approver "ana\u200b" has surrounding spaces or invisible characters`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

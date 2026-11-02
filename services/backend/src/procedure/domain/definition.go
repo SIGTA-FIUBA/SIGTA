@@ -2,7 +2,7 @@ package domain
 
 import "slices"
 
-// A procedure starts at the first step, and a step without next or outcomes
+// Definition describes a procedure type. A procedure starts at the first step, and a step without next or outcomes
 // closes it. Areas are shared by every procedure type, while fields and
 // documents belong to the one that declares them.
 type Definition struct {
@@ -14,23 +14,23 @@ type Definition struct {
 
 func (d Definition) Validate(areas []Area) error {
 	if problems := validateAreas(areas); len(problems) > 0 {
-		return &InvalidError{Kind: ErrInvalidAreas, Problems: problems}
+		return &InvalidError{Cause: ErrInvalidAreas, Problems: problems}
 	}
 	if problems := d.problems(areas); len(problems) > 0 {
-		return &InvalidError{Kind: ErrInvalidDefinition, Problems: problems}
+		return &InvalidError{Cause: ErrInvalidDefinition, Problems: problems}
 	}
 	return nil
 }
 
 func (d Definition) problems(areas []Area) []Problem {
-	errs := validateName(d.Name, Ref{Kind: KindDefinition})
+	problems := validateName(d.Name, Ref{Kind: KindDefinition})
 	fields, documents := map[string]bool{}, map[string]bool{}
-	errs = append(errs, validateFields(d.Fields, fields)...)
+	problems = append(problems, validateFields(d.Fields, fields)...)
 	for _, doc := range d.Documents {
-		errs = append(errs, validateEntry(KindDocument, doc.ID, doc.Name, documents)...)
+		problems = append(problems, validateEntry(KindDocument, doc.ID, doc.Name, documents)...)
 	}
 	if len(d.Steps) == 0 {
-		return append(errs, Problem{Code: CodeNoSteps, Path: []Ref{{Kind: KindDefinition}}})
+		return append(problems, Problem{Code: CodeNoSteps, Path: []Ref{{Kind: KindDefinition}}})
 	}
 
 	areasByID := map[string]Area{}
@@ -41,17 +41,17 @@ func (d Definition) problems(areas []Area) []Problem {
 	steps := map[string]Step{}
 	seen := map[string]bool{}
 	for _, s := range d.Steps {
-		errs = append(errs, validateEntry(KindStep, s.ID, s.Name, seen)...)
+		problems = append(problems, validateEntry(KindStep, s.ID, s.Name, seen)...)
 		steps[s.ID] = s
 	}
 
 	validator := stepValidator{areas: areasByID, fields: fields, documents: documents, steps: steps}
 	for _, s := range d.Steps {
-		errs = append(errs, within(Ref{Kind: KindStep, ID: s.ID}, validator.validate(s))...)
+		problems = append(problems, within(Ref{Kind: KindStep, ID: s.ID}, validator.validate(s))...)
 	}
-	errs = append(errs, unused(d)...)
-	if len(errs) > 0 {
-		return errs
+	problems = append(problems, unused(d)...)
+	if len(problems) > 0 {
+		return problems
 	}
 	return validateFlow(d.Steps)
 }
@@ -69,18 +69,18 @@ func unused(d Definition) []Problem {
 			usedDocuments[id] = true
 		}
 	}
-	var errs []Problem
+	var problems []Problem
 	for _, f := range d.Fields {
 		if !usedFields[f.ID] {
-			errs = append(errs, Problem{Code: CodeUnusedField, Path: []Ref{{Kind: KindField, ID: f.ID}}})
+			problems = append(problems, Problem{Code: CodeUnusedField, Path: []Ref{{Kind: KindField, ID: f.ID}}})
 		}
 	}
 	for _, doc := range d.Documents {
 		if !usedDocuments[doc.ID] {
-			errs = append(errs, Problem{Code: CodeUnusedDocument, Path: []Ref{{Kind: KindDocument, ID: doc.ID}}})
+			problems = append(problems, Problem{Code: CodeUnusedDocument, Path: []Ref{{Kind: KindDocument, ID: doc.ID}}})
 		}
 	}
-	return errs
+	return problems
 }
 
 func validateFlow(steps []Step) []Problem {
@@ -100,16 +100,16 @@ func validateFlow(steps []Step) []Problem {
 
 	reached := walk([]string{steps[0].ID}, next)
 	closes := walk(closing, previous)
-	var errs []Problem
+	var problems []Problem
 	for _, s := range steps {
 		if !reached[s.ID] {
-			errs = append(errs, Problem{Code: CodeUnreachableStep, Path: []Ref{{Kind: KindStep, ID: s.ID}}, Value: steps[0].ID})
+			problems = append(problems, Problem{Code: CodeUnreachableStep, Path: []Ref{{Kind: KindStep, ID: s.ID}}, Value: steps[0].ID})
 		}
 		if !closes[s.ID] {
-			errs = append(errs, Problem{Code: CodeStepNeverCloses, Path: []Ref{{Kind: KindStep, ID: s.ID}}})
+			problems = append(problems, Problem{Code: CodeStepNeverCloses, Path: []Ref{{Kind: KindStep, ID: s.ID}}})
 		}
 	}
-	return errs
+	return problems
 }
 
 func walk(from []string, edges map[string][]string) map[string]bool {

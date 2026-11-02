@@ -24,6 +24,16 @@ func validateEntry(kind Kind, id, name string, seen map[string]bool) []Problem {
 	return problems
 }
 
+// repeatedName reports a name already in seen. Options and outcomes are
+// chosen by their names, so two with the same name could not be told apart.
+func repeatedName(kind Kind, name string, seen map[string]bool) []Problem {
+	if seen[name] {
+		return []Problem{{Code: CodeRepeatedName, Path: []Ref{{Kind: kind}}, Value: name}}
+	}
+	seen[name] = true
+	return nil
+}
+
 func validateName(name string, subject Ref) []Problem {
 	switch {
 	case strings.TrimSpace(name) == "":
