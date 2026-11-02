@@ -26,6 +26,19 @@ func (r *UserRepository) Add(user domain.User) {
 	r.users[user.ID] = user
 }
 
+func (r *UserRepository) Register(_ context.Context, user domain.User) (domain.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user.Email = domain.NormalizeEmail(user.Email)
+	for _, u := range r.users {
+		if u.Email == user.Email {
+			return u, nil
+		}
+	}
+	r.users[user.ID] = user
+	return user, nil
+}
+
 func (r *UserRepository) FindByEmail(_ context.Context, email string) (domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -32,6 +32,8 @@ type PendingLogin struct {
 type Identity struct {
 	Subject string
 	Email   string
+	// Name is the display name, when the provider has one.
+	Name string
 }
 
 // Session is an open session. Only the hash of its token is stored, so a

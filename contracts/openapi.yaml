@@ -32,18 +32,29 @@ paths:
       operationId: completeLogin
       summary: Recibe la respuesta del proveedor de identidad y abre la sesión
       description: >
-        El ingreso pendiente sirve una sola vez: tanto el 302 como el 401
-        vencen la cookie sigta_login_state, así que el 302 lleva dos encabezados
-        Set-Cookie.
+        Es una navegación del navegador, así que siempre redirige: a la
+        aplicación si se abrió la sesión, y a la página de ingreso con el
+        parámetro error (un LoginError) si no. El ingreso pendiente sirve una
+        sola vez: las dos redirecciones vencen la cookie sigta_login_state, así
+        que la de la sesión abierta lleva dos encabezados Set-Cookie.
       parameters:
         - name: code
           in: query
-          required: true
+          required: false
+          description: Falta cuando el proveedor responde con error
           schema:
             type: string
         - name: state
           in: query
           required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          description: >
+            Error del proveedor, por ejemplo access_denied cuando la persona
+            cancela el ingreso
           schema:
             type: string
         - name: sigta_login_state
@@ -53,19 +64,21 @@ paths:
             type: string
       responses:
         "302":
-          description: Sesión abierta; redirección a la aplicación
+          description: >
+            Redirección a la aplicación con la sesión abierta, o a la página de
+            ingreso con el parámetro error
           headers:
             Location:
               schema:
                 type: string
             Set-Cookie:
-              description: Cookie de sesión y cookie del ingreso pendiente vencida
+              description: >
+                Cookie del ingreso pendiente vencida y, si se abrió la sesión,
+                cookie de sesión
               schema:
                 type: string
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /auth/login-links:
     post:
       operationId: requestLoginLink
@@ -176,6 +189,14 @@ components:
       properties:
         message:
           type: string
+    LoginError:
+      type: string
+      description: >
+        Por qué no se abrió la sesión al volver del proveedor. state_mismatch:
+        el ingreso no es el que inició este navegador. rejected: el proveedor
+        lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
+        del dominio institucional.
+      enum: [state_mismatch, rejected, domain_not_allowed]
     Role:
       type: string
       enum: [applicant, staff_operative, staff_approver]

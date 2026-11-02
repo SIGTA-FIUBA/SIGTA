@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -8,42 +10,53 @@ import (
 	"time"
 
 	"backend/src/adapters/dev"
+	"backend/src/adapters/google"
 	"backend/src/adapters/memory"
 	"backend/src/adapters/rest"
 	"backend/src/application"
 	"backend/src/domain"
+	out "backend/src/ports/output"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	// Only the development adapters exist so far; the institutional OpenID
-	// Connect adapter comes with SIG-61.
-	if os.Getenv("SIGTA_ENV") != "development" {
-		logger.Error("no production identity provider yet; run with SIGTA_ENV=development")
+	if err := run(logger); err != nil {
+		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
 
-	publicURL := envOr("SIGTA_PUBLIC_URL", "http://localhost:8080")
-	appURL := envOr("SIGTA_APP_URL", "http://localhost:5173/")
+func run(logger *slog.Logger) error {
+	cfg, err := loadConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
+	users, err := usersOf(cfg)
+	if err != nil {
+		return err
+	}
+	identity, err := identityProviderOf(cfg, logger)
+	if err != nil {
+		return err
+	}
 
 	auth := application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			LoginLinkTTL:  15 * time.Minute,
-			AllowedDomain: envOr("SIGTA_ALLOWED_DOMAIN", "fi.uba.ar"),
-			LoginLinkURL:  appURL + "login/link#token=",
+			AllowedDomain: cfg.allowedDomain,
+			LoginLinkURL:  cfg.appURL + "login/link#token=",
 		},
-		dev.NewIdentityProvider(publicURL+"/auth/callback"),
-		memory.NewUserRepository(devUsers()...),
+		identity,
+		memory.NewUserRepository(users...),
 		memory.NewSessionStore(),
 		memory.NewLoginLinkStore(),
-		dev.NewMailer(logger),
+		mailerOf(cfg, logger),
 		time.Now,
 	)
 
-	secureCookies := strings.HasPrefix(publicURL, "https://")
-	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies))
+	secureCookies := strings.HasPrefix(cfg.publicURL, "https://")
+	api := rest.NewServer(rest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), secureCookies))
 
 	router := http.NewServeMux()
 	rest.Mount(router, api, logger)
@@ -53,11 +66,47 @@ func main() {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
+	return server.ListenAndServe()
+}
 
-	if err := server.ListenAndServe(); err != nil {
-		logger.Error("server stopped", "error", err)
-		os.Exit(1)
+func usersOf(cfg config) ([]domain.User, error) {
+	if cfg.usersFile != "" {
+		return loadUsers(cfg.usersFile, cfg.allowedDomain)
 	}
+	// loadConfig asks for a users file everywhere but development.
+	return devUsers(), nil
+}
+
+func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
+	if cfg.identityProvider == identityDev {
+		return dev.NewIdentityProvider(cfg.callbackURL(), devUsers()[0].Email), nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return google.NewIdentityProvider(ctx, google.Config{
+		Issuer:       google.Issuer,
+		ClientID:     cfg.googleClient.id,
+		ClientSecret: cfg.googleClient.secret,
+		RedirectURL:  cfg.callbackURL(),
+		HostedDomain: cfg.allowedDomain,
+	}, logger)
+}
+
+// errNoMailer answers a login link request outside development: there is no
+// mail adapter yet, and whether login links stay at all is pending with the
+// Secretaría.
+var errNoMailer = errors.New("login links are not available outside development")
+
+type noMailer struct{}
+
+func (noMailer) SendLoginLink(context.Context, string, string) error { return errNoMailer }
+
+func mailerOf(cfg config, logger *slog.Logger) out.Mailer {
+	if cfg.development() {
+		return dev.NewMailer(logger)
+	}
+	return noMailer{}
 }
 
 // devUsers are synthetic accounts, one per role, for local development.
@@ -67,11 +116,4 @@ func devUsers() []domain.User {
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
 	}
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

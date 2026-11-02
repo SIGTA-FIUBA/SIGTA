@@ -8,6 +8,7 @@ import (
 	out "backend/src/ports/output"
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -44,7 +45,7 @@ func newFixture(t *testing.T) *fixture {
 			AllowedDomain: "fi.uba.ar",
 			LoginLinkURL:  linkURL,
 		},
-		dev.NewIdentityProvider("http://api.test/auth/callback"),
+		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
 		f.users,
 		memory.NewSessionStore(),
 		memory.NewLoginLinkStore(),
@@ -105,12 +106,28 @@ func TestCompleteLoginResolvesProfileFromSIGTA(t *testing.T) {
 	}
 }
 
-func TestCompleteLoginRejectsIdentityUnknownToSIGTA(t *testing.T) {
+func TestCompleteLoginRegistersANewIdentityAsApplicant(t *testing.T) {
 	f := newFixture(t)
+	ctx := context.Background()
 
-	_, err := f.login("nadie@fi.uba.ar")
-	if !errors.Is(err, domain.ErrUnknownUser) {
-		t.Fatalf("got %v, want ErrUnknownUser", err)
+	var ids []string
+	for range 2 {
+		token, err := f.login("Nuevo@fi.uba.ar")
+		if err != nil {
+			t.Fatal(err)
+		}
+		user, err := f.auth.Authenticate(ctx, token)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if user.Email != "nuevo@fi.uba.ar" || user.Role != domain.RoleApplicant {
+			t.Fatalf("got %+v, want an applicant with the normalized email", user)
+		}
+		ids = append(ids, user.ID)
+	}
+	// The second login finds the profile the first one registered.
+	if ids[0] != ids[1] {
+		t.Fatalf("got two profiles %v for the same person", ids)
 	}
 }
 
@@ -131,6 +148,32 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 	_, err := f.login("")
 	if !errors.Is(err, out.ErrLoginRejected) {
 		t.Fatalf("got %v, want ErrLoginRejected", err)
+	}
+}
+
+// outsideDomain stands for a provider that checks the domain itself, as the
+// Google adapter does with the hd claim.
+type outsideDomain struct{ out.IdentityProvider }
+
+func (outsideDomain) Exchange(context.Context, string, out.PendingLogin) (out.Identity, error) {
+	return out.Identity{}, fmt.Errorf("%w: hosted domain %q", out.ErrDomainNotAllowed, "uba.ar")
+}
+
+func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {
+	auth := application.NewAuthService(
+		application.AuthConfig{AllowedDomain: "fi.uba.ar"},
+		outsideDomain{},
+		memory.NewUserRepository(applicant),
+		memory.NewSessionStore(),
+		memory.NewLoginLinkStore(),
+		&outbox{},
+		time.Now,
+	)
+	pending := out.PendingLogin{State: "s", Nonce: "n", CodeVerifier: "v"}
+
+	_, err := auth.CompleteLogin(context.Background(), "code", "s", pending)
+	if !errors.Is(err, out.ErrDomainNotAllowed) || !errors.Is(err, out.ErrLoginRejected) {
+		t.Fatalf("got %v, want ErrDomainNotAllowed within ErrLoginRejected", err)
 	}
 }
 

@@ -17,6 +17,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for LoginError.
+const (
+	DomainNotAllowed LoginError = "domain_not_allowed"
+	Rejected         LoginError = "rejected"
+	StateMismatch    LoginError = "state_mismatch"
+)
+
+// Valid indicates whether the value is a known member of the LoginError enum.
+func (e LoginError) Valid() bool {
+	switch e {
+	case DomainNotAllowed:
+		return true
+	case Rejected:
+		return true
+	case StateMismatch:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Applicant      Role = "applicant"
@@ -43,6 +64,9 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
+type LoginError string
+
 // Role defines model for Role.
 type Role string
 
@@ -65,8 +89,12 @@ type Unauthorized = Error
 
 // CompleteLoginParams defines parameters for CompleteLogin.
 type CompleteLoginParams struct {
-	Code            string  `form:"code" json:"code"`
-	State           string  `form:"state" json:"state"`
+	// Code Falta cuando el proveedor responde con error
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State string  `form:"state" json:"state"`
+
+	// Error Error del proveedor, por ejemplo access_denied cuando la persona cancela el ingreso
+	Error           *string `form:"error,omitempty" json:"error,omitempty"`
 	SigtaLoginState *string `form:"sigta_login_state,omitempty" json:"sigta_login_state,omitempty"`
 }
 
@@ -142,9 +170,9 @@ func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CompleteLoginParams
 
-	// ------------- Required query parameter "code" -------------
+	// ------------- Optional query parameter "code" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -164,6 +192,19 @@ func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
 		}
 		return
 	}
@@ -497,20 +538,6 @@ func (response CompleteLogin400JSONResponse) VisitCompleteLoginResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type CompleteLogin401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response CompleteLogin401JSONResponse) VisitCompleteLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }

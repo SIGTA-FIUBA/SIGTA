@@ -14,13 +14,20 @@ Feature: Sign in through an abstracted identity provider
     Then a session is opened
     And their profile is "staff_operative"
 
-  Scenario: an identity unknown to SIGTA gets no session
-    When "nobody@fi.uba.ar" signs in through the identity provider
-    Then no session is opened
-    And they are told SIGTA has no account for that identity
+  @SIG-61
+  Scenario: an institutional identity new to SIGTA is registered as an applicant
+    When "newcomer@fi.uba.ar" signs in through the identity provider
+    Then a session is opened
+    And their profile is "applicant"
 
   Scenario: a sign-in the provider rejects does not blame the account
     When the identity provider rejects a sign-in
+    Then no session is opened
+    And they are asked to try again
+
+  @SIG-61
+  Scenario: a sign-in cancelled at the provider does not blame the account
+    When "applicant@fi.uba.ar" cancels the sign-in at the identity provider
     Then no session is opened
     And they are asked to try again
 

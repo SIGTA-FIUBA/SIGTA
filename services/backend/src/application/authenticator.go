@@ -74,8 +74,8 @@ func (s *AuthService) BeginLogin(loginHint string) (string, out.PendingLogin, er
 }
 
 // CompleteLogin opens a session for whoever the provider vouches for, as long
-// as their email is in the allowed domain and SIGTA already knows them:
-// profiles are managed in SIGTA, not created on first login.
+// as their email is in the allowed domain. An identity new to SIGTA is
+// registered as an applicant; staff profiles are still assigned in SIGTA.
 func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending out.PendingLogin) (string, error) {
 	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
 		return "", out.ErrLoginStateMismatch
@@ -89,10 +89,25 @@ func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pen
 		return "", out.ErrDomainNotAllowed
 	}
 	user, err := s.users.FindByEmail(ctx, email)
+	if errors.Is(err, domain.ErrUnknownUser) {
+		user, err = s.register(ctx, email, identity.Name)
+	}
 	if err != nil {
 		return "", err
 	}
 	return s.openSession(ctx, user.ID)
+}
+
+func (s *AuthService) register(ctx context.Context, email, name string) (domain.User, error) {
+	id, err := newToken()
+	if err != nil {
+		return domain.User{}, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = email
+	}
+	return s.users.Register(ctx, domain.User{ID: id, Email: email, Name: name, Role: domain.RoleApplicant})
 }
 
 // RequestLoginLink emails a single-use link to an applicant, as an

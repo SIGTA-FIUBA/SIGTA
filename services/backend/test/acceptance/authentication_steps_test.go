@@ -26,6 +26,7 @@ import (
 const (
 	baseURL     = "http://sigta.test"
 	linkPrefix  = "#token="
+	loginPage   = baseURL + "/login"
 	idleTimeout = 30 * time.Minute
 	linkTTL     = 15 * time.Minute
 )
@@ -69,6 +70,7 @@ func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^"([^"]*)" (?:asks|asked) for a sign-in link$`, w.askForLink)
 	sc.When(`^"([^"]*)" signs in through the identity provider$`, w.signIn)
 	sc.When(`^the identity provider rejects a sign-in$`, w.signInRejected)
+	sc.When(`^"([^"]*)" cancels the sign-in at the identity provider$`, w.signInCancelled)
 	sc.When(`^a provider response arrives with a state different from the one the browser started$`, w.signInForged)
 	sc.When(`^the same provider response arrives again in that browser$`, w.repeatCallback)
 	sc.When(`^(\d+) minutes pass(?: without requests)?$`, w.pass)
@@ -78,9 +80,8 @@ func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^a session is opened$`, w.thenSessionOpened)
 	sc.Then(`^their profile is "([^"]*)"$`, w.thenProfile)
 	sc.Then(`^no session is opened$`, w.thenNoSession)
-	sc.Then(`^they are told SIGTA has no account for that identity$`, w.thenTold("No hay una cuenta de SIGTA"))
-	sc.Then(`^they are asked to try again$`, w.thenTold("Volvé a intentarlo"))
-	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenTold("cuenta institucional"))
+	sc.Then(`^they are asked to try again$`, w.thenSentBack(rest.Rejected))
+	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenSentBack(rest.DomainNotAllowed))
 	sc.Then(`^they are asked to use their institutional email$`, w.thenTold("correo institucional"))
 	sc.Then(`^the session expires$`, w.thenSessionExpired)
 	sc.Then(`^they have to sign in again$`, w.thenTold("Iniciá sesión"))
@@ -108,14 +109,14 @@ func (w *authenticationWorld) server() http.Handler {
 	if w.handler == nil {
 		auth := application.NewAuthService(
 			application.AuthConfig{IdleTimeout: idleTimeout, LoginLinkTTL: linkTTL, AllowedDomain: w.domain, LoginLinkURL: linkPrefix},
-			dev.NewIdentityProvider(baseURL+"/auth/callback"),
+			dev.NewIdentityProvider(baseURL+"/auth/callback", ""),
 			w.users,
 			memory.NewSessionStore(),
 			memory.NewLoginLinkStore(),
 			w,
 			func() time.Time { return w.now },
 		)
-		api := rest.NewServer(rest.NewAuthHandler(auth, baseURL+"/", false))
+		api := rest.NewServer(rest.NewAuthHandler(auth, baseURL+"/", loginPage, false))
 		w.handler = rest.Mount(http.NewServeMux(), api, slog.New(slog.DiscardHandler))
 	}
 	return w.handler
@@ -203,7 +204,13 @@ func (w *authenticationWorld) givenSignedIn(email string) error {
 	if err := w.signIn(email); err != nil {
 		return err
 	}
-	return w.expectStatus(http.StatusFound)
+	if err := w.expectStatus(http.StatusFound); err != nil {
+		return err
+	}
+	if !w.sessionSet {
+		return fmt.Errorf("%s got no session: %s", email, w.location)
+	}
+	return nil
 }
 
 func (w *authenticationWorld) givenUsedLink(email string) error {
@@ -255,6 +262,22 @@ func (w *authenticationWorld) signInRejected() error {
 		return err
 	}
 	return w.do(http.MethodGet, callback, "")
+}
+
+func (w *authenticationWorld) signInCancelled(email string) error {
+	callback, err := w.begin("/auth/login?login_hint=" + url.QueryEscape(email))
+	if err != nil {
+		return err
+	}
+	cancelled, err := url.Parse(callback)
+	if err != nil {
+		return err
+	}
+	query := cancelled.Query()
+	query.Del("code")
+	query.Set("error", "access_denied")
+	cancelled.RawQuery = query.Encode()
+	return w.do(http.MethodGet, cancelled.String(), "")
 }
 
 func (w *authenticationWorld) signInForged() error {
@@ -341,11 +364,41 @@ func (w *authenticationWorld) thenProfile(want string) error {
 	return nil
 }
 
+// thenNoSession accepts the two ways a login fails: the provider's callback
+// sends the browser back to the login page, and a login link answers 401.
 func (w *authenticationWorld) thenNoSession() error {
 	if w.sessionSet {
 		return errors.New("the response set a session")
 	}
+	if w.status == http.StatusFound {
+		_, err := w.loginError()
+		return err
+	}
 	return w.expectStatus(http.StatusUnauthorized)
+}
+
+func (w *authenticationWorld) loginError() (rest.LoginError, error) {
+	location, err := url.Parse(w.location)
+	if err != nil {
+		return "", err
+	}
+	if location.Scheme+"://"+location.Host+location.Path != loginPage {
+		return "", fmt.Errorf("redirected to %s, want the login page", w.location)
+	}
+	return rest.LoginError(location.Query().Get("error")), nil
+}
+
+func (w *authenticationWorld) thenSentBack(want rest.LoginError) func() error {
+	return func() error {
+		got, err := w.loginError()
+		if err != nil {
+			return err
+		}
+		if got != want {
+			return fmt.Errorf("sent back with %q, want %q", got, want)
+		}
+		return nil
+	}
 }
 
 func (w *authenticationWorld) thenTold(message string) func() error {

@@ -22,6 +22,10 @@ type IdentityProvider interface {
 type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	FindByID(ctx context.Context, id string) (domain.User, error)
+	// Register adds a user and returns it. If the email is already registered
+	// it returns that user instead, so two first logins of the same person at
+	// once do not create two profiles.
+	Register(ctx context.Context, user domain.User) (domain.User, error)
 }
 
 type SessionStore interface {

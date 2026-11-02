@@ -4,3 +4,7 @@ generate:
   models: true
   std-http-server: true
   strict-server: true
+output-options:
+  # LoginError travels in the Location of a redirect, which no operation
+  # references as a schema; without this it would not be generated.
+  skip-prune: true

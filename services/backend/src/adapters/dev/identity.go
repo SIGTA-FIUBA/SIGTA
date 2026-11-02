@@ -13,19 +13,24 @@ import (
 	"strings"
 )
 
-// IdentityProvider logs in as whatever email the login hint names, without
-// asking for anything else. It stands in for the institutional OpenID Connect
-// login during development, and checks PKCE like a real provider would: the
-// code it issues only works with the verifier of the login that asked for it.
+// IdentityProvider logs in as whatever email the login hint names, or as
+// defaultEmail without a hint, without asking for anything else. It stands in
+// for the institutional OpenID Connect login during development, and checks
+// PKCE like a real provider would: the code it issues only works with the
+// verifier of the login that asked for it.
 type IdentityProvider struct {
-	callbackURL string
+	callbackURL  string
+	defaultEmail string
 }
 
-func NewIdentityProvider(callbackURL string) *IdentityProvider {
-	return &IdentityProvider{callbackURL: callbackURL}
+func NewIdentityProvider(callbackURL, defaultEmail string) *IdentityProvider {
+	return &IdentityProvider{callbackURL: callbackURL, defaultEmail: defaultEmail}
 }
 
 func (p *IdentityProvider) AuthorizationURL(pending out.PendingLogin, loginHint string) string {
+	if loginHint == "" {
+		loginHint = p.defaultEmail
+	}
 	// The code carries the challenge, as a real provider would remember it.
 	code := codeChallenge(pending.CodeVerifier) + "." + loginHint
 	query := url.Values{"state": {pending.State}, "code": {code}}
