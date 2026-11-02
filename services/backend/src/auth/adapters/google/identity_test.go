@@ -1,8 +1,6 @@
 package google_test
 
 import (
-	"backend/src/auth/adapters/google"
-	out "backend/src/auth/ports/output"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -15,6 +13,10 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"backend/src/auth/adapters/google"
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 
 	"github.com/go-jose/go-jose/v4"
 	"golang.org/x/oauth2"
@@ -137,11 +139,11 @@ func newProvider(t *testing.T, f *fakeGoogle) *google.IdentityProvider {
 	return p
 }
 
-func newPending() out.PendingLogin {
-	return out.PendingLogin{State: "state", Nonce: "nonce", CodeVerifier: oauth2.GenerateVerifier()}
+func newPending() domain.PendingLogin {
+	return domain.PendingLogin{State: "state", Nonce: "nonce", CodeVerifier: oauth2.GenerateVerifier()}
 }
 
-func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending out.PendingLogin) url.Values {
+func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending domain.PendingLogin) url.Values {
 	t.Helper()
 	u, err := url.Parse(p.AuthorizationURL(pending, ""))
 	if err != nil {
@@ -174,8 +176,9 @@ func TestLoginWithAnInstitutionalAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if identity != (out.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}) {
-		t.Fatalf("identity = %+v", identity)
+	want := out.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}
+	if identity != want {
+		t.Fatalf("Exchange(%q) = %+v, want %+v", issuedCode, identity, want)
 	}
 }
 
@@ -234,27 +237,27 @@ func TestRejectedLogins(t *testing.T) {
 	}
 	tests := []struct {
 		name           string
-		change         func(f *fakeGoogle, pending *out.PendingLogin)
+		change         func(f *fakeGoogle, pending *domain.PendingLogin)
 		domainRejected bool
 	}{
-		{"PKCE verifier of another login", func(_ *fakeGoogle, pending *out.PendingLogin) {
+		{"PKCE verifier of another login", func(_ *fakeGoogle, pending *domain.PendingLogin) {
 			pending.CodeVerifier = oauth2.GenerateVerifier()
 		}, false},
-		{"nonce of another login", func(_ *fakeGoogle, pending *out.PendingLogin) { pending.Nonce = "other" }, false},
-		{"empty nonce", func(f *fakeGoogle, pending *out.PendingLogin) {
+		{"nonce of another login", func(_ *fakeGoogle, pending *domain.PendingLogin) { pending.Nonce = "other" }, false},
+		{"empty nonce", func(f *fakeGoogle, pending *domain.PendingLogin) {
 			pending.Nonce = ""
 			f.claims["nonce"] = ""
 		}, false},
-		{"signed with another key", func(f *fakeGoogle, _ *out.PendingLogin) { f.signer = other }, false},
-		{"another issuer", func(f *fakeGoogle, _ *out.PendingLogin) { f.claims["iss"] = "https://evil.test" }, false},
-		{"another audience", func(f *fakeGoogle, _ *out.PendingLogin) { f.claims["aud"] = "other-client" }, false},
-		{"expired", func(f *fakeGoogle, _ *out.PendingLogin) {
+		{"signed with another key", func(f *fakeGoogle, _ *domain.PendingLogin) { f.signer = other }, false},
+		{"another issuer", func(f *fakeGoogle, _ *domain.PendingLogin) { f.claims["iss"] = "https://evil.test" }, false},
+		{"another audience", func(f *fakeGoogle, _ *domain.PendingLogin) { f.claims["aud"] = "other-client" }, false},
+		{"expired", func(f *fakeGoogle, _ *domain.PendingLogin) {
 			f.claims["exp"] = time.Now().Add(-time.Minute).Unix()
 		}, false},
-		{"email not verified", func(f *fakeGoogle, _ *out.PendingLogin) { f.claims["email_verified"] = false }, false},
-		{"no ID token", func(f *fakeGoogle, _ *out.PendingLogin) { f.noIDToken = true }, false},
-		{"account outside any Workspace, with an email of the domain", func(f *fakeGoogle, _ *out.PendingLogin) { delete(f.claims, "hd") }, true},
-		{"account of another Workspace", func(f *fakeGoogle, _ *out.PendingLogin) { f.claims["hd"] = "uba.ar" }, true},
+		{"email not verified", func(f *fakeGoogle, _ *domain.PendingLogin) { f.claims["email_verified"] = false }, false},
+		{"no ID token", func(f *fakeGoogle, _ *domain.PendingLogin) { f.noIDToken = true }, false},
+		{"account outside any Workspace, with an email of the domain", func(f *fakeGoogle, _ *domain.PendingLogin) { delete(f.claims, "hd") }, true},
+		{"account of another Workspace", func(f *fakeGoogle, _ *domain.PendingLogin) { f.claims["hd"] = "uba.ar" }, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -268,7 +271,7 @@ func TestRejectedLogins(t *testing.T) {
 			if err == nil {
 				t.Fatal("the login was accepted")
 			}
-			if got := errors.Is(err, out.ErrDomainNotAllowed); got != tt.domainRejected {
+			if got := errors.Is(err, domain.ErrDomainNotAllowed); got != tt.domainRejected {
 				t.Fatalf("domain rejection = %v, want %v: %v", got, tt.domainRejected, err)
 			}
 		})

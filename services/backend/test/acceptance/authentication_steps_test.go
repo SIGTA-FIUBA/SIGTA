@@ -44,7 +44,7 @@ type authenticationWorld struct {
 	client *http.Client
 	email  string
 
-	// The outcome of the last request.
+	// The result of the last request.
 	status     int
 	body       string
 	location   string
@@ -142,7 +142,7 @@ func (w *authenticationWorld) newBrowser() error {
 	return nil
 }
 
-// do takes a path or a full URL, and records the outcome.
+// do takes a path or a full URL, and records the result.
 func (w *authenticationWorld) do(method, target, body string) error {
 	if strings.HasPrefix(target, "/") {
 		target = baseURL + target
@@ -186,8 +186,8 @@ func (w *authenticationWorld) add(email string, role domain.Role) {
 	w.users.Add(domain.User{ID: email, Email: email, Name: "Persona de prueba", Role: role})
 }
 
-func (w *authenticationWorld) givenDomain(domain string) error {
-	w.domain = domain
+func (w *authenticationWorld) givenDomain(allowed string) error {
+	w.domain = allowed
 	return nil
 }
 

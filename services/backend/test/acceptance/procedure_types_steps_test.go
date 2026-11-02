@@ -29,7 +29,7 @@ type procedureTypeWorld struct {
 	definition domain.Definition
 	revisions  int
 
-	// The outcome of the last publication.
+	// The result of the last publication.
 	published domain.Version
 	err       error
 	before    int
@@ -50,7 +50,6 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^"([^"]*)" proposes and "([^"]*)" approves every publication$`, w.givenAuthors)
 	sc.Given(`^version (\d+) of "([^"]*)" is published$`, w.givenPublished)
 	sc.Given(`^version (\d+) of "([^"]*)" was proposed by "([^"]*)" and approved by "([^"]*)"$`, w.givenPublishedBy)
-	sc.Given(`^version (\d+) of "([^"]*)" was published from version \d+$`, w.givenPublished)
 	sc.Given(`^a procedure that started with version (\d+) of "([^"]*)"$`, w.givenProcedure)
 	sc.Given(`^the stored content of version (\d+) no longer matches its digest$`, w.givenAlteredVersion)
 
@@ -107,8 +106,8 @@ func (w *procedureTypeWorld) publish(base int, d domain.Definition) error {
 	return nil
 }
 
-// valid is a definition that uses the four actions and every kind of area.
-func (w *procedureTypeWorld) valid(name string) domain.Definition {
+// validDefinition uses the four actions and every kind of area.
+func validDefinition(name string) domain.Definition {
 	return domain.Definition{
 		Name:      name,
 		Fields:    []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
@@ -171,7 +170,7 @@ func (w *procedureTypeWorld) givenAuthors(proposer, approver string) error {
 }
 
 func (w *procedureTypeWorld) givenPublished(number int, name string) error {
-	w.definition = w.valid(name)
+	w.definition = validDefinition(name)
 	return w.publishUpTo(number)
 }
 
@@ -194,7 +193,7 @@ func (w *procedureTypeWorld) givenProcedure(number int, name string) error {
 // givenAlteredVersion stores a version whose content is not the one its digest
 // covers, as if someone had changed it directly in the store.
 func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
-	w.definition = w.valid("subject equivalence")
+	w.definition = validDefinition("subject equivalence")
 	encoded, err := domain.NewContent(w.definition, w.areas).Encode()
 	if err != nil {
 		return err
@@ -210,7 +209,7 @@ func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 }
 
 func (w *procedureTypeWorld) publishValid(name string, base int) error {
-	return w.publish(base, w.valid(name))
+	return w.publish(base, validDefinition(name))
 }
 
 func (w *procedureTypeWorld) publishSame(base int) error {
@@ -236,11 +235,11 @@ func (w *procedureTypeWorld) publishBy(proposer, approver, name string) error {
 	if err := w.givenAuthors(proposer, approver); err != nil {
 		return err
 	}
-	return w.publish(0, w.valid(name))
+	return w.publish(0, validDefinition(name))
 }
 
 func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
-	d := w.valid(name)
+	d := validDefinition(name)
 	const (
 		document  = 1
 		decision  = 2
@@ -359,11 +358,12 @@ func (w *procedureTypeWorld) thenNoVersion() error {
 }
 
 func (w *procedureTypeWorld) thenAskedToStartAgain(number int) error {
-	if !errors.Is(w.err, input.ErrOutdatedBase) {
+	outdated, ok := errors.AsType[*input.OutdatedBaseError](w.err)
+	if !ok {
 		return fmt.Errorf("got %w, want ErrOutdatedBase", w.err)
 	}
-	if want := fmt.Sprintf("the latest is %d", number); !strings.Contains(w.err.Error(), want) {
-		return fmt.Errorf("%w does not say %q", w.err, want)
+	if outdated.Latest != number {
+		return fmt.Errorf("asked to start again from version %d, want %d", outdated.Latest, number)
 	}
 	return nil
 }

@@ -67,11 +67,21 @@ func TestProcedureVersionsDoNotShareMemory(t *testing.T) {
 		t.Fatalf("Add() = %v", err)
 	}
 	v.Encoded[0] = 'x'
-	latest, _ := s.Latest(ctx, 1)
+	latest, err := s.Latest(ctx, 1)
+	if err != nil {
+		t.Fatalf("Latest() = %v", err)
+	}
 	latest.Encoded[1] = 'x'
-	got, _ := s.Get(ctx, 1, 1)
+	got, err := s.Get(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("Get(1) = %v", err)
+	}
 	got.Encoded[2] = 'x'
-	if again, _ := s.Latest(ctx, 1); again.Verify() != nil {
-		t.Errorf("changing an added or returned version changed the stored one")
+	again, err := s.Latest(ctx, 1)
+	if err != nil {
+		t.Fatalf("Latest() = %v", err)
+	}
+	if err := again.Verify(); err != nil {
+		t.Errorf("changing an added or returned version changed the stored one: %v", err)
 	}
 }

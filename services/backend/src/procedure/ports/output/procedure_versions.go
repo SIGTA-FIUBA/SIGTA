@@ -10,6 +10,10 @@ import (
 var (
 	ErrNoVersion     = errors.New("procedure version not found")
 	ErrVersionExists = errors.New("procedure version already exists")
+	// ErrWrongVersion means the store returned another version than the one
+	// asked for. The digest covers the content, not where it is stored, so
+	// only the caller can notice it.
+	ErrWrongVersion = errors.New("the store returned another version")
 )
 
 // ProcedureVersions stores published versions. A stored version is never
@@ -27,6 +31,8 @@ type ProcedureVersions interface {
 	Add(ctx context.Context, v domain.Version) error
 }
 
+// AreaCatalog lists the areas shared by every procedure type. It returns them
+// as stored, without validating them: Definition.Validate does that.
 type AreaCatalog interface {
 	List(ctx context.Context) ([]domain.Area, error)
 }

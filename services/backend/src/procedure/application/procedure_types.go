@@ -44,11 +44,15 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	if err != nil {
 		return domain.Version{}, err
 	}
-	if unchanged, err := sameContent(latest, encoded); err != nil || unchanged {
-		return latest, err
+	unchanged, err := sameContent(latest, encoded)
+	if err != nil {
+		return domain.Version{}, err
+	}
+	if unchanged {
+		return latest, nil
 	}
 	if latest.Number != p.Base {
-		return domain.Version{}, fmt.Errorf("procedure type %d: %w: edited from version %d, the latest is %d", p.ProcedureType, input.ErrOutdatedBase, p.Base, latest.Number)
+		return domain.Version{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, &input.OutdatedBaseError{Base: p.Base, Latest: latest.Number})
 	}
 
 	v := domain.Version{
@@ -63,7 +67,7 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	}
 	err = s.versions.Add(ctx, v)
 	if errors.Is(err, output.ErrVersionExists) {
-		return domain.Version{}, fmt.Errorf("procedure type %d: %w: version %d was just published", p.ProcedureType, input.ErrOutdatedBase, v.Number)
+		return domain.Version{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, &input.OutdatedBaseError{Base: p.Base, Latest: v.Number})
 	}
 	if err != nil {
 		return domain.Version{}, fmt.Errorf("publish procedure type %d version %d: %w", p.ProcedureType, v.Number, err)
@@ -73,10 +77,10 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 
 func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64, number int) (domain.Version, error) {
 	v, err := s.versions.Get(ctx, procedureType, number)
-	if err == nil {
-		err = check(v, procedureType, number)
-	}
 	if err != nil {
+		return domain.Version{}, fmt.Errorf("procedure type %d version %d: %w", procedureType, number, err)
+	}
+	if err := check(v, procedureType, number); err != nil {
 		return domain.Version{}, fmt.Errorf("procedure type %d version %d: %w", procedureType, number, err)
 	}
 	return v, nil
@@ -103,7 +107,7 @@ func (s *ProcedureTypeService) latest(ctx context.Context, procedureType int64) 
 // the digest covers the content and not where it is stored.
 func check(v domain.Version, procedureType int64, number int) error {
 	if v.ProcedureType != procedureType || v.Number != number {
-		return fmt.Errorf("the store returned version %d of procedure type %d", v.Number, v.ProcedureType)
+		return fmt.Errorf("%w: version %d of procedure type %d", output.ErrWrongVersion, v.Number, v.ProcedureType)
 	}
 	return v.Verify()
 }

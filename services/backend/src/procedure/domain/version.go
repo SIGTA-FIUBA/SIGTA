@@ -74,9 +74,9 @@ func (a Authorship) Validate() error {
 		err = errors.New("a version needs who proposed it")
 	case a.ApprovedBy == "":
 		err = errors.New("a version needs who approved it")
-	case a.ProposedBy != strings.TrimSpace(a.ProposedBy) || strings.ContainsFunc(a.ProposedBy, invisible):
+	case !plain(a.ProposedBy):
 		err = fmt.Errorf("proposer %q has surrounding spaces or invisible characters", a.ProposedBy)
-	case a.ApprovedBy != strings.TrimSpace(a.ApprovedBy) || strings.ContainsFunc(a.ApprovedBy, invisible):
+	case !plain(a.ApprovedBy):
 		err = fmt.Errorf("approver %q has surrounding spaces or invisible characters", a.ApprovedBy)
 	case strings.EqualFold(a.ProposedBy, a.ApprovedBy):
 		err = errors.New("the approver must be someone other than the proposer")
@@ -117,9 +117,13 @@ func (v Version) Content() (Content, error) {
 		return Content{}, fmt.Errorf("decode content: %w", err)
 	}
 	if c.Format != ContentFormat {
-		return Content{}, fmt.Errorf("content format %d is not %d", c.Format, ContentFormat)
+		return Content{}, fmt.Errorf("%w %d, want %d", ErrUnknownFormat, c.Format, ContentFormat)
 	}
 	return c, nil
+}
+
+func plain(name string) bool {
+	return name == strings.TrimSpace(name) && !strings.ContainsFunc(name, invisible)
 }
 
 // invisible rejects what cannot be seen on screen, so that two people who look

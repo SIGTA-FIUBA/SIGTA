@@ -45,39 +45,39 @@ func TestValidDefinitions(t *testing.T) {
 		name   string
 		change func(*Definition)
 	}{
-		{"base definition", func(*Definition) {}},
-		{"long text field", func(d *Definition) { d.Fields[0].Type = FieldLongText }},
-		{"number field", func(d *Definition) { d.Fields[0].Type = FieldNumber }},
-		{"date field", func(d *Definition) { d.Fields[0].Type = FieldDate }},
-		{"degree field", func(d *Definition) { d.Fields[0].Type = FieldDegree }},
-		{"subject list field", func(d *Definition) { d.Fields[0].Type = FieldSubjectList }},
-		{"option field", func(d *Definition) {
+		{name: "base definition", change: func(*Definition) {}},
+		{name: "long text field", change: func(d *Definition) { d.Fields[0].Type = FieldLongText }},
+		{name: "number field", change: func(d *Definition) { d.Fields[0].Type = FieldNumber }},
+		{name: "date field", change: func(d *Definition) { d.Fields[0].Type = FieldDate }},
+		{name: "degree field", change: func(d *Definition) { d.Fields[0].Type = FieldDegree }},
+		{name: "subject list field", change: func(d *Definition) { d.Fields[0].Type = FieldSubjectList }},
+		{name: "option field", change: func(d *Definition) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}, {ID: "no", Name: "No"}}
 		}},
-		{"external area with approver", func(d *Definition) {
+		{name: "external area with approver", change: func(d *Definition) {
 			d.Steps[3].Area = "commission"
 			d.Steps[3].Profile = ProfileStaffApprover
 		}},
-		{"confirmation with fields", func(d *Definition) { d.Steps[3].Fields = []string{"national_id"} }},
-		{"only optional fields", func(d *Definition) {
+		{name: "confirmation with fields", change: func(d *Definition) { d.Steps[3].Fields = []string{"national_id"} }},
+		{name: "only optional fields", change: func(d *Definition) {
 			d.Steps[0].OptionalFields = d.Steps[0].Fields
 			d.Steps[0].Fields = nil
 		}},
-		{"only optional documents", func(d *Definition) {
+		{name: "only optional documents", change: func(d *Definition) {
 			d.Steps[1].OptionalDocuments = d.Steps[1].Documents
 			d.Steps[1].Documents = nil
 		}},
-		{"decision with its grounds", func(d *Definition) {
+		{name: "decision with its grounds", change: func(d *Definition) {
 			d.Documents = append(d.Documents, Document{ID: "minutes", Name: "Acta"})
 			d.Steps[2].Documents = []string{"minutes"}
 			d.Steps[2].OptionalFields = []string{"national_id"}
 		}},
-		{"id with digits", func(d *Definition) {
+		{name: "id with digits", change: func(d *Definition) {
 			d.Steps[3].ID = "closed2"
 			d.Steps[2].Outcomes[0].Next = "closed2"
 		}},
-		{"two outcomes to the same step", func(d *Definition) { d.Steps[2].Outcomes[1].Next = "closed" }},
+		{name: "two outcomes to the same step", change: func(d *Definition) { d.Steps[2].Outcomes[1].Next = "closed" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -96,135 +96,135 @@ func TestInvalidDefinitions(t *testing.T) {
 		change func(*Definition)
 		want   []string
 	}{
-		{"unknown action", func(d *Definition) { d.Steps[3].Action = "approve" }, []string{`step "closed": unknown action "approve"`}},
-		{"unknown area", func(d *Definition) { d.Steps[0].Area = "dean" }, []string{`step "request": unknown area "dean"`}},
-		{"unknown field", func(d *Definition) { d.Steps[0].Fields = []string{"email"} }, []string{
+		{name: "unknown action", change: func(d *Definition) { d.Steps[3].Action = "approve" }, want: []string{`step "closed": unknown action "approve"`}},
+		{name: "unknown area", change: func(d *Definition) { d.Steps[0].Area = "dean" }, want: []string{`step "request": unknown area "dean"`}},
+		{name: "unknown field", change: func(d *Definition) { d.Steps[0].Fields = []string{"email"} }, want: []string{
 			`field "national_id" is not used by any step`,
 			`step "request": unknown field "email"`,
 		}},
-		{"unknown document", func(d *Definition) { d.Steps[1].Documents = []string{"photo"} }, []string{
+		{name: "unknown document", change: func(d *Definition) { d.Steps[1].Documents = []string{"photo"} }, want: []string{
 			`document "letter" is not used by any step`,
 			`step "letter": unknown document "photo"`,
 		}},
-		{"unknown optional field", func(d *Definition) { d.Steps[0].OptionalFields = []string{"email"} }, []string{`step "request": unknown field "email"`}},
-		{"unknown optional document", func(d *Definition) { d.Steps[1].OptionalDocuments = []string{"photo"} }, []string{`step "letter": unknown document "photo"`}},
-		{"unknown next", func(d *Definition) { d.Steps[0].Next = "missing" }, []string{`step "request": unknown next step "missing"`}},
-		{"outcome without next", func(d *Definition) { d.Steps[2].Outcomes[0].Next = "" }, []string{`step "review": outcome "complete": unknown next step ""`}},
-		{"unknown outcome next", func(d *Definition) { d.Steps[2].Outcomes[0].Next = "missing" }, []string{`step "review": outcome "complete": unknown next step "missing"`}},
-		{"duplicated step", func(d *Definition) { d.Steps[3].ID = "letter" }, []string{
+		{name: "unknown optional field", change: func(d *Definition) { d.Steps[0].OptionalFields = []string{"email"} }, want: []string{`step "request": unknown field "email"`}},
+		{name: "unknown optional document", change: func(d *Definition) { d.Steps[1].OptionalDocuments = []string{"photo"} }, want: []string{`step "letter": unknown document "photo"`}},
+		{name: "unknown next", change: func(d *Definition) { d.Steps[0].Next = "missing" }, want: []string{`step "request": unknown next step "missing"`}},
+		{name: "outcome without next", change: func(d *Definition) { d.Steps[2].Outcomes[0].Next = "" }, want: []string{`step "review": outcome "complete": unknown next step ""`}},
+		{name: "unknown outcome next", change: func(d *Definition) { d.Steps[2].Outcomes[0].Next = "missing" }, want: []string{`step "review": outcome "complete": unknown next step "missing"`}},
+		{name: "duplicated step", change: func(d *Definition) { d.Steps[3].ID = "letter" }, want: []string{
 			`step "letter" is declared twice`,
 			`step "review": outcome "complete": unknown next step "closed"`,
 		}},
-		{"office step without profile", func(d *Definition) { d.Steps[3].Profile = "" }, []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
-		{"external step without profile", func(d *Definition) {
+		{name: "office step without profile", change: func(d *Definition) { d.Steps[3].Profile = "" }, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
+		{name: "external step without profile", change: func(d *Definition) {
 			d.Steps[3].Area = "commission"
 			d.Steps[3].Profile = ""
-		}, []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
-		{"unknown profile", func(d *Definition) { d.Steps[3].Profile = "boss" }, []string{`step "closed": profile "boss" must be staff_operative or staff_approver`}},
-		{"applicant step with profile", func(d *Definition) { d.Steps[0].Profile = ProfileStaffApprover }, []string{`step "request": steps of the applicant have no profile`}},
-		{"enter data without fields", func(d *Definition) { d.Steps[0].Fields = nil }, []string{
+		}, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
+		{name: "unknown profile", change: func(d *Definition) { d.Steps[3].Profile = "boss" }, want: []string{`step "closed": profile "boss" must be staff_operative or staff_approver`}},
+		{name: "applicant step with profile", change: func(d *Definition) { d.Steps[0].Profile = ProfileStaffApprover }, want: []string{`step "request": steps of the applicant have no profile`}},
+		{name: "enter data without fields", change: func(d *Definition) { d.Steps[0].Fields = nil }, want: []string{
 			`field "national_id" is not used by any step`,
 			`step "request": enter_data needs at least one field`,
 		}},
-		{"upload without documents", func(d *Definition) { d.Steps[1].Documents = nil }, []string{
+		{name: "upload without documents", change: func(d *Definition) { d.Steps[1].Documents = nil }, want: []string{
 			`document "letter" is not used by any step`,
 			`step "letter": upload_document needs at least one document`,
 		}},
-		{"decide with one outcome", func(d *Definition) { d.Steps[2].Outcomes = d.Steps[2].Outcomes[:1] }, []string{`step "review": decide needs at least two outcomes`}},
-		{"decide with next", func(d *Definition) { d.Steps[2].Next = "closed" }, []string{`step "review": decide goes on through its outcomes, not next`}},
-		{"outcomes outside decide", func(d *Definition) { d.Steps[3].Outcomes = d.Steps[2].Outcomes }, []string{`step "closed": only decide has outcomes`}},
-		{"duplicated outcome name", func(d *Definition) { d.Steps[2].Outcomes[1].Name = "Completa" }, []string{`step "review": outcome name "Completa" is listed twice`}},
-		{"outcome back to its own step", func(d *Definition) { d.Steps[2].Outcomes[1].Next = "review" }, []string{`step "review": outcome "incomplete" goes back to its own step`}},
-		{"unreachable step", func(d *Definition) {
+		{name: "decide with one outcome", change: func(d *Definition) { d.Steps[2].Outcomes = d.Steps[2].Outcomes[:1] }, want: []string{`step "review": decide needs at least two outcomes`}},
+		{name: "decide with next", change: func(d *Definition) { d.Steps[2].Next = "closed" }, want: []string{`step "review": decide goes on through its outcomes, not next`}},
+		{name: "outcomes outside decide", change: func(d *Definition) { d.Steps[3].Outcomes = d.Steps[2].Outcomes }, want: []string{`step "closed": only decide has outcomes`}},
+		{name: "duplicated outcome name", change: func(d *Definition) { d.Steps[2].Outcomes[1].Name = "Completa" }, want: []string{`step "review": outcome name "Completa" is listed twice`}},
+		{name: "outcome back to its own step", change: func(d *Definition) { d.Steps[2].Outcomes[1].Next = "review" }, want: []string{`step "review": outcome "incomplete" goes back to its own step`}},
+		{name: "unreachable step", change: func(d *Definition) {
 			d.Steps[0].Next = "review"
 			d.Steps[2].Outcomes[1].Next = "request"
-		}, []string{`step "letter" is unreachable from "request"`}},
-		{"loop without exit", func(d *Definition) { d.Steps[2].Outcomes[0].Next = "request" }, []string{
+		}, want: []string{`step "letter" is unreachable from "request"`}},
+		{name: "loop without exit", change: func(d *Definition) { d.Steps[2].Outcomes[0].Next = "request" }, want: []string{
 			`step "closed" is unreachable from "request"`,
 			`step "letter" never reaches a closing step`,
 			`step "request" never reaches a closing step`,
 			`step "review" never reaches a closing step`,
 		}},
-		{"no steps", func(d *Definition) { d.Steps = nil }, []string{"definition has no steps"}},
-		{"no name", func(d *Definition) { d.Name = "" }, []string{"definition has no name"}},
-		{"blank name", func(d *Definition) { d.Name = "   " }, []string{"definition has no name"}},
-		{"name with surrounding spaces", func(d *Definition) { d.Name = "Trámite " }, []string{`definition name "Trámite " starts or ends with spaces`}},
-		{"name with a leading space", func(d *Definition) { d.Name = " Trámite" }, []string{`definition name " Trámite" starts or ends with spaces`}},
-		{"step without id", func(d *Definition) { d.Steps[3].ID = "" }, []string{
+		{name: "no steps", change: func(d *Definition) { d.Steps = nil }, want: []string{"definition has no steps"}},
+		{name: "no name", change: func(d *Definition) { d.Name = "" }, want: []string{"definition has no name"}},
+		{name: "blank name", change: func(d *Definition) { d.Name = "   " }, want: []string{"definition has no name"}},
+		{name: "name with surrounding spaces", change: func(d *Definition) { d.Name = "Trámite " }, want: []string{`definition name "Trámite " starts or ends with spaces`}},
+		{name: "name with a leading space", change: func(d *Definition) { d.Name = " Trámite" }, want: []string{`definition name " Trámite" starts or ends with spaces`}},
+		{name: "step without id", change: func(d *Definition) { d.Steps[3].ID = "" }, want: []string{
 			"step has no id",
 			`step "review": outcome "complete": unknown next step "closed"`,
 		}},
-		{"uppercase id", func(d *Definition) {
+		{name: "uppercase id", change: func(d *Definition) {
 			d.Fields[0].ID = "NationalID"
 			d.Steps[0].Fields = []string{"NationalID"}
-		}, []string{`field id "NationalID" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
-		{"lookalike id", func(d *Definition) {
+		}, want: []string{`field id "NationalID" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
+		{name: "lookalike id", change: func(d *Definition) {
 			d.Steps[3].ID = "clоsed" // Cyrillic о
 			d.Steps[2].Outcomes[0].Next = "clоsed"
-		}, []string{`step id "clоsed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
-		{"id starting with a digit", func(d *Definition) {
+		}, want: []string{`step id "clоsed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
+		{name: "id starting with a digit", change: func(d *Definition) {
 			d.Steps[3].ID = "2closed"
 			d.Steps[2].Outcomes[0].Next = "2closed"
-		}, []string{`step id "2closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
-		{"id starting with an underscore", func(d *Definition) {
+		}, want: []string{`step id "2closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
+		{name: "id starting with an underscore", change: func(d *Definition) {
 			d.Steps[3].ID = "_closed"
 			d.Steps[2].Outcomes[0].Next = "_closed"
-		}, []string{`step id "_closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
-		{"id with a hyphen", func(d *Definition) {
+		}, want: []string{`step id "_closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
+		{name: "id with a hyphen", change: func(d *Definition) {
 			d.Steps[3].ID = "is-closed"
 			d.Steps[2].Outcomes[0].Next = "is-closed"
-		}, []string{`step id "is-closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
-		{"step without name", func(d *Definition) { d.Steps[0].Name = "" }, []string{`step "request" has no name`}},
-		{"outcome without id", func(d *Definition) { d.Steps[2].Outcomes[0].ID = "" }, []string{`step "review": outcome has no id`}},
-		{"outcome without name", func(d *Definition) { d.Steps[2].Outcomes[0].Name = "" }, []string{`step "review": outcome "complete" has no name`}},
-		{"duplicated outcome", func(d *Definition) { d.Steps[2].Outcomes[1].ID = "complete" }, []string{`step "review": outcome "complete" is declared twice`}},
-		{"duplicated field reference", func(d *Definition) { d.Steps[0].OptionalFields = []string{"national_id"} }, []string{`step "request": field "national_id" is listed twice`}},
-		{"applicant decides", func(d *Definition) {
+		}, want: []string{`step id "is-closed" must be lowercase ASCII letters, digits and underscores, starting with a letter`}},
+		{name: "step without name", change: func(d *Definition) { d.Steps[0].Name = "" }, want: []string{`step "request" has no name`}},
+		{name: "outcome without id", change: func(d *Definition) { d.Steps[2].Outcomes[0].ID = "" }, want: []string{`step "review": outcome has no id`}},
+		{name: "outcome without name", change: func(d *Definition) { d.Steps[2].Outcomes[0].Name = "" }, want: []string{`step "review": outcome "complete" has no name`}},
+		{name: "duplicated outcome", change: func(d *Definition) { d.Steps[2].Outcomes[1].ID = "complete" }, want: []string{`step "review": outcome "complete" is declared twice`}},
+		{name: "duplicated field reference", change: func(d *Definition) { d.Steps[0].OptionalFields = []string{"national_id"} }, want: []string{`step "request": field "national_id" is listed twice`}},
+		{name: "applicant decides", change: func(d *Definition) {
 			d.Steps[2].Area = "applicant"
 			d.Steps[2].Profile = ""
-		}, []string{`step "review": the applicant only enters data or uploads documents`}},
-		{"applicant confirms", func(d *Definition) {
+		}, want: []string{`step "review": the applicant only enters data or uploads documents`}},
+		{name: "applicant confirms", change: func(d *Definition) {
 			d.Steps[3].Area = "applicant"
 			d.Steps[3].Profile = ""
-		}, []string{`step "closed": the applicant only enters data or uploads documents`}},
-		{"enter data with documents", func(d *Definition) { d.Steps[0].Documents = []string{"letter"} }, []string{`step "request": enter_data takes no documents`}},
-		{"upload with fields", func(d *Definition) { d.Steps[1].Fields = []string{"national_id"} }, []string{`step "letter": upload_document takes no fields`}},
-		{"confirm with documents", func(d *Definition) { d.Steps[3].Documents = []string{"letter"} }, []string{`step "closed": confirm_external_fact takes no documents`}},
-		{"confirm with optional documents", func(d *Definition) { d.Steps[3].OptionalDocuments = []string{"letter"} }, []string{`step "closed": confirm_external_fact takes no documents`}},
-		{"option without options", func(d *Definition) { d.Fields[0].Type = FieldOption }, []string{`field "national_id": option fields need at least one option`}},
-		{"options outside option", func(d *Definition) { d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}} }, []string{`field "national_id": only option fields have options`}},
-		{"option without id", func(d *Definition) {
+		}, want: []string{`step "closed": the applicant only enters data or uploads documents`}},
+		{name: "enter data with documents", change: func(d *Definition) { d.Steps[0].Documents = []string{"letter"} }, want: []string{`step "request": enter_data takes no documents`}},
+		{name: "upload with fields", change: func(d *Definition) { d.Steps[1].Fields = []string{"national_id"} }, want: []string{`step "letter": upload_document takes no fields`}},
+		{name: "confirm with documents", change: func(d *Definition) { d.Steps[3].Documents = []string{"letter"} }, want: []string{`step "closed": confirm_external_fact takes no documents`}},
+		{name: "confirm with optional documents", change: func(d *Definition) { d.Steps[3].OptionalDocuments = []string{"letter"} }, want: []string{`step "closed": confirm_external_fact takes no documents`}},
+		{name: "option without options", change: func(d *Definition) { d.Fields[0].Type = FieldOption }, want: []string{`field "national_id": option fields need at least one option`}},
+		{name: "options outside option", change: func(d *Definition) { d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}} }, want: []string{`field "national_id": only option fields have options`}},
+		{name: "option without id", change: func(d *Definition) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{Name: "Sí"}}
-		}, []string{`field "national_id": option has no id`}},
-		{"option without name", func(d *Definition) {
+		}, want: []string{`field "national_id": option has no id`}},
+		{name: "option without name", change: func(d *Definition) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{ID: "yes", Name: " "}}
-		}, []string{`field "national_id": option "yes" has no name`}},
-		{"duplicated option id", func(d *Definition) {
+		}, want: []string{`field "national_id": option "yes" has no name`}},
+		{name: "duplicated option id", change: func(d *Definition) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}, {ID: "yes", Name: "Si"}}
-		}, []string{`field "national_id": option "yes" is declared twice`}},
-		{"duplicated option name", func(d *Definition) {
+		}, want: []string{`field "national_id": option "yes" is declared twice`}},
+		{name: "duplicated option name", change: func(d *Definition) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}, {ID: "si", Name: "Sí"}}
-		}, []string{`field "national_id": option name "Sí" is listed twice`}},
-		{"unknown field type", func(d *Definition) { d.Fields[0].Type = "image" }, []string{`field "national_id": unknown type "image"`}},
-		{"duplicated field", func(d *Definition) { d.Fields = append(d.Fields, d.Fields[0]) }, []string{`field "national_id" is declared twice`}},
-		{"document without name", func(d *Definition) { d.Documents[0].Name = "" }, []string{`document "letter" has no name`}},
-		{"duplicated document", func(d *Definition) { d.Documents = append(d.Documents, d.Documents[0]) }, []string{`document "letter" is declared twice`}},
-		{"unused field", func(d *Definition) {
+		}, want: []string{`field "national_id": option name "Sí" is listed twice`}},
+		{name: "unknown field type", change: func(d *Definition) { d.Fields[0].Type = "image" }, want: []string{`field "national_id": unknown type "image"`}},
+		{name: "duplicated field", change: func(d *Definition) { d.Fields = append(d.Fields, d.Fields[0]) }, want: []string{`field "national_id" is declared twice`}},
+		{name: "document without name", change: func(d *Definition) { d.Documents[0].Name = "" }, want: []string{`document "letter" has no name`}},
+		{name: "duplicated document", change: func(d *Definition) { d.Documents = append(d.Documents, d.Documents[0]) }, want: []string{`document "letter" is declared twice`}},
+		{name: "unused field", change: func(d *Definition) {
 			d.Fields = append(d.Fields, Field{ID: "email", Name: "Correo", Type: FieldText})
-		}, []string{`field "email" is not used by any step`}},
-		{"unused field named like a used document", func(d *Definition) {
+		}, want: []string{`field "email" is not used by any step`}},
+		{name: "unused field named like a used document", change: func(d *Definition) {
 			d.Fields = append(d.Fields, Field{ID: "letter", Name: "Carta", Type: FieldText})
-		}, []string{`field "letter" is not used by any step`}},
-		{"unused document named like a used field", func(d *Definition) {
+		}, want: []string{`field "letter" is not used by any step`}},
+		{name: "unused document named like a used field", change: func(d *Definition) {
 			d.Documents = append(d.Documents, Document{ID: "national_id", Name: "Documento"})
-		}, []string{`document "national_id" is not used by any step`}},
-		{"unused document", func(d *Definition) {
+		}, want: []string{`document "national_id" is not used by any step`}},
+		{name: "unused document", change: func(d *Definition) {
 			d.Documents = append(d.Documents, Document{ID: "photo", Name: "Foto"})
-		}, []string{`document "photo" is not used by any step`}},
+		}, want: []string{`document "photo" is not used by any step`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -248,14 +248,14 @@ func TestInvalidAreas(t *testing.T) {
 		change func([]Area)
 		want   string
 	}{
-		{"duplicated area", func(a []Area) { a[1].ID = "applicant" }, `area "applicant" is declared twice`},
-		{"unknown area kind", func(a []Area) { a[1].Kind = "dean" }, `area "office": unknown kind "dean"`},
-		{"duplicated area name", func(a []Area) { a[2].Name = "Dirección de Alumnos" }, `area "commission": name "Dirección de Alumnos" is already used by area "office"`},
-		{"no applicant area", func(a []Area) { a[0].Kind = AreaOffice }, "areas must have one applicant area, found 0"},
-		{"two applicant areas", func(a []Area) { a[1].Kind = AreaApplicant }, "areas must have one applicant area, found 2"},
-		{"area without id", func(a []Area) { a[0].ID = "" }, "area has no id"},
-		{"area with an invalid id", func(a []Area) { a[0].ID = "Applicant" }, `area id "Applicant" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
-		{"area without name", func(a []Area) { a[1].Name = "" }, `area "office" has no name`},
+		{name: "duplicated area", change: func(a []Area) { a[1].ID = "applicant" }, want: `area "applicant" is declared twice`},
+		{name: "unknown area kind", change: func(a []Area) { a[1].Kind = "dean" }, want: `area "office": unknown kind "dean"`},
+		{name: "duplicated area name", change: func(a []Area) { a[2].Name = "Dirección de Alumnos" }, want: `area "commission": name "Dirección de Alumnos" is already used by area "office"`},
+		{name: "no applicant area", change: func(a []Area) { a[0].Kind = AreaOffice }, want: "areas must have one applicant area, found 0"},
+		{name: "two applicant areas", change: func(a []Area) { a[1].Kind = AreaApplicant }, want: "areas must have one applicant area, found 2"},
+		{name: "area without id", change: func(a []Area) { a[0].ID = "" }, want: "area has no id"},
+		{name: "area with an invalid id", change: func(a []Area) { a[0].ID = "Applicant" }, want: `area id "Applicant" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
+		{name: "area without name", change: func(a []Area) { a[1].Name = "" }, want: `area "office" has no name`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

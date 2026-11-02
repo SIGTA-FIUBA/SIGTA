@@ -19,7 +19,7 @@ type Field struct {
 	Options []Option  `json:"options,omitempty"`
 }
 
-// An option is stored by its id, so that correcting its name later does not
+// Option is stored by its id, so that correcting its name later does not
 // change what earlier answers mean.
 type Option struct {
 	ID   string `json:"id"`
@@ -60,10 +60,7 @@ func validateOptions(f Field) []Problem {
 	seenNames := map[string]bool{}
 	for _, o := range f.Options {
 		problems = append(problems, validateEntry(KindOption, o.ID, o.Name, seenIDs)...)
-		if seenNames[o.Name] {
-			problems = append(problems, Problem{Code: CodeRepeatedName, Path: []Ref{{Kind: KindOption}}, Value: o.Name})
-		}
-		seenNames[o.Name] = true
+		problems = append(problems, repeatedName(KindOption, o.Name, seenNames)...)
 	}
 	return problems
 }

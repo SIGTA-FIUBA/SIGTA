@@ -97,7 +97,10 @@ func TestPublish(t *testing.T) {
 	}
 	again := publication(1, 0, testDefinition())
 	again.Authorship = domain.Authorship{ProposedBy: "carla", ApprovedBy: "dario"}
-	stored, _ := service.Version(ctx, 1, 1)
+	stored, err := service.Version(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("Version() = %v", err)
+	}
 	if v, err := service.Publish(ctx, again); err != nil || !reflect.DeepEqual(v, stored) {
 		t.Errorf("Publish() without changes by others = %+v, %v, want version 1 as stored", v, err)
 	}
@@ -143,8 +146,9 @@ func TestPublishFromAnOutdatedBase(t *testing.T) {
 
 	second := testDefinition()
 	second.Name = "Segundo cambio, editado desde la versión 1"
-	if _, err := service.Publish(ctx, publication(1, 1, second)); !errors.Is(err, input.ErrOutdatedBase) {
-		t.Errorf("Publish() = %v, want ErrOutdatedBase", err)
+	_, err := service.Publish(ctx, publication(1, 1, second))
+	if outdated, ok := errors.AsType[*input.OutdatedBaseError](err); !ok || outdated.Latest != 2 || !errors.Is(err, input.ErrOutdatedBase) {
+		t.Errorf("Publish() = %v, want ErrOutdatedBase with latest version 2", err)
 	}
 	if v, err := service.Publish(ctx, publication(1, 1, first)); err != nil || v.Number != 2 {
 		t.Errorf("Publish() of the latest content = version %d, %v, want version 2", v.Number, err)
@@ -166,7 +170,10 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	if err != nil || v.Number != 2 {
 		t.Errorf("Publish() = version %d, %v, want version 2", v.Number, err)
 	}
-	first, _ := versions.Get(ctx, 1, 1)
+	first, err := versions.Get(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
 	if c, err := first.Content(); err != nil || c.Areas[0].Name != "Titular" {
 		t.Errorf("version 1 areas = %v, %v, want the previous name", c.Areas, err)
 	}
@@ -181,14 +188,14 @@ func TestPublishRejects(t *testing.T) {
 		p       input.Publication
 		want    error
 	}{
-		{"invalid definition", newService(memory.NewProcedureVersions(), applicant), publication(1, 0, invalid), domain.ErrInvalidDefinition},
-		{"invalid areas", newService(memory.NewProcedureVersions(), applicant, applicant), publication(1, 0, testDefinition()), domain.ErrInvalidAreas},
-		{"same proposer and approver", newService(memory.NewProcedureVersions(), applicant), input.Publication{
+		{name: "invalid definition", service: newService(memory.NewProcedureVersions(), applicant), p: publication(1, 0, invalid), want: domain.ErrInvalidDefinition},
+		{name: "invalid areas", service: newService(memory.NewProcedureVersions(), applicant, applicant), p: publication(1, 0, testDefinition()), want: domain.ErrInvalidAreas},
+		{name: "same proposer and approver", service: newService(memory.NewProcedureVersions(), applicant), p: input.Publication{
 			ProcedureType: 1, Definition: testDefinition(), Authorship: domain.Authorship{ProposedBy: "ana", ApprovedBy: "ana"},
-		}, domain.ErrInvalidAuthorship},
-		{"area catalog fails", NewProcedureTypeService(memory.NewProcedureVersions(), failingCatalog{}, time.Now), publication(1, 0, testDefinition()), errStore},
-		{"latest fails", newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), latestErr: errStore}, applicant), publication(1, 0, testDefinition()), errStore},
-		{"add fails", newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), addErr: errStore}, applicant), publication(1, 0, testDefinition()), errStore},
+		}, want: domain.ErrInvalidAuthorship},
+		{name: "area catalog fails", service: NewProcedureTypeService(memory.NewProcedureVersions(), failingCatalog{}, time.Now), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "latest fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), latestErr: errStore}, applicant), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "add fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), addErr: errStore}, applicant), p: publication(1, 0, testDefinition()), want: errStore},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -236,8 +243,8 @@ func TestVersionFromAnotherRow(t *testing.T) {
 		}
 	}
 	versions.wrongRow = true
-	if _, err := service.Version(ctx, 1, 1); err == nil || err.Error() != "procedure type 1 version 1: the store returned version 1 of procedure type 2" {
-		t.Errorf("Version() = %v, want the wrong row rejected", err)
+	if _, err := service.Version(ctx, 1, 1); !errors.Is(err, output.ErrWrongVersion) {
+		t.Errorf("Version() = %v, want ErrWrongVersion", err)
 	}
 }
 
@@ -252,7 +259,8 @@ func TestConcurrentPublications(t *testing.T) {
 		t.Fatalf("Publish() = %v", err)
 	}
 	versions.stale = true
-	if _, err := service.Publish(ctx, publication(1, 0, testDefinition())); !errors.Is(err, input.ErrOutdatedBase) {
-		t.Errorf("Publish() after losing the race = %v, want ErrOutdatedBase", err)
+	_, err := service.Publish(ctx, publication(1, 0, testDefinition()))
+	if outdated, ok := errors.AsType[*input.OutdatedBaseError](err); !ok || outdated.Latest != 1 {
+		t.Errorf("Publish() after losing the race = %v, want ErrOutdatedBase with latest version 1", err)
 	}
 }

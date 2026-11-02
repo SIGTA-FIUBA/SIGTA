@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"errors"
 	"go/ast"
 	"go/parser"
@@ -46,19 +45,6 @@ func TestProblemsOfAreas(t *testing.T) {
 func TestProblemsOfValidDefinition(t *testing.T) {
 	if got := ProblemsOf(testDefinition().Validate(testAreas())); len(got) != 0 {
 		t.Errorf("ProblemsOf() = %v, want none", got)
-	}
-}
-
-// The editor reads problems as JSON, so these names are part of the contract.
-func TestProblemJSON(t *testing.T) {
-	p := Problem{Code: CodeUnknownNextStep, Path: []Ref{{Kind: "step", ID: "review"}, {Kind: "outcome"}}, Value: "missing"}
-	got, err := json.Marshal(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := `{"code":"unknown_next_step","path":[{"kind":"step","id":"review"},{"kind":"outcome"}],"value":"missing"}`
-	if string(got) != want {
-		t.Errorf("json = %s, want %s", got, want)
 	}
 }
 

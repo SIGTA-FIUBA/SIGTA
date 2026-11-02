@@ -37,6 +37,11 @@ func (c config) callbackURL() string { return c.publicURL + "/auth/callback" }
 
 func (c config) loginURL() string { return c.appURL + "login" }
 
+func (c config) loginLinkURL() string { return c.appURL + "login/link#token=" }
+
+// secureCookies is off only for local development over plain HTTP.
+func (c config) secureCookies() bool { return strings.HasPrefix(c.publicURL, "https://") }
+
 // loadConfig reads the environment and refuses a configuration that would
 // start half working or wire a development adapter outside development.
 func loadConfig(getenv func(string) string) (config, error) {
@@ -153,11 +158,11 @@ func loadUsers(path, allowedDomain string) ([]domain.User, error) {
 		switch {
 		case user.ID == "" || ids[user.ID]:
 			problems = append(problems, fmt.Errorf("entry %d: empty or repeated id %q", i, user.ID))
-		case !strings.HasSuffix(user.Email, "@"+allowedDomain) || emails[user.Email]:
+		case !domain.InDomain(user.Email, allowedDomain) || emails[user.Email]:
 			problems = append(problems, fmt.Errorf("entry %d: email outside %s or repeated", i, allowedDomain))
 		case user.Name == "":
 			problems = append(problems, fmt.Errorf("entry %d: empty name", i))
-		case !knownRole(user.Role):
+		case !user.Role.Known():
 			problems = append(problems, fmt.Errorf("entry %d: unknown role %q", i, e.Role))
 		}
 		ids[user.ID], emails[user.Email] = true, true
@@ -167,12 +172,4 @@ func loadUsers(path, allowedDomain string) ([]domain.User, error) {
 		return nil, fmt.Errorf("%s: %w", path, errors.Join(problems...))
 	}
 	return users, nil
-}
-
-func knownRole(role domain.Role) bool {
-	switch role {
-	case domain.RoleApplicant, domain.RoleStaffOperative, domain.RoleStaffApprover:
-		return true
-	}
-	return false
 }
