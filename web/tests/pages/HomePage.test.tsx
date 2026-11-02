@@ -4,9 +4,9 @@ import { render } from '../render'
 import { HomePage } from '../../src/pages/HomePage'
 
 describe('HomePage', () => {
-  it('shows the name of the platform', () => {
+  it('shows the title of the page', () => {
     render(<HomePage />)
 
-    expect(screen.getByRole('heading', { name: 'SIGTA' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Inicio' })).toBeVisible()
   })
 })
