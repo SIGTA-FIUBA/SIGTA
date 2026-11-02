@@ -22,8 +22,9 @@ var (
 
 func testDefinition() domain.Definition {
 	return domain.Definition{
-		Name:   "Trámite de prueba",
-		Fields: []domain.Field{{ID: "national_id", Name: "DNI", Type: domain.FieldText}},
+		Name:        "Trámite de prueba",
+		Description: "Un trámite para las pruebas",
+		Fields:      []domain.Field{{ID: "national_id", Name: "DNI", Type: domain.FieldText}},
 		Steps: []domain.Step{
 			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"national_id"}},
 		},
@@ -262,5 +263,55 @@ func TestConcurrentPublications(t *testing.T) {
 	_, err := service.Publish(ctx, publication(1, 0, testDefinition()))
 	if outdated, ok := errors.AsType[*input.OutdatedBaseError](err); !ok || outdated.Latest != 1 {
 		t.Errorf("Publish() after losing the race = %v, want ErrOutdatedBase with latest version 1", err)
+	}
+}
+
+func TestCatalog(t *testing.T) {
+	ctx := context.Background()
+	service := newService(memory.NewProcedureVersions(), applicant)
+	changed := testDefinition()
+	changed.Name = "Trámite cambiado"
+	for _, p := range []input.Publication{
+		publication(1, 0, testDefinition()),
+		publication(1, 1, changed),
+		publication(2, 0, testDefinition()),
+	} {
+		if _, err := service.Publish(ctx, p); err != nil {
+			t.Fatalf("Publish() = %v", err)
+		}
+	}
+
+	entries, err := service.Catalog(ctx)
+	if err != nil {
+		t.Fatalf("Catalog() = %v", err)
+	}
+	want := []struct {
+		procedureType int64
+		version       int
+		name          string
+	}{{1, 2, "Trámite cambiado"}, {2, 1, "Trámite de prueba"}}
+	if len(entries) != len(want) {
+		t.Fatalf("Catalog() = %+v, want %+v", entries, want)
+	}
+	for index, w := range want {
+		entry := entries[index]
+		if entry.ProcedureType != w.procedureType || entry.Version != w.version || entry.Name != w.name {
+			t.Errorf("entries[%d] = %+v, want %+v", index, entry, w)
+		}
+		if len(entry.Fields) != 1 || !entry.Fields[0].Required {
+			t.Errorf("entries[%d].Fields = %+v, want national_id as mandatory", index, entry.Fields)
+		}
+	}
+}
+
+func TestCatalogWithUnreadableContent(t *testing.T) {
+	versions := memory.NewProcedureVersions()
+	encoded := []byte(`{"format":99}`)
+	v := domain.Version{ProcedureType: 1, Number: 1, Digest: domain.Digest(encoded), Encoded: encoded, Authorship: authors}
+	if err := versions.Add(context.Background(), v); err != nil {
+		t.Fatalf("Add() = %v", err)
+	}
+	if entries, err := newService(versions, applicant).Catalog(context.Background()); err == nil {
+		t.Errorf("Catalog() = %+v, want an error", entries)
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,6 +16,11 @@ import (
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	out "backend/src/auth/ports/output"
+	proceduremem "backend/src/procedure/adapters/memory"
+	procedurerest "backend/src/procedure/adapters/rest"
+	procedureapp "backend/src/procedure/application"
+	procedure "backend/src/procedure/domain"
+	"backend/src/procedure/ports/input"
 )
 
 func main() {
@@ -55,9 +61,16 @@ func run(logger *slog.Logger) error {
 	)
 
 	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
+	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), proceduremem.NewAreaCatalog(devAreas()...), time.Now)
+	if cfg.development() {
+		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
+			return fmt.Errorf("publish the example procedure type: %w", err)
+		}
+	}
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
 
 	router := http.NewServeMux()
-	api.Mount(router, authHandler, logger)
+	api.Mount(router, app, logger)
 
 	server := &http.Server{
 		Addr:              ":8080",
@@ -111,5 +124,39 @@ func devUsers() []domain.User {
 		{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba", Role: domain.RoleApplicant},
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
+	}
+}
+
+func devAreas() []procedure.Area {
+	return []procedure.Area{
+		{ID: "applicant", Name: "Titular", Kind: procedure.AreaApplicant},
+		{ID: "office", Name: "Área de prueba", Kind: procedure.AreaOffice},
+	}
+}
+
+// devProcedureType is a made-up procedure type, so that the catalog has
+// something to show in local development. It describes no real process.
+func devProcedureType() input.Publication {
+	return input.Publication{
+		ProcedureType: 1,
+		Authorship:    procedure.Authorship{ProposedBy: "dev-operative", ApprovedBy: "dev-approver"},
+		Definition: procedure.Definition{
+			Name:          "Trámite de ejemplo",
+			Description:   "Un trámite inventado para probar SIGTA en desarrollo.",
+			Deadlines:     []string{"Plazo de ejemplo: hasta 30 días antes del inicio de la cursada."},
+			Admissibility: []string{"Condición de ejemplo: tener una cuenta de prueba."},
+			Fields: []procedure.Field{
+				{ID: "reason", Name: "Motivo", Type: procedure.FieldLongText},
+				{ID: "comment", Name: "Comentario", Type: procedure.FieldLongText},
+			},
+			Documents: []procedure.Document{
+				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
+			},
+			Steps: []procedure.Step{
+				{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
+				{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "review", Name: "Revisión", Area: "office", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact},
+			},
+		},
 	}
 }

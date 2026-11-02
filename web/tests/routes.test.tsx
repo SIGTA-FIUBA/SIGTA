@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -26,7 +27,12 @@ function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStat
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(<RouterProvider router={router} />)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
   return router
 }
 
@@ -41,6 +47,14 @@ describe('routes', () => {
 
     expect(await screen.findByRole('link', { name: 'Iniciar sesión con Google' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/login')
+  })
+
+  it('shows the catalog to a visitor without a session', async () => {
+    stubApi({ session: false })
+    const router = renderAt('/catalog')
+
+    expect(await screen.findByRole('heading', { name: 'Trámites' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/catalog')
   })
 
   it('shows the home page with the account of the person with a session', async () => {

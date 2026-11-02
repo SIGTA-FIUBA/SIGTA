@@ -109,9 +109,13 @@ func (w *procedureTypeWorld) publish(base int, d domain.Definition) error {
 // validDefinition uses the four actions and every kind of area.
 func validDefinition(name string) domain.Definition {
 	return domain.Definition{
-		Name:      name,
-		Fields:    []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
-		Documents: []domain.Document{{ID: "transcript", Name: "Certificado analítico"}, {ID: "ruling", Name: "Dictamen"}},
+		Name:        name,
+		Description: "Un trámite de prueba",
+		Fields:      []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
+		Documents: []domain.Document{
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+		},
 		Steps: []domain.Step{
 			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},

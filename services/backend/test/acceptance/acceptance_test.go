@@ -17,6 +17,7 @@ func TestScenarios(t *testing.T) {
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
 			registerProcedureTypeSteps(sc)
 			registerAuthenticationSteps(sc)
+			registerCatalogSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",

@@ -46,32 +46,46 @@ const (
 	CodeUnknownFieldType       Code = "unknown_field_type"
 	CodeOptionsOutsideOption   Code = "options_outside_option"
 	CodeOptionFieldNoOptions   Code = "option_field_no_options"
+	CodeNoDescription          Code = "no_description"
+	CodeBlankText              Code = "blank_text"
+	CodeNoAcceptedTypes        Code = "no_accepted_types"
+	CodeInvalidAcceptedType    Code = "invalid_accepted_type"
+	CodeRepeatedAcceptedType   Code = "repeated_accepted_type"
+	CodeNoMaxSize              Code = "no_max_size"
 )
 
 type Kind string
 
 const (
-	KindDefinition Kind = "definition"
-	KindArea       Kind = "area"
-	KindField      Kind = "field"
-	KindOption     Kind = "option"
-	KindDocument   Kind = "document"
-	KindStep       Kind = "step"
-	KindOutcome    Kind = "outcome"
+	KindDefinition    Kind = "definition"
+	KindArea          Kind = "area"
+	KindField         Kind = "field"
+	KindOption        Kind = "option"
+	KindDocument      Kind = "document"
+	KindStep          Kind = "step"
+	KindOutcome       Kind = "outcome"
+	KindDeadline      Kind = "deadline"
+	KindAdmissibility Kind = "admissibility"
 )
 
 // Ref points at one element of a definition. An element that has no id, or
-// whose id is not valid, has an empty ID.
+// whose id is not valid, has an empty ID. Deadlines and admissibility
+// conditions have no id, so Position says which one it is, counting from 1.
 type Ref struct {
-	Kind Kind
-	ID   string
+	Kind     Kind
+	ID       string
+	Position int
 }
 
 func (r Ref) String() string {
-	if r.ID == "" {
+	switch {
+	case r.ID != "":
+		return fmt.Sprintf("%s %q", r.Kind, r.ID)
+	case r.Position > 0:
+		return fmt.Sprintf("%s %d", r.Kind, r.Position)
+	default:
 		return string(r.Kind)
 	}
-	return fmt.Sprintf("%s %q", r.Kind, r.ID)
 }
 
 // Problem is one thing wrong in a definition: what (Code), where (Path, from
@@ -175,6 +189,18 @@ func (p Problem) text() (text string, aboutLast bool) {
 		return "only option fields have options", false
 	case CodeOptionFieldNoOptions:
 		return "option fields need at least one option", false
+	case CodeNoDescription:
+		return fmt.Sprintf("%s has no description", last), true
+	case CodeBlankText:
+		return fmt.Sprintf("%s has no text", last), true
+	case CodeNoAcceptedTypes:
+		return fmt.Sprintf("%s accepts no file types", last), true
+	case CodeInvalidAcceptedType:
+		return fmt.Sprintf("%s accepts %q, which is not a media type", last, p.Value), true
+	case CodeRepeatedAcceptedType:
+		return fmt.Sprintf("%s accepts %q twice", last, p.Value), true
+	case CodeNoMaxSize:
+		return fmt.Sprintf("%s has no maximum size", last), true
 	}
 	return "unknown problem " + string(p.Code), false
 }

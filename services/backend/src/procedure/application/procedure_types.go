@@ -86,6 +86,35 @@ func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64,
 	return v, nil
 }
 
+func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntry, error) {
+	versions, err := s.versions.LatestOfEach(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list latest versions: %w", err)
+	}
+	entries := make([]input.CatalogEntry, 0, len(versions))
+	for _, version := range versions {
+		if err := check(version, version.ProcedureType, version.Number); err != nil {
+			return nil, fmt.Errorf("procedure type %d version %d: %w", version.ProcedureType, version.Number, err)
+		}
+		content, err := version.Content()
+		if err != nil {
+			return nil, fmt.Errorf("procedure type %d version %d: %w", version.ProcedureType, version.Number, err)
+		}
+		fields, documents := content.ApplicantRequirements()
+		entries = append(entries, input.CatalogEntry{
+			ProcedureType: version.ProcedureType,
+			Version:       version.Number,
+			Name:          content.Definition.Name,
+			Description:   content.Definition.Description,
+			Deadlines:     content.Definition.Deadlines,
+			Admissibility: content.Definition.Admissibility,
+			Fields:        fields,
+			Documents:     documents,
+		})
+	}
+	return entries, nil
+}
+
 // latest returns the zero Version if the procedure type has none, and fails
 // if the latest one does not match its digest: publishing on top of it would
 // hide the alteration.

@@ -23,6 +23,9 @@ type ProcedureVersions interface {
 	// Latest returns the version with the highest number, or ErrNoVersion if
 	// the procedure type has none.
 	Latest(ctx context.Context, procedureType int64) (domain.Version, error)
+	// LatestOfEach returns the latest version of every procedure type that has
+	// one, ordered by procedure type.
+	LatestOfEach(ctx context.Context) ([]domain.Version, error)
 	// Get fails with ErrNoVersion if the version does not exist.
 	Get(ctx context.Context, procedureType int64, number int) (domain.Version, error)
 	// Add fails with ErrVersionExists if the procedure type already has a

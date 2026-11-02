@@ -114,6 +114,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedure-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catálogo de los tipos de trámite publicados
+         * @description Es público: sirve para saber si un trámite corresponde antes de tener una sesión. Muestra la última versión de cada tipo de trámite y solo lo que le toca aportar al titular.
+         */
+        get: operations["listProcedureTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -128,6 +148,35 @@ export interface components {
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
         /** @enum {string} */
         Role: "applicant" | "staff_operative" | "staff_approver";
+        FieldRequirement: {
+            id: string;
+            name: string;
+            required: boolean;
+        };
+        DocumentRequirement: {
+            id: string;
+            name: string;
+            required: boolean;
+            /** @description Tipos de medio aceptados, como application/pdf */
+            accepted_types: string[];
+            /**
+             * Format: int64
+             * @description Tamaño máximo en bytes
+             */
+            max_size: number;
+        };
+        CatalogEntry: {
+            /** Format: int64 */
+            id: number;
+            version: number;
+            name: string;
+            description: string;
+            deadlines: string[];
+            /** @description Condiciones de admisibilidad, como texto informativo */
+            admissibility: string[];
+            fields: components["schemas"]["FieldRequirement"][];
+            documents: components["schemas"]["DocumentRequirement"][];
+        };
         User: {
             id: string;
             /** Format: email */
@@ -325,6 +374,26 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listProcedureTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tipos de trámite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogEntry"][];
+                };
+            };
         };
     };
 }

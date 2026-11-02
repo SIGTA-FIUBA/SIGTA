@@ -35,6 +35,18 @@ type Publication struct {
 	Authorship domain.Authorship
 }
 
+// CatalogEntry is what an applicant sees of a procedure type before starting it.
+type CatalogEntry struct {
+	ProcedureType int64
+	Version       int
+	Name          string
+	Description   string
+	Deadlines     []string
+	Admissibility []string
+	Fields        []domain.FieldRequirement
+	Documents     []domain.DocumentRequirement
+}
+
 type ProcedureTypes interface {
 	// Publish returns the version as it is stored. If the content is the same
 	// as the latest version, whatever the base, it publishes nothing and
@@ -52,4 +64,9 @@ type ProcedureTypes interface {
 	// version does not exist, and with domain.ErrAlteredContent or
 	// output.ErrWrongVersion if it cannot be trusted.
 	Version(ctx context.Context, procedureType int64, number int) (domain.Version, error)
+	// Catalog returns the latest version of every procedure type, after checking
+	// their digests. It fails with domain.ErrAlteredContent,
+	// output.ErrWrongVersion or domain.ErrUnknownFormat if any of them cannot be
+	// trusted or read.
+	Catalog(ctx context.Context) ([]CatalogEntry, error)
 }

@@ -20,7 +20,7 @@ Sumar un trámite tiene que ser solo configuración (ADR-006, ADR-013). La confi
 2. **Modelar cada paso con una de las cuatro acciones:** `enter_data`, `upload_document`, `confirm_external_fact` o `decide`. Una decisión lleva los datos y documentos que la fundamentan, como el acta. Los pasos de un área de tipo `office` o `external` declaran su perfil (`staff_operative` o `staff_approver`; por convención, el de aprobación es para aprobar, y el código no lo valida); los del titular no llevan perfil y solo cargan datos o documentos.
 3. **Modelar la derivación como un paso de un área `external`**, con su retorno.
 4. **No agregar estados de resultado** (ADR-009). El dictamen se adjunta en el retorno y se comunica.
-5. **Anotar los plazos y las condiciones de admisibilidad** del relevamiento como preguntas a confirmar: el modelo todavía no los tiene, y está a confirmar en qué ticket quedan (ver CONTRIBUTING).
+5. **Cargar la descripción, los plazos y las condiciones de admisibilidad** del relevamiento, y el formato y tamaño de cada documento: son lo que muestra el catálogo. Lo que el relevamiento no confirme queda como pregunta; no inventar plazos, condiciones ni límites.
 6. **Validar la configuración:** guardar el borrador como `<nombre>.json` en una carpeta fuera del repositorio, con las áreas que usa en `areas.json` y sus preguntas en un README, y correr `PROCEDURE_DRAFTS=<carpeta> go test -run TestDrafts ./src/procedure/domain/` desde `services/backend`. El test valida todos los archivos de la carpeta y rechaza las claves desconocidas. Todavía no hay motor para recorrer el trámite de punta a punta.
 
 ## Alarma del ADR-006

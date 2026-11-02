@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,34 @@ import (
 
 // InvalidRequestMessage answers a request that does not follow the contract.
 const InvalidRequestMessage = "El pedido no es válido."
+
+// AuthServer is the part of the contract that the auth module answers.
+type AuthServer interface {
+	BeginLogin(ctx context.Context, request BeginLoginRequestObject) (BeginLoginResponseObject, error)
+	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
+	RequestLoginLink(ctx context.Context, request RequestLoginLinkRequestObject) (RequestLoginLinkResponseObject, error)
+	RedeemLoginLink(ctx context.Context, request RedeemLoginLinkRequestObject) (RedeemLoginLinkResponseObject, error)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+}
+
+// CatalogServer is the part of the contract that the procedure module answers.
+type CatalogServer interface {
+	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
+}
+
+// Server joins what each module answers into the one interface the contract
+// generates. A test that only calls one module can leave the other nil.
+type Server struct {
+	AuthServer
+	CatalogServer
+}
+
+var _ StrictServerInterface = Server{}
+
+func NewServer(auth AuthServer, catalog CatalogServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog}
+}
 
 // Mount registers the API on mux. Errors raised outside the handlers answer
 // with the contract's Error too, without exposing their internal message.

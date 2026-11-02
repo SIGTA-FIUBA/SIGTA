@@ -1,15 +1,23 @@
 package domain
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 // Definition describes a procedure type. A procedure starts at the first step, and a step without next or outcomes
 // closes it. Areas are shared by every procedure type, while fields and
 // documents belong to the one that declares them.
 type Definition struct {
-	Name      string     `json:"name"`
-	Fields    []Field    `json:"fields,omitempty"`
-	Documents []Document `json:"documents,omitempty"`
-	Steps     []Step     `json:"steps"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	// Deadlines and Admissibility are text for the applicant to read: nothing
+	// enforces them yet.
+	Deadlines     []string   `json:"deadlines,omitempty"`
+	Admissibility []string   `json:"admissibility,omitempty"`
+	Fields        []Field    `json:"fields,omitempty"`
+	Documents     []Document `json:"documents,omitempty"`
+	Steps         []Step     `json:"steps"`
 }
 
 func (d Definition) Validate(areas []Area) error {
@@ -22,13 +30,31 @@ func (d Definition) Validate(areas []Area) error {
 	return nil
 }
 
+// validateTexts checks what the catalog shows besides the name.
+func validateTexts(d Definition) []Problem {
+	var problems []Problem
+	if strings.TrimSpace(d.Description) == "" {
+		problems = append(problems, Problem{Code: CodeNoDescription, Path: []Ref{{Kind: KindDefinition}}})
+	}
+	for i, text := range d.Deadlines {
+		if strings.TrimSpace(text) == "" {
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindDeadline, Position: i + 1}}})
+		}
+	}
+	for i, text := range d.Admissibility {
+		if strings.TrimSpace(text) == "" {
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindAdmissibility, Position: i + 1}}})
+		}
+	}
+	return problems
+}
+
 func (d Definition) problems(areas []Area) []Problem {
 	problems := validateName(d.Name, Ref{Kind: KindDefinition})
+	problems = append(problems, validateTexts(d)...)
 	fields, documents := map[string]bool{}, map[string]bool{}
 	problems = append(problems, validateFields(d.Fields, fields)...)
-	for _, doc := range d.Documents {
-		problems = append(problems, validateEntry(KindDocument, doc.ID, doc.Name, documents)...)
-	}
+	problems = append(problems, validateDocuments(d.Documents, documents)...)
 	if len(d.Steps) == 0 {
 		return append(problems, Problem{Code: CodeNoSteps, Path: []Ref{{Kind: KindDefinition}}})
 	}
