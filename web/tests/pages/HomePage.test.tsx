@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { render } from '../test/render'
-import { HomePage } from './HomePage'
+import { render } from '../render'
+import { HomePage } from '../../src/pages/HomePage'
 
 describe('HomePage', () => {
   it('shows the name of the platform', () => {

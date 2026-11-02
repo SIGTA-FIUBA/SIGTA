@@ -9,6 +9,7 @@ Reglas para construir pantallas de SIGTA. Cada regla dice por qué existe, para 
 | Componentes                                                                  | [Mantine 9](https://mantine.dev), documentación para agentes en https://mantine.dev/llms.txt |
 | Aspecto: colores, tipografía, radios, valores por defecto de cada componente | `src/theme/theme.ts`, y en ningún otro lugar                                                 |
 | Componentes propios de SIGTA                                                 | `src/components/`                                                                            |
+| Tests, con la misma estructura de carpetas que `src/`                        | `tests/`                                                                                     |
 | Reglas de lint que hacen cumplir este documento                              | `.oxlintrc.json` y `lint/design-rules.js`                                                    |
 
 ## Reglas
