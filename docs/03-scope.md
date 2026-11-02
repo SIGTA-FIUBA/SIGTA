@@ -87,9 +87,9 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 
 ### 2.5 Configuración
 
-- Definición de tipos de trámite (requisitos, documentos, pasos, estados, roles) como archivos versionados en el repositorio (ADR-001).
+- Definición de tipos de trámite (datos, documentos, pasos, y el área de cada paso con su perfil, salvo en los del titular), que se va a editar desde la interfaz de SIGTA. A confirmar con los directores, porque contradice el anteproyecto, y todavía sin historia en el backlog (ADR-013). Cada publicación es una versión nueva que no se modifica, propuesta por una persona y aprobada por otra (ADR-012, ADR-013).
 - Incorporar un trámite nuevo consiste en agregar configuración, sin tocar el código.
-- Requisitos y pasos compartidos, reutilizables entre trámites de la familia.
+- Áreas comunes a todos los trámites de la familia; los datos y documentos son de cada tipo de trámite.
 
 ### 2.6 Calidad y operación
 
@@ -104,7 +104,7 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 
 | Fuera del alcance | Por qué |
 |---|---|
-| Editor dinámico de flujos para la Secretaría **\*** | ADR-001. **Duda pendiente:** la reunión del 16/09 lo había acordado y la decisión se revirtió sin consultarlo con la Secretaría |
+| Publicar un tipo de trámite sin la aprobación de otra persona | ADR-013: cada versión la propone una persona y la aprueba otra. Quién tiene cada permiso queda en D-08 |
 | Integración con SIU-Guaraní | El anteproyecto declara que el diseño no depende de sus interfaces |
 | Integración con el sistema de expediente electrónico | Se resuelve con puente humano (ADR-004) |
 | Acceso de actores externos a la plataforma **\*** | La derivación se registra, no se ejecuta dentro del sistema. **Duda pendiente:** no se consultó a los evaluadores si aceptarían trabajar dentro de la plataforma |

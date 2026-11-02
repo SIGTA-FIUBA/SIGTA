@@ -21,7 +21,7 @@ La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story 
 | Actor | Relación con la plataforma |
 |---|---|
 | **Evaluador externo** (comisión curricular, departamento u otra unidad académica) | No usa la plataforma. Recibe derivaciones y devuelve dictámenes fuera de ella; el Secretario registra la salida y el retorno (ADR-004). Que pudiera trabajar dentro de la plataforma es una **duda pendiente** |
-| **Equipo de proyecto** | Mantiene la configuración de trámites y la base de conocimiento mediante pull request (ADR-001). No es un rol de la plataforma: por eso no tiene mapa de usuario y su trabajo vive solo en el backlog |
+| **Equipo de proyecto** | Mantiene la base de conocimiento. A confirmar (D-08): si propone y aprueba las versiones de los tipos de trámite; si lo hace, necesita un rol o permiso dentro de SIGTA. Hoy no es un rol de la plataforma: por eso no tiene mapa de usuario y su trabajo vive solo en el backlog |
 | **Subsecretaría de TICs de la FIUBA** | Interlocutor para el entorno de CI/CD, el hosting y la identidad institucional |
 | **Directores del proyecto** | Supervisan y validan entregables |
 
@@ -99,8 +99,8 @@ La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story 
 | Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Edita configuración |
 |---|---|---|---|---|---|
 | Titular | Solo los propios | No | No | No | No |
-| Secretario operativo | Todos los de su ámbito | Sí | Sí | No | No |
-| Secretario de aprobación | Todos | Sí | Sí | Sí | No |
-| Equipo de proyecto | — | — | — | — | Sí, vía pull request |
+| Secretario operativo | Todos los de su ámbito | Sí | Sí | No | A confirmar (D-08) |
+| Secretario de aprobación | Todos | Sí | Sí | Sí | A confirmar (D-08) |
+| Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
 > La tabla es la hipótesis mínima. Se confirma con el mapa de roles de US64, en el sprint 1.

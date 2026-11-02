@@ -13,7 +13,6 @@
 |---|---|---|---|---|
 | R-01 | El alcance completo excede la capacidad del equipo | Alta | Alta | 9 |
 | R-13 | Los sprints 3, 4 y 5 por encima de la capacidad estimada | Alta | Alta | 9 |
-| R-02 | Expectativa desalineada sobre el editor de flujos | Media | Alta | 6 |
 | R-03 | Los cinco trámites no quedan relevados a tiempo | Media | Alta | 6 |
 | R-06 | Alucinaciones con consecuencia administrativa | Media | Alta | 6 |
 | R-15 | Pérdida de contexto en el receso | Alta | Media | 6 |
@@ -23,6 +22,7 @@
 | R-07 | Inyección de prompts a través de documentos | Media | Media | 4 |
 | R-08 | Indisponibilidad de la Secretaría | Media | Media | 4 |
 | R-14 | Las horas comprometidas no cierran con el cierre en mayo | Media | Media | 4 |
+| R-02 | Expectativa desalineada sobre quién publica tipos de trámite | Baja | Alta | 3 |
 | R-10 | Los pasos no se reducen a acciones abstractas | Baja | Alta | 3 |
 | R-09 | Costos de infraestructura a cargo del equipo | Media | Baja | 2 |
 | R-12 | Retrasos en la comunicación | Baja | Media | 2 |
@@ -40,14 +40,14 @@ El alcance son 264 SP en 14 sprints con carga: los cinco trámites, los tres uso
 - **Mitigación:** puntos de control decisorios en los sprints 2, 4, 6, 13, 14 y 16. Replanificar sobre la velocidad real, no sobre la nominal.
 - **Contingencia:** orden de recorte fijado en ADR-008, de primero a último: generación de preactas, validación asistida, cobertura de cinco trámites reducida a tres. El asistente RAG no se recorta. La decisión la toma el equipo.
 
-### R-02 — Expectativa desalineada con la Secretaría sobre el editor de flujos
-**Categoría:** Stakeholders · **P:** Media · **S:** Alta · **Exposición:** 6 · **Estado:** Abierto
+### R-02 — Expectativa desalineada con la Secretaría sobre quién publica tipos de trámite
+**Categoría:** Stakeholders · **P:** Baja · **S:** Alta · **Exposición:** 3 · **Estado:** Abierto
 
-El equipo acordó internamente el 16/09 una herramienta de edición de flujos para el personal administrativo, y luego la decisión se revirtió (ADR-001). Si la idea llegó a circular con la Secretaría, queda una expectativa que no se va a cumplir.
+El equipo acordó internamente el 16/09 una herramienta de edición de flujos para el personal administrativo. ADR-001 revirtió esa decisión y ADR-013 la retomó: los tipos de trámite se editan desde la interfaz, con una persona que propone y otra que aprueba. Lo que puede quedar desalineado es quién publica: si la Secretaría espera configurar trámites por su cuenta y D-08 decide que publica el equipo, esa expectativa no se cumple.
 
 - **Disparador:** cualquier mención de la Secretaría a "configurar trámites por su cuenta".
-- **Mitigación:** está marcado como duda pendiente en el alcance. Se resuelve en el relevamiento del sprint 1 (US62) junto con el mecanismo alternativo (pedido al equipo, resuelto en días) y se asienta como ADR.
-- **Contingencia:** ofrecer una vista de solo lectura de la configuración vigente, a costo bajo, que cubre buena parte de la necesidad real.
+- **Mitigación:** resolver D-08 con la Secretaría y asentarlo en el registro de decisiones.
+- **Contingencia:** si publica solo el equipo, ofrecer a la Secretaría proponer cambios desde la interfaz para que el equipo los apruebe.
 
 ### R-03 — Los cinco trámites no quedan relevados a tiempo
 **Categoría:** Dependencias · **P:** Media · **S:** Alta · **Exposición:** 6 · **Estado:** Abierto
@@ -113,7 +113,7 @@ Los servicios de nube y las herramientas de desarrollo se pagarían con medios p
 ### R-10 — Los pasos de la planilla no se reducen a acciones abstractas
 **Categoría:** Técnico · **P:** Baja · **S:** Alta · **Exposición:** 3 · **Estado:** Abierto
 
-El modelo de configuración asume que todo paso cae en un conjunto chico de acciones (carga de documento, carga de dato, confirmación, aprobación, firma). Si la realidad es más irregular, la configuración se vuelve específica por trámite.
+El modelo de configuración asume que todo paso cae en una de cuatro acciones (cargar dato, cargar documento, confirmar hecho externo y decidir). Si la realidad es más irregular, la configuración se vuelve específica por trámite.
 
 - **Disparador:** al modelar el segundo trámite aparecen más de dos tipos de acción nuevos.
 - **Mitigación:** construir el inventario de acciones a partir de la planilla completa antes de fijar el modelo, no a partir de un solo trámite.

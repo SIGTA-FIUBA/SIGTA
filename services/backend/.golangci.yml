@@ -10,6 +10,11 @@ linters:
     - misspell
     - noctx
     - unconvert
+  settings:
+    misspell:
+      # Spanish domain text, not a typo of "materials".
+      ignore-rules:
+        - materias
   exclusions:
     generated: strict
     presets:

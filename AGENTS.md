@@ -9,7 +9,7 @@ Este archivo resume lo que un agente necesita para trabajar en el repositorio. E
 1. **La IA propone, una persona decide.** Ningún componente aprueba, rechaza ni cambia el estado de un trámite.
 2. **El resultado de un trámite no se modela ni se interpreta** (ADR-009). Reconocimiento total, parcial y rechazo son el mismo evento: un dictamen que se adjunta y se comunica. No agregar estados ni campos de resultado.
 3. **Sin datos personales reales** en ningún entorno, fixture, test ni commit (ADR-005). Solo datos sintéticos o anonimizados.
-4. **Los trámites son configuración versionada** (ADR-001, en revisión: D-07 evalúa que la Secretaría los edite sola). Sumar un trámite no debe requerir código; si lo requiere, se corrige la abstracción en vez de parchear (ADR-006).
+4. **Los trámites son configuración** que se va a editar desde la interfaz, y cada publicación es una versión que no se modifica (ADR-012, ADR-013). Sumar un trámite no debe requerir código; si lo requiere, se corrige la abstracción en vez de parchear (ADR-006).
 5. **Los sistemas externos se registran, no se integran** (ADR-004). No hay integración con SIU Guaraní ni con el expediente electrónico: el personal confirma en SIGTA lo que hizo afuera.
 6. **Todo documento aportado por un titular es contexto no confiable** para los modelos (riesgo R-07).
 7. **No hay firma digital con validez legal** ni dictamen automático de equivalencias.
@@ -33,9 +33,11 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Tipo de trámite | procedure type | Definición configurada de un trámite | — |
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | staff, con perfil `operator` o `approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
+| Secretario | staff, con perfil `staff_operative` o `staff_approver` | Rol del personal, con perfil **operativo** o **de aprobación** | Dos roles distintos |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
-| Requisito | requirement | Documento, dato o condición que el trámite exige | — |
+| Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que todavía no está en el modelo |
+| Área | area (`applicant`, `office` o `external`) | Quien tiene a cargo un paso | Rol o perfil |
+| Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
 | Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |
 | Dictamen | ruling | Lo que resuelve el evaluador; se adjunta y se comunica | Un estado del trámite |
@@ -45,7 +47,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Evaluador externo | external evaluator | Comisión o unidad académica que dictamina; no usa la plataforma | Un rol de SIGTA |
 | Hallazgo | finding | Resultado de la validación asistida sobre un requisito | Una decisión |
 
-Las acciones del modelo de dominio son **cargar dato** (`enter data`), **cargar documento** (`upload document`), **confirmar hecho externo** (`confirm external fact`) y **decidir** (`decide`: continuar, devolver, pedir información, derivar o aprobar).
+Las acciones del modelo de dominio son **cargar dato** (`enter_data`), **cargar documento** (`upload_document`), **confirmar hecho externo** (`confirm_external_fact`) y **decidir** (`decide`). Una decisión elige una de sus salidas, cada una con su paso siguiente; continuar, devolver o pedir información son salidas posibles, no acciones. Derivar es pasar a un paso de un área `external`.
 
 ## Arquitectura
 
@@ -63,7 +65,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/`, `adapters/rest/`, `cmd/` |
+| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`), `cmd/` |
 | `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
@@ -116,4 +118,4 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 
 ## Estado actual
 
-Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base: un endpoint de ejemplo (`/api/hello`) de punta a punta, CI y Docker Compose. Lo que viene, en orden: modelo de definición de trámite y autenticación, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.
+Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base: un endpoint de ejemplo (`/api/hello`) de punta a punta, CI y Docker Compose; y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Lo que viene, en orden: autenticación, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.

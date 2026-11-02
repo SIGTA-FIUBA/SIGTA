@@ -4,9 +4,9 @@ Cada decisión que condiciona el producto, la arquitectura o el alcance se asien
 
 ---
 
-## ADR-001 — Los tipos de trámite se definen como configuración versionada
+## ADR-001: Los tipos de trámite se definen como configuración versionada
 
-**Estado:** aceptada, en revisión (D-07)
+**Estado:** reemplazada por ADR-013
 **Reemplaza:** el consenso de la reunión del 16/09 sobre incorporar una herramienta para que la Secretaría dé de alta, baja y modifique flujos
 
 **Contexto.**
@@ -30,7 +30,7 @@ Se mantiene la configuración versionada. Dar de alta o modificar un trámite es
 
 ---
 
-## ADR-002 — Los tres usos de IA entran al MVP, con autonomía acotada
+## ADR-002: Los tres usos de IA entran al MVP, con autonomía acotada
 
 **Estado:** aceptada
 
@@ -59,7 +59,7 @@ Los tres usos entran al MVP, cada uno con un nivel de autonomía acotado:
 
 ---
 
-## ADR-003 — El proveedor de identidad se abstrae detrás de una interfaz
+## ADR-003: El proveedor de identidad se abstrae detrás de una interfaz
 
 **Estado:** reemplazada por ADR-010
 
@@ -76,7 +76,7 @@ La autenticación se diseña contra una interfaz propia de proveedor de identida
 
 ---
 
-## ADR-004 — La interacción con sistemas externos se resuelve con puente humano
+## ADR-004: La interacción con sistemas externos se resuelve con puente humano
 
 **Estado:** aceptada
 
@@ -93,7 +93,7 @@ Todo paso que ocurre fuera de la plataforma se modela como un paso de tipo *conf
 
 ---
 
-## ADR-005 — Sin datos personales reales en ningún entorno
+## ADR-005: Sin datos personales reales en ningún entorno
 
 **Estado:** aceptada
 
@@ -110,7 +110,7 @@ Todos los entornos del proyecto usan datos sintéticos o anonimizados. La base d
 
 ---
 
-## ADR-006 — Los cinco trámites se tratan como una familia, con cobertura incremental
+## ADR-006: Los cinco trámites se tratan como una familia, con cobertura incremental
 
 **Estado:** aceptada
 
@@ -133,7 +133,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-007 — La documentación se produce dentro de cada ticket, no como historia aparte
+## ADR-007: La documentación se produce dentro de cada ticket, no como historia aparte
 
 **Estado:** aceptada
 
@@ -143,13 +143,13 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Consecuencias.**
 - La DoD se endurece: un PR sin su documentación no se mergea.
-- El instructivo de cómo editar la configuración de trámites, que ADR-001 vuelve obligatorio, se escribe en el PR que toca el modelo, no en el sprint 19.
+- El instructivo de cómo editar la configuración de trámites, que ADR-001 volvía obligatorio y ADR-013 mantiene, se escribe en el pull request que toca el modelo, no en el sprint 19.
 - La documentación funcional para la Secretaría se compila desde los escenarios Gherkin, que ya se escriben con el cliente.
 - Se liberan 18 SP del cierre, que es exactamente donde hacía falta margen.
 
 ---
 
-## ADR-008 — Cierre en mayo de 2027 con alcance completo y recorte diferido
+## ADR-008: Cierre en mayo de 2027 con alcance completo y recorte diferido
 
 **Estado:** aceptada
 
@@ -168,7 +168,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-009 — La plataforma comunica el resultado de un trámite, no lo interpreta
+## ADR-009: La plataforma comunica el resultado de un trámite, no lo interpreta
 
 **Estado:** aceptada
 
@@ -185,7 +185,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-010 — Se ingresa con la cuenta de Google de la UBA
+## ADR-010: Se ingresa con la cuenta de Google de la UBA
 
 **Estado:** aceptada
 **Reemplaza:** ADR-003
@@ -203,7 +203,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-011 — Stack y arquitectura para la defensa
+## ADR-011: Stack y arquitectura para la defensa
 
 **Estado:** aceptada
 
@@ -224,10 +224,60 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-012: El servicio asigna la versión de un tipo de trámite al publicarlo
+
+**Estado:** aceptada
+
+**Contexto.** La historia "Modelo de definición de trámite" pide que un trámite en curso no se rompa cuando cambia la configuración de su tipo de trámite. Si el número de versión lo escribe quien edita, nada impide cambiar el contenido de una versión ya publicada sin cambiar el número, y un trámite podría terminar con pasos distintos de los que tenía cuando empezó.
+
+**Decisión.**
+- Cada tipo de trámite se identifica por un `id` numérico que asigna la base, sin número de versión en la definición.
+- Al publicar, el servicio codifica el contenido (la definición, con sus datos y documentos, más las áreas que usan sus pasos) y calcula el hash SHA-256 de esos bytes. Si difiere del de la última versión, publica la siguiente; si es igual, devuelve la última.
+- La versión guarda el contenido byte por byte, tal como se hasheó, con el número de formato del contenido. El hash se verifica sobre esos bytes y nunca sobre una recodificación, para que un cambio en la codificación no invalide las versiones publicadas. El formato sube cada vez que cambia el contenido, y una clave desconocida hace fallar la lectura.
+- Quien publica indica desde qué versión editó. Si ya no es la última, la publicación se rechaza, para que un cambio no pise a otro publicado en el medio.
+- Una versión publicada no se modifica, y su hash se verifica cada vez que se lee: al publicar sobre ella y al leerla para un trámite.
+- Cada trámite apunta a la versión con la que empezó.
+
+**Consecuencias.**
+- Queda constancia de la versión exacta que siguió cada trámite, incluidos los nombres de pasos, datos y documentos que vio el titular.
+- Cualquier cambio visible genera una versión nueva, incluso corregir un nombre.
+- El hash detecta un contenido alterado por error, no una alteración intencional: quien puede escribir el contenido puede recalcular el hash. Eso queda en la decisión abierta "Integridad del historial" del README.
+- Si el hash de una versión no coincide, no se publica nada sobre ella ni se usa para un trámite hasta revisarla. Cómo se revisa queda para el ticket de la persistencia.
+- Dos publicaciones simultáneas desde la misma base compiten por el mismo número y solo una lo guarda. La otra se rechaza como desactualizada, aunque haya publicado el mismo contenido: si vuelve a publicar, recibe la versión guardada.
+- El contenido se guarda byte por byte. En PostgreSQL eso es `bytea` y no `jsonb`, porque `jsonb` reordena las claves y el hash dejaría de coincidir.
+- Las versiones necesitan persistencia, que es de otro ticket. Hasta entonces solo existen en los tests, con un adaptador en memoria.
+- Un trámite en curso no pasa a otra versión. Si hiciera falta migrarlo, la migración sería un evento auditado del trámite, con la versión de origen, la de destino y la correspondencia entre pasos.
+- Un tipo de trámite se va a dar de baja marcándolo inactivo, y los trámites en curso terminan con su versión. Todavía no está implementado.
+
+---
+
+## ADR-013: Los tipos de trámite se editan desde la interfaz, con una persona que propone y otra que aprueba
+
+**Estado:** aceptada por el equipo. A confirmar con los directores: contradice el anteproyecto, que pide archivos de configuración estáticos versionados en el repositorio, sin editor dinámico.
+**Reemplaza:** ADR-001
+
+**Contexto.** ADR-001 mantenía los tipos de trámite como archivos en el repositorio, editados por el equipo mediante pull request, y quedó en revisión por D-07, que evaluaba un editor dentro de la aplicación. Con las versiones guardadas en la base y validadas al publicar (ADR-012), un editor ya no exige un motor aparte: es una interfaz sobre el mismo modelo. Además, al terminar el proyecto el equipo deja de estar disponible para hacer pull requests.
+
+**Decisión.**
+- Los tipos de trámite se editan desde la interfaz de SIGTA, como borradores, y se publican como versiones nuevas.
+- Cada versión la propone una persona y la aprueba otra. La versión guarda a las dos y la fecha de publicación.
+- No se publica una definición inválida: el servicio la valida al publicar.
+
+**Consecuencias.**
+- Se cierra D-07. Queda D-08: quién puede proponer y quién aprobar.
+- El editor deja de estar fuera del alcance; lo que queda afuera es publicar sin la aprobación de otra persona.
+- La documentación del modelo, en CONTRIBUTING, sigue siendo un entregable del cierre, ahora como referencia para quien edita.
+- La interfaz de edición y su endpoint no tienen historia en el backlog. A confirmar: qué historia los incluye, con su estimación, y cómo se publica el trámite ancla mientras no existan. Hasta entonces, los borradores de los cinco trámites se validan fuera del repositorio, con el test `TestDrafts`, porque describen procesos que la Secretaría no confirmó.
+- Cambian cuatro criterios de "Modelo de definición de trámite": el archivo versionado, los estados, la validación al arrancar y los requisitos compartidos entre trámites. A actualizar en Linear con el equipo.
+- No aparece la persona administrador técnico (P4) que preveía ADR-001.
+- El riesgo R-02 baja, pero sigue abierto hasta resolver D-08.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |
 |---|---|---|---|
 | D-02 | Si los perfiles operativo y de aprobación son personas distintas | Diseñar permisos (US64, sprint 1) | Canal con Secretaría |
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
-| D-07 | Si la Secretaría da de alta y modifica los trámites por su cuenta, con un editor dentro de la aplicación, lo que revertiría el ADR-001 | Próxima reunión del equipo | Equipo y canal con la Secretaría |
+| D-08 | Quién puede proponer y quién aprobar una versión de un tipo de trámite: el equipo, la Secretaría o ambos | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
