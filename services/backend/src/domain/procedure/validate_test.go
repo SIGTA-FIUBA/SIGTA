@@ -279,6 +279,35 @@ func TestValidateChecksTheAreas(t *testing.T) {
 	}
 }
 
+// An editor has to point at the exact element: the problem says which text
+// of the list is blank and which document accepts the invalid type.
+func TestCatalogTextProblemsSayWhichElement(t *testing.T) {
+	cases := map[string]struct {
+		change func(*Definition)
+		want   string
+	}{
+		"blank deadline": {func(definition *Definition) {
+			definition.Deadlines = []string{"30 días", " "}
+		}, "deadline 2 has no text"},
+		"blank admissibility": {func(definition *Definition) {
+			definition.Admissibility = []string{""}
+		}, "admissibility 1 has no text"},
+		"invalid type": {func(definition *Definition) {
+			definition.Documents[0].AcceptedTypes = []string{"image/*"}
+		}, `document "letter" accepts "image/*", which is not a media type`},
+	}
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			definition := testDefinition()
+			testCase.change(&definition)
+			problems := ProblemsOf(definition.Validate(testAreas()))
+			if len(problems) != 1 || problems[0].String() != testCase.want {
+				t.Errorf("problems = %v, want %q", problems, testCase.want)
+			}
+		})
+	}
+}
+
 func TestInvalidCatalogTexts(t *testing.T) {
 	cases := map[string]struct {
 		change func(*Definition)

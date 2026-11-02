@@ -48,7 +48,7 @@ func registerCatalogSteps(sc *godog.ScenarioContext) {
 	sc.When(`^a "([^"]*)" procedure type is published$`, world.publishNew)
 	sc.When(`^a definition with (.+) is published$`, world.publishBroken)
 
-	sc.Then(`^it lists (\d+) procedure types$`, world.thenLists)
+	sc.Then(`^it lists (\d+) procedure types?$`, world.thenLists)
 	sc.Then(`^"([^"]*)" is described as "([^"]*)"$`, world.thenDescribed)
 	sc.Then(`^"([^"]*)" shows the "([^"]*)" field as (mandatory|optional)$`, world.thenField)
 	sc.Then(`^"([^"]*)" shows the "([^"]*)" document as (mandatory|optional)$`, world.thenDocument)

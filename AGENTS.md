@@ -2,7 +2,7 @@
 
 SIGTA (Sistema Integral de Gestión de Trámites Académicos) es una plataforma web para iniciar, gestionar y seguir los trámites de la Secretaría de Gestión Académica de la FIUBA, con tres componentes de IA que proponen y nunca deciden. Es un Trabajo Profesional de Ingeniería en Informática: cuatro integrantes, sprints de dos semanas, cierre en mayo de 2027.
 
-Este archivo resume lo que un agente necesita para trabajar en el repositorio. El detalle está en el [README](README.md), en [CONTRIBUTING.md](CONTRIBUTING.md) y en [docs/](docs/README.md). Se actualiza en el mismo PR que cambia una convención.
+Este archivo resume lo que un agente necesita para trabajar en el repositorio. El detalle está en el [README](README.md), en [CONTRIBUTING.md](CONTRIBUTING.md) y en [docs/](docs/README.md). Se actualiza en el mismo PR que cambia una convención. Dónde está el proyecto (hitos, sprint actual y orden de lo que viene) no se repite acá: está en [docs/10-roadmap.md](docs/10-roadmap.md) y [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md).
 
 ## Reglas que no se negocian
 

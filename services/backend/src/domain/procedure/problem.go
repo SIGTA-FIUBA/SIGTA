@@ -69,17 +69,23 @@ const (
 )
 
 // Ref points at one element of a definition. An element that has no id, or
-// whose id is not valid, has an empty ID.
+// whose id is not valid, has an empty ID. Deadlines and admissibility
+// conditions have no id, so Position says which one it is, counting from 1.
 type Ref struct {
-	Kind Kind   `json:"kind"`
-	ID   string `json:"id,omitempty"`
+	Kind     Kind   `json:"kind"`
+	ID       string `json:"id,omitempty"`
+	Position int    `json:"position,omitempty"`
 }
 
 func (r Ref) String() string {
-	if r.ID == "" {
+	switch {
+	case r.ID != "":
+		return fmt.Sprintf("%s %q", r.Kind, r.ID)
+	case r.Position > 0:
+		return fmt.Sprintf("%s %d", r.Kind, r.Position)
+	default:
 		return string(r.Kind)
 	}
-	return fmt.Sprintf("%s %q", r.Kind, r.ID)
 }
 
 // Problem is one thing wrong in a definition: what (Code), where (Path, from
@@ -190,7 +196,7 @@ func (p Problem) text() (text string, aboutLast bool) {
 	case CodeNoAcceptedTypes:
 		return fmt.Sprintf("%s accepts no file types", last), true
 	case CodeInvalidAcceptedType:
-		return fmt.Sprintf("%q is not a media type", p.Value), false
+		return fmt.Sprintf("%s accepts %q, which is not a media type", last, p.Value), true
 	case CodeRepeatedAcceptedType:
 		return fmt.Sprintf("%s accepts %q twice", last, p.Value), true
 	case CodeNoMaxSize:

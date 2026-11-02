@@ -49,7 +49,7 @@ Feature: Browse the catalog of procedure types
   Scenario: the catalog follows the latest version
     Given a new version of "subject equivalence" described as "Nueva descripción"
     When the catalog is opened
-    Then it lists 1 procedure types
+    Then it lists 1 procedure type
     And "subject equivalence" is described as "Nueva descripción"
 
   Scenario: the catalog fails if a version was altered

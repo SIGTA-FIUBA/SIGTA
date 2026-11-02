@@ -36,14 +36,14 @@ func validateTexts(d Definition) []Problem {
 	if strings.TrimSpace(d.Description) == "" {
 		problems = append(problems, Problem{Code: CodeNoDescription, Path: []Ref{{Kind: KindDefinition}}})
 	}
-	for _, text := range d.Deadlines {
+	for i, text := range d.Deadlines {
 		if strings.TrimSpace(text) == "" {
-			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindDeadline}}})
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindDeadline, Position: i + 1}}})
 		}
 	}
-	for _, text := range d.Admissibility {
+	for i, text := range d.Admissibility {
 		if strings.TrimSpace(text) == "" {
-			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindAdmissibility}}})
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindAdmissibility, Position: i + 1}}})
 		}
 	}
 	return problems
