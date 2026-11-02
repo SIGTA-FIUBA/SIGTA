@@ -1,8 +1,32 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y"],
+  "jsPlugins": ["./lint/design-rules.js"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "sigta-design/no-raw-design-values": "error",
+    "react/forbid-component-props": ["error", { "forbid": ["style", "styles", "className", "classNames", "vars"] }],
+    "react/forbid-dom-props": ["error", { "forbid": ["style", "className"] }],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [{ "group": ["*.css"], "message": "Styles live in src/theme/theme.ts; screens do not import CSS." }]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/main.tsx"],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["src/components/GoogleSignInButton/**"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "react/forbid-dom-props": "off",
+        "sigta-design/no-raw-design-values": "off"
+      }
+    }
+  ]
 }

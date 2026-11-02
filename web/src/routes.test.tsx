@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from './routes'
+import { render } from './test/render'
 
 const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Titular', role: 'applicant' }
 
