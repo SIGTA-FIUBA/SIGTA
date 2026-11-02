@@ -22,7 +22,7 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 
 ## Modelo de tipo de trámite
 
-Los tipos de trámite se van a editar desde la interfaz de SIGTA, sin tocar el código (ADR-013); la interfaz y su endpoint todavía no existen. El modelo está en `services/backend/src/domain/procedure/`. Un tipo de trámite tiene un nombre, los datos (`fields`) y documentos (`documents`) que pide, y sus pasos; el primero es el inicio. Los datos y documentos son propios de cada tipo de trámite. Las áreas son de la facultad y las comparten todos los tipos: los pasos las referencian por `id`. Cada área tiene un nombre distinto, y hay una sola del titular (`applicant`). En producción los tipos de trámite se guardan en la base, como versiones. Los borradores de configuración, como los de los cinco trámites del relevamiento, no se suben al repositorio, porque describen procesos que la Secretaría no confirmó. Se validan desde `services/backend` con `PROCEDURE_DRAFTS=<carpeta> go test -run TestDrafts ./src/domain/procedure/`, donde la carpeta tiene un JSON por tipo de trámite y las áreas que usan en `areas.json`.
+Los tipos de trámite se van a editar desde la interfaz de SIGTA, sin tocar el código (ADR-013); la interfaz y su endpoint todavía no existen. El modelo está en `services/backend/src/domain/procedure/`. Un tipo de trámite tiene un nombre, una descripción en lenguaje llano (`description`), sus plazos (`deadlines`) y condiciones de admisibilidad (`admissibility`), los datos (`fields`) y documentos (`documents`) que pide, y sus pasos; el primero es el inicio. Cada documento declara los tipos de archivo que acepta (`accepted_types`, como `application/pdf`) y su tamaño máximo en bytes (`max_size`), ambos obligatorios. Los datos y documentos son propios de cada tipo de trámite. Las áreas son de la facultad y las comparten todos los tipos: los pasos las referencian por `id`. Cada área tiene un nombre distinto, y hay una sola del titular (`applicant`). En producción los tipos de trámite se guardan en la base, como versiones. Los borradores de configuración, como los de los cinco trámites del relevamiento, no se suben al repositorio, porque describen procesos que la Secretaría no confirmó. Se validan desde `services/backend` con `PROCEDURE_DRAFTS=<carpeta> go test -run TestDrafts ./src/domain/procedure/`, donde la carpeta tiene un JSON por tipo de trámite y las áreas que usan en `areas.json`.
 
 Cada dato tiene un tipo: `text`, `long_text`, `number`, `date`, `option`, `degree` o `subject_list`. Un dato `option` lista sus opciones, cada una con `id` y nombre: lo que se guarda en un trámite es el `id`, así que corregir el nombre de una opción no cambia lo que significan las respuestas anteriores.
 
@@ -41,7 +41,7 @@ El trámite empieza en el primer paso. Cada paso tiene un área responsable y un
 - Un paso sin `next` ni `outcomes` cierra el trámite.
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
 - Un paso tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
-- Los plazos y las condiciones de admisibilidad no están en el modelo. A confirmar en qué ticket quedan: "Modelo de definición de trámite" los pasa a "Plazos y condiciones de admisibilidad", y ese ticket figura en Linear como duplicado del primero.
+- Los plazos y las condiciones de admisibilidad son texto que el catálogo muestra: nada los aplica todavía. A confirmar: si el motor tiene que aplicarlos, como pedía "Plazos y condiciones de admisibilidad", que figura en Linear como duplicado de "Modelo de definición de trámite".
 
 No hay estados en la configuración: el estado que ve el titular se calcula a partir del tipo de área del paso abierto (`applicant` es "Esperando al titular", `office` es "En el área", `external` es "Derivado", y sin paso abierto es "Cerrado"). Tampoco hay estados de resultado: el dictamen es un documento que se carga, y las salidas de una decisión son pasos del proceso, no resultados.
 
@@ -79,7 +79,7 @@ La versión no se escribe: la asigna el servicio al publicar (ADR-012).
 - Un trámite en curso termina con la versión con la que empezó; los nuevos toman la última. No se migra un trámite en curso a otra versión.
 - Previsto: un tipo de trámite se da de baja marcándolo inactivo; no se inician trámites nuevos y los que están en curso terminan con su versión.
 
-Hoy las versiones y las áreas solo existen en los tests, con los adaptadores en memoria. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
+Hoy las versiones y las áreas solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del área del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. En desarrollo el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
 
 ## Commits
 

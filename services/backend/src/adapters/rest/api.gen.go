@@ -38,9 +38,41 @@ func (e Role) Valid() bool {
 	}
 }
 
+// CatalogEntry defines model for CatalogEntry.
+type CatalogEntry struct {
+	// Admissibility Condiciones de admisibilidad, como texto informativo
+	Admissibility []string              `json:"admissibility"`
+	Deadlines     []string              `json:"deadlines"`
+	Description   string                `json:"description"`
+	Documents     []DocumentRequirement `json:"documents"`
+	Fields        []FieldRequirement    `json:"fields"`
+	Id            int64                 `json:"id"`
+	Name          string                `json:"name"`
+	Version       int                   `json:"version"`
+}
+
+// DocumentRequirement defines model for DocumentRequirement.
+type DocumentRequirement struct {
+	// AcceptedTypes Tipos de medio aceptados, como application/pdf
+	AcceptedTypes []string `json:"accepted_types"`
+	Id            string   `json:"id"`
+
+	// MaxSize Tamaño máximo en bytes
+	MaxSize  int64  `json:"max_size"`
+	Name     string `json:"name"`
+	Required bool   `json:"required"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
+}
+
+// FieldRequirement defines model for FieldRequirement.
+type FieldRequirement struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Required bool   `json:"required"`
 }
 
 // Role defines model for Role.
@@ -122,6 +154,9 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
+	// ListProcedureTypes Catálogo de los tipos de trámite publicados
+	// (GET /procedure-types)
+	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -325,6 +360,20 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListProcedureTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProcedureTypes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -451,6 +500,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login-links/redeem", wrapper.RedeemLoginLink)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
 
 	return m
 }
@@ -685,6 +735,27 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
+type ListProcedureTypesRequestObject struct {
+}
+
+type ListProcedureTypesResponseObject interface {
+	VisitListProcedureTypesResponse(w http.ResponseWriter) error
+}
+
+type ListProcedureTypes200JSONResponse []CatalogEntry
+
+func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -705,6 +776,9 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// ListProcedureTypes Catálogo de los tipos de trámite publicados
+	// (GET /procedure-types)
+	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -905,6 +979,30 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProcedureTypes operation middleware
+func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Request) {
+	var request ListProcedureTypesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProcedureTypes(ctx, request.(ListProcedureTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProcedureTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProcedureTypesResponseObject); ok {
+		if err := validResponse.VisitListProcedureTypesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

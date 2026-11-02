@@ -3,6 +3,7 @@ package procedure
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -16,9 +17,10 @@ func testAreas() []Area {
 
 func testDefinition() Definition {
 	return Definition{
-		Name:      "Trámite de prueba",
-		Fields:    []Field{{ID: "national_id", Name: "DNI", Type: FieldText}},
-		Documents: []Document{{ID: "letter", Name: "Carta"}},
+		Name:        "Trámite de prueba",
+		Description: "Un trámite para las pruebas",
+		Fields:      []Field{{ID: "national_id", Name: "DNI", Type: FieldText}},
+		Documents:   []Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024}},
 		Steps: []Step{
 			{ID: "request", Name: "Solicitud", Area: "applicant", Action: ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
 			{ID: "letter", Name: "Carta", Area: "applicant", Action: ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
@@ -69,7 +71,7 @@ func TestValidDefinitions(t *testing.T) {
 			d.Steps[1].Documents = nil
 		}},
 		{"decision with its grounds", func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "minutes", Name: "Acta"})
+			d.Documents = append(d.Documents, Document{ID: "minutes", Name: "Acta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
 			d.Steps[2].Documents = []string{"minutes"}
 			d.Steps[2].OptionalFields = []string{"national_id"}
 		}},
@@ -220,10 +222,10 @@ func TestInvalidDefinitions(t *testing.T) {
 			d.Fields = append(d.Fields, Field{ID: "letter", Name: "Carta", Type: FieldText})
 		}, []string{`field "letter" is not used by any step`}},
 		{"unused document named like a used field", func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "national_id", Name: "Documento"})
+			d.Documents = append(d.Documents, Document{ID: "national_id", Name: "Documento", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
 		}, []string{`document "national_id" is not used by any step`}},
 		{"unused document", func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "photo", Name: "Foto"})
+			d.Documents = append(d.Documents, Document{ID: "photo", Name: "Foto", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
 		}, []string{`document "photo" is not used by any step`}},
 	}
 	for _, tt := range tests {
@@ -274,5 +276,33 @@ func TestValidateChecksTheAreas(t *testing.T) {
 	areas := append(testAreas(), Area{ID: "office", Name: "Mesa de Entradas", Kind: AreaOffice})
 	if err := testDefinition().Validate(areas); !errors.Is(err, ErrInvalidAreas) {
 		t.Errorf("Validate() = %v, want ErrInvalidAreas", err)
+	}
+}
+
+func TestInvalidCatalogTexts(t *testing.T) {
+	cases := map[string]struct {
+		change func(*Definition)
+		want   Code
+	}{
+		"blank description":   {func(d *Definition) { d.Description = "  " }, CodeNoDescription},
+		"blank deadline":      {func(d *Definition) { d.Deadlines = []string{""} }, CodeBlankText},
+		"blank admissibility": {func(d *Definition) { d.Admissibility = []string{" "} }, CodeBlankText},
+		"file extension":      {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{".pdf"} }, CodeInvalidAcceptedType},
+		"with parameters":     {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{"text/plain; charset=utf-8"} }, CodeInvalidAcceptedType},
+		"uppercase type":      {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{"Application/PDF"} }, CodeInvalidAcceptedType},
+		"negative size":       {func(d *Definition) { d.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			d := testDefinition()
+			c.change(&d)
+			problems := ProblemsOf(d.Validate(testAreas()))
+			if len(problems) != 1 || problems[0].Code != c.want {
+				t.Errorf("problems = %v, want %s", problems, c.want)
+			}
+			if text := problems[0].String(); strings.Contains(text, "unknown problem") {
+				t.Errorf("String() = %q", text)
+			}
+		})
 	}
 }

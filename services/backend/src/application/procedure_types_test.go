@@ -22,8 +22,9 @@ var (
 
 func testDefinition() procedure.Definition {
 	return procedure.Definition{
-		Name:   "Trámite de prueba",
-		Fields: []procedure.Field{{ID: "national_id", Name: "DNI", Type: procedure.FieldText}},
+		Name:        "Trámite de prueba",
+		Description: "Un trámite para las pruebas",
+		Fields:      []procedure.Field{{ID: "national_id", Name: "DNI", Type: procedure.FieldText}},
 		Steps: []procedure.Step{
 			{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"national_id"}},
 		},

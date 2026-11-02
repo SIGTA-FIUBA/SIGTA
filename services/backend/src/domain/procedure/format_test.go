@@ -77,7 +77,45 @@ func TestFormatOne(t *testing.T) {
 	if !bytes.Equal(encoded, stored) {
 		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
 	}
-	if err := formatOneContent().Definition.Validate(formatOneContent().Areas); err != nil {
+}
+
+// formatTwoContent is format 1 plus every key that format 2 added.
+func formatTwoContent() Content {
+	c := formatOneContent()
+	c.Format = 2
+	c.Definition.Description = "Pedí que te reconozcan una materia"
+	c.Definition.Deadlines = []string{"Hasta 30 días antes de cursar"}
+	c.Definition.Admissibility = []string{"Ser estudiante regular"}
+	for i := range c.Definition.Documents {
+		c.Definition.Documents[i].AcceptedTypes = []string{"application/pdf", "image/png"}
+		c.Definition.Documents[i].MaxSize = 10 << 20
+	}
+	return c
+}
+
+// testdata/format2.json follows the same rule as format1.json.
+func TestFormatTwo(t *testing.T) {
+	stored, err := os.ReadFile("testdata/format2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored = bytes.TrimSuffix(stored, []byte("\n"))
+	v := Version{ProcedureType: 1, Number: 1, Digest: Digest(stored), Encoded: stored}
+	got, err := v.Content()
+	if err != nil {
+		t.Fatalf("Content() = %v", err)
+	}
+	if want := formatTwoContent(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Content() =\n%+v\nwant\n%+v", got, want)
+	}
+	encoded, err := formatTwoContent().Encode()
+	if err != nil {
+		t.Fatalf("Encode() = %v", err)
+	}
+	if !bytes.Equal(encoded, stored) {
+		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
+	}
+	if err := formatTwoContent().Definition.Validate(formatTwoContent().Areas); err != nil {
 		t.Errorf("Validate() = %v, want the fixture to be a valid definition", err)
 	}
 }

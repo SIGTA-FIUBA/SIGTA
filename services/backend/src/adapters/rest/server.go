@@ -10,10 +10,11 @@ const invalidRequestMessage = "El pedido no es válido."
 
 type Server struct {
 	*AuthHandler
+	*CatalogHandler
 }
 
-func NewServer(auth *AuthHandler) *Server {
-	return &Server{AuthHandler: auth}
+func NewServer(auth *AuthHandler, catalog *CatalogHandler) *Server {
+	return &Server{AuthHandler: auth, CatalogHandler: catalog}
 }
 
 // Mount registers the API on mux. Errors raised outside the handlers answer

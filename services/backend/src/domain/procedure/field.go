@@ -1,5 +1,10 @@
 package procedure
 
+import (
+	"mime"
+	"strings"
+)
+
 type FieldType string
 
 const (
@@ -29,6 +34,10 @@ type Option struct {
 type Document struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// AcceptedTypes are media types, such as "application/pdf".
+	AcceptedTypes []string `json:"accepted_types,omitempty"`
+	// MaxSize is in bytes.
+	MaxSize int64 `json:"max_size,omitempty"`
 }
 
 func validateFields(fields []Field, seen map[string]bool) []Problem {
@@ -43,6 +52,32 @@ func validateFields(fields []Field, seen map[string]bool) []Problem {
 		problems = append(problems, within(Ref{Kind: KindField, ID: f.ID}, validateOptions(f))...)
 	}
 	return problems
+}
+
+func validateDocuments(documents []Document, seen map[string]bool) []Problem {
+	var problems []Problem
+	for _, doc := range documents {
+		problems = append(problems, validateEntry(KindDocument, doc.ID, doc.Name, seen)...)
+		ref := Ref{Kind: KindDocument, ID: doc.ID}
+		if len(doc.AcceptedTypes) == 0 {
+			problems = append(problems, Problem{Code: CodeNoAcceptedTypes, Path: []Ref{ref}})
+		}
+		for _, accepted := range doc.AcceptedTypes {
+			if !validMediaType(accepted) {
+				problems = append(problems, Problem{Code: CodeInvalidAcceptedType, Path: []Ref{ref}, Value: accepted})
+			}
+		}
+		if doc.MaxSize <= 0 {
+			problems = append(problems, Problem{Code: CodeNoMaxSize, Path: []Ref{ref}})
+		}
+	}
+	return problems
+}
+
+// validMediaType accepts a lowercase type and subtype, without parameters.
+func validMediaType(value string) bool {
+	parsed, params, err := mime.ParseMediaType(value)
+	return err == nil && parsed == value && len(params) == 0 && strings.Contains(value, "/")
 }
 
 func validateOptions(f Field) []Problem {

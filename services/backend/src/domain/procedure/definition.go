@@ -1,15 +1,24 @@
 package procedure
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 // A procedure starts at the first step, and a step without next or outcomes
 // closes it. Areas are shared by every procedure type, while fields and
 // documents belong to the one that declares them.
 type Definition struct {
-	Name      string     `json:"name"`
-	Fields    []Field    `json:"fields,omitempty"`
-	Documents []Document `json:"documents,omitempty"`
-	Steps     []Step     `json:"steps"`
+	Name string `json:"name"`
+	// Description explains the procedure type in plain language.
+	Description string `json:"description,omitempty"`
+	// Deadlines and Admissibility are text for the applicant to read: nothing
+	// enforces them yet.
+	Deadlines     []string   `json:"deadlines,omitempty"`
+	Admissibility []string   `json:"admissibility,omitempty"`
+	Fields        []Field    `json:"fields,omitempty"`
+	Documents     []Document `json:"documents,omitempty"`
+	Steps         []Step     `json:"steps"`
 }
 
 func (d Definition) Validate(areas []Area) error {
@@ -22,13 +31,31 @@ func (d Definition) Validate(areas []Area) error {
 	return nil
 }
 
+// validateTexts checks what the catalog shows besides the name.
+func validateTexts(d Definition) []Problem {
+	var problems []Problem
+	if strings.TrimSpace(d.Description) == "" {
+		problems = append(problems, Problem{Code: CodeNoDescription, Path: []Ref{{Kind: KindDefinition}}})
+	}
+	for _, text := range d.Deadlines {
+		if strings.TrimSpace(text) == "" {
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindDeadline}}})
+		}
+	}
+	for _, text := range d.Admissibility {
+		if strings.TrimSpace(text) == "" {
+			problems = append(problems, Problem{Code: CodeBlankText, Path: []Ref{{Kind: KindAdmissibility}}})
+		}
+	}
+	return problems
+}
+
 func (d Definition) problems(areas []Area) []Problem {
 	errs := validateName(d.Name, Ref{Kind: KindDefinition})
+	errs = append(errs, validateTexts(d)...)
 	fields, documents := map[string]bool{}, map[string]bool{}
 	errs = append(errs, validateFields(d.Fields, fields)...)
-	for _, doc := range d.Documents {
-		errs = append(errs, validateEntry(KindDocument, doc.ID, doc.Name, documents)...)
-	}
+	errs = append(errs, validateDocuments(d.Documents, documents)...)
 	if len(d.Steps) == 0 {
 		return append(errs, Problem{Code: CodeNoSteps, Path: []Ref{{Kind: KindDefinition}}})
 	}

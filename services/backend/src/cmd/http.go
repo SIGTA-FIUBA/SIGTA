@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"backend/src/adapters/rest"
 	"backend/src/application"
 	"backend/src/domain"
+	"backend/src/domain/procedure"
+	"backend/src/ports/input"
 )
 
 func main() {
@@ -43,7 +46,13 @@ func main() {
 	)
 
 	secureCookies := strings.HasPrefix(publicURL, "https://")
-	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies))
+	procedureTypes := application.NewProcedureTypeService(memory.NewProcedureVersions(), memory.NewAreaCatalog(devAreas()...), time.Now)
+	if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
+		logger.Error("publish the example procedure type", "error", err)
+		os.Exit(1)
+	}
+
+	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies), rest.NewCatalogHandler(procedureTypes))
 
 	router := http.NewServeMux()
 	rest.Mount(router, api, logger)
@@ -66,6 +75,40 @@ func devUsers() []domain.User {
 		{ID: "dev-student", Email: "alumno@fi.uba.ar", Name: "Alumno de prueba", Role: domain.RoleApplicant},
 		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
 		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
+	}
+}
+
+func devAreas() []procedure.Area {
+	return []procedure.Area{
+		{ID: "applicant", Name: "Titular", Kind: procedure.AreaApplicant},
+		{ID: "office", Name: "Área de prueba", Kind: procedure.AreaOffice},
+	}
+}
+
+// devProcedureType is a made-up procedure type, so that the catalog has
+// something to show in local development. It describes no real process.
+func devProcedureType() input.Publication {
+	return input.Publication{
+		ProcedureType: 1,
+		Authorship:    procedure.Authorship{ProposedBy: "dev-operative", ApprovedBy: "dev-approver"},
+		Definition: procedure.Definition{
+			Name:          "Trámite de ejemplo",
+			Description:   "Un trámite inventado para probar SIGTA en desarrollo.",
+			Deadlines:     []string{"Plazo de ejemplo: hasta 30 días antes del inicio de la cursada."},
+			Admissibility: []string{"Condición de ejemplo: tener una cuenta de prueba."},
+			Fields: []procedure.Field{
+				{ID: "reason", Name: "Motivo", Type: procedure.FieldLongText},
+				{ID: "comment", Name: "Comentario", Type: procedure.FieldLongText},
+			},
+			Documents: []procedure.Document{
+				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
+			},
+			Steps: []procedure.Step{
+				{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
+				{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "review", Name: "Revisión", Area: "office", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact},
+			},
+		},
 	}
 }
 

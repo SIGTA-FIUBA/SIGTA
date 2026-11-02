@@ -17,8 +17,9 @@ import (
 
 // ContentFormat tells which shape of Content an encoded version has. It goes
 // up whenever Content changes, so that code that does not know a format
-// refuses to read it instead of reading it partly.
-const ContentFormat = 1
+// refuses to read it instead of reading it partly. Format 2 added what the
+// catalog shows, all of it optional in the encoding, so format 1 still reads.
+const ContentFormat = 2
 
 // Content carries the areas its steps use, so that a version reads the same
 // after an area is renamed.
@@ -116,8 +117,8 @@ func (v Version) Content() (Content, error) {
 	if err := decoder.Decode(&c); err != nil {
 		return Content{}, fmt.Errorf("decode content: %w", err)
 	}
-	if c.Format != ContentFormat {
-		return Content{}, fmt.Errorf("content format %d is not %d", c.Format, ContentFormat)
+	if c.Format < 1 || c.Format > ContentFormat {
+		return Content{}, fmt.Errorf("content format %d is not between 1 and %d", c.Format, ContentFormat)
 	}
 	return c, nil
 }

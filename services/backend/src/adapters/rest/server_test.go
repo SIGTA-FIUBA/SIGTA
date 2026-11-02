@@ -10,7 +10,7 @@ import (
 )
 
 func newRouter() http.Handler {
-	return rest.Mount(http.NewServeMux(), rest.NewServer(nil), slog.Default())
+	return rest.Mount(http.NewServeMux(), rest.NewServer(nil, nil), slog.Default())
 }
 
 func TestRejectsUnknownRoutesAndMethods(t *testing.T) {

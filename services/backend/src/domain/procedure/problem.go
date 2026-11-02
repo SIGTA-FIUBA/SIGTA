@@ -46,18 +46,25 @@ const (
 	CodeUnknownFieldType      Code = "unknown_field_type"
 	CodeOptionsOutsideOption  Code = "options_outside_option"
 	CodeOptionFieldNoOptions  Code = "option_field_no_options"
+	CodeNoDescription         Code = "no_description"
+	CodeBlankText             Code = "blank_text"
+	CodeNoAcceptedTypes       Code = "no_accepted_types"
+	CodeInvalidAcceptedType   Code = "invalid_accepted_type"
+	CodeNoMaxSize             Code = "no_max_size"
 )
 
 type Kind string
 
 const (
-	KindDefinition Kind = "definition"
-	KindArea       Kind = "area"
-	KindField      Kind = "field"
-	KindOption     Kind = "option"
-	KindDocument   Kind = "document"
-	KindStep       Kind = "step"
-	KindOutcome    Kind = "outcome"
+	KindDefinition    Kind = "definition"
+	KindArea          Kind = "area"
+	KindField         Kind = "field"
+	KindOption        Kind = "option"
+	KindDocument      Kind = "document"
+	KindStep          Kind = "step"
+	KindOutcome       Kind = "outcome"
+	KindDeadline      Kind = "deadline"
+	KindAdmissibility Kind = "admissibility"
 )
 
 // Ref points at one element of a definition. An element that has no id, or
@@ -175,6 +182,16 @@ func (p Problem) text() (text string, aboutLast bool) {
 		return "only option fields have options", false
 	case CodeOptionFieldNoOptions:
 		return "option fields need at least one option", false
+	case CodeNoDescription:
+		return fmt.Sprintf("%s has no description", last), true
+	case CodeBlankText:
+		return fmt.Sprintf("%s has no text", last), true
+	case CodeNoAcceptedTypes:
+		return fmt.Sprintf("%s accepts no file types", last), true
+	case CodeInvalidAcceptedType:
+		return fmt.Sprintf("%q is not a media type", p.Value), false
+	case CodeNoMaxSize:
+		return fmt.Sprintf("%s has no maximum size", last), true
 	}
 	return "unknown problem " + string(p.Code), false
 }

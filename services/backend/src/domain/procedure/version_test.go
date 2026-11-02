@@ -106,8 +106,8 @@ func TestContentRejectsAnotherFormat(t *testing.T) {
 		encoded string
 		want    string
 	}{
-		{`{"format":2,"definition":{"name":"Trámite"}}`, "content format 2 is not 1"},
-		{`{"definition":{"name":"Trámite"}}`, "content format 0 is not 1"},
+		{`{"format":3,"definition":{"name":"Trámite"}}`, "content format 3 is not between 1 and 2"},
+		{`{"definition":{"name":"Trámite"}}`, "content format 0 is not between 1 and 2"},
 	}
 	for _, tt := range tests {
 		v := Version{Number: 1, Digest: Digest([]byte(tt.encoded)), Encoded: []byte(tt.encoded)}
