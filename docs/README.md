@@ -13,6 +13,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | Trabajar en un componente de IA | ADR-002, riesgos R-06 y R-07, y la estrategia de pruebas del [proceso](09-proceso-y-metricas.md) |
 | Decidir si algo entra en el alcance | [Alcance](03-scope.md): si no está en el alcance positivo, está fuera |
 | Saber qué toca ahora | [Plan de sprints](11-plan-de-sprints.md) y [roadmap](10-roadmap.md) |
+| Preparar el despliegue | [Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) |
 
 ## Índice
 
@@ -31,3 +32,4 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [09 · Proceso y métricas](09-proceso-y-metricas.md) | Definition of Ready y of Done, estimación, estados en Linear, estrategia de pruebas |
 | [10 · Roadmap](10-roadmap.md) | Bloques, calendario, hitos y puntos de control |
 | [11 · Plan de sprints](11-plan-de-sprints.md) | Historias asignadas a cada sprint |
+| [12 · Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) | Qué cumple SIGTA de los requisitos de la Subsecretaría de TICs para desplegar en la infraestructura de FIUBA |
