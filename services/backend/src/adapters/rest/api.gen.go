@@ -487,6 +487,20 @@ func (response CompleteLogin302Response) VisitCompleteLoginResponse(w http.Respo
 	return nil
 }
 
+type CompleteLogin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CompleteLogin400JSONResponse) VisitCompleteLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CompleteLogin401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response CompleteLogin401JSONResponse) VisitCompleteLoginResponse(w http.ResponseWriter) error {
@@ -581,6 +595,20 @@ func (response RedeemLoginLink204Response) VisitRedeemLoginLinkResponse(w http.R
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+type RedeemLoginLink400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RedeemLoginLink400JSONResponse) VisitRedeemLoginLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type RedeemLoginLink401JSONResponse struct{ UnauthorizedJSONResponse }

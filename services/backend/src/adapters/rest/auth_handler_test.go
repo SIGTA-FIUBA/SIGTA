@@ -6,8 +6,12 @@ import (
 	"backend/src/adapters/rest"
 	"backend/src/application"
 	"backend/src/domain"
+	ports "backend/src/ports/input"
 	"context"
+	"encoding/json"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -44,8 +48,51 @@ func newServer(t *testing.T) (*httptest.Server, *outbox) {
 		time.Now,
 	)
 	api := rest.NewServer(rest.NewAuthHandler(auth, srv.URL+"/me", false))
-	rest.HandlerFromMux(rest.NewStrictHandler(api, nil), mux)
+	rest.Mount(mux, api, slog.Default())
 	return srv, mail
+}
+
+// withoutRedirects leaves a client on each redirect, so a test can read it.
+func withoutRedirects(client *http.Client) *http.Client {
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return client
+}
+
+// expectError checks that a response follows the contract's Error, and returns
+// its message.
+func expectError(t *testing.T, res *http.Response, err error, want int) string {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != want {
+		t.Fatalf("%s %s: got %d, want %d", res.Request.Method, res.Request.URL.Path, res.StatusCode, want)
+	}
+	if got := res.Header.Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	var body rest.Error
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	return body.Message
+}
+
+// expiresLoginState tells whether a response removes the pending login.
+func expiresLoginState(res *http.Response) bool {
+	for _, c := range res.Cookies() {
+		if c.Name == "sigta_login_state" && c.MaxAge < 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func newClient(t *testing.T) *http.Client {
@@ -102,6 +149,102 @@ func TestProviderLoginThroughToProfileAndLogout(t *testing.T) {
 
 	res, err = get(t, client, srv.URL+"/me")
 	expectStatus(t, res, err, http.StatusUnauthorized)
+}
+
+func TestPendingLoginWorksOnce(t *testing.T) {
+	srv, _ := newServer(t)
+	client := withoutRedirects(newClient(t))
+
+	res, err := get(t, client, srv.URL+"/auth/login?login_hint="+url.QueryEscape("operativo@fi.uba.ar"))
+	expectStatus(t, res, err, http.StatusFound)
+	callback := res.Header.Get("Location")
+
+	res, err = get(t, client, callback)
+	expectStatus(t, res, err, http.StatusFound)
+	if !expiresLoginState(res) {
+		t.Fatal("the successful callback left the pending login")
+	}
+	if len(res.Cookies()) != 2 {
+		t.Fatalf("got cookies %v, want the session and the expired pending login", res.Cookies())
+	}
+
+	res, err = get(t, client, callback)
+	expectStatus(t, res, err, http.StatusUnauthorized)
+}
+
+func TestFailedCallbackExpiresThePendingLogin(t *testing.T) {
+	srv, _ := newServer(t)
+	client := withoutRedirects(newClient(t))
+
+	res, err := get(t, client, srv.URL+"/auth/login?login_hint=nadie@fi.uba.ar")
+	expectStatus(t, res, err, http.StatusFound)
+
+	res, err = get(t, client, res.Header.Get("Location"))
+	expectStatus(t, res, err, http.StatusUnauthorized)
+	if !expiresLoginState(res) {
+		t.Fatal("the failed callback left the pending login")
+	}
+}
+
+func TestCallbackTellsARejectedLoginFromAnUnknownUser(t *testing.T) {
+	srv, _ := newServer(t)
+
+	// The development provider rejects a login without a hint.
+	res, err := get(t, newClient(t), srv.URL+"/auth/login")
+	rejected := expectError(t, res, err, http.StatusUnauthorized)
+
+	res, err = get(t, newClient(t), srv.URL+"/auth/login?login_hint=nadie@fi.uba.ar")
+	unknown := expectError(t, res, err, http.StatusUnauthorized)
+
+	if rejected == unknown || strings.Contains(rejected, "cuenta de SIGTA") {
+		t.Fatalf("rejected = %q, unknown = %q", rejected, unknown)
+	}
+}
+
+func TestInvalidRequestsAnswerWithTheContractError(t *testing.T) {
+	srv, _ := newServer(t)
+	client := newClient(t)
+
+	tests := []struct {
+		name string
+		do   func() (*http.Response, error)
+	}{
+		{"callback without code", func() (*http.Response, error) {
+			return get(t, client, srv.URL+"/auth/callback?state=x")
+		}},
+		{"invalid email", func() (*http.Response, error) {
+			return post(t, client, srv.URL+"/auth/login-links", strings.NewReader(`{"email":"no"}`))
+		}},
+		{"broken JSON", func() (*http.Response, error) {
+			return post(t, client, srv.URL+"/auth/login-links", strings.NewReader(`{`))
+		}},
+		{"empty token", func() (*http.Response, error) {
+			return post(t, client, srv.URL+"/auth/login-links/redeem", strings.NewReader(`{}`))
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := tt.do()
+			if got := expectError(t, res, err, http.StatusBadRequest); got != "El pedido no es válido." {
+				t.Fatalf("message = %q", got)
+			}
+		})
+	}
+}
+
+type brokenAuth struct{ ports.Authenticator }
+
+func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
+
+func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
+	handler := rest.Mount(http.NewServeMux(), rest.NewServer(rest.NewAuthHandler(brokenAuth{}, "", false)), slog.New(slog.DiscardHandler))
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+
+	res, err := post(t, newClient(t), srv.URL+"/auth/logout", nil)
+	if got := expectError(t, res, err, http.StatusInternalServerError); strings.Contains(got, "secret") {
+		t.Fatalf("message = %q", got)
+	}
 }
 
 func TestCallbackWithoutMatchingStateIsRejected(t *testing.T) {

@@ -42,20 +42,47 @@ func (h *AuthHandler) BeginLogin(ctx context.Context, req BeginLoginRequestObjec
 func (h *AuthHandler) CompleteLogin(ctx context.Context, req CompleteLoginRequestObject) (CompleteLoginResponseObject, error) {
 	pending := decodePendingLogin(valueOf(req.Params.SigtaLoginState))
 	token, err := h.auth.CompleteLogin(ctx, req.Params.Code, req.Params.State, pending)
-	if errors.Is(err, out.ErrLoginStateMismatch) {
-		return CompleteLogin401JSONResponse{unauthorized("El ingreso no coincide con el que se inició. Volvé a intentarlo.")}, nil
-	}
-	if errors.Is(err, out.ErrDomainNotAllowed) {
-		return CompleteLogin401JSONResponse{unauthorized("Ingresá con tu cuenta institucional.")}, nil
-	}
-	if errors.Is(err, out.ErrLoginRejected) || errors.Is(err, domain.ErrUnknownUser) {
-		return CompleteLogin401JSONResponse{unauthorized("No hay una cuenta de SIGTA para esa identidad.")}, nil
+
+	// A pending login is good for one attempt, whatever its outcome.
+	expiredState := h.cookie(loginStateCookie, "", -1)
+	if message := loginFailure(err); message != "" {
+		return withCookies{CompleteLogin401JSONResponse{unauthorized(message)}, []string{expiredState}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	cookie := h.sessionCookie(token)
-	return CompleteLogin302Response{Headers: CompleteLogin302ResponseHeaders{Location: &h.appURL, SetCookie: &cookie}}, nil
+	redirect := CompleteLogin302Response{Headers: CompleteLogin302ResponseHeaders{Location: &h.appURL}}
+	return withCookies{redirect, []string{h.sessionCookie(token), expiredState}}, nil
+}
+
+// withCookies adds cookies to a response. The generated responses hold a single
+// Set-Cookie value, and the callback may need to send two.
+type withCookies struct {
+	response CompleteLoginResponseObject
+	cookies  []string
+}
+
+func (r withCookies) VisitCompleteLoginResponse(w http.ResponseWriter) error {
+	for _, cookie := range r.cookies {
+		w.Header().Add("Set-Cookie", cookie)
+	}
+	return r.response.VisitCompleteLoginResponse(w)
+}
+
+// loginFailure is what to tell someone whose login failed for a reason they can
+// act on. It is empty for any other outcome.
+func loginFailure(err error) string {
+	switch {
+	case errors.Is(err, out.ErrLoginStateMismatch):
+		return "El ingreso no coincide con el que se inició. Volvé a intentarlo."
+	case errors.Is(err, out.ErrDomainNotAllowed):
+		return "Ingresá con tu cuenta institucional."
+	case errors.Is(err, out.ErrLoginRejected):
+		return "El ingreso no se pudo completar. Volvé a intentarlo."
+	case errors.Is(err, domain.ErrUnknownUser):
+		return "No hay una cuenta de SIGTA para esa identidad."
+	}
+	return ""
 }
 
 func (h *AuthHandler) RequestLoginLink(ctx context.Context, req RequestLoginLinkRequestObject) (RequestLoginLinkResponseObject, error) {
@@ -70,6 +97,9 @@ func (h *AuthHandler) RequestLoginLink(ctx context.Context, req RequestLoginLink
 }
 
 func (h *AuthHandler) RedeemLoginLink(ctx context.Context, req RedeemLoginLinkRequestObject) (RedeemLoginLinkResponseObject, error) {
+	if req.Body.Token == "" {
+		return RedeemLoginLink400JSONResponse{BadRequestJSONResponse{Message: invalidRequestMessage}}, nil
+	}
 	token, err := h.auth.RedeemLoginLink(ctx, req.Body.Token)
 	if errors.Is(err, out.ErrInvalidLoginLink) || errors.Is(err, domain.ErrUnknownUser) {
 		return RedeemLoginLink401JSONResponse{unauthorized("El enlace venció o ya se usó. Pedí uno nuevo.")}, nil

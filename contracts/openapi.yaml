@@ -31,6 +31,10 @@ paths:
     get:
       operationId: completeLogin
       summary: Recibe la respuesta del proveedor de identidad y abre la sesión
+      description: >
+        El ingreso pendiente sirve una sola vez: tanto el 302 como el 401
+        vencen la cookie sigta_login_state, así que el 302 lleva dos encabezados
+        Set-Cookie.
       parameters:
         - name: code
           in: query
@@ -55,9 +59,11 @@ paths:
               schema:
                 type: string
             Set-Cookie:
-              description: Cookie de sesión
+              description: Cookie de sesión y cookie del ingreso pendiente vencida
               schema:
                 type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /auth/login-links:
@@ -101,6 +107,7 @@ paths:
               properties:
                 token:
                   type: string
+                  minLength: 1
       responses:
         "204":
           description: Sesión abierta
@@ -109,6 +116,8 @@ paths:
               description: Cookie de sesión
               schema:
                 type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /auth/logout:

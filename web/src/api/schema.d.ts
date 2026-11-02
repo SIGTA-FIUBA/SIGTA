@@ -28,7 +28,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recibe la respuesta del proveedor de identidad y abre la sesión */
+        /**
+         * Recibe la respuesta del proveedor de identidad y abre la sesión
+         * @description El ingreso pendiente sirve una sola vez: tanto el 302 como el 401 vencen la cookie sigta_login_state, así que el 302 lleva dos encabezados Set-Cookie.
+         */
         get: operations["completeLogin"];
         put?: never;
         post?: never;
@@ -199,12 +202,13 @@ export interface operations {
             302: {
                 headers: {
                     Location?: string;
-                    /** @description Cookie de sesión */
+                    /** @description Cookie de sesión y cookie del ingreso pendiente vencida */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -258,6 +262,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

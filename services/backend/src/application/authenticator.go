@@ -138,7 +138,16 @@ func (s *AuthService) RedeemLoginLink(ctx context.Context, token string) (string
 	if link.ExpiredAt(s.now()) {
 		return "", out.ErrInvalidLoginLink
 	}
-	return s.openSession(ctx, link.UserID)
+	user, err := s.users.FindByID(ctx, link.UserID)
+	if err != nil {
+		return "", err
+	}
+	// The profile may have changed since the link was requested, and staff log
+	// in with their institutional account only.
+	if user.Role != domain.RoleApplicant {
+		return "", out.ErrInvalidLoginLink
+	}
+	return s.openSession(ctx, user.ID)
 }
 
 // Authenticate resolves the profile behind a session token and extends the

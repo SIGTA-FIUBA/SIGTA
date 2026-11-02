@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"backend/src/adapters/dev"
@@ -41,10 +42,11 @@ func main() {
 		time.Now,
 	)
 
-	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, false))
+	secureCookies := strings.HasPrefix(publicURL, "https://")
+	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, secureCookies))
 
 	router := http.NewServeMux()
-	rest.HandlerFromMux(rest.NewStrictHandler(api, nil), router)
+	rest.Mount(router, api, logger)
 
 	server := &http.Server{
 		Addr:              ":8080",

@@ -1,6 +1,7 @@
 package rest_test
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,8 +10,7 @@ import (
 )
 
 func newRouter() http.Handler {
-	api := rest.NewServer(nil)
-	return rest.HandlerFromMux(rest.NewStrictHandler(api, nil), http.NewServeMux())
+	return rest.Mount(http.NewServeMux(), rest.NewServer(nil), slog.Default())
 }
 
 func TestRejectsUnknownRoutesAndMethods(t *testing.T) {

@@ -25,12 +25,18 @@ type fixture struct {
 	t      *testing.T
 	auth   *application.AuthService
 	mailer *outbox
+	users  *memory.UserRepository
 	now    time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	f := &fixture{t: t, mailer: &outbox{}, now: time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC)}
+	f := &fixture{
+		t:      t,
+		mailer: &outbox{},
+		users:  memory.NewUserRepository(applicant, operative),
+		now:    time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC),
+	}
 	f.auth = application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
@@ -39,7 +45,7 @@ func newFixture(t *testing.T) *fixture {
 			LoginLinkURL:  linkURL,
 		},
 		dev.NewIdentityProvider("http://api.test/auth/callback"),
-		memory.NewUserRepository(applicant, operative),
+		f.users,
 		memory.NewSessionStore(),
 		memory.NewLoginLinkStore(),
 		f.mailer,
@@ -223,6 +229,22 @@ func TestLoginLinkIsOnlyForApplicants(t *testing.T) {
 	}
 	if len(f.mailer.links) != 0 {
 		t.Fatalf("sent links to %v", f.mailer.links)
+	}
+}
+
+func TestLoginLinkStopsWorkingWhenItsHolderBecomesStaff(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	if err := f.auth.RequestLoginLink(ctx, applicant.Email); err != nil {
+		t.Fatal(err)
+	}
+
+	promoted := applicant
+	promoted.Role = domain.RoleStaffOperative
+	f.users.Add(promoted)
+
+	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, out.ErrInvalidLoginLink) {
+		t.Fatalf("got %v, want ErrInvalidLoginLink", err)
 	}
 }
 
