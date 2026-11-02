@@ -13,7 +13,7 @@ import (
 // being dropped.
 func readJSON(t *testing.T, path string, v any) {
 	t.Helper()
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // The test chooses the path, not a user.
 	if err != nil {
 		t.Fatal(err)
 	}
