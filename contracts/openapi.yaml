@@ -86,7 +86,8 @@ paths:
       description: >
         Solo acepta correos del dominio institucional. Dentro de ese dominio,
         responde igual exista o no una cuenta con ese correo, para no revelar
-        quién tiene cuenta en SIGTA.
+        quién tiene cuenta en SIGTA. En un entorno sin correo responde 503 a
+        todo pedido, antes de mirar el correo.
       requestBody:
         required: true
         content:
@@ -103,6 +104,12 @@ paths:
           description: Pedido aceptado
         "400":
           $ref: "#/components/responses/BadRequest"
+        "503":
+          description: El ingreso por enlace no está disponible en este entorno
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/login-links/redeem:
     post:
       operationId: redeemLoginLink

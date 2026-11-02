@@ -16,11 +16,12 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/adapters/dev"
-	"backend/src/adapters/memory"
-	"backend/src/adapters/rest"
-	"backend/src/application"
-	"backend/src/domain"
+	"backend/src/api"
+	"backend/src/auth/adapters/dev"
+	"backend/src/auth/adapters/memory"
+	authrest "backend/src/auth/adapters/rest"
+	"backend/src/auth/application"
+	"backend/src/auth/domain"
 )
 
 const (
@@ -43,7 +44,7 @@ type authenticationWorld struct {
 	client *http.Client
 	email  string
 
-	// The outcome of the last request.
+	// The result of the last request.
 	status     int
 	body       string
 	location   string
@@ -80,8 +81,8 @@ func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^a session is opened$`, w.thenSessionOpened)
 	sc.Then(`^their profile is "([^"]*)"$`, w.thenProfile)
 	sc.Then(`^no session is opened$`, w.thenNoSession)
-	sc.Then(`^they are asked to try again$`, w.thenSentBack(rest.Rejected))
-	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenSentBack(rest.DomainNotAllowed))
+	sc.Then(`^they are asked to try again$`, w.thenSentBack(api.Rejected))
+	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenSentBack(api.DomainNotAllowed))
 	sc.Then(`^they are asked to use their institutional email$`, w.thenTold("correo institucional"))
 	sc.Then(`^the session expires$`, w.thenSessionExpired)
 	sc.Then(`^they have to sign in again$`, w.thenTold("Iniciá sesión"))
@@ -116,8 +117,8 @@ func (w *authenticationWorld) server() http.Handler {
 			w,
 			func() time.Time { return w.now },
 		)
-		api := rest.NewServer(rest.NewAuthHandler(auth, baseURL+"/", loginPage, false))
-		w.handler = rest.Mount(http.NewServeMux(), api, slog.New(slog.DiscardHandler))
+		server := authrest.NewAuthHandler(auth, baseURL+"/", loginPage, false)
+		w.handler = api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	}
 	return w.handler
 }
@@ -141,7 +142,7 @@ func (w *authenticationWorld) newBrowser() error {
 	return nil
 }
 
-// do takes a path or a full URL, and records the outcome.
+// do takes a path or a full URL, and records the result.
 func (w *authenticationWorld) do(method, target, body string) error {
 	if strings.HasPrefix(target, "/") {
 		target = baseURL + target
@@ -185,8 +186,8 @@ func (w *authenticationWorld) add(email string, role domain.Role) {
 	w.users.Add(domain.User{ID: email, Email: email, Name: "Persona de prueba", Role: role})
 }
 
-func (w *authenticationWorld) givenDomain(domain string) error {
-	w.domain = domain
+func (w *authenticationWorld) givenDomain(allowed string) error {
+	w.domain = allowed
 	return nil
 }
 
@@ -354,7 +355,7 @@ func (w *authenticationWorld) thenSessionOpen() error {
 }
 
 func (w *authenticationWorld) thenProfile(want string) error {
-	var user rest.User
+	var user api.User
 	if err := json.Unmarshal([]byte(w.body), &user); err != nil {
 		return fmt.Errorf("%q: %w", w.body, err)
 	}
@@ -377,7 +378,7 @@ func (w *authenticationWorld) thenNoSession() error {
 	return w.expectStatus(http.StatusUnauthorized)
 }
 
-func (w *authenticationWorld) loginError() (rest.LoginError, error) {
+func (w *authenticationWorld) loginError() (api.LoginError, error) {
 	location, err := url.Parse(w.location)
 	if err != nil {
 		return "", err
@@ -385,10 +386,10 @@ func (w *authenticationWorld) loginError() (rest.LoginError, error) {
 	if location.Scheme+"://"+location.Host+location.Path != loginPage {
 		return "", fmt.Errorf("redirected to %s, want the login page", w.location)
 	}
-	return rest.LoginError(location.Query().Get("error")), nil
+	return api.LoginError(location.Query().Get("error")), nil
 }
 
-func (w *authenticationWorld) thenSentBack(want rest.LoginError) func() error {
+func (w *authenticationWorld) thenSentBack(want api.LoginError) func() error {
 	return func() error {
 		got, err := w.loginError()
 		if err != nil {
@@ -403,7 +404,7 @@ func (w *authenticationWorld) thenSentBack(want rest.LoginError) func() error {
 
 func (w *authenticationWorld) thenTold(message string) func() error {
 	return func() error {
-		var got rest.Error
+		var got api.Error
 		if err := json.Unmarshal([]byte(w.body), &got); err != nil {
 			return fmt.Errorf("%q: %w", w.body, err)
 		}

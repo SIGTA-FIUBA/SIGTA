@@ -23,7 +23,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [01 · Glosario](01-glosario.md) | Vocabulario único del dominio; las entradas (V) faltan validar con la Secretaría |
 | [02 · Personas y actores](02-personas-y-actores.md) | Roles (titular y Secretario con dos perfiles), actores externos y tabla de permisos |
 | [03 · Alcance](03-scope.md) | Los cinco trámites, alcance positivo y negativo, supuestos S-01 a S-08 |
-| [04 · Decisiones (ADR)](04-decisiones-adr.md) | ADR-001 a ADR-013, ADR-015 y decisiones pendientes |
+| [04 · Decisiones (ADR)](04-decisiones-adr.md) | ADR-001 a ADR-015 y decisiones pendientes |
 | [05 · Riesgos](05-riesgos.md) | Registro de riesgos con disparador, mitigación y contingencia |
 | [06 · Stakeholders y comunicación](06-stakeholders-comunicacion.md) | Mapa de stakeholders, canales, ceremonias y escalamiento |
 | [07 · User Story Mapping](07-user-story-mapping.md) | Recorrido del titular y del Secretario, cada detalle con su historia y sprint |
