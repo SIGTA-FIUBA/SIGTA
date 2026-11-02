@@ -41,11 +41,7 @@ func main() {
 		time.Now,
 	)
 
-	greeter := &application.GreeterService{}
-	api := rest.NewServer(
-		rest.NewGreeterHandler(greeter),
-		rest.NewAuthHandler(auth, appURL, false),
-	)
+	api := rest.NewServer(rest.NewAuthHandler(auth, appURL, false))
 
 	router := http.NewServeMux()
 	rest.HandlerFromMux(rest.NewStrictHandler(api, nil), router)
