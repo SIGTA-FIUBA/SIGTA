@@ -16,6 +16,7 @@
 - [ ] El código sigue las convenciones del proyecto y no deja código comentado ni debug.
 - [ ] Hay tests para la funcionalidad nueva o modificada.
 - [ ] Todos los tests pasan localmente.
+- [ ] Los escenarios de aceptación asociados pasan en el pipeline, con sus pasos implementados.
 - [ ] El pipeline de CI está en verde.
 - [ ] Se actualizó la documentación (README, docs, comentarios) si corresponde.
 - [ ] No hay conflictos con `develop`.

@@ -241,7 +241,7 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 ### Despliegue
 
 - Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
-- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas, la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose; los escenarios Gherkin se suman con el motor de pasos. Al integrar en `main` se construyen las imágenes.
+- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose. Al integrar en `main` se construyen las imágenes.
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
 
@@ -299,7 +299,7 @@ Cada llamada a un modelo registra costo, latencia y versión del prompt desde el
 | Identidad | Cuenta de Google de la UBA |
 | Entrada | Proxy inverso de la infraestructura de destino; nginx en desarrollo |
 | Modelos | Reglas en código, Laya, Claude u otro modelo, local o por API, detrás de puertos |
-| Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog en las reglas del motor |
+| Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog |
 | Observabilidad | Logs estructurados y registro de cada llamada a un modelo |
 | Infraestructura | Contenedores, Docker Compose |
 | Integración continua | GitHub Actions |

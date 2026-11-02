@@ -51,4 +51,4 @@ Feature: Start a procedure
 ## Lo que no hace esta rutina
 
 - No modifica los criterios de aceptación en Linear.
-- No implementa los pasos (`step definitions`) de godog ni de Playwright: eso es parte de la implementación de la historia.
+- No implementa los pasos (`step definitions`) de godog ni de Playwright: eso es parte de la implementación de la historia, y los de godog van en `services/backend/test/acceptance/`. Un paso sin implementar hace fallar el pipeline.
