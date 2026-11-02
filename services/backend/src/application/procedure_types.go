@@ -88,22 +88,22 @@ func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntr
 		return nil, fmt.Errorf("list latest versions: %w", err)
 	}
 	entries := make([]input.CatalogEntry, 0, len(versions))
-	for _, v := range versions {
-		if err := check(v, v.ProcedureType, v.Number); err != nil {
-			return nil, fmt.Errorf("procedure type %d version %d: %w", v.ProcedureType, v.Number, err)
+	for _, version := range versions {
+		if err := check(version, version.ProcedureType, version.Number); err != nil {
+			return nil, fmt.Errorf("procedure type %d version %d: %w", version.ProcedureType, version.Number, err)
 		}
-		c, err := v.Content()
+		content, err := version.Content()
 		if err != nil {
-			return nil, fmt.Errorf("procedure type %d version %d: %w", v.ProcedureType, v.Number, err)
+			return nil, fmt.Errorf("procedure type %d version %d: %w", version.ProcedureType, version.Number, err)
 		}
-		fields, documents := c.ApplicantRequirements()
+		fields, documents := content.ApplicantRequirements()
 		entries = append(entries, input.CatalogEntry{
-			ProcedureType: v.ProcedureType,
-			Version:       v.Number,
-			Name:          c.Definition.Name,
-			Description:   c.Definition.Description,
-			Deadlines:     c.Definition.Deadlines,
-			Admissibility: c.Definition.Admissibility,
+			ProcedureType: version.ProcedureType,
+			Version:       version.Number,
+			Name:          content.Definition.Name,
+			Description:   content.Definition.Description,
+			Deadlines:     content.Definition.Deadlines,
+			Admissibility: content.Definition.Admissibility,
 			Fields:        fields,
 			Documents:     documents,
 		})

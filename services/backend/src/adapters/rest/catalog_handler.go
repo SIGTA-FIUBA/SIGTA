@@ -28,17 +28,17 @@ func (h *CatalogHandler) ListProcedureTypes(ctx context.Context, _ ListProcedure
 
 func catalogEntry(entry ports.CatalogEntry) CatalogEntry {
 	fields := make([]FieldRequirement, 0, len(entry.Fields))
-	for _, f := range entry.Fields {
-		fields = append(fields, FieldRequirement{Id: f.Field.ID, Name: f.Field.Name, Required: f.Required})
+	for _, field := range entry.Fields {
+		fields = append(fields, FieldRequirement{Id: field.Field.ID, Name: field.Field.Name, Required: field.Required})
 	}
 	documents := make([]DocumentRequirement, 0, len(entry.Documents))
-	for _, d := range entry.Documents {
+	for _, document := range entry.Documents {
 		documents = append(documents, DocumentRequirement{
-			Id:            d.Document.ID,
-			Name:          d.Document.Name,
-			Required:      d.Required,
-			AcceptedTypes: orEmpty(d.Document.AcceptedTypes),
-			MaxSize:       d.Document.MaxSize,
+			Id:            document.Document.ID,
+			Name:          document.Document.Name,
+			Required:      document.Required,
+			AcceptedTypes: orEmpty(document.Document.AcceptedTypes),
+			MaxSize:       document.Document.MaxSize,
 		})
 	}
 	return CatalogEntry{

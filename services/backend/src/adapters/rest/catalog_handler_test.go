@@ -21,8 +21,8 @@ type fakeCatalog struct {
 	err     error
 }
 
-func (f fakeCatalog) Catalog(context.Context) ([]input.CatalogEntry, error) {
-	return f.entries, f.err
+func (catalog fakeCatalog) Catalog(context.Context) ([]input.CatalogEntry, error) {
+	return catalog.entries, catalog.err
 }
 
 func getCatalog(t *testing.T, catalog fakeCatalog) *httptest.ResponseRecorder {

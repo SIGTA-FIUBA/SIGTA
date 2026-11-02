@@ -41,7 +41,9 @@ func (s *ProcedureVersions) LatestOfEach(context.Context) ([]procedure.Version, 
 			latest = append(latest, clone(stored[len(stored)-1]))
 		}
 	}
-	slices.SortFunc(latest, func(a, b procedure.Version) int { return cmp.Compare(a.ProcedureType, b.ProcedureType) })
+	slices.SortFunc(latest, func(left, right procedure.Version) int {
+		return cmp.Compare(left.ProcedureType, right.ProcedureType)
+	})
 	return latest, nil
 }
 

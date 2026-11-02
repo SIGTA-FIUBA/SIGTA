@@ -81,16 +81,16 @@ func TestFormatOne(t *testing.T) {
 
 // formatTwoContent is format 1 plus every key that format 2 added.
 func formatTwoContent() Content {
-	c := formatOneContent()
-	c.Format = 2
-	c.Definition.Description = "Pedí que te reconozcan una materia"
-	c.Definition.Deadlines = []string{"Hasta 30 días antes de cursar"}
-	c.Definition.Admissibility = []string{"Ser estudiante regular"}
-	for i := range c.Definition.Documents {
-		c.Definition.Documents[i].AcceptedTypes = []string{"application/pdf", "image/png"}
-		c.Definition.Documents[i].MaxSize = 10 << 20
+	content := formatOneContent()
+	content.Format = 2
+	content.Definition.Description = "Pedí que te reconozcan una materia"
+	content.Definition.Deadlines = []string{"Hasta 30 días antes de cursar"}
+	content.Definition.Admissibility = []string{"Ser estudiante regular"}
+	for index := range content.Definition.Documents {
+		content.Definition.Documents[index].AcceptedTypes = []string{"application/pdf", "image/png"}
+		content.Definition.Documents[index].MaxSize = 10 << 20
 	}
-	return c
+	return content
 }
 
 // testdata/format2.json follows the same rule as format1.json.
@@ -100,8 +100,8 @@ func TestFormatTwo(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored = bytes.TrimSuffix(stored, []byte("\n"))
-	v := Version{ProcedureType: 1, Number: 1, Digest: Digest(stored), Encoded: stored}
-	got, err := v.Content()
+	version := Version{ProcedureType: 1, Number: 1, Digest: Digest(stored), Encoded: stored}
+	got, err := version.Content()
 	if err != nil {
 		t.Fatalf("Content() = %v", err)
 	}

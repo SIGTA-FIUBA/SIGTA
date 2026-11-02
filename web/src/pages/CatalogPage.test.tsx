@@ -59,7 +59,7 @@ describe('CatalogPage', () => {
     renderCatalog(200, [equivalence, { ...equivalence, id: 2, name: 'Ámbito' }])
 
     await screen.findByRole('heading', { name: 'Trámite B' })
-    const names = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    const names = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)
     expect(names).toEqual(['Ámbito', 'Trámite B'])
   })
 

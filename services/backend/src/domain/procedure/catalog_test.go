@@ -3,7 +3,7 @@ package procedure
 import "testing"
 
 func TestApplicantRequirements(t *testing.T) {
-	c := NewContent(Definition{
+	content := NewContent(Definition{
 		Fields: []Field{
 			{ID: "shared", Name: "Dato", Type: FieldText},
 			{ID: "note", Name: "Nota", Type: FieldText},
@@ -19,7 +19,7 @@ func TestApplicantRequirements(t *testing.T) {
 		},
 	}, testAreas())
 
-	fields, documents := c.ApplicantRequirements()
+	fields, documents := content.ApplicantRequirements()
 
 	wantFields := []struct {
 		id       string
@@ -28,9 +28,9 @@ func TestApplicantRequirements(t *testing.T) {
 	if len(fields) != len(wantFields) {
 		t.Fatalf("fields = %+v, want %+v", fields, wantFields)
 	}
-	for i, want := range wantFields {
-		if fields[i].Field.ID != want.id || fields[i].Required != want.required {
-			t.Errorf("fields[%d] = %+v, want %+v", i, fields[i], want)
+	for index, want := range wantFields {
+		if fields[index].Field.ID != want.id || fields[index].Required != want.required {
+			t.Errorf("fields[%d] = %+v, want %+v", index, fields[index], want)
 		}
 	}
 	// A document can share its id with a field and still be optional.

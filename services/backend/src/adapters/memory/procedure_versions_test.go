@@ -69,9 +69,9 @@ func TestLatestOfEach(t *testing.T) {
 		procedureType int64
 		number        int
 	}{{2, 1}, {1, 1}, {1, 2}} {
-		v := version(add.number, "Trámite")
-		v.ProcedureType = add.procedureType
-		if err := s.Add(ctx, v); err != nil {
+		added := version(add.number, "Trámite")
+		added.ProcedureType = add.procedureType
+		if err := s.Add(ctx, added); err != nil {
 			t.Fatal(err)
 		}
 	}

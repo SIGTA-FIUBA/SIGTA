@@ -284,21 +284,23 @@ func TestInvalidCatalogTexts(t *testing.T) {
 		change func(*Definition)
 		want   Code
 	}{
-		"blank description":   {func(d *Definition) { d.Description = "  " }, CodeNoDescription},
-		"blank deadline":      {func(d *Definition) { d.Deadlines = []string{""} }, CodeBlankText},
-		"blank admissibility": {func(d *Definition) { d.Admissibility = []string{" "} }, CodeBlankText},
-		"file extension":      {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{".pdf"} }, CodeInvalidAcceptedType},
-		"with parameters":     {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{"text/plain; charset=utf-8"} }, CodeInvalidAcceptedType},
-		"uppercase type":      {func(d *Definition) { d.Documents[0].AcceptedTypes = []string{"Application/PDF"} }, CodeInvalidAcceptedType},
-		"negative size":       {func(d *Definition) { d.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
+		"blank description":   {func(definition *Definition) { definition.Description = "  " }, CodeNoDescription},
+		"blank deadline":      {func(definition *Definition) { definition.Deadlines = []string{""} }, CodeBlankText},
+		"blank admissibility": {func(definition *Definition) { definition.Admissibility = []string{" "} }, CodeBlankText},
+		"file extension":      {func(definition *Definition) { definition.Documents[0].AcceptedTypes = []string{".pdf"} }, CodeInvalidAcceptedType},
+		"with parameters": {func(definition *Definition) {
+			definition.Documents[0].AcceptedTypes = []string{"text/plain; charset=utf-8"}
+		}, CodeInvalidAcceptedType},
+		"uppercase type": {func(definition *Definition) { definition.Documents[0].AcceptedTypes = []string{"Application/PDF"} }, CodeInvalidAcceptedType},
+		"negative size":  {func(definition *Definition) { definition.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
 	}
-	for name, c := range cases {
+	for name, testCase := range cases {
 		t.Run(name, func(t *testing.T) {
-			d := testDefinition()
-			c.change(&d)
-			problems := ProblemsOf(d.Validate(testAreas()))
-			if len(problems) != 1 || problems[0].Code != c.want {
-				t.Errorf("problems = %v, want %s", problems, c.want)
+			definition := testDefinition()
+			testCase.change(&definition)
+			problems := ProblemsOf(definition.Validate(testAreas()))
+			if len(problems) != 1 || problems[0].Code != testCase.want {
+				t.Errorf("problems = %v, want %s", problems, testCase.want)
 			}
 			if text := problems[0].String(); strings.Contains(text, "unknown problem") {
 				t.Errorf("String() = %q", text)

@@ -32,33 +32,33 @@ func registerCatalogSteps(sc *godog.ScenarioContext) {
 		procedure.Area{ID: "titular", Name: "Titular", Kind: procedure.AreaApplicant},
 		procedure.Area{ID: "secretaria", Name: "Secretaría", Kind: procedure.AreaOffice},
 	)
-	w := &catalogWorld{
+	world := &catalogWorld{
 		service: application.NewProcedureTypeService(versions, areas, time.Now),
 		types:   map[string]int64{},
 		latest:  map[string]procedure.Definition{},
 	}
 
-	sc.Given(`^a published "([^"]*)" procedure type described as "([^"]*)"$`, w.givenPublished)
-	sc.Given(`^the "([^"]*)" field is also mandatory in a later applicant step$`, w.givenMandatoryLater)
-	sc.Given(`^the catalog was opened$`, w.open)
-	sc.Given(`^a new version of "([^"]*)" described as "([^"]*)"$`, w.givenNewVersion)
+	sc.Given(`^a published "([^"]*)" procedure type described as "([^"]*)"$`, world.givenPublished)
+	sc.Given(`^the "([^"]*)" field is also mandatory in a later applicant step$`, world.givenMandatoryLater)
+	sc.Given(`^the catalog was opened$`, world.open)
+	sc.Given(`^a new version of "([^"]*)" described as "([^"]*)"$`, world.givenNewVersion)
 	sc.Given(`^the stored content of the latest version no longer matches its digest$`, func() { versions.altered = true })
 
-	sc.When(`^the catalog is opened$`, w.open)
-	sc.When(`^a "([^"]*)" procedure type is published$`, w.publishNew)
-	sc.When(`^a definition with (.+) is published$`, w.publishBroken)
+	sc.When(`^the catalog is opened$`, world.open)
+	sc.When(`^a "([^"]*)" procedure type is published$`, world.publishNew)
+	sc.When(`^a definition with (.+) is published$`, world.publishBroken)
 
-	sc.Then(`^it lists (\d+) procedure types$`, w.thenLists)
-	sc.Then(`^"([^"]*)" is described as "([^"]*)"$`, w.thenDescribed)
-	sc.Then(`^"([^"]*)" shows the "([^"]*)" field as (mandatory|optional)$`, w.thenField)
-	sc.Then(`^"([^"]*)" shows the "([^"]*)" document as (mandatory|optional)$`, w.thenDocument)
-	sc.Then(`^"([^"]*)" does not show the "([^"]*)" field$`, w.thenNoField)
-	sc.Then(`^"([^"]*)" does not show the "([^"]*)" document$`, w.thenNoDocument)
-	sc.Then(`^the "([^"]*)" document accepts "([^"]*)" up to (\d+) bytes$`, w.thenAccepts)
-	sc.Then(`^"([^"]*)" shows the deadline "([^"]*)"$`, w.thenDeadline)
-	sc.Then(`^"([^"]*)" shows the admissibility condition "([^"]*)"$`, w.thenCondition)
-	sc.Then(`^the catalog is not shown$`, w.thenNotShown)
-	sc.Then(`^the publication is rejected with the code "([^"]*)"$`, w.thenRejected)
+	sc.Then(`^it lists (\d+) procedure types$`, world.thenLists)
+	sc.Then(`^"([^"]*)" is described as "([^"]*)"$`, world.thenDescribed)
+	sc.Then(`^"([^"]*)" shows the "([^"]*)" field as (mandatory|optional)$`, world.thenField)
+	sc.Then(`^"([^"]*)" shows the "([^"]*)" document as (mandatory|optional)$`, world.thenDocument)
+	sc.Then(`^"([^"]*)" does not show the "([^"]*)" field$`, world.thenNoField)
+	sc.Then(`^"([^"]*)" does not show the "([^"]*)" document$`, world.thenNoDocument)
+	sc.Then(`^the "([^"]*)" document accepts "([^"]*)" up to (\d+) bytes$`, world.thenAccepts)
+	sc.Then(`^"([^"]*)" shows the deadline "([^"]*)"$`, world.thenDeadline)
+	sc.Then(`^"([^"]*)" shows the admissibility condition "([^"]*)"$`, world.thenCondition)
+	sc.Then(`^the catalog is not shown$`, world.thenNotShown)
+	sc.Then(`^the publication is rejected with the code "([^"]*)"$`, world.thenRejected)
 }
 
 // tamperableVersions alters what the store returns, as a change made behind
@@ -101,27 +101,27 @@ func catalogDefinition(name, description string) procedure.Definition {
 	}
 }
 
-func (w *catalogWorld) publishDefinition(name string, d procedure.Definition) error {
-	id, known := w.types[name]
+func (w *catalogWorld) publishDefinition(name string, definition procedure.Definition) error {
+	typeID, known := w.types[name]
 	if !known {
-		id = int64(len(w.types) + 1)
-		w.types[name] = id
+		typeID = int64(len(w.types) + 1)
+		w.types[name] = typeID
 	}
 	base := 0
 	if known {
-		v, err := w.latestNumber(id)
+		number, err := w.latestNumber(typeID)
 		if err != nil {
 			return err
 		}
-		base = v
+		base = number
 	}
 	_, err := w.service.Publish(context.Background(), input.Publication{
-		ProcedureType: id,
+		ProcedureType: typeID,
 		Base:          base,
-		Definition:    d,
+		Definition:    definition,
 		Authorship:    procedure.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
 	})
-	w.latest[name] = d
+	w.latest[name] = definition
 	return err
 }
 
@@ -131,9 +131,9 @@ func (w *catalogWorld) latestNumber(id int64) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	for _, e := range entries {
-		if e.ProcedureType == id {
-			return e.Version, nil
+	for _, entry := range entries {
+		if entry.ProcedureType == id {
+			return entry.Version, nil
 		}
 	}
 	return 0, nil
@@ -144,19 +144,19 @@ func (w *catalogWorld) givenPublished(name, description string) error {
 }
 
 func (w *catalogWorld) givenNewVersion(name, description string) error {
-	d := w.latest[name]
-	d.Description = description
-	return w.publishDefinition(name, d)
+	definition := w.latest[name]
+	definition.Description = description
+	return w.publishDefinition(name, definition)
 }
 
 func (w *catalogWorld) givenMandatoryLater(field string) error {
-	for name, d := range w.latest {
-		d.Steps = slices.Clone(d.Steps)
-		d.Steps[0].Next = "more"
-		d.Steps = slices.Insert(d.Steps, 1, procedure.Step{
+	for name, definition := range w.latest {
+		definition.Steps = slices.Clone(definition.Steps)
+		definition.Steps[0].Next = "more"
+		definition.Steps = slices.Insert(definition.Steps, 1, procedure.Step{
 			ID: "more", Name: "Ampliación", Area: "titular", Action: procedure.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
-		if err := w.publishDefinition(name, d); err != nil {
+		if err := w.publishDefinition(name, definition); err != nil {
 			return err
 		}
 	}
@@ -172,22 +172,22 @@ func (w *catalogWorld) publishNew(name string) error {
 }
 
 func (w *catalogWorld) publishBroken(problem string) error {
-	d := catalogDefinition("broken", "Un trámite")
+	definition := catalogDefinition("broken", "Un trámite")
 	switch problem {
 	case "no description":
-		d.Description = ""
+		definition.Description = ""
 	case "a document without formats":
-		d.Documents[0].AcceptedTypes = nil
+		definition.Documents[0].AcceptedTypes = nil
 	case "a document with a wrong format":
-		d.Documents[0].AcceptedTypes = []string{"pdf"}
+		definition.Documents[0].AcceptedTypes = []string{"pdf"}
 	case "a document without a size limit":
-		d.Documents[0].MaxSize = 0
+		definition.Documents[0].MaxSize = 0
 	case "a blank deadline":
-		d.Deadlines = []string{" "}
+		definition.Deadlines = []string{" "}
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}
-	w.publish = w.publishDefinition("broken", d)
+	w.publish = w.publishDefinition("broken", definition)
 	return nil
 }
 
@@ -195,9 +195,9 @@ func (w *catalogWorld) entry(name string) (input.CatalogEntry, error) {
 	if w.err != nil {
 		return input.CatalogEntry{}, w.err
 	}
-	for _, e := range w.entries {
-		if e.Name == name {
-			return e, nil
+	for _, entry := range w.entries {
+		if entry.Name == name {
+			return entry, nil
 		}
 	}
 	return input.CatalogEntry{}, fmt.Errorf("%q is not in the catalog", name)
@@ -214,25 +214,25 @@ func (w *catalogWorld) thenLists(count int) error {
 }
 
 func (w *catalogWorld) thenDescribed(name, description string) error {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return err
 	}
-	if e.Description != description {
-		return fmt.Errorf("description = %q, want %q", e.Description, description)
+	if entry.Description != description {
+		return fmt.Errorf("description = %q, want %q", entry.Description, description)
 	}
 	return nil
 }
 
 func (w *catalogWorld) thenField(name, id, kind string) error {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return err
 	}
-	for _, f := range e.Fields {
-		if f.Field.ID == id {
-			if f.Required != (kind == "mandatory") {
-				return fmt.Errorf("field %q required = %v, want %s", id, f.Required, kind)
+	for _, field := range entry.Fields {
+		if field.Field.ID == id {
+			if field.Required != (kind == "mandatory") {
+				return fmt.Errorf("field %q required = %v, want %s", id, field.Required, kind)
 			}
 			return nil
 		}
@@ -241,38 +241,38 @@ func (w *catalogWorld) thenField(name, id, kind string) error {
 }
 
 func (w *catalogWorld) document(name, id string) (procedure.DocumentRequirement, bool, error) {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return procedure.DocumentRequirement{}, false, err
 	}
-	for _, d := range e.Documents {
-		if d.Document.ID == id {
-			return d, true, nil
+	for _, requirement := range entry.Documents {
+		if requirement.Document.ID == id {
+			return requirement, true, nil
 		}
 	}
 	return procedure.DocumentRequirement{}, false, nil
 }
 
 func (w *catalogWorld) thenDocument(name, id, kind string) error {
-	d, found, err := w.document(name, id)
+	requirement, found, err := w.document(name, id)
 	switch {
 	case err != nil:
 		return err
 	case !found:
 		return fmt.Errorf("document %q is not shown", id)
-	case d.Required != (kind == "mandatory"):
-		return fmt.Errorf("document %q required = %v, want %s", id, d.Required, kind)
+	case requirement.Required != (kind == "mandatory"):
+		return fmt.Errorf("document %q required = %v, want %s", id, requirement.Required, kind)
 	}
 	return nil
 }
 
 func (w *catalogWorld) thenNoField(name, id string) error {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return err
 	}
-	for _, f := range e.Fields {
-		if f.Field.ID == id {
+	for _, field := range entry.Fields {
+		if field.Field.ID == id {
 			return fmt.Errorf("field %q is shown", id)
 		}
 	}
@@ -294,14 +294,14 @@ func (w *catalogWorld) thenAccepts(id, mediaType string, size int64) error {
 	if w.err != nil {
 		return w.err
 	}
-	for _, e := range w.entries {
-		d, found, err := w.document(e.Name, id)
+	for _, entry := range w.entries {
+		requirement, found, err := w.document(entry.Name, id)
 		if err != nil {
 			return err
 		}
 		if found {
-			if !slices.Contains(d.Document.AcceptedTypes, mediaType) || d.Document.MaxSize != size {
-				return fmt.Errorf("document %q = %+v", id, d.Document)
+			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSize != size {
+				return fmt.Errorf("document %q = %+v", id, requirement.Document)
 			}
 			return nil
 		}
@@ -310,23 +310,23 @@ func (w *catalogWorld) thenAccepts(id, mediaType string, size int64) error {
 }
 
 func (w *catalogWorld) thenDeadline(name, text string) error {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return err
 	}
-	if !slices.Contains(e.Deadlines, text) {
-		return fmt.Errorf("deadlines = %q", e.Deadlines)
+	if !slices.Contains(entry.Deadlines, text) {
+		return fmt.Errorf("deadlines = %q", entry.Deadlines)
 	}
 	return nil
 }
 
 func (w *catalogWorld) thenCondition(name, text string) error {
-	e, err := w.entry(name)
+	entry, err := w.entry(name)
 	if err != nil {
 		return err
 	}
-	if !slices.Contains(e.Admissibility, text) {
-		return fmt.Errorf("conditions = %q", e.Admissibility)
+	if !slices.Contains(entry.Admissibility, text) {
+		return fmt.Errorf("conditions = %q", entry.Admissibility)
 	}
 	return nil
 }
@@ -342,8 +342,8 @@ func (w *catalogWorld) thenRejected(code string) error {
 	if !errors.Is(w.publish, procedure.ErrInvalidDefinition) {
 		return fmt.Errorf("Publish() error = %w, want an invalid definition", w.publish)
 	}
-	for _, p := range procedure.ProblemsOf(w.publish) {
-		if string(p.Code) == code {
+	for _, problem := range procedure.ProblemsOf(w.publish) {
+		if string(problem.Code) == code {
 			return nil
 		}
 	}

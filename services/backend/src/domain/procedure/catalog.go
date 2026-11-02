@@ -16,28 +16,28 @@ type DocumentRequirement struct {
 // optional.
 func (c Content) ApplicantRequirements() ([]FieldRequirement, []DocumentRequirement) {
 	applicantAreas := map[string]bool{}
-	for _, a := range c.Areas {
-		applicantAreas[a.ID] = a.Kind == AreaApplicant
+	for _, area := range c.Areas {
+		applicantAreas[area.ID] = area.Kind == AreaApplicant
 	}
 	// Fields and documents keep separate ids, so they are tracked apart.
 	fields, documents := requirementSet{}, requirementSet{}
-	for _, s := range c.Definition.Steps {
-		if applicantAreas[s.Area] {
-			fields.add(s.Fields, s.OptionalFields)
-			documents.add(s.Documents, s.OptionalDocuments)
+	for _, step := range c.Definition.Steps {
+		if applicantAreas[step.Area] {
+			fields.add(step.Fields, step.OptionalFields)
+			documents.add(step.Documents, step.OptionalDocuments)
 		}
 	}
 
 	var fieldRequirements []FieldRequirement
-	for _, f := range c.Definition.Fields {
-		if required, asked := fields[f.ID]; asked {
-			fieldRequirements = append(fieldRequirements, FieldRequirement{Field: f, Required: required})
+	for _, field := range c.Definition.Fields {
+		if required, asked := fields[field.ID]; asked {
+			fieldRequirements = append(fieldRequirements, FieldRequirement{Field: field, Required: required})
 		}
 	}
 	var documentRequirements []DocumentRequirement
-	for _, d := range c.Definition.Documents {
-		if required, asked := documents[d.ID]; asked {
-			documentRequirements = append(documentRequirements, DocumentRequirement{Document: d, Required: required})
+	for _, document := range c.Definition.Documents {
+		if required, asked := documents[document.ID]; asked {
+			documentRequirements = append(documentRequirements, DocumentRequirement{Document: document, Required: required})
 		}
 	}
 	return fieldRequirements, documentRequirements
@@ -46,13 +46,13 @@ func (c Content) ApplicantRequirements() ([]FieldRequirement, []DocumentRequirem
 // requirementSet tells, for each id asked for, whether it is mandatory.
 type requirementSet map[string]bool
 
-func (r requirementSet) add(mandatory, optional []string) {
+func (requirements requirementSet) add(mandatory, optional []string) {
 	for _, id := range optional {
-		if _, asked := r[id]; !asked {
-			r[id] = false
+		if _, asked := requirements[id]; !asked {
+			requirements[id] = false
 		}
 	}
 	for _, id := range mandatory {
-		r[id] = true
+		requirements[id] = true
 	}
 }
