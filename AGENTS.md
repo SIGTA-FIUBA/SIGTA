@@ -66,6 +66,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
 | `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`, `dev/`), `cmd/` |
+| `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
@@ -90,7 +91,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 - **Idioma:** código, endpoints y nombres técnicos en inglés; documentación en español.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
 - **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
-- **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`.
+- **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`. Corren con godog dentro de `go test`, y un paso sin implementar hace fallar el pipeline, así que un `.feature` entra junto con sus pasos.
 - **Pruebas:** el dominio se prueba con adaptadores en memoria; cada adaptador, contra la dependencia real en un contenedor.
 - **Documentación en el mismo PR** (ADR-007): si cambia comportamiento, arquitectura o configuración de trámites, se actualizan docs, README del módulo y este archivo. Un PR sin su documentación no cumple la definición de terminado.
 - **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en `docs/04-decisiones-adr.md`, y el README se actualiza con el resultado vigente en el mismo PR. Un ADR no se borra: se marca como reemplazado.
@@ -118,4 +119,4 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 
 ## Estado actual
 
-Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base (CI y Docker Compose), el ingreso con proveedor de identidad abstraído y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Lo que viene, en orden: ingreso con Google y perfiles, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.
+Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base (CI y Docker Compose), el ingreso con proveedor de identidad abstraído y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Los escenarios de `features/` corren en el pipeline. Lo que viene, en orden: ingreso con Google y perfiles, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.

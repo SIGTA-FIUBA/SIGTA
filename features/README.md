@@ -1,6 +1,6 @@
 # Escenarios de aceptación
 
-Comportamiento esperado de SIGTA, escrito en Gherkin y en inglés con el vocabulario de `AGENTS.md`. Cada historia tiene un archivo `.feature`, con las etiquetas `@USxx @SIG-n`, que se escribe antes de implementarla. Las reglas del motor se automatizan con godog y los recorridos de interfaz con Playwright.
+Comportamiento esperado de SIGTA, escrito en Gherkin y en inglés con el vocabulario de `AGENTS.md`. Cada historia tiene un archivo `.feature`, con las etiquetas `@USxx @SIG-n`, que se escribe antes de implementarla. Todos los escenarios corren con godog dentro de `go test`, en el pipeline; los pasos están en `services/backend/test/acceptance/`. Un paso sin implementar hace fallar el pipeline, así que un `.feature` entra junto con sus pasos. Los recorridos de interfaz se van a automatizar con Playwright, que todavía no está en el repositorio.
 
 Para redactar los escenarios de una historia está la rutina `gherkin-scenarios` (`.claude/skills/`).
 

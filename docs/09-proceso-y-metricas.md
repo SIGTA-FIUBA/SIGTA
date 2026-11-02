@@ -127,7 +127,7 @@ Se registran en la planilla de gestión y se revisan en cada reunión quincenal.
 
 ## 10. Estrategia de pruebas
 
-1. **Escenarios de aceptación en Gherkin**, escritos junto con la validación del cliente final, como documentación viva. Cada funcionalidad empieza por acá.
+1. **Escenarios de aceptación en Gherkin**, escritos junto con la validación del cliente final, como documentación viva. Cada funcionalidad empieza por acá. Corren con godog dentro de `go test`, con los pasos en `services/backend/test/acceptance/`; un paso sin implementar hace fallar el pipeline.
 2. **Tests unitarios y de integración** en ciclos cortos, hasta completar la funcionalidad.
 3. **Sets de evaluación de IA**, uno por cada uso: asistente, validación asistida y preactas. Cada uno con casos esperados y umbral de aprobación, ejecutados en el pipeline como cualquier otro test.
 4. **Casos de inyección de prompt** sobre documentos aportados por titulares, tratados como contexto no confiable.
