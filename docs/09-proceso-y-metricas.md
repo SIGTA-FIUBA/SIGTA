@@ -35,7 +35,7 @@ No hay historias de documentación en el backlog (ADR-007). La documentación se
 |---|---|---|
 | Comportamiento de un módulo | Docstrings y README del módulo | En el PR que lo crea o modifica |
 | Decisiones de arquitectura | Registro de ADR | El día que se toma la decisión |
-| Modelo de configuración de trámites y cómo editarlo | Instructivo junto a los archivos de configuración | En el PR que cambia el modelo |
+| Modelo de configuración de trámites y cómo editarlo | `CONTRIBUTING.md`, sección "Modelo de tipo de trámite" | En el pull request que cambia el modelo |
 | Comportamiento esperado del sistema | Escenarios Gherkin | Antes de desarrollar la funcionalidad |
 | Uso funcional para la Secretaría | Se deriva de los escenarios Gherkin | Se compila al cierre, sin redactarse de cero |
 

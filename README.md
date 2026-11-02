@@ -46,7 +46,7 @@ Sobre esa base se agregan tres componentes de inteligencia artificial, en este o
 | Pase de universidad extranjera |
 | Pase de universidad dentro de la UBA |
 
-Cada tipo de trámite se define como configuración versionada; incorporar uno nuevo no requiere cambios en el motor.
+Cada tipo de trámite es una configuración que se va a editar desde la interfaz, y cada publicación es una versión nueva; incorporar uno no requiere cambios en el motor.
 
 - Toda decisión sobre un trámite la toma una persona; los componentes de inteligencia artificial solo proponen.
 - Todos los entornos usan datos sintéticos o anonimizados.
@@ -60,10 +60,10 @@ Cada operación sobre un trámite es una acción que un actor ejecuta sobre un p
 
 | Acción | Qué registra | Efecto |
 | --- | --- | --- |
-| Cargar dato | Un valor tipado: texto, número, fecha u opción | Completa una entrada del paso |
+| Cargar dato | Un valor tipado: texto, texto largo, número, fecha, opción, carrera o lista de materias | Completa una entrada del paso |
 | Cargar documento | Un documento asociado al requisito que cubre | Queda disponible para la validación asistida |
 | Confirmar hecho externo | Algo ocurrido fuera de SIGTA, con quién lo declaró y cuándo | Abre o cierra un paso externo, como una derivación |
-| Decidir | La salida elegida para cerrar el paso | Continuar, devolver, pedir información al titular, derivar o aprobar |
+| Decidir | La salida elegida, con los datos y documentos que la fundamentan | Lleva al paso de esa salida: continuar, devolver, pedir información al titular o derivar |
 
 Los actores son el titular, el personal de la Secretaría (por área y perfil), las autoridades que firman y los evaluadores externos, como las comisiones curriculares, cuyos pasos registra el personal de la Secretaría. El estado de un trámite se calcula a partir de su paso abierto:
 
@@ -75,12 +75,12 @@ stateDiagram-v2
     state "Derivado" as Derivado
     state "Cerrado" as Cerrado
 
-    [*] --> Area: el titular envía la solicitud
+    [*] --> Titular: el titular inicia la solicitud
+    Titular --> Area: el titular envía
     Area --> Titular: pide información
-    Titular --> Area: el titular completa
     Area --> Derivado: deriva a evaluación
     Derivado --> Area: vuelve con el dictamen
-    Derivado --> Cerrado: archivado
+    Area --> Cerrado: archivado
     Cerrado --> [*]
 ```
 
@@ -226,7 +226,7 @@ flowchart LR
 
 | Puerto de salida | Adaptadores | Estado |
 | --- | --- | --- |
-| Definiciones de trámites | Archivos de configuración versionados; a futuro, un editor dentro de la aplicación | Elegido |
+| Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012); hoy solo existen en los tests, con un adaptador en memoria | Elegido |
 | Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
 | Documentos | Sistema de archivos; almacenamiento compatible con S3 si la infraestructura lo ofrece | Elegido |
@@ -329,7 +329,8 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 ## Decisiones de diseño
 
 - **Puertos y adaptadores:** el almacenamiento, los modelos, la identidad y el lugar de despliegue pueden cambiar; el dominio no tiene que enterarse.
-- **Trámites como configuración versionada:** los cinco trámites comparten estructura, y un editor de flujos para personal no técnico sería un producto aparte. Sumar un trámite es un cambio de configuración por pull request.
+- **Trámites como configuración:** los cinco trámites comparten estructura, así que un tipo de trámite es una configuración que se va a editar desde la interfaz de SIGTA, sin cambiar el código. Cada versión la propone una persona y la aprueba otra (ADR-013).
+- **Un trámite en curso conserva su versión:** cada vez que se publica un cambio en un tipo de trámite, el servicio crea una versión nueva, la guarda completa con su hash, quién la propuso, quién la aprobó y cuándo, y no la modifica más. Cada trámite termina con la versión con la que empezó y los nuevos toman la última, así que un cambio de circuito no deja a un trámite a mitad de camino en un paso que ya no existe, y queda constancia de qué versión exacta siguió cada uno.
 - **La inteligencia artificial propone y una persona decide:** un error en un trámite afecta la situación académica de alguien.
 - **Los sistemas institucionales se registran, no se integran:** el personal confirma en SIGTA lo que hace en SIU Guaraní o en el expediente electrónico, y queda registrado quién lo declaró.
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
@@ -350,8 +351,9 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Extracción de texto | Cómo se extrae el texto de un documento escaneado antes de clasificarlo | Pruebas con documentos de ejemplo |
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
 | Integridad del historial | Si alcanzan los permisos de la base o hace falta encadenar hashes para que una modificación quede en evidencia | Equipo |
-| Cambios de configuración | Qué pasa con un trámite en curso cuando cambia la versión de su configuración | Equipo |
-| Desistimiento y vencimiento | Cómo se cierra un trámite si el titular desiste o no responde a tiempo | Secretaría |
+| Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
+| Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
+| Quién publica tipos de trámite | Quién puede proponer y quién aprobar una versión: el equipo, la Secretaría o ambos (D-08) | Equipo y Secretaría |
 | Respaldo | Cuántos datos se pueden perder y en cuánto tiempo se recupera el servicio, con simulacros de restauración | Subsecretaría de TICs |
 | Accesibilidad | Qué nivel de las pautas WCAG se cumple (Ley 26.653) y cómo se verifica en la integración continua | Equipo |
 | Hosting, costo e ingreso | Infraestructura de destino, costo mensual estimado, y cómo se registra SIGTA en el ingreso con la cuenta de la UBA | Subsecretaría de TICs |
