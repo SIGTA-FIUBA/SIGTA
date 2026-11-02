@@ -65,7 +65,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`, `dev/`, `google/`), `cmd/` (arranque y configuración) |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |

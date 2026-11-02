@@ -9,13 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"backend/src/adapters/dev"
-	"backend/src/adapters/google"
-	"backend/src/adapters/memory"
-	"backend/src/adapters/rest"
-	"backend/src/application"
-	"backend/src/domain"
-	out "backend/src/ports/output"
+	"backend/src/api"
+	"backend/src/auth/adapters/dev"
+	"backend/src/auth/adapters/google"
+	"backend/src/auth/adapters/memory"
+	authrest "backend/src/auth/adapters/rest"
+	"backend/src/auth/application"
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 )
 
 func main() {
@@ -56,10 +57,10 @@ func run(logger *slog.Logger) error {
 	)
 
 	secureCookies := strings.HasPrefix(cfg.publicURL, "https://")
-	api := rest.NewServer(rest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), secureCookies))
+	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), secureCookies)
 
 	router := http.NewServeMux()
-	rest.Mount(router, api, logger)
+	api.Mount(router, authHandler, logger)
 
 	server := &http.Server{
 		Addr:              ":8080",

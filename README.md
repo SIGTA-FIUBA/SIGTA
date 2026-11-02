@@ -188,7 +188,7 @@ flowchart LR
 ### Autenticación y autorización
 
 - **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
-- **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
+- **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/auth/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
 - **Quién puede ingresar.** Cualquier cuenta del dominio institucional. La primera vez que ingresa una cuenta que SIGTA no conoce, se registra como titular, con el nombre que informa el proveedor; los perfiles del personal se asignan en SIGTA. Hasta que los usuarios se guarden en PostgreSQL, las cuentas registradas así se pierden al reiniciar el servicio, y el personal se carga desde el archivo de `SIGTA_USERS_FILE` (ver "Configuración del servicio de trámites"); en desarrollo hay tres usuarios sintéticos, uno por rol.
 - **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
@@ -235,6 +235,17 @@ flowchart LR
 | Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
 | Identidad | Cuenta de Google de la UBA; un adaptador falso en desarrollo y pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |
+
+En el código, el servicio de trámites se divide primero por módulo y, dentro de cada módulo, por componente (ADR-014):
+
+| Ruta en `services/backend/src/` | Contenido |
+| --- | --- |
+| `auth/` | Ingreso y sesiones: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
+| `procedure/` | Tipos de trámite y sus versiones, con los mismos componentes |
+| `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
+| `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
+
+Un módulo no importa el núcleo de otro; si lo necesita, lo hace a través de un puerto. Un módulo nuevo (por ejemplo, el de trámites iniciados) suma su carpeta con los mismos componentes.
 
 El servicio de inteligencia artificial sigue la misma estructura. Sus puertos de salida son la clasificación y la generación de texto, con adaptadores para reglas en código, modelos de pesos abiertos como Laya y modelos por API como Claude; los conjuntos de evaluación son uno más de sus adaptadores de entrada.
 

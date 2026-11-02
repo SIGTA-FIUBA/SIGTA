@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"backend/src/domain"
+	"backend/src/auth/domain"
 )
 
 const (

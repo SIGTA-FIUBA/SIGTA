@@ -9,7 +9,7 @@ Sumar un trámite tiene que ser solo configuración (ADR-006, ADR-013). La confi
 
 ## Antes de empezar
 
-- **Leer el modelo** en `CONTRIBUTING.md`, sección "Modelo de tipo de trámite", y el código en `services/backend/src/domain/procedure/`. No inventar campos que el modelo no tiene.
+- **Leer el modelo** en `CONTRIBUTING.md`, sección "Modelo de tipo de trámite", y el código en `services/backend/src/procedure/domain/`. No inventar campos que el modelo no tiene.
 - **Leer el ticket del trámite en Linear** y sus criterios de aceptación.
 - **Leer el relevamiento** del trámite y su borrador, si ya existe, con sus preguntas a confirmar. Los borradores no se suben al repositorio: describen procesos que la Secretaría no confirmó.
 - **Revisar D-08** en `docs/04-decisiones-adr.md`: quién propone y quién aprueba una versión. El agente prepara borradores; nunca figura como quien propone ni como quien aprueba una versión.
@@ -21,7 +21,7 @@ Sumar un trámite tiene que ser solo configuración (ADR-006, ADR-013). La confi
 3. **Modelar la derivación como un paso de un área `external`**, con su retorno.
 4. **No agregar estados de resultado** (ADR-009). El dictamen se adjunta en el retorno y se comunica.
 5. **Anotar los plazos y las condiciones de admisibilidad** del relevamiento como preguntas a confirmar: el modelo todavía no los tiene, y está a confirmar en qué ticket quedan (ver CONTRIBUTING).
-6. **Validar la configuración:** guardar el borrador como `<nombre>.json` en una carpeta fuera del repositorio, con las áreas que usa en `areas.json` y sus preguntas en un README, y correr `PROCEDURE_DRAFTS=<carpeta> go test -run TestDrafts ./src/domain/procedure/` desde `services/backend`. El test valida todos los archivos de la carpeta y rechaza las claves desconocidas. Todavía no hay motor para recorrer el trámite de punta a punta.
+6. **Validar la configuración:** guardar el borrador como `<nombre>.json` en una carpeta fuera del repositorio, con las áreas que usa en `areas.json` y sus preguntas en un README, y correr `PROCEDURE_DRAFTS=<carpeta> go test -run TestDrafts ./src/procedure/domain/` desde `services/backend`. El test valida todos los archivos de la carpeta y rechaza las claves desconocidas. Todavía no hay motor para recorrer el trámite de punta a punta.
 
 ## Alarma del ADR-006
 

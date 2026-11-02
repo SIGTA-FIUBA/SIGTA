@@ -274,6 +274,25 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
+
+**Decisión.**
+- `services/backend/src/` se divide por módulo: `auth/` (ingreso y sesiones) y `procedure/` (tipos de trámite y versiones).
+- Dentro de cada módulo se mantienen los componentes de puertos y adaptadores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/`.
+- Un módulo no importa el núcleo de otro; si lo necesita, lo hace a través de un puerto.
+- El contrato sigue siendo uno solo. Su código generado vive en `api/`, junto con el montaje de la API, y lo importan los adaptadores REST de cada módulo. `cmd/` compone los handlers de todos los módulos en el servidor.
+
+**Consecuencias.**
+- Un módulo nuevo es una carpeta nueva con los mismos componentes, sin tocar las de los demás.
+- Las ramas abiertas al momento del cambio tienen que moverse a la estructura nueva al integrarse.
+- Partir el contrato por módulo queda como alternativa si el archivo único se vuelve difícil de mantener.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |

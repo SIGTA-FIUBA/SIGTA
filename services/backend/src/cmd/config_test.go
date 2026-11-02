@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"backend/src/domain"
+	"backend/src/auth/domain"
 )
 
 func env(values map[string]string) func(string) string {
