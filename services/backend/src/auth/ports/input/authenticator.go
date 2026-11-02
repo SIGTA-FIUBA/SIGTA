@@ -1,16 +1,16 @@
 package input
 
 import (
-	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
 	"context"
+
+	"backend/src/auth/domain"
 )
 
 type Authenticator interface {
 	// BeginLogin returns where to send the browser and the pending login it
 	// must bring back to CompleteLogin.
-	BeginLogin(loginHint string) (url string, pending out.PendingLogin, err error)
-	CompleteLogin(ctx context.Context, code, state string, pending out.PendingLogin) (sessionToken string, err error)
+	BeginLogin(loginHint string) (url string, pending domain.PendingLogin, err error)
+	CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (sessionToken string, err error)
 	RequestLoginLink(ctx context.Context, email string) error
 	RedeemLoginLink(ctx context.Context, token string) (sessionToken string, err error)
 	Authenticate(ctx context.Context, sessionToken string) (domain.User, error)

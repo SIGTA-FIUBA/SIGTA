@@ -3,7 +3,6 @@
 package google
 
 import (
-	out "backend/src/auth/ports/output"
 	"context"
 	"crypto/subtle"
 	"errors"
@@ -12,6 +11,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -65,7 +67,7 @@ func NewIdentityProvider(ctx context.Context, cfg Config, logger *slog.Logger) (
 	}, nil
 }
 
-func (p *IdentityProvider) AuthorizationURL(pending out.PendingLogin, loginHint string) string {
+func (p *IdentityProvider) AuthorizationURL(pending domain.PendingLogin, loginHint string) string {
 	options := []oauth2.AuthCodeOption{
 		oidc.Nonce(pending.Nonce),
 		oauth2.S256ChallengeOption(pending.CodeVerifier),
@@ -86,7 +88,7 @@ type claims struct {
 	Name          string `json:"name"`
 }
 
-func (p *IdentityProvider) Exchange(ctx context.Context, code string, pending out.PendingLogin) (out.Identity, error) {
+func (p *IdentityProvider) Exchange(ctx context.Context, code string, pending domain.PendingLogin) (out.Identity, error) {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, p.client)
 	token, err := p.oauth.Exchange(ctx, code, oauth2.VerifierOption(pending.CodeVerifier))
 	if err != nil {
@@ -114,7 +116,7 @@ func (p *IdentityProvider) Exchange(ctx context.Context, code string, pending ou
 	// its Workspace; only Workspace accounts carry hd.
 	if !strings.EqualFold(c.HostedDomain, p.hostedDomain) {
 		p.logger.Warn("google login outside the hosted domain", "hd", c.HostedDomain, "want", p.hostedDomain)
-		return out.Identity{}, fmt.Errorf("%w: hosted domain %q", out.ErrDomainNotAllowed, c.HostedDomain)
+		return out.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, c.HostedDomain)
 	}
 	return out.Identity{Subject: idToken.Subject, Email: c.Email, Name: c.Name}, nil
 }

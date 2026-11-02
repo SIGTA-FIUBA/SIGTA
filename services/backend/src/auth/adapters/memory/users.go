@@ -1,9 +1,10 @@
 package memory
 
 import (
-	"backend/src/auth/domain"
 	"context"
 	"sync"
+
+	"backend/src/auth/domain"
 )
 
 type UserRepository struct {

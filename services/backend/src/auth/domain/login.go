@@ -1,4 +1,4 @@
-package output
+package domain
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ var (
 	ErrLoginStateMismatch = errors.New("login callback does not match the login this browser started")
 	ErrLoginRejected      = errors.New("identity provider rejected the login")
 	ErrDomainNotAllowed   = errors.New("email domain not allowed for this login")
+	ErrLoginLinksDisabled = errors.New("login links are not available in this environment")
 	ErrInvalidLoginLink   = errors.New("login link is invalid, expired or already used")
 	ErrSessionNotFound    = errors.New("session not found")
 	ErrSessionExpired     = errors.New("session expired")
@@ -26,14 +27,6 @@ type PendingLogin struct {
 	// CodeVerifier is the PKCE secret: the provider only gets its hash up
 	// front, so a leaked code is useless without it.
 	CodeVerifier string
-}
-
-// Identity is what an identity provider asserts about whoever just logged in.
-type Identity struct {
-	Subject string
-	Email   string
-	// Name is the display name, when the provider has one.
-	Name string
 }
 
 // Session is an open session. Only the hash of its token is stored, so a

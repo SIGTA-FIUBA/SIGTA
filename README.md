@@ -263,14 +263,14 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 | Variable | Valor | Si falta |
 | --- | --- | --- |
 | `SIGTA_ENV` | `development` o `production`. Solo `development` tiene los usuarios sintéticos, el adaptador de identidad de desarrollo y el correo que escribe los enlaces en el log | No arranca |
-| `SIGTA_IDENTITY_PROVIDER` | `dev` o `google`. `dev` ingresa como el correo de `/api/auth/login?login_hint=<correo>`, o como `alumno@fi.uba.ar` sin él, y solo arranca con `SIGTA_ENV=development` | `dev` en desarrollo, `google` en producción |
+| `SIGTA_IDENTITY_PROVIDER` | `dev` o `google`. `dev` ingresa como el correo de `/api/auth/login?login_hint=<correo>`, o como `titular@fi.uba.ar` sin él, y solo arranca con `SIGTA_ENV=development` | `dev` en desarrollo, `google` en producción |
 | `SIGTA_PUBLIC_URL` | La API como la ve el navegador, por ejemplo `https://<host>/api`. Con Google tiene que ser `https` (o `localhost`), y `<SIGTA_PUBLIC_URL>/auth/callback` tiene que estar registrada en el cliente de Google | `http://localhost:8080` en desarrollo; en producción no arranca |
 | `SIGTA_APP_URL` | El frontend, terminado en `/`. El ingreso fallido vuelve a `<SIGTA_APP_URL>login` | `http://localhost:5173/` en desarrollo; en producción no arranca |
 | `SIGTA_ALLOWED_DOMAIN` | Dominio de los correos y del claim `hd` | `fi.uba.ar` en desarrollo; en producción no arranca |
 | `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` | Credenciales del cliente OAuth de tipo "aplicación web". Son secretos del despliegue: nunca van al repositorio | Con Google no arranca |
 | `SIGTA_USERS_FILE` | Archivo JSON con las personas que ya tienen perfil en SIGTA, como el personal: una lista de objetos con `id`, `email`, `name` y `role` (`applicant`, `staff_operative` o `staff_approver`). Tiene datos personales, así que se guarda con los secretos del despliegue y nunca en el repositorio. Una entrada inválida impide arrancar | En desarrollo, los usuarios sintéticos; en producción no arranca |
 
-Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona. Fuera de desarrollo no hay adaptador de correo, así que pedir un enlace de ingreso responde con un error; si el enlace se mantiene está pendiente con la Secretaría.
+Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona. Fuera de desarrollo no hay adaptador de correo, así que pedir un enlace de ingreso responde 503 para cualquier correo; si el enlace se mantiene está pendiente con la Secretaría.
 
 ## Inteligencia artificial
 

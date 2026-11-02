@@ -31,10 +31,10 @@ func TestDevelopmentNeedsOnlyItsEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.identityProvider != identityDev || cfg.allowedDomain != "fi.uba.ar" || cfg.usersFile != "" {
-		t.Fatalf("config = %+v", cfg)
+		t.Fatalf("provider %q, domain %q, users file %q; want %q, %q and none", cfg.identityProvider, cfg.allowedDomain, cfg.usersFile, identityDev, "fi.uba.ar")
 	}
 	if cfg.callbackURL() != "http://localhost:8080/auth/callback" || cfg.loginURL() != "http://localhost:5173/login" {
-		t.Fatalf("callback %s, login %s", cfg.callbackURL(), cfg.loginURL())
+		t.Fatalf("callback %s, login %s; want http://localhost:8080/auth/callback and http://localhost:5173/login", cfg.callbackURL(), cfg.loginURL())
 	}
 }
 
@@ -44,7 +44,10 @@ func TestProductionUsesGoogle(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.identityProvider != identityGoogle || cfg.callbackURL() != "https://sigta.test/api/auth/callback" {
-		t.Fatalf("config = %+v", cfg)
+		t.Fatalf("provider %q, callback %s; want %q and https://sigta.test/api/auth/callback", cfg.identityProvider, cfg.callbackURL(), identityGoogle)
+	}
+	if !cfg.secureCookies() {
+		t.Error("secureCookies() = false over HTTPS, want true")
 	}
 }
 
@@ -60,7 +63,10 @@ func TestGoogleCanBeTriedInDevelopment(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.identityProvider != identityGoogle {
-		t.Fatalf("config = %+v", cfg)
+		t.Fatalf("provider %q, want %q", cfg.identityProvider, identityGoogle)
+	}
+	if cfg.secureCookies() {
+		t.Error("secureCookies() = true over plain HTTP, want false")
 	}
 }
 
@@ -119,7 +125,7 @@ func TestLoadUsers(t *testing.T) {
 	}
 	want := domain.User{ID: "u1", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative}
 	if len(users) != 2 || users[0] != want {
-		t.Fatalf("users = %+v", users)
+		t.Fatalf("users = %+v, want 2 users starting with %+v", users, want)
 	}
 }
 

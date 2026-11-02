@@ -600,6 +600,20 @@ func (response RequestLoginLink400JSONResponse) VisitRequestLoginLinkResponse(w 
 	return err
 }
 
+type RequestLoginLink503JSONResponse Error
+
+func (response RequestLoginLink503JSONResponse) VisitRequestLoginLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RedeemLoginLinkRequestObject struct {
 	Body *RedeemLoginLinkJSONRequestBody
 }

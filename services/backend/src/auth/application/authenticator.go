@@ -1,8 +1,6 @@
 package application
 
 import (
-	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -13,7 +11,13 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"backend/src/auth/domain"
+	"backend/src/auth/ports/input"
+	out "backend/src/auth/ports/output"
 )
+
+var _ input.Authenticator = (*AuthService)(nil)
 
 type AuthConfig struct {
 	// IdleTimeout closes a session after this long without requests.
@@ -38,6 +42,7 @@ type AuthService struct {
 	now      func() time.Time
 }
 
+// NewAuthService builds the service. A nil mailer turns login links off.
 func NewAuthService(
 	config AuthConfig,
 	identity out.IdentityProvider,
@@ -61,134 +66,129 @@ func NewAuthService(
 // BeginLogin starts a login with the identity provider. The caller keeps the
 // pending login, which only the browser that started it should hold, and
 // hands it back to CompleteLogin.
-func (s *AuthService) BeginLogin(loginHint string) (string, out.PendingLogin, error) {
-	var pending out.PendingLogin
-	for _, field := range []*string{&pending.State, &pending.Nonce, &pending.CodeVerifier} {
-		value, err := newToken()
-		if err != nil {
-			return "", out.PendingLogin{}, err
-		}
-		*field = value
-	}
+func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin, error) {
+	pending := domain.PendingLogin{State: newToken(), Nonce: newToken(), CodeVerifier: newToken()}
 	return s.identity.AuthorizationURL(pending, loginHint), pending, nil
 }
 
 // CompleteLogin opens a session for whoever the provider vouches for, as long
 // as their email is in the allowed domain. An identity new to SIGTA is
 // registered as an applicant; staff profiles are still assigned in SIGTA.
-func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending out.PendingLogin) (string, error) {
+func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
 	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
-		return "", out.ErrLoginStateMismatch
+		return "", domain.ErrLoginStateMismatch
 	}
 	identity, err := s.identity.Exchange(ctx, code, pending)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", out.ErrLoginRejected, err)
+		return "", fmt.Errorf("%w: %w", domain.ErrLoginRejected, err)
 	}
 	email := domain.NormalizeEmail(identity.Email)
-	if !s.allowed(email) {
-		return "", out.ErrDomainNotAllowed
+	if !domain.InDomain(email, s.config.AllowedDomain) {
+		return "", domain.ErrDomainNotAllowed
 	}
 	user, err := s.users.FindByEmail(ctx, email)
 	if errors.Is(err, domain.ErrUnknownUser) {
 		user, err = s.register(ctx, email, identity.Name)
 	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("find user %s: %w", email, err)
 	}
 	return s.openSession(ctx, user.ID)
 }
 
 func (s *AuthService) register(ctx context.Context, email, name string) (domain.User, error) {
-	id, err := newToken()
-	if err != nil {
-		return domain.User{}, err
-	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = email
 	}
-	return s.users.Register(ctx, domain.User{ID: id, Email: email, Name: name, Role: domain.RoleApplicant})
+	user, err := s.users.Register(ctx, domain.User{ID: newToken(), Email: email, Name: name, Role: domain.RoleApplicant})
+	if err != nil {
+		return domain.User{}, fmt.Errorf("register: %w", err)
+	}
+	return user, nil
 }
 
 // RequestLoginLink emails a single-use link to an applicant, as an
 // alternative to the identity provider. It returns nil for unknown emails so
-// the response does not reveal who has an account.
+// the response does not reveal who has an account, and fails the same way
+// for every email when login links are off.
 func (s *AuthService) RequestLoginLink(ctx context.Context, email string) error {
+	if s.mailer == nil {
+		return domain.ErrLoginLinksDisabled
+	}
 	email = domain.NormalizeEmail(email)
-	if !s.allowed(email) {
-		return out.ErrDomainNotAllowed
+	if !domain.InDomain(email, s.config.AllowedDomain) {
+		return domain.ErrDomainNotAllowed
 	}
 	user, err := s.users.FindByEmail(ctx, email)
 	if errors.Is(err, domain.ErrUnknownUser) {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("find user %s: %w", email, err)
 	}
-	// Staff log in with their institutional account only.
-	if user.Role != domain.RoleApplicant {
+	if !user.CanUseLoginLink() {
 		return nil
 	}
 
-	token, err := newToken()
-	if err != nil {
-		return err
-	}
-	link := out.LoginLink{
+	token := newToken()
+	link := domain.LoginLink{
 		TokenHash: hashToken(token),
 		UserID:    user.ID,
 		ExpiresAt: s.now().Add(s.config.LoginLinkTTL),
 	}
 	if err := s.links.Save(ctx, link); err != nil {
-		return err
+		return fmt.Errorf("save login link: %w", err)
 	}
-	return s.mailer.SendLoginLink(ctx, user.Email, s.config.LoginLinkURL+token)
+	if err := s.mailer.SendLoginLink(ctx, user.Email, s.config.LoginLinkURL+token); err != nil {
+		return fmt.Errorf("send login link: %w", err)
+	}
+	return nil
 }
 
 func (s *AuthService) RedeemLoginLink(ctx context.Context, token string) (string, error) {
 	link, err := s.links.Consume(ctx, hashToken(token))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("consume login link: %w", err)
 	}
 	if link.ExpiredAt(s.now()) {
-		return "", out.ErrInvalidLoginLink
+		return "", domain.ErrInvalidLoginLink
 	}
 	user, err := s.users.FindByID(ctx, link.UserID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("find user %s: %w", link.UserID, err)
 	}
-	// The profile may have changed since the link was requested, and staff log
-	// in with their institutional account only.
-	if user.Role != domain.RoleApplicant {
-		return "", out.ErrInvalidLoginLink
+	// The role may have changed since the link was requested.
+	if !user.CanUseLoginLink() {
+		return "", domain.ErrInvalidLoginLink
 	}
 	return s.openSession(ctx, user.ID)
 }
 
-// Authenticate resolves the profile behind a session token and extends the
+// Authenticate resolves the user behind a session token and extends the
 // session, which expires only after IdleTimeout without requests.
 func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (domain.User, error) {
 	if sessionToken == "" {
-		return domain.User{}, out.ErrSessionNotFound
+		return domain.User{}, domain.ErrSessionNotFound
 	}
 	tokenHash := hashToken(sessionToken)
 	session, err := s.sessions.Find(ctx, tokenHash)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, fmt.Errorf("find session: %w", err)
 	}
 	now := s.now()
 	if session.IdleSince(now, s.config.IdleTimeout) {
 		if err := s.sessions.Delete(ctx, tokenHash); err != nil {
-			return domain.User{}, err
+			return domain.User{}, fmt.Errorf("delete expired session: %w", err)
 		}
-		return domain.User{}, out.ErrSessionExpired
+		return domain.User{}, domain.ErrSessionExpired
 	}
 	user, err := s.users.FindByID(ctx, session.UserID)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, fmt.Errorf("find user %s: %w", session.UserID, err)
 	}
 	if err := s.sessions.Touch(ctx, tokenHash, now); err != nil {
-		return domain.User{}, err
+		return domain.User{}, fmt.Errorf("touch session: %w", err)
 	}
 	return user, nil
 }
@@ -197,35 +197,29 @@ func (s *AuthService) Logout(ctx context.Context, sessionToken string) error {
 	if sessionToken == "" {
 		return nil
 	}
-	return s.sessions.Delete(ctx, hashToken(sessionToken))
-}
-
-func (s *AuthService) allowed(email string) bool {
-	return strings.HasSuffix(email, "@"+s.config.AllowedDomain)
+	if err := s.sessions.Delete(ctx, hashToken(sessionToken)); err != nil {
+		return fmt.Errorf("delete session: %w", err)
+	}
+	return nil
 }
 
 func (s *AuthService) openSession(ctx context.Context, userID string) (string, error) {
-	token, err := newToken()
-	if err != nil {
-		return "", err
-	}
-	session := out.Session{
+	token := newToken()
+	session := domain.Session{
 		TokenHash:  hashToken(token),
 		UserID:     userID,
 		LastSeenAt: s.now(),
 	}
 	if err := s.sessions.Save(ctx, session); err != nil {
-		return "", err
+		return "", fmt.Errorf("save session: %w", err)
 	}
 	return token, nil
 }
 
-func newToken() (string, error) {
+func newToken() string {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	_, _ = rand.Read(b) // Never fails since Go 1.24.
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func hashToken(token string) string {

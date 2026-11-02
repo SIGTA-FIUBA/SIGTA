@@ -52,7 +52,7 @@ export interface paths {
         put?: never;
         /**
          * Envía por correo un enlace de ingreso de un solo uso
-         * @description Solo acepta correos del dominio institucional. Dentro de ese dominio, responde igual exista o no una cuenta con ese correo, para no revelar quién tiene cuenta en SIGTA.
+         * @description Solo acepta correos del dominio institucional. Dentro de ese dominio, responde igual exista o no una cuenta con ese correo, para no revelar quién tiene cuenta en SIGTA. En un entorno sin correo responde 503 a todo pedido, antes de mirar el correo.
          */
         post: operations["requestLoginLink"];
         delete?: never;
@@ -243,6 +243,15 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            /** @description El ingreso por enlace no está disponible en este entorno */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     redeemLoginLink: {

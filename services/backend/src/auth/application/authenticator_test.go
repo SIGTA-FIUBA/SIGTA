@@ -1,11 +1,6 @@
 package application_test
 
 import (
-	"backend/src/auth/adapters/dev"
-	"backend/src/auth/adapters/memory"
-	"backend/src/auth/application"
-	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +8,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"backend/src/auth/adapters/dev"
+	"backend/src/auth/adapters/memory"
+	"backend/src/auth/application"
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 )
 
 const linkURL = "http://app.test/login/link#token="
@@ -64,7 +65,7 @@ func (f *fixture) login(email string) (string, error) {
 	return f.auth.CompleteLogin(context.Background(), code, state, pending)
 }
 
-func (f *fixture) begin(email string) (code, state string, pending out.PendingLogin) {
+func (f *fixture) begin(email string) (code, state string, pending domain.PendingLogin) {
 	f.t.Helper()
 	location, pending, err := f.auth.BeginLogin(email)
 	if err != nil {
@@ -136,9 +137,11 @@ func TestCompleteLoginOnlyAcceptsTheAllowedDomain(t *testing.T) {
 
 	// Lookalike domains are rejected too.
 	for _, email := range []string{"titular@example.com", "operativo@evilfi.uba.ar", "operativo@fi.uba.ar.evil.com"} {
-		if _, err := f.login(email); !errors.Is(err, out.ErrDomainNotAllowed) {
-			t.Fatalf("%s: got %v, want ErrDomainNotAllowed", email, err)
-		}
+		t.Run(email, func(t *testing.T) {
+			if _, err := f.login(email); !errors.Is(err, domain.ErrDomainNotAllowed) {
+				t.Errorf("login(%q) = %v, want ErrDomainNotAllowed", email, err)
+			}
+		})
 	}
 }
 
@@ -146,7 +149,7 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 	f := newFixture(t)
 
 	_, err := f.login("")
-	if !errors.Is(err, out.ErrLoginRejected) {
+	if !errors.Is(err, domain.ErrLoginRejected) {
 		t.Fatalf("got %v, want ErrLoginRejected", err)
 	}
 }
@@ -155,8 +158,8 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 // Google adapter does with the hd claim.
 type outsideDomain struct{ out.IdentityProvider }
 
-func (outsideDomain) Exchange(context.Context, string, out.PendingLogin) (out.Identity, error) {
-	return out.Identity{}, fmt.Errorf("%w: hosted domain %q", out.ErrDomainNotAllowed, "uba.ar")
+func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (out.Identity, error) {
+	return out.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, "uba.ar")
 }
 
 func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {
@@ -169,10 +172,10 @@ func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {
 		&outbox{},
 		time.Now,
 	)
-	pending := out.PendingLogin{State: "s", Nonce: "n", CodeVerifier: "v"}
+	pending := domain.PendingLogin{State: "s", Nonce: "n", CodeVerifier: "v"}
 
 	_, err := auth.CompleteLogin(context.Background(), "code", "s", pending)
-	if !errors.Is(err, out.ErrDomainNotAllowed) || !errors.Is(err, out.ErrLoginRejected) {
+	if !errors.Is(err, domain.ErrDomainNotAllowed) || !errors.Is(err, domain.ErrLoginRejected) {
 		t.Fatalf("got %v, want ErrDomainNotAllowed within ErrLoginRejected", err)
 	}
 }
@@ -194,10 +197,10 @@ func TestSessionExpiresAfterInactivity(t *testing.T) {
 	}
 
 	f.advance(30 * time.Minute)
-	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, out.ErrSessionExpired) {
+	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, domain.ErrSessionExpired) {
 		t.Fatalf("got %v, want ErrSessionExpired", err)
 	}
-	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, out.ErrSessionNotFound) {
+	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, domain.ErrSessionNotFound) {
 		t.Fatalf("expired session still stored: %v", err)
 	}
 }
@@ -205,12 +208,15 @@ func TestSessionExpiresAfterInactivity(t *testing.T) {
 func TestLogoutClosesTheSession(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	token, _ := f.login(operative.Email)
+	token, err := f.login(operative.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := f.auth.Logout(ctx, token); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, out.ErrSessionNotFound) {
+	if _, err := f.auth.Authenticate(ctx, token); !errors.Is(err, domain.ErrSessionNotFound) {
 		t.Fatalf("got %v, want ErrSessionNotFound", err)
 	}
 }
@@ -218,10 +224,16 @@ func TestLogoutClosesTheSession(t *testing.T) {
 func TestUnknownSessionTokenIsRejected(t *testing.T) {
 	f := newFixture(t)
 
-	for _, token := range []string{"", "not-a-session"} {
-		if _, err := f.auth.Authenticate(context.Background(), token); !errors.Is(err, out.ErrSessionNotFound) {
-			t.Fatalf("token %q: got %v, want ErrSessionNotFound", token, err)
-		}
+	tests := map[string]string{
+		"empty token":   "",
+		"unknown token": "not-a-session",
+	}
+	for name, token := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := f.auth.Authenticate(context.Background(), token); !errors.Is(err, domain.ErrSessionNotFound) {
+				t.Errorf("Authenticate(%q) = %v, want ErrSessionNotFound", token, err)
+			}
+		})
 	}
 }
 
@@ -245,7 +257,7 @@ func TestLoginLinkOpensASessionOnce(t *testing.T) {
 		t.Fatalf("got %+v, %v", user, err)
 	}
 
-	if _, err := f.auth.RedeemLoginLink(ctx, link); !errors.Is(err, out.ErrInvalidLoginLink) {
+	if _, err := f.auth.RedeemLoginLink(ctx, link); !errors.Is(err, domain.ErrInvalidLoginLink) {
 		t.Fatalf("reused link: got %v, want ErrInvalidLoginLink", err)
 	}
 }
@@ -253,10 +265,12 @@ func TestLoginLinkOpensASessionOnce(t *testing.T) {
 func TestLoginLinkExpires(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	_ = f.auth.RequestLoginLink(ctx, applicant.Email)
+	if err := f.auth.RequestLoginLink(ctx, applicant.Email); err != nil {
+		t.Fatal(err)
+	}
 
 	f.advance(15 * time.Minute)
-	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, out.ErrInvalidLoginLink) {
+	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, domain.ErrInvalidLoginLink) {
 		t.Fatalf("got %v, want ErrInvalidLoginLink", err)
 	}
 }
@@ -266,12 +280,14 @@ func TestLoginLinkIsOnlyForApplicants(t *testing.T) {
 	ctx := context.Background()
 
 	for _, email := range []string{operative.Email, "nadie@fi.uba.ar"} {
-		if err := f.auth.RequestLoginLink(ctx, email); err != nil {
-			t.Fatalf("%s: %v", email, err)
-		}
+		t.Run(email, func(t *testing.T) {
+			if err := f.auth.RequestLoginLink(ctx, email); err != nil {
+				t.Errorf("RequestLoginLink(%q) = %v, want nil", email, err)
+			}
+		})
 	}
 	if len(f.mailer.links) != 0 {
-		t.Fatalf("sent links to %v", f.mailer.links)
+		t.Fatalf("got links sent to %v, want none", f.mailer.links)
 	}
 }
 
@@ -286,7 +302,7 @@ func TestLoginLinkStopsWorkingWhenItsHolderBecomesStaff(t *testing.T) {
 	promoted.Role = domain.RoleStaffOperative
 	f.users.Add(promoted)
 
-	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, out.ErrInvalidLoginLink) {
+	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, domain.ErrInvalidLoginLink) {
 		t.Fatalf("got %v, want ErrInvalidLoginLink", err)
 	}
 }
@@ -295,11 +311,54 @@ func TestLoginLinkOnlyAcceptsTheAllowedDomain(t *testing.T) {
 	f := newFixture(t)
 
 	err := f.auth.RequestLoginLink(context.Background(), "titular@example.com")
-	if !errors.Is(err, out.ErrDomainNotAllowed) {
+	if !errors.Is(err, domain.ErrDomainNotAllowed) {
 		t.Fatalf("got %v, want ErrDomainNotAllowed", err)
 	}
 	if len(f.mailer.links) != 0 {
 		t.Fatalf("sent links to %v", f.mailer.links)
+	}
+}
+
+// savedLinks records every login link the service stores.
+type savedLinks struct {
+	out.LoginLinkStore
+	saved []domain.LoginLink
+}
+
+func (s *savedLinks) Save(ctx context.Context, link domain.LoginLink) error {
+	s.saved = append(s.saved, link)
+	return s.LoginLinkStore.Save(ctx, link)
+}
+
+func TestLoginLinksOffFailTheSameForEveryEmail(t *testing.T) {
+	links := &savedLinks{LoginLinkStore: memory.NewLoginLinkStore()}
+	auth := application.NewAuthService(
+		application.AuthConfig{IdleTimeout: time.Hour, LoginLinkTTL: time.Hour, AllowedDomain: "fi.uba.ar", LoginLinkURL: linkURL},
+		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
+		memory.NewUserRepository(applicant, operative),
+		memory.NewSessionStore(),
+		links,
+		nil,
+		time.Now,
+	)
+	ctx := context.Background()
+
+	// The answer must not reveal who has an account or which domain is allowed.
+	tests := map[string]string{
+		"registered applicant": applicant.Email,
+		"unknown email":        "nadie@fi.uba.ar",
+		"staff":                operative.Email,
+		"outside the domain":   "titular@example.com",
+	}
+	for name, email := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := auth.RequestLoginLink(ctx, email); !errors.Is(err, domain.ErrLoginLinksDisabled) {
+				t.Errorf("RequestLoginLink(%q) = %v, want ErrLoginLinksDisabled", email, err)
+			}
+		})
+	}
+	if len(links.saved) != 0 {
+		t.Fatalf("got %d login links saved, want none", len(links.saved))
 	}
 }
 
@@ -308,7 +367,7 @@ func TestBeginLoginCreatesAFreshPendingLoginEachTime(t *testing.T) {
 
 	_, _, a := f.begin(operative.Email)
 	_, _, b := f.begin(operative.Email)
-	for _, p := range []out.PendingLogin{a, b} {
+	for _, p := range []domain.PendingLogin{a, b} {
 		if p.State == "" || p.Nonce == "" || p.CodeVerifier == "" {
 			t.Fatalf("incomplete pending login %+v", p)
 		}
@@ -325,16 +384,18 @@ func TestCompleteLoginRejectsACallbackThisBrowserDidNotStart(t *testing.T) {
 
 	cases := map[string]struct {
 		state   string
-		pending out.PendingLogin
+		pending domain.PendingLogin
 	}{
 		"forged state":        {"forged", pending},
-		"no pending login":    {state, out.PendingLogin{}},
-		"empty state on both": {"", out.PendingLogin{Nonce: pending.Nonce, CodeVerifier: pending.CodeVerifier}},
+		"no pending login":    {state, domain.PendingLogin{}},
+		"empty state on both": {"", domain.PendingLogin{Nonce: pending.Nonce, CodeVerifier: pending.CodeVerifier}},
 	}
 	for name, c := range cases {
-		if _, err := f.auth.CompleteLogin(ctx, code, c.state, c.pending); !errors.Is(err, out.ErrLoginStateMismatch) {
-			t.Fatalf("%s: got %v, want ErrLoginStateMismatch", name, err)
-		}
+		t.Run(name, func(t *testing.T) {
+			if _, err := f.auth.CompleteLogin(ctx, code, c.state, c.pending); !errors.Is(err, domain.ErrLoginStateMismatch) {
+				t.Errorf("CompleteLogin(state %q) = %v, want ErrLoginStateMismatch", c.state, err)
+			}
+		})
 	}
 }
 
@@ -348,7 +409,7 @@ func TestCompleteLoginRejectsAStolenCode(t *testing.T) {
 	attacker.State = state
 
 	_, err := f.auth.CompleteLogin(context.Background(), code, state, attacker)
-	if !errors.Is(err, out.ErrLoginRejected) {
+	if !errors.Is(err, domain.ErrLoginRejected) {
 		t.Fatalf("got %v, want ErrLoginRejected", err)
 	}
 }

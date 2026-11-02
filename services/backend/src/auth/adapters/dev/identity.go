@@ -3,7 +3,6 @@
 package dev
 
 import (
-	out "backend/src/auth/ports/output"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -11,6 +10,9 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+
+	"backend/src/auth/domain"
+	out "backend/src/auth/ports/output"
 )
 
 // IdentityProvider logs in as whatever email the login hint names, or as
@@ -27,7 +29,7 @@ func NewIdentityProvider(callbackURL, defaultEmail string) *IdentityProvider {
 	return &IdentityProvider{callbackURL: callbackURL, defaultEmail: defaultEmail}
 }
 
-func (p *IdentityProvider) AuthorizationURL(pending out.PendingLogin, loginHint string) string {
+func (p *IdentityProvider) AuthorizationURL(pending domain.PendingLogin, loginHint string) string {
 	if loginHint == "" {
 		loginHint = p.defaultEmail
 	}
@@ -37,7 +39,7 @@ func (p *IdentityProvider) AuthorizationURL(pending out.PendingLogin, loginHint 
 	return p.callbackURL + "?" + query.Encode()
 }
 
-func (p *IdentityProvider) Exchange(_ context.Context, code string, pending out.PendingLogin) (out.Identity, error) {
+func (p *IdentityProvider) Exchange(_ context.Context, code string, pending domain.PendingLogin) (out.Identity, error) {
 	challenge, email, ok := strings.Cut(code, ".")
 	if !ok || email == "" {
 		return out.Identity{}, errors.New("dev identity provider needs an email as login_hint")
