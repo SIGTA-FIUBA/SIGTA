@@ -65,7 +65,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`), `cmd/` |
+| `services/backend/src/` | Servicio de trámites en Go: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/` (`rest/`, `memory/`, `dev/`), `cmd/` |
 | `web/src/` | Frontend React + TypeScript: `api/` (cliente generado), `features/`, `pages/` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
@@ -118,4 +118,4 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 
 ## Estado actual
 
-Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base: un endpoint de ejemplo (`/api/hello`) de punta a punta, CI y Docker Compose; y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Lo que viene, en orden: autenticación, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.
+Octubre de 2026, bloque 1 (sprints 1 a 6, esqueleto y asistente mínimo). Próximos hitos: entrega intermedia de la cátedra el 29/11 (video con demostración) y demo ante los directores al cierre del sprint 6. El repositorio tiene el proyecto base (CI y Docker Compose), el ingreso con proveedor de identidad abstraído y el modelo de tipo de trámite (definición, validación y versiones), con adaptadores en memoria y sin persistencia ni interfaz. Lo que viene, en orden: ingreso con Google y perfiles, trámite ancla (equivalencia entre asignaturas), motor de pasos y bandeja, segundo trámite (reconocimiento de créditos), base del asistente RAG. El detalle por sprint está en [docs/11-plan-de-sprints.md](docs/11-plan-de-sprints.md) y los criterios de aceptación en el ticket de Linear de cada historia.

@@ -86,7 +86,7 @@ jobs:
       - name: Load the frontend through the proxy
         run: curl --fail --silent --show-error http://localhost:8000/ | grep --quiet '<div id="root">'
       - name: Call the API through the proxy
-        run: curl --fail --silent --show-error --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/api/hello
+        run: curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/api/auth/login
       - name: Show the logs
         if: failure()
         run: docker compose logs
