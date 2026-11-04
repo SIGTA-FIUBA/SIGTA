@@ -17,6 +17,7 @@
 | R-06 | Alucinaciones con consecuencia administrativa | Media | Alta | 6 |
 | R-15 | Pérdida de contexto en el receso | Alta | Media | 6 |
 | R-16 | La primera validación muestra una herramienta pensada para el titular | Alta | Media | 6 |
+| R-17 | La base de SSTIC no soporta pgvector | Media | Alta | 6 |
 | R-04 | Las plantillas de documentos no se entregan | Media | Media | 4 |
 | R-05 | Disponibilidad del equipo por debajo de lo comprometido | Media | Media | 4 |
 | R-07 | Inyección de prompts a través de documentos | Media | Media | 4 |
@@ -161,6 +162,15 @@ El compromiso es de 384 horas por integrante. Con once semanas de carga baja o n
 - **Mitigación:** confirmar con la cátedra que junio y julio cuentan como trabajo del proyecto. Registrar horas por integrante desde el sprint 1.
 - **Contingencia:** extender el trabajo de cierre y preparación de la defensa a junio y julio con horas registradas.
 
+### R-17 — La base de datos de SSTIC no soporta pgvector
+**Categoría:** Técnico · **P:** Media · **S:** Alta · **Exposición:** 6 · **Estado:** Abierto
+
+SSTIC garantiza PostgreSQL 11.9 o superior en la infraestructura de FIUBA ([requisitos](12-requisitos-infraestructura-fiuba.md)). SIGTA se desarrolla sobre PostgreSQL 18 y guarda los vectores de la base de conocimiento del asistente con pgvector. Las versiones recientes de pgvector ya no soportan PostgreSQL 11, y no se sabe si el servidor de SSTIC tiene la extensión. Si no la tiene, cambia la arquitectura del asistente.
+
+- **Disparador:** SSTIC confirma que el servidor no tiene pgvector o que su versión de PostgreSQL no lo soporta.
+- **Mitigación:** preguntarle a SSTIC la versión de PostgreSQL y si instala pgvector, antes de construir el asistente sobre la base.
+- **Contingencia:** desplegar una base propia de SIGTA dentro del stack o guardar los vectores fuera de PostgreSQL, detrás del mismo puerto.
+
 ---
 
 ## Riesgos cerrados
@@ -179,6 +189,6 @@ La Subsecretaría de TICs confirmó que SIGTA puede usar el ingreso con la cuent
 | R-01, R-05, R-12, R-13, R-14, R-15 | Responsable de gestión del proyecto |
 | R-02, R-03, R-04, R-08, R-16 | Responsable del canal con la Secretaría |
 | R-06, R-07, R-10 | Responsable técnico de IA y dominio |
-| R-09 | Responsable de arquitectura e infraestructura |
+| R-09, R-17 | Responsable de arquitectura e infraestructura |
 
 > Los nombres se completan una vez acordado el reparto interno de responsabilidades.
