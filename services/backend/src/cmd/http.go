@@ -19,7 +19,8 @@ import (
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
-	procedure "backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 )
 
@@ -127,10 +128,10 @@ func devUsers() []domain.User {
 	}
 }
 
-func devAreas() []procedure.Area {
-	return []procedure.Area{
-		{ID: "applicant", Name: "Titular", Kind: procedure.AreaApplicant},
-		{ID: "office", Name: "Área de prueba", Kind: procedure.AreaOffice},
+func devAreas() []definition.Area {
+	return []definition.Area{
+		{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant},
+		{ID: "office", Name: "Área de prueba", Kind: definition.AreaOffice},
 	}
 }
 
@@ -139,23 +140,23 @@ func devAreas() []procedure.Area {
 func devProcedureType() input.Publication {
 	return input.Publication{
 		ProcedureType: 1,
-		Authorship:    procedure.Authorship{ProposedBy: "dev-operative", ApprovedBy: "dev-approver"},
-		Definition: procedure.Definition{
+		Authorship:    version.Authorship{ProposedBy: "dev-operative", ApprovedBy: "dev-approver"},
+		Definition: definition.ProcedureTypeDefinition{
 			Name:          "Trámite de ejemplo",
 			Description:   "Un trámite inventado para probar SIGTA en desarrollo.",
 			Deadlines:     []string{"Plazo de ejemplo: hasta 30 días antes del inicio de la cursada."},
 			Admissibility: []string{"Condición de ejemplo: tener una cuenta de prueba."},
-			Fields: []procedure.Field{
-				{ID: "reason", Name: "Motivo", Type: procedure.FieldLongText},
-				{ID: "comment", Name: "Comentario", Type: procedure.FieldLongText},
+			Fields: []definition.Field{
+				{ID: "reason", Name: "Motivo", Type: definition.FieldLongText},
+				{ID: "comment", Name: "Comentario", Type: definition.FieldLongText},
 			},
-			Documents: []procedure.Document{
+			Documents: []definition.Document{
 				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
 			},
-			Steps: []procedure.Step{
-				{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
-				{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Area: "office", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact},
+			Steps: []definition.Step{
+				{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
+				{ID: "documents", Name: "Documentación", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "review", Name: "Revisión", Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
 			},
 		},
 	}
