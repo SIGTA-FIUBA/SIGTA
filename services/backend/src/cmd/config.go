@@ -37,8 +37,6 @@ func (c config) callbackURL() string { return c.publicURL + "/auth/callback" }
 
 func (c config) loginURL() string { return c.appURL + "login" }
 
-func (c config) loginLinkURL() string { return c.appURL + "login/link#token=" }
-
 // secureCookies is off only for local development over plain HTTP.
 func (c config) secureCookies() bool { return strings.HasPrefix(c.publicURL, "https://") }
 

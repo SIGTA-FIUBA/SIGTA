@@ -32,12 +32,6 @@ type User struct {
 	Role  Role
 }
 
-// CanUseLoginLink tells whether the user may log in through an emailed link.
-// Staff log in with their institutional account only.
-func (u User) CanUseLoginLink() bool {
-	return u.Role == RoleApplicant
-}
-
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }

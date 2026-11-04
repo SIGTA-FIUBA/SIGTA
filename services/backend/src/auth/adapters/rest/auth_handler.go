@@ -103,35 +103,6 @@ func loginFailure(err error) (api.LoginError, bool) {
 	return "", false
 }
 
-func (h *AuthHandler) RequestLoginLink(ctx context.Context, req api.RequestLoginLinkRequestObject) (api.RequestLoginLinkResponseObject, error) {
-	err := h.auth.RequestLoginLink(ctx, string(req.Body.Email))
-	if errors.Is(err, domain.ErrLoginLinksDisabled) {
-		return api.RequestLoginLink503JSONResponse{Message: "El ingreso por enlace no está disponible. Ingresá con tu cuenta institucional."}, nil
-	}
-	if errors.Is(err, domain.ErrDomainNotAllowed) {
-		return api.RequestLoginLink400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: "Usá tu correo institucional."}}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return api.RequestLoginLink202Response{}, nil
-}
-
-func (h *AuthHandler) RedeemLoginLink(ctx context.Context, req api.RedeemLoginLinkRequestObject) (api.RedeemLoginLinkResponseObject, error) {
-	if req.Body.Token == "" {
-		return api.RedeemLoginLink400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
-	}
-	token, err := h.auth.RedeemLoginLink(ctx, req.Body.Token)
-	if errors.Is(err, domain.ErrInvalidLoginLink) || errors.Is(err, domain.ErrUnknownUser) {
-		return api.RedeemLoginLink401JSONResponse{UnauthorizedJSONResponse: unauthorized("El enlace venció o ya se usó. Pedí uno nuevo.")}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	cookie := h.sessionCookie(token)
-	return api.RedeemLoginLink204Response{Headers: api.RedeemLoginLink204ResponseHeaders{SetCookie: &cookie}}, nil
-}
-
 func (h *AuthHandler) Logout(ctx context.Context, req api.LogoutRequestObject) (api.LogoutResponseObject, error) {
 	if err := h.auth.Logout(ctx, valueOf(req.Params.SigtaSession)); err != nil {
 		return nil, err

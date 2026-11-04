@@ -11,8 +11,6 @@ type Authenticator interface {
 	// must bring back to CompleteLogin.
 	BeginLogin(loginHint string) (url string, pending domain.PendingLogin, err error)
 	CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (sessionToken string, err error)
-	RequestLoginLink(ctx context.Context, email string) error
-	RedeemLoginLink(ctx context.Context, token string) (sessionToken string, err error)
 	Authenticate(ctx context.Context, sessionToken string) (domain.User, error)
 	Logout(ctx context.Context, sessionToken string) error
 }

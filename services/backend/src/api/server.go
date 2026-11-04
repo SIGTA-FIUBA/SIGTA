@@ -14,8 +14,6 @@ const InvalidRequestMessage = "El pedido no es válido."
 type AuthServer interface {
 	BeginLogin(ctx context.Context, request BeginLoginRequestObject) (BeginLoginResponseObject, error)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
-	RequestLoginLink(ctx context.Context, request RequestLoginLinkRequestObject) (RequestLoginLinkResponseObject, error)
-	RedeemLoginLink(ctx context.Context, request RedeemLoginLinkRequestObject) (RedeemLoginLinkResponseObject, error)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
 }

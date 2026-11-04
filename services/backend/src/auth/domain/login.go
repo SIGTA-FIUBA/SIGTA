@@ -9,8 +9,6 @@ var (
 	ErrLoginStateMismatch = errors.New("login callback does not match the login this browser started")
 	ErrLoginRejected      = errors.New("identity provider rejected the login")
 	ErrDomainNotAllowed   = errors.New("email domain not allowed for this login")
-	ErrLoginLinksDisabled = errors.New("login links are not available in this environment")
-	ErrInvalidLoginLink   = errors.New("login link is invalid, expired or already used")
 	ErrSessionNotFound    = errors.New("session not found")
 	ErrSessionExpired     = errors.New("session expired")
 )
@@ -39,16 +37,4 @@ type Session struct {
 
 func (s Session) IdleSince(now time.Time, timeout time.Duration) bool {
 	return now.Sub(s.LastSeenAt) >= timeout
-}
-
-// LoginLink is a single-use link sent by email. Only the hash of its token is
-// stored.
-type LoginLink struct {
-	TokenHash string
-	UserID    string
-	ExpiresAt time.Time
-}
-
-func (l LoginLink) ExpiredAt(now time.Time) bool {
-	return !now.Before(l.ExpiresAt)
 }

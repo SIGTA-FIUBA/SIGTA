@@ -136,16 +136,6 @@ type BeginLoginParams struct {
 	LoginHint *string `form:"login_hint,omitempty" json:"login_hint,omitempty"`
 }
 
-// RequestLoginLinkJSONBody defines parameters for RequestLoginLink.
-type RequestLoginLinkJSONBody struct {
-	Email openapi_types.Email `json:"email"`
-}
-
-// RedeemLoginLinkJSONBody defines parameters for RedeemLoginLink.
-type RedeemLoginLinkJSONBody struct {
-	Token string `json:"token"`
-}
-
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
@@ -156,12 +146,6 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
-// RequestLoginLinkJSONRequestBody defines body for RequestLoginLink for application/json ContentType.
-type RequestLoginLinkJSONRequestBody RequestLoginLinkJSONBody
-
-// RedeemLoginLinkJSONRequestBody defines body for RedeemLoginLink for application/json ContentType.
-type RedeemLoginLinkJSONRequestBody RedeemLoginLinkJSONBody
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -170,12 +154,6 @@ type ServerInterface interface {
 	// BeginLogin Redirige al proveedor de identidad
 	// (GET /auth/login)
 	BeginLogin(w http.ResponseWriter, r *http.Request, params BeginLoginParams)
-	// RequestLoginLink Envía por correo un enlace de ingreso de un solo uso
-	// (POST /auth/login-links)
-	RequestLoginLink(w http.ResponseWriter, r *http.Request)
-	// RedeemLoginLink Canjea un enlace de ingreso y abre la sesión
-	// (POST /auth/login-links/redeem)
-	RedeemLoginLink(w http.ResponseWriter, r *http.Request)
 
 	// (POST /auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
@@ -294,34 +272,6 @@ func (siw *ServerInterfaceWrapper) BeginLogin(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BeginLogin(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RequestLoginLink operation middleware
-func (siw *ServerInterfaceWrapper) RequestLoginLink(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RequestLoginLink(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RedeemLoginLink operation middleware
-func (siw *ServerInterfaceWrapper) RedeemLoginLink(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RedeemLoginLink(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -537,8 +487,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/login", wrapper.BeginLogin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/callback", wrapper.CompleteLogin)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login-links", wrapper.RequestLoginLink)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login-links/redeem", wrapper.RedeemLoginLink)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
@@ -618,102 +566,6 @@ func (response BeginLogin302Response) VisitBeginLoginResponse(w http.ResponseWri
 	}
 	w.WriteHeader(302)
 	return nil
-}
-
-type RequestLoginLinkRequestObject struct {
-	Body *RequestLoginLinkJSONRequestBody
-}
-
-type RequestLoginLinkResponseObject interface {
-	VisitRequestLoginLinkResponse(w http.ResponseWriter) error
-}
-
-type RequestLoginLink202Response struct {
-}
-
-func (response RequestLoginLink202Response) VisitRequestLoginLinkResponse(w http.ResponseWriter) error {
-	w.WriteHeader(202)
-	return nil
-}
-
-type RequestLoginLink400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response RequestLoginLink400JSONResponse) VisitRequestLoginLinkResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RequestLoginLink503JSONResponse Error
-
-func (response RequestLoginLink503JSONResponse) VisitRequestLoginLinkResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RedeemLoginLinkRequestObject struct {
-	Body *RedeemLoginLinkJSONRequestBody
-}
-
-type RedeemLoginLinkResponseObject interface {
-	VisitRedeemLoginLinkResponse(w http.ResponseWriter) error
-}
-
-type RedeemLoginLink204ResponseHeaders struct {
-	SetCookie *string
-}
-
-type RedeemLoginLink204Response struct {
-	Headers RedeemLoginLink204ResponseHeaders
-}
-
-func (response RedeemLoginLink204Response) VisitRedeemLoginLinkResponse(w http.ResponseWriter) error {
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(204)
-	return nil
-}
-
-type RedeemLoginLink400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response RedeemLoginLink400JSONResponse) VisitRedeemLoginLinkResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RedeemLoginLink401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response RedeemLoginLink401JSONResponse) VisitRedeemLoginLinkResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
 }
 
 type LogoutRequestObject struct {
@@ -805,12 +657,6 @@ type StrictServerInterface interface {
 	// BeginLogin Redirige al proveedor de identidad
 	// (GET /auth/login)
 	BeginLogin(ctx context.Context, request BeginLoginRequestObject) (BeginLoginResponseObject, error)
-	// RequestLoginLink Envía por correo un enlace de ingreso de un solo uso
-	// (POST /auth/login-links)
-	RequestLoginLink(ctx context.Context, request RequestLoginLinkRequestObject) (RequestLoginLinkResponseObject, error)
-	// RedeemLoginLink Canjea un enlace de ingreso y abre la sesión
-	// (POST /auth/login-links/redeem)
-	RedeemLoginLink(ctx context.Context, request RedeemLoginLinkRequestObject) (RedeemLoginLinkResponseObject, error)
 
 	// (POST /auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
@@ -906,68 +752,6 @@ func (sh *strictHandler) BeginLogin(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(BeginLoginResponseObject); ok {
 		if err := validResponse.VisitBeginLoginResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// RequestLoginLink operation middleware
-func (sh *strictHandler) RequestLoginLink(w http.ResponseWriter, r *http.Request) {
-	var request RequestLoginLinkRequestObject
-
-	var body RequestLoginLinkJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RequestLoginLink(ctx, request.(RequestLoginLinkRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RequestLoginLink")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RequestLoginLinkResponseObject); ok {
-		if err := validResponse.VisitRequestLoginLinkResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// RedeemLoginLink operation middleware
-func (sh *strictHandler) RedeemLoginLink(w http.ResponseWriter, r *http.Request) {
-	var request RedeemLoginLinkRequestObject
-
-	var body RedeemLoginLinkJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RedeemLoginLink(ctx, request.(RedeemLoginLinkRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RedeemLoginLink")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RedeemLoginLinkResponseObject); ok {
-		if err := validResponse.VisitRedeemLoginLinkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

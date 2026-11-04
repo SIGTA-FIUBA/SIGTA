@@ -52,30 +52,3 @@ func (s *SessionStore) Delete(_ context.Context, tokenHash string) error {
 	delete(s.sessions, tokenHash)
 	return nil
 }
-
-type LoginLinkStore struct {
-	mu    sync.Mutex
-	links map[string]domain.LoginLink
-}
-
-func NewLoginLinkStore() *LoginLinkStore {
-	return &LoginLinkStore{links: make(map[string]domain.LoginLink)}
-}
-
-func (s *LoginLinkStore) Save(_ context.Context, link domain.LoginLink) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.links[link.TokenHash] = link
-	return nil
-}
-
-func (s *LoginLinkStore) Consume(_ context.Context, tokenHash string) (domain.LoginLink, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	link, ok := s.links[tokenHash]
-	if !ok {
-		return domain.LoginLink{}, domain.ErrInvalidLoginLink
-	}
-	delete(s.links, tokenHash)
-	return link, nil
-}
