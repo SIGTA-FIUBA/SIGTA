@@ -70,7 +70,10 @@ Persona de la Secretaría que ejecuta una acción en un sistema externo y la reg
 Cada uno de los dos tipos de persona usuaria de la plataforma: **titular del trámite** y **Secretario**.
 
 **Perfil**
-Nivel de permisos dentro del rol Secretario. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. En el mapa de usuario son un solo rol; en permisos se distinguen.
+Nivel de permisos dentro del rol Secretario. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. En el mapa de usuario son un solo rol; en permisos se distinguen. Con ADR-017 (propuesta), los dos perfiles pasan a ser roles iniciales que el **administrador** asigna y puede cambiar, cada uno con un conjunto de **permisos**.
+
+**Permiso**
+Habilitación para ejecutar una acción del modelo de dominio, como avanzar un paso, derivar, aprobar o editar un tipo de trámite. El administrador agrupa permisos en roles y asigna esos roles al personal (ADR-017).
 
 **Titular del trámite**
 Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.

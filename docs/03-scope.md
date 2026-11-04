@@ -136,7 +136,7 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 | S-04 | La Secretaría dispone de una instancia de validación por fase | Se acumula deuda de validación, con riesgo al cierre |
 | S-05 | Hay infraestructura de despliegue disponible o financiable | Despliegue de costo cero, con impacto en la demo |
 | S-06 | Los pasos se reducen a un conjunto chico de acciones abstractas | La configuración se vuelve específica por trámite y se pierde el bajo costo marginal |
-| S-07 | Los perfiles operativo y de aprobación del Secretario corresponden a personas distintas | Se simplifica a un único perfil de Secretaría con todos los permisos |
+| S-07 | Los perfiles operativo y de aprobación del Secretario corresponden a personas distintas | Reemplazado el 4/11: la Secretaría pidió roles configurables por un administrador (ADR-017) |
 | S-08 | Los actores externos aceptan seguir trabajando fuera de la plataforma | Habría que negociar acceso externo, que hoy está fuera del alcance |
 
 ---

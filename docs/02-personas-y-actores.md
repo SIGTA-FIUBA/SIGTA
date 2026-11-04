@@ -14,7 +14,9 @@ La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story 
 | **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
 | **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma |
 
-**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles. Si en el relevamiento resulta que son siempre la misma persona, el modelo se simplifica a un perfil (supuesto S-07, decisión D-02).
+**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles.
+
+> **Cambio propuesto (ADR-017).** La Secretaría pidió el 4/11 un administrador que asigne roles con permisos a los usuarios de cada área que interviene. Operativo y de aprobación pasan a ser roles iniciales configurables, no perfiles fijos. Las personas P2 y P3 se mantienen como arquetipos para el mapa de usuario.
 
 ## 2. Actores que no son roles de la plataforma
 
@@ -103,4 +105,4 @@ La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story 
 | Secretario de aprobación | Todos | Sí | Sí | Sí | A confirmar (D-08) |
 | Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
-> La tabla es la hipótesis mínima. Se confirma con el mapa de roles de US64, en el sprint 1.
+> La tabla es la hipótesis mínima. Con ADR-017, cada fila del personal pasa a ser un rol inicial que el administrador puede cambiar. El reparto por área se completa en la reunión con las áreas de la Secretaría (US64).
