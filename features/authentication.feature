@@ -61,38 +61,3 @@ Feature: Sign in through an abstracted identity provider
     Given "applicant@fi.uba.ar" has an open session
     When they make a request every 29 minutes
     Then the session stays open
-
-  Scenario: an applicant signs in with a link sent by email
-    When "applicant@fi.uba.ar" asks for a sign-in link
-    Then they receive a single-use link by email
-    And opening it opens a session
-
-  Scenario: the link cannot be reused
-    Given "applicant@fi.uba.ar" already used their sign-in link
-    When they open it again
-    Then no session is opened
-
-  Scenario: the link expires
-    Given "applicant@fi.uba.ar" asked for a sign-in link
-    When 15 minutes pass
-    Then the link no longer opens a session
-
-  Scenario: the link is only sent to institutional emails
-    When "applicant@example.com" asks for a sign-in link
-    Then they are asked to use their institutional email
-    And no email is sent
-
-  Scenario: asking for a link does not reveal who has an account
-    When "nobody@fi.uba.ar" asks for a sign-in link
-    Then the response is the same as for an existing account
-    And no email is sent
-
-  Scenario: staff sign in only through the identity provider
-    When "operative@fi.uba.ar" asks for a sign-in link
-    Then no email is sent
-
-  Scenario: a link stops working when its holder becomes staff
-    Given "applicant@fi.uba.ar" asked for a sign-in link
-    And their profile changed to "staff_operative"
-    When they open the link
-    Then no session is opened

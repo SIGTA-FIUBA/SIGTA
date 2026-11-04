@@ -48,15 +48,11 @@ func run(logger *slog.Logger) error {
 	auth := application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
-			LoginLinkTTL:  15 * time.Minute,
 			AllowedDomain: cfg.allowedDomain,
-			LoginLinkURL:  cfg.loginLinkURL(),
 		},
 		identity,
 		memory.NewUserRepository(users...),
 		memory.NewSessionStore(),
-		memory.NewLoginLinkStore(),
-		mailerOf(cfg, logger),
 		time.Now,
 	)
 
@@ -102,16 +98,6 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 		RedirectURL:  cfg.callbackURL(),
 		HostedDomain: cfg.allowedDomain,
 	}, logger)
-}
-
-// mailerOf is nil, which turns login links off, everywhere but development:
-// there is no mail adapter yet, and whether login links stay at all is
-// pending with the Secretaría.
-func mailerOf(cfg config, logger *slog.Logger) out.Mailer {
-	if cfg.development() {
-		return dev.NewMailer(logger)
-	}
-	return nil
 }
 
 // devApplicantEmail is who the development identity provider logs in by

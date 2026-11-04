@@ -270,7 +270,7 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 | `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` | Credenciales del cliente OAuth de tipo "aplicación web". Son secretos del despliegue: nunca van al repositorio | Con Google no arranca |
 | `SIGTA_USERS_FILE` | Archivo JSON con las personas que ya tienen perfil en SIGTA, como el personal: una lista de objetos con `id`, `email`, `name` y `role` (`applicant`, `staff_operative` o `staff_approver`). Tiene datos personales, así que se guarda con los secretos del despliegue y nunca en el repositorio. Una entrada inválida impide arrancar | En desarrollo, los usuarios sintéticos; en producción no arranca |
 
-Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona. Fuera de desarrollo no hay adaptador de correo, así que pedir un enlace de ingreso responde 503 para cualquier correo; si el enlace se mantiene está pendiente con la Secretaría.
+Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona.
 
 ## Inteligencia artificial
 

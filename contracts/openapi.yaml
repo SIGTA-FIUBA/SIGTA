@@ -79,67 +79,6 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/BadRequest"
-  /auth/login-links:
-    post:
-      operationId: requestLoginLink
-      summary: Envía por correo un enlace de ingreso de un solo uso
-      description: >
-        Solo acepta correos del dominio institucional. Dentro de ese dominio,
-        responde igual exista o no una cuenta con ese correo, para no revelar
-        quién tiene cuenta en SIGTA. En un entorno sin correo responde 503 a
-        todo pedido, antes de mirar el correo.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties:
-                email:
-                  type: string
-                  format: email
-      responses:
-        "202":
-          description: Pedido aceptado
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          description: El ingreso por enlace no está disponible en este entorno
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /auth/login-links/redeem:
-    post:
-      operationId: redeemLoginLink
-      summary: Canjea un enlace de ingreso y abre la sesión
-      description: >
-        El canje es un POST desde el frontend y no un GET sobre el enlace, para
-        que los filtros de correo que abren los enlaces no lo consuman.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
-                  minLength: 1
-      responses:
-        "204":
-          description: Sesión abierta
-          headers:
-            Set-Cookie:
-              description: Cookie de sesión
-              schema:
-                type: string
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /auth/logout:
     post:
       operationId: logout

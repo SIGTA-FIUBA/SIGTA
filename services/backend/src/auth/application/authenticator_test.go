@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,41 +15,33 @@ import (
 	out "backend/src/auth/ports/output"
 )
 
-const linkURL = "http://app.test/login/link#token="
-
 var (
 	applicant = domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant}
 	operative = domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative}
 )
 
 type fixture struct {
-	t      *testing.T
-	auth   *application.AuthService
-	mailer *outbox
-	users  *memory.UserRepository
-	now    time.Time
+	t     *testing.T
+	auth  *application.AuthService
+	users *memory.UserRepository
+	now   time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	f := &fixture{
-		t:      t,
-		mailer: &outbox{},
-		users:  memory.NewUserRepository(applicant, operative),
-		now:    time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC),
+		t:     t,
+		users: memory.NewUserRepository(applicant, operative),
+		now:   time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC),
 	}
 	f.auth = application.NewAuthService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
-			LoginLinkTTL:  15 * time.Minute,
 			AllowedDomain: "fi.uba.ar",
-			LoginLinkURL:  linkURL,
 		},
 		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
 		f.users,
 		memory.NewSessionStore(),
-		memory.NewLoginLinkStore(),
-		f.mailer,
 		func() time.Time { return f.now },
 	)
 	return f
@@ -76,16 +67,6 @@ func (f *fixture) begin(email string) (code, state string, pending domain.Pendin
 		f.t.Fatal(err)
 	}
 	return u.Query().Get("code"), u.Query().Get("state"), pending
-}
-
-type outbox struct{ links map[string]string }
-
-func (o *outbox) SendLoginLink(_ context.Context, to, link string) error {
-	if o.links == nil {
-		o.links = make(map[string]string)
-	}
-	o.links[to] = strings.TrimPrefix(link, linkURL)
-	return nil
 }
 
 func TestCompleteLoginResolvesProfileFromSIGTA(t *testing.T) {
@@ -168,8 +149,6 @@ func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {
 		outsideDomain{},
 		memory.NewUserRepository(applicant),
 		memory.NewSessionStore(),
-		memory.NewLoginLinkStore(),
-		&outbox{},
 		time.Now,
 	)
 	pending := domain.PendingLogin{State: "s", Nonce: "n", CodeVerifier: "v"}
@@ -234,131 +213,6 @@ func TestUnknownSessionTokenIsRejected(t *testing.T) {
 				t.Errorf("Authenticate(%q) = %v, want ErrSessionNotFound", token, err)
 			}
 		})
-	}
-}
-
-func TestLoginLinkOpensASessionOnce(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-
-	if err := f.auth.RequestLoginLink(ctx, " Titular@FI.UBA.AR "); err != nil {
-		t.Fatal(err)
-	}
-	link := f.mailer.links[applicant.Email]
-	if link == "" {
-		t.Fatal("no login link sent")
-	}
-
-	token, err := f.auth.RedeemLoginLink(ctx, link)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if user, err := f.auth.Authenticate(ctx, token); err != nil || user.ID != applicant.ID {
-		t.Fatalf("got %+v, %v", user, err)
-	}
-
-	if _, err := f.auth.RedeemLoginLink(ctx, link); !errors.Is(err, domain.ErrInvalidLoginLink) {
-		t.Fatalf("reused link: got %v, want ErrInvalidLoginLink", err)
-	}
-}
-
-func TestLoginLinkExpires(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-	if err := f.auth.RequestLoginLink(ctx, applicant.Email); err != nil {
-		t.Fatal(err)
-	}
-
-	f.advance(15 * time.Minute)
-	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, domain.ErrInvalidLoginLink) {
-		t.Fatalf("got %v, want ErrInvalidLoginLink", err)
-	}
-}
-
-func TestLoginLinkIsOnlyForApplicants(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-
-	for _, email := range []string{operative.Email, "nadie@fi.uba.ar"} {
-		t.Run(email, func(t *testing.T) {
-			if err := f.auth.RequestLoginLink(ctx, email); err != nil {
-				t.Errorf("RequestLoginLink(%q) = %v, want nil", email, err)
-			}
-		})
-	}
-	if len(f.mailer.links) != 0 {
-		t.Fatalf("got links sent to %v, want none", f.mailer.links)
-	}
-}
-
-func TestLoginLinkStopsWorkingWhenItsHolderBecomesStaff(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-	if err := f.auth.RequestLoginLink(ctx, applicant.Email); err != nil {
-		t.Fatal(err)
-	}
-
-	promoted := applicant
-	promoted.Role = domain.RoleStaffOperative
-	f.users.Add(promoted)
-
-	if _, err := f.auth.RedeemLoginLink(ctx, f.mailer.links[applicant.Email]); !errors.Is(err, domain.ErrInvalidLoginLink) {
-		t.Fatalf("got %v, want ErrInvalidLoginLink", err)
-	}
-}
-
-func TestLoginLinkOnlyAcceptsTheAllowedDomain(t *testing.T) {
-	f := newFixture(t)
-
-	err := f.auth.RequestLoginLink(context.Background(), "titular@example.com")
-	if !errors.Is(err, domain.ErrDomainNotAllowed) {
-		t.Fatalf("got %v, want ErrDomainNotAllowed", err)
-	}
-	if len(f.mailer.links) != 0 {
-		t.Fatalf("sent links to %v", f.mailer.links)
-	}
-}
-
-// savedLinks records every login link the service stores.
-type savedLinks struct {
-	out.LoginLinkStore
-	saved []domain.LoginLink
-}
-
-func (s *savedLinks) Save(ctx context.Context, link domain.LoginLink) error {
-	s.saved = append(s.saved, link)
-	return s.LoginLinkStore.Save(ctx, link)
-}
-
-func TestLoginLinksOffFailTheSameForEveryEmail(t *testing.T) {
-	links := &savedLinks{LoginLinkStore: memory.NewLoginLinkStore()}
-	auth := application.NewAuthService(
-		application.AuthConfig{IdleTimeout: time.Hour, LoginLinkTTL: time.Hour, AllowedDomain: "fi.uba.ar", LoginLinkURL: linkURL},
-		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
-		memory.NewUserRepository(applicant, operative),
-		memory.NewSessionStore(),
-		links,
-		nil,
-		time.Now,
-	)
-	ctx := context.Background()
-
-	// The answer must not reveal who has an account or which domain is allowed.
-	tests := map[string]string{
-		"registered applicant": applicant.Email,
-		"unknown email":        "nadie@fi.uba.ar",
-		"staff":                operative.Email,
-		"outside the domain":   "titular@example.com",
-	}
-	for name, email := range tests {
-		t.Run(name, func(t *testing.T) {
-			if err := auth.RequestLoginLink(ctx, email); !errors.Is(err, domain.ErrLoginLinksDisabled) {
-				t.Errorf("RequestLoginLink(%q) = %v, want ErrLoginLinksDisabled", email, err)
-			}
-		})
-	}
-	if len(links.saved) != 0 {
-		t.Fatalf("got %d login links saved, want none", len(links.saved))
 	}
 }
 

@@ -23,35 +23,25 @@ import (
 	ports "backend/src/auth/ports/input"
 )
 
-type outbox struct{ last string }
-
-func (o *outbox) SendLoginLink(_ context.Context, _, link string) error {
-	o.last = link
-	return nil
-}
-
-func newServer(t *testing.T) (*httptest.Server, *outbox) {
+func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	mail := &outbox{}
 	auth := application.NewAuthService(
-		application.AuthConfig{IdleTimeout: time.Hour, LoginLinkTTL: time.Hour, AllowedDomain: "fi.uba.ar", LoginLinkURL: "#token="},
+		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
 		dev.NewIdentityProvider(srv.URL+"/auth/callback", ""),
 		memory.NewUserRepository(
 			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant},
 			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative},
 		),
 		memory.NewSessionStore(),
-		memory.NewLoginLinkStore(),
-		mail,
 		time.Now,
 	)
 	server := rest.NewAuthHandler(auth, srv.URL+"/me", srv.URL+"/login", false)
 	api.Mount(mux, api.NewServer(server, nil), slog.Default())
-	return srv, mail
+	return srv
 }
 
 // withoutRedirects leaves a client on each redirect, so a test can read it.
@@ -168,7 +158,7 @@ func expectStatus(t *testing.T, res *http.Response, err error, want int) {
 }
 
 func TestProviderLoginThroughToProfileAndLogout(t *testing.T) {
-	srv, _ := newServer(t)
+	srv := newServer(t)
 	client := newClient(t)
 
 	// /auth/login -> dev provider -> /auth/callback -> /me, following redirects.
@@ -183,7 +173,7 @@ func TestProviderLoginThroughToProfileAndLogout(t *testing.T) {
 }
 
 func TestPendingLoginWorksOnce(t *testing.T) {
-	srv, _ := newServer(t)
+	srv := newServer(t)
 	client := withoutRedirects(newClient(t))
 
 	res, err := get(t, client, srv.URL+"/auth/login?login_hint="+url.QueryEscape("operativo@fi.uba.ar"))
@@ -206,7 +196,7 @@ func TestPendingLoginWorksOnce(t *testing.T) {
 }
 
 func TestFailedCallbackExpiresThePendingLogin(t *testing.T) {
-	srv, _ := newServer(t)
+	srv := newServer(t)
 	client := withoutRedirects(newClient(t))
 
 	res, err := get(t, client, srv.URL+"/auth/login?login_hint=titular@example.com")
@@ -220,7 +210,7 @@ func TestFailedCallbackExpiresThePendingLogin(t *testing.T) {
 }
 
 func TestCallbackTellsWhyTheLoginFailed(t *testing.T) {
-	srv, _ := newServer(t)
+	srv := newServer(t)
 	client := withoutRedirects(newClient(t))
 
 	tests := []struct {
@@ -261,33 +251,11 @@ func TestCallbackTellsWhyTheLoginFailed(t *testing.T) {
 }
 
 func TestInvalidRequestsAnswerWithTheContractError(t *testing.T) {
-	srv, _ := newServer(t)
-	client := newClient(t)
+	srv := newServer(t)
 
-	tests := []struct {
-		name string
-		do   func() (*http.Response, error)
-	}{
-		{"callback without state", func() (*http.Response, error) {
-			return get(t, client, srv.URL+"/auth/callback?code=x")
-		}},
-		{"invalid email", func() (*http.Response, error) {
-			return post(t, client, srv.URL+"/auth/login-links", strings.NewReader(`{"email":"no"}`))
-		}},
-		{"broken JSON", func() (*http.Response, error) {
-			return post(t, client, srv.URL+"/auth/login-links", strings.NewReader(`{`))
-		}},
-		{"empty token", func() (*http.Response, error) {
-			return post(t, client, srv.URL+"/auth/login-links/redeem", strings.NewReader(`{}`))
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			res, err := tt.do()
-			if got := expectError(t, res, err, http.StatusBadRequest); got != "El pedido no es válido." {
-				t.Fatalf("message = %q, want %q", got, "El pedido no es válido.")
-			}
-		})
+	res, err := get(t, newClient(t), srv.URL+"/auth/callback?code=x")
+	if got := expectError(t, res, err, http.StatusBadRequest); got != "El pedido no es válido." {
+		t.Fatalf("message = %q, want %q", got, "El pedido no es válido.")
 	}
 }
 
@@ -307,78 +275,11 @@ func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
 }
 
 func TestCallbackWithoutMatchingStateIsRejected(t *testing.T) {
-	srv, _ := newServer(t)
+	srv := newServer(t)
 
 	// A callback the browser did not start, as in a login CSRF.
 	res, err := get(t, withoutRedirects(newClient(t)), srv.URL+"/auth/callback?code=operativo@fi.uba.ar&state=forged")
 	if reason := expectLoginError(t, srv, res, err); reason != "state_mismatch" {
 		t.Fatalf("forged state: reason = %q, want %q", reason, "state_mismatch")
-	}
-}
-
-func TestLoginLinkThroughToProfile(t *testing.T) {
-	srv, mail := newServer(t)
-	client := newClient(t)
-
-	res, err := post(t, client, srv.URL+"/auth/login-links", strings.NewReader(`{"email":"titular@fi.uba.ar"}`))
-	expectStatus(t, res, err, http.StatusAccepted)
-
-	body := `{"token":"` + strings.TrimPrefix(mail.last, "#token=") + `"}`
-	res, err = post(t, client, srv.URL+"/auth/login-links/redeem", strings.NewReader(body))
-	expectStatus(t, res, err, http.StatusNoContent)
-
-	res, err = get(t, client, srv.URL+"/me")
-	expectStatus(t, res, err, http.StatusOK)
-
-	// A second redemption fails even from a fresh browser.
-	res, err = post(t, newClient(t), srv.URL+"/auth/login-links/redeem", strings.NewReader(body))
-	expectStatus(t, res, err, http.StatusUnauthorized)
-}
-
-func TestLoginLinkRequestDoesNotRevealAccounts(t *testing.T) {
-	srv, mail := newServer(t)
-
-	res, err := post(t, newClient(t), srv.URL+"/auth/login-links", strings.NewReader(`{"email":"nadie@fi.uba.ar"}`))
-	expectStatus(t, res, err, http.StatusAccepted)
-	if mail.last != "" {
-		t.Fatalf("sent %q to an unknown email", mail.last)
-	}
-}
-
-func TestLoginLinkOutsideTheAllowedDomainIsRejected(t *testing.T) {
-	srv, mail := newServer(t)
-
-	res, err := post(t, newClient(t), srv.URL+"/auth/login-links", strings.NewReader(`{"email":"titular@example.com"}`))
-	expectStatus(t, res, err, http.StatusBadRequest)
-	if mail.last != "" {
-		t.Fatalf("sent %q outside the allowed domain", mail.last)
-	}
-}
-
-func TestLoginLinkRequestsFailWhenLinksAreOff(t *testing.T) {
-	auth := application.NewAuthService(
-		application.AuthConfig{IdleTimeout: time.Hour, LoginLinkTTL: time.Hour, AllowedDomain: "fi.uba.ar", LoginLinkURL: "#token="},
-		dev.NewIdentityProvider("", ""),
-		memory.NewUserRepository(
-			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant},
-			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative},
-		),
-		memory.NewSessionStore(),
-		memory.NewLoginLinkStore(),
-		nil,
-		time.Now,
-	)
-	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(auth, "", "", false), nil), slog.New(slog.DiscardHandler))
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-
-	const want = "El ingreso por enlace no está disponible. Ingresá con tu cuenta institucional."
-	for _, email := range []string{"titular@fi.uba.ar", "nadie@fi.uba.ar", "operativo@fi.uba.ar", "titular@example.com"} {
-		t.Run(email, func(t *testing.T) {
-			res, err := post(t, newClient(t), srv.URL+"/auth/login-links", strings.NewReader(`{"email":"`+email+`"}`))
-			if got := expectError(t, res, err, http.StatusServiceUnavailable); got != want {
-				t.Errorf("POST /auth/login-links %s: message = %q, want %q", email, got, want)
-			}
-		})
 	}
 }

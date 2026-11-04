@@ -41,46 +41,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/login-links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Envía por correo un enlace de ingreso de un solo uso
-         * @description Solo acepta correos del dominio institucional. Dentro de ese dominio, responde igual exista o no una cuenta con ese correo, para no revelar quién tiene cuenta en SIGTA. En un entorno sin correo responde 503 a todo pedido, antes de mirar el correo.
-         */
-        post: operations["requestLoginLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login-links/redeem": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Canjea un enlace de ingreso y abre la sesión
-         * @description El canje es un POST desde el frontend y no un GET sobre el enlace, para que los filtros de correo que abren los enlaces no lo consuman.
-         */
-        post: operations["redeemLoginLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -266,69 +226,6 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
-        };
-    };
-    requestLoginLink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: email */
-                    email: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Pedido aceptado */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            /** @description El ingreso por enlace no está disponible en este entorno */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    redeemLoginLink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Sesión abierta */
-            204: {
-                headers: {
-                    /** @description Cookie de sesión */
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
         };
     };
     logout: {

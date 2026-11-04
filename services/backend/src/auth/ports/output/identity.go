@@ -50,16 +50,3 @@ type SessionStore interface {
 	// Delete does not fail if the session is already gone.
 	Delete(ctx context.Context, tokenHash string) error
 }
-
-// LoginLinkStore stores login links by the hash of their token.
-type LoginLinkStore interface {
-	Save(ctx context.Context, link domain.LoginLink) error
-	// Consume deletes the link and returns it, so it can be used only once even
-	// under concurrent redemptions. It fails with domain.ErrInvalidLoginLink
-	// if there is no such link.
-	Consume(ctx context.Context, tokenHash string) (domain.LoginLink, error)
-}
-
-type Mailer interface {
-	SendLoginLink(ctx context.Context, to, link string) error
-}
