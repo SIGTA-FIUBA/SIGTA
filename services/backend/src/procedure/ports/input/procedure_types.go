@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 )
 
 // ErrOutdatedBase means the definition was edited from a version that is no
@@ -31,8 +33,8 @@ type Publication struct {
 	// Base is the number of the version the definition was edited from, or 0
 	// for the first version.
 	Base       int
-	Definition domain.Definition
-	Authorship domain.Authorship
+	Definition definition.ProcedureTypeDefinition
+	Authorship version.Authorship
 }
 
 // CatalogEntry is what an applicant sees of a procedure type before starting it.
@@ -43,8 +45,8 @@ type CatalogEntry struct {
 	Description   string
 	Deadlines     []string
 	Admissibility []string
-	Fields        []domain.FieldRequirement
-	Documents     []domain.DocumentRequirement
+	Fields        []catalog.FieldRequirement
+	Documents     []catalog.DocumentRequirement
 }
 
 type ProcedureTypes interface {
@@ -52,21 +54,21 @@ type ProcedureTypes interface {
 	// as the latest version, whatever the base, it publishes nothing and
 	// returns that version with its own authorship.
 	//
-	// It fails with domain.ErrInvalidAuthorship, with an *domain.InvalidError
-	// (domain.ErrInvalidAreas or domain.ErrInvalidDefinition) whose problems
-	// ProblemsOf reads, with an *OutdatedBaseError if the base is not the
-	// latest version, and with domain.ErrAlteredContent,
-	// output.ErrWrongVersion or domain.ErrUnknownFormat if the latest version
-	// cannot be trusted or read.
-	Publish(ctx context.Context, p Publication) (domain.Version, error)
+	// It fails with version.ErrInvalidAuthorship, with a
+	// *definition.ValidationError (definition.ErrInvalidAreas or
+	// definition.ErrInvalidDefinition) whose problems ValidationProblemsOf
+	// reads, with an *OutdatedBaseError if the base is not the latest version,
+	// and with version.ErrAlteredContent, output.ErrWrongVersion or
+	// version.ErrUnknownFormat if the latest version cannot be trusted or read.
+	Publish(ctx context.Context, p Publication) (version.ProcedureTypeVersion, error)
 	// Version returns a published version after checking its digest, for the
 	// procedures that follow it. It fails with output.ErrNoVersion if the
-	// version does not exist, and with domain.ErrAlteredContent or
+	// version does not exist, and with version.ErrAlteredContent or
 	// output.ErrWrongVersion if it cannot be trusted.
-	Version(ctx context.Context, procedureType int64, number int) (domain.Version, error)
+	Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error)
 	// Catalog returns the latest version of every procedure type, after checking
-	// their digests. It fails with domain.ErrAlteredContent,
-	// output.ErrWrongVersion or domain.ErrUnknownFormat if any of them cannot be
+	// their digests. It fails with version.ErrAlteredContent,
+	// output.ErrWrongVersion or version.ErrUnknownFormat if any of them cannot be
 	// trusted or read.
 	Catalog(ctx context.Context) ([]CatalogEntry, error)
 }
