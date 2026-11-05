@@ -67,10 +67,16 @@ Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reinic
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).
 
 **Rol**
-Cada uno de los dos tipos de persona usuaria de la plataforma: **titular del trámite** y **Secretario**.
+Cada uno de los tres tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite**, **personal** (el Secretario del mapa de usuario) y **administrador** (ADR-016). Solo el titular inicia trámites.
 
 **Perfil**
-Nivel de permisos dentro del rol Secretario. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. En el mapa de usuario son un solo rol; en permisos se distinguen.
+Nivel de permisos del personal en un tipo de trámite. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. Una misma persona puede tener perfiles distintos en tipos de trámite distintos. En el mapa de usuario son un solo rol; en permisos se distinguen.
+
+**Permiso**
+Lo que le da a una persona del personal un perfil sobre un tipo de trámite. Referencia el tipo y no una versión, así que publicar una versión nueva no lo cambia. Lo asigna el administrador (ADR-016).
+
+**Administrador**
+Persona que da de alta al personal y le asigna permisos. No actúa sobre trámites por ser administrador.
 
 **Titular del trámite**
 Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.

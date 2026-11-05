@@ -65,7 +65,7 @@ Cada operación sobre un trámite es una acción que un actor ejecuta sobre un p
 | Confirmar hecho externo | Algo ocurrido fuera de SIGTA, con quién lo declaró y cuándo | Abre o cierra un paso externo, como una derivación |
 | Decidir | La salida elegida, con los datos y documentos que la fundamentan | Lleva al paso de esa salida: continuar, devolver, pedir información al titular o derivar |
 
-Los actores son el titular, el personal de la Secretaría (por área y perfil), las autoridades que firman y los evaluadores externos, como las comisiones curriculares, cuyos pasos registra el personal de la Secretaría. El estado de un trámite se calcula a partir de su paso abierto:
+Los actores son el titular, el personal de la Secretaría (con un perfil por tipo de trámite), las autoridades que firman y los evaluadores externos, como las comisiones curriculares, cuyos pasos registra el personal de la Secretaría. El estado de un trámite se calcula a partir de su paso abierto:
 
 ```mermaid
 stateDiagram-v2
@@ -190,7 +190,7 @@ flowchart LR
 - **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
 - **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/auth/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
 - **Quién puede ingresar.** Cualquier cuenta del dominio institucional. La primera vez que ingresa una cuenta que SIGTA no conoce, se registra como titular, con el nombre que informa el proveedor; los perfiles del personal se asignan en SIGTA. Hasta que los usuarios se guarden en PostgreSQL, las cuentas registradas así se pierden al reiniciar el servicio, y el personal se carga desde el archivo de `SIGTA_USERS_FILE` (ver "Configuración del servicio de trámites"); en desarrollo hay tres usuarios sintéticos, uno por rol.
-- **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
+- **El servicio de trámites valida el token** en cada pedido y autoriza según el rol y los permisos, que se administran en SIGTA (ADR-016). Hay tres roles excluyentes: titular, personal y administrador. El titular inicia trámites y ve solo los suyos; a quien no puede ver un trámite se le responde como si no existiera. El personal tiene un perfil (operativo o de aprobación) por tipo de trámite: ve los trámites de esos tipos y actúa en los pasos de la facultad que su perfil alcanza, y el de aprobación cubre también los operativos. El administrador asigna permisos y no actúa sobre trámites. La regla se aplica en el caso de uso (`services/backend/src/procedure/application/procedures.go`), y cada intento sin permiso queda registrado con quién, qué, sobre qué trámite y cuándo. Mientras se completa la transición, el ingreso sigue usando el rol único de cada usuario de `SIGTA_USERS_FILE`.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
 ### Diseño interno de cada servicio
@@ -380,6 +380,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Integridad del historial | Si alcanzan los permisos de la base o hace falta encadenar hashes para que una modificación quede en evidencia | Equipo |
 | Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
 | Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
+| Permisos por área | Si en un mismo trámite intervienen oficinas distintas con personas que no deben hacer los pasos de la otra; si es así, el permiso suma el área (D-09) | Secretaría |
 | Quién publica tipos de trámite | Quién puede proponer y quién aprobar una versión: el equipo, la Secretaría o ambos (D-08) | Equipo y Secretaría |
 | Respaldo | Cuántos datos se pueden perder y en cuánto tiempo se recupera el servicio, con simulacros de restauración | Subsecretaría de TICs |
 | Accesibilidad | Qué nivel de las pautas WCAG se cumple (Ley 26.653) y cómo se verifica en la integración continua | Equipo |

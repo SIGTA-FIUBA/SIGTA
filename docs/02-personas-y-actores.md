@@ -7,14 +7,15 @@ Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en
 
 ## 1. Roles de la plataforma
 
-La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story Mapping.
+La plataforma tiene **tres roles**, que se excluyen entre sí (ADR-016). Los dos primeros son los que ordenan el User Story Mapping.
 
 | Rol | Perfiles de permisos | Qué hace |
 |---|---|---|
 | **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
-| **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma |
+| **Secretario** (personal) | **Operativo** o **de aprobación**, por tipo de trámite | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma |
+| **Administrador** | Uno | Da de alta al personal y le asigna permisos; no actúa sobre trámites por ser administrador |
 
-**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles. Si en el relevamiento resulta que son siempre la misma persona, el modelo se simplifica a un perfil (supuesto S-07, decisión D-02).
+**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles. Cada persona del personal tiene un perfil en cada tipo de trámite en que trabaja, y ninguno en los demás: puede aprobar equivalencias y solo operar en reconocimiento de créditos.
 
 ## 2. Actores que no son roles de la plataforma
 
@@ -96,11 +97,12 @@ La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story 
 
 ## 4. Permisos
 
-| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Edita configuración |
-|---|---|---|---|---|---|
-| Titular | Solo los propios | No | No | No | No |
-| Secretario operativo | Todos los de su ámbito | Sí | Sí | No | A confirmar (D-08) |
-| Secretario de aprobación | Todos | Sí | Sí | Sí | A confirmar (D-08) |
-| Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
+| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Asigna permisos | Edita configuración |
+|---|---|---|---|---|---|---|
+| Titular | Solo los propios | Solo los suyos, del titular | No | No | No | No |
+| Secretario operativo en un tipo de trámite | Los de ese tipo | Sí, en ese tipo | Sí, en ese tipo | No | No | A confirmar (D-08) |
+| Secretario de aprobación en un tipo de trámite | Los de ese tipo | Sí, en ese tipo | Sí, en ese tipo | Sí, en ese tipo | No | A confirmar (D-08) |
+| Administrador | No | No | No | No | Sí | A confirmar (D-08) |
+| Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
-> La tabla es la hipótesis mínima. Se confirma con el mapa de roles de US64, en el sprint 1.
+> La tabla sigue el modelo de ADR-016. Falta confirmar con la Secretaría si el permiso tiene que limitarse también a un área (D-09) y si el personal ve todos los trámites de sus tipos o solo los que esperan un paso suyo.

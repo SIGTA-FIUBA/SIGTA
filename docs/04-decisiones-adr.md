@@ -314,10 +314,34 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-016: El personal tiene un perfil por tipo de trámite
+
+**Estado:** propuesta, a acordar con el equipo y la Secretaría
+
+**Contexto.** El modelo de US07 tenía tres perfiles fijos por persona: titular, Secretario operativo y Secretario de aprobación. Cada persona tenía uno solo, así que nadie podía ser operativo en un trámite y de aprobación en otro, y el supuesto S-07 (que los dos perfiles son personas distintas) condicionaba el modelo. En su respuesta al relevamiento, la Secretaría propuso un rol de administrador, usuarios internos para cada área que interviene, permisos otorgados por el administrador "por rol y eventualmente por tipo de trámite", y el registro de quién hizo cada acción en cada expediente.
+
+**Decisión.**
+- Hay tres tipos de usuario, que se excluyen entre sí: **titular**, **personal** y **administrador**. Solo el titular inicia trámites, y un titular no recibe permisos de personal.
+- Un **permiso** le da a una persona del personal un perfil (operativo o de aprobación) sobre un tipo de trámite. Una persona puede tener perfiles distintos en tipos distintos, y ninguno en otros.
+- El permiso referencia el tipo de trámite y no una versión: publicar una versión nueva no lo cambia.
+- El personal actúa sobre un paso de un área de la facultad (`office`) si tiene permiso sobre ese tipo de trámite y su perfil alcanza para el del paso. El de aprobación cubre también los pasos operativos. Los pasos del titular los hace solo el titular del trámite, y los de un evaluador externo no los hace nadie en SIGTA.
+- El personal ve los trámites de los tipos sobre los que tiene permiso; el titular, solo los propios. A quien no puede ver un trámite se le responde como si no existiera.
+- El administrador no actúa sobre trámites por ser administrador.
+- La autorización se aplica en el caso de uso del servidor, y cada negativa queda registrada con quién, qué, sobre qué trámite y cuándo.
+- El área no forma parte del permiso. Se suma si la Secretaría confirma que, en un mismo trámite, intervienen oficinas distintas con personas que no deben hacer los pasos de la otra (D-09).
+
+**Consecuencias.**
+- S-07 deja de condicionar el modelo: una misma persona puede tener los dos perfiles, en el mismo tipo de trámite o en tipos distintos.
+- Hace falta una historia para que el administrador dé de alta al personal y le asigne permisos. Mientras no exista, los permisos se cargan desde la configuración del despliegue.
+- Durante la transición conviven dos modelos: el ingreso (`auth`) sigue con el rol único de cada usuario (`applicant`, `staff_operative` o `staff_approver`), que usan `/me` y `SIGTA_USERS_FILE`, y la autorización (`procedure`) usa los tipos de usuario y los permisos. Unificarlos cambia el contrato y la configuración, y se hace en un cambio aparte.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |
 |---|---|---|---|
-| D-02 | Si los perfiles operativo y de aprobación son personas distintas | Diseñar permisos (US64, sprint 1) | Canal con Secretaría |
+| D-02 | Si los perfiles operativo y de aprobación son personas distintas. Ya no condiciona el modelo: con ADR-016, una persona puede tener los dos | — | Resuelta por ADR-016 |
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
 | D-08 | Quién puede proponer y quién aprobar una versión de un tipo de trámite: el equipo, la Secretaría o ambos | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
+| D-09 | Si en un mismo trámite intervienen oficinas distintas con personas que no deben hacer los pasos de la otra; si es así, el permiso suma el área (ADR-016) | La gestión de permisos por el administrador | Canal con la Secretaría |
