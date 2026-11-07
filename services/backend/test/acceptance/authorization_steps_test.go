@@ -16,13 +16,10 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-// authorizationWorld is the state of one scenario of US07. It calls the
-// service directly: the service is what the server enforces, whatever the
-// interface offers.
 type authorizationWorld struct {
 	types      *application.ProcedureTypeService
 	service    *application.ProcedureService
-	procedures *memory.Procedures
+	procedures *memory.ProcedureRepository
 	denied     *memory.DeniedAttempts
 	now        time.Time
 
@@ -31,12 +28,9 @@ type authorizationWorld struct {
 	profiles map[string][]domain.Profile
 	nextID   int
 
-	// current is the procedure the last Given created, and created every one
-	// of them.
 	current string
 	created []string
 
-	// The result of the last When.
 	user   string
 	err    error
 	errs   []error
@@ -46,7 +40,7 @@ type authorizationWorld struct {
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	w := &authorizationWorld{
-		procedures: memory.NewProcedures(),
+		procedures: memory.NewProcedureRepository(),
 		denied:     memory.NewDeniedAttempts(),
 		now:        time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:    map[string]int64{},
@@ -102,8 +96,6 @@ func (w *authorizationWorld) newID() string {
 	return "P-" + strconv.Itoa(w.nextID)
 }
 
-// definition puts an applicant step first, since a procedure starts there,
-// and then the staff steps of the table in order.
 func (w *authorizationWorld) definition(name, description string) domain.Definition {
 	staff := w.steps[name]
 	steps := []domain.Step{{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0]}}
@@ -155,8 +147,6 @@ func (w *authorizationWorld) latestVersion(name string) int {
 	return 0
 }
 
-// typeID gives a procedure type that was never published an identifier no
-// published one has.
 func (w *authorizationWorld) typeID(name string) int64 {
 	if id, ok := w.typeIDs[name]; ok {
 		return id
@@ -196,8 +186,6 @@ func (w *authorizationWorld) givenPermissions(table *godog.Table) error {
 	return nil
 }
 
-// givenProcedureOn stores the procedure already on that step, since advancing
-// to it is up to the step engine.
 func (w *authorizationWorld) givenProcedureOn(name, step string) error {
 	p := domain.Procedure{
 		ID:            w.newID(),
@@ -346,8 +334,6 @@ func (w *authorizationWorld) thenNotOffered(step string) error {
 	return nil
 }
 
-// thenNotRevealed opens a procedure that does not exist and compares both
-// answers, leaving out the identifier asked for.
 func (w *authorizationWorld) thenNotRevealed() error {
 	_, missing := w.service.Open(context.Background(), w.user, "P-missing")
 	if !errors.Is(missing, domain.ErrProcedureNotFound) {

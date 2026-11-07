@@ -22,14 +22,14 @@ const (
 
 type ProcedureService struct {
 	types      input.ProcedureTypes
-	procedures output.Procedures
+	procedures output.ProcedureRepository
 	access     output.Access
 	denied     output.DeniedAttempts
 	newID      func() string
 	now        func() time.Time
 }
 
-func NewProcedureService(types input.ProcedureTypes, procedures output.Procedures, access output.Access, denied output.DeniedAttempts, newID func() string, now func() time.Time) *ProcedureService {
+func NewProcedureService(types input.ProcedureTypes, procedures output.ProcedureRepository, access output.Access, denied output.DeniedAttempts, newID func() string, now func() time.Time) *ProcedureService {
 	return &ProcedureService{types: types, procedures: procedures, access: access, denied: denied, newID: newID, now: now}
 }
 
@@ -123,8 +123,6 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 	return slices.DeleteFunc(all, func(p domain.Procedure) bool { return !actor.CanSee(p) }), nil
 }
 
-// Act only checks who can act for now: what acting records and where the
-// procedure goes next comes with the step engine.
 func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID string) error {
 	actor, p, err := s.visible(ctx, userID, procedureID, actionAct)
 	if err != nil {
@@ -143,7 +141,6 @@ func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID 
 func (s *ProcedureService) actor(ctx context.Context, userID string) (domain.Actor, error) {
 	actor, err := s.access.Actor(ctx, userID)
 	if errors.Is(err, output.ErrUnknownUser) {
-		// Someone SIGTA does not know has no permission at all.
 		return domain.Actor{UserID: userID}, nil
 	}
 	if err != nil {
@@ -152,8 +149,6 @@ func (s *ProcedureService) actor(ctx context.Context, userID string) (domain.Act
 	return actor, nil
 }
 
-// visible returns the procedure if the actor can see it, and records the
-// attempt otherwise.
 func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, action string) (domain.Actor, domain.Procedure, error) {
 	actor, err := s.actor(ctx, userID)
 	if err != nil {
@@ -196,8 +191,6 @@ func (s *ProcedureService) canAct(ctx context.Context, actor domain.Actor, p dom
 	return actor.CanActOn(p, step, content.Areas[j]), nil
 }
 
-// deny records the attempt and returns domain.ErrAccessDenied, or the error
-// that kept it from being recorded: a refusal is never left unrecorded.
 func (s *ProcedureService) deny(ctx context.Context, actor domain.Actor, action, procedureID string) error {
 	attempt := domain.DeniedAttempt{UserID: actor.UserID, Action: action, Procedure: procedureID, At: s.now().UTC()}
 	if err := s.denied.Record(ctx, attempt); err != nil {
