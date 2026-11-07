@@ -286,7 +286,7 @@ func (w *authorizationWorld) thenNoError() error {
 func (w *authorizationWorld) thenFails(want error) func() error {
 	return func() error {
 		if !errors.Is(w.err, want) {
-			return fmt.Errorf("got %v, want %v", w.err, want)
+			return fmt.Errorf("got %w, want %w", w.err, want)
 		}
 		return nil
 	}
@@ -294,7 +294,7 @@ func (w *authorizationWorld) thenFails(want error) func() error {
 
 func (w *authorizationWorld) thenNotStarted() error {
 	if !errors.Is(w.err, domain.ErrAccessDenied) {
-		return fmt.Errorf("got %v, want %v", w.err, domain.ErrAccessDenied)
+		return fmt.Errorf("got %w, want %w", w.err, domain.ErrAccessDenied)
 	}
 	all, err := w.procedures.List(context.Background())
 	if err != nil {
@@ -313,7 +313,7 @@ func (w *authorizationWorld) thenAction(result string) error {
 		return w.err
 	}
 	if !errors.Is(w.err, domain.ErrAccessDenied) && !errors.Is(w.err, domain.ErrProcedureNotFound) {
-		return fmt.Errorf("got %v, want a denial", w.err)
+		return fmt.Errorf("got %w, want a denial", w.err)
 	}
 	return nil
 }
@@ -337,7 +337,7 @@ func (w *authorizationWorld) thenNotOffered(step string) error {
 func (w *authorizationWorld) thenNotRevealed() error {
 	_, missing := w.service.Open(context.Background(), w.user, "P-missing")
 	if !errors.Is(missing, domain.ErrProcedureNotFound) {
-		return fmt.Errorf("a missing procedure got %v", missing)
+		return fmt.Errorf("a missing procedure got %w", missing)
 	}
 	existing := strings.ReplaceAll(w.err.Error(), w.current, "ID")
 	absent := strings.ReplaceAll(missing.Error(), "P-missing", "ID")
