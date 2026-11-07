@@ -1,12 +1,17 @@
-package domain
+package catalog
+
+import (
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
+)
 
 type FieldRequirement struct {
-	Field    Field
+	Field    definition.Field
 	Required bool
 }
 
 type DocumentRequirement struct {
-	Document Document
+	Document definition.Document
 	Required bool
 }
 
@@ -14,10 +19,10 @@ type DocumentRequirement struct {
 // the definition declares it. What staff steps record is left out. Something
 // mandatory in any applicant step is mandatory, even if another makes it
 // optional.
-func (c Content) ApplicantRequirements() ([]FieldRequirement, []DocumentRequirement) {
+func ApplicantRequirements(c version.Content) ([]FieldRequirement, []DocumentRequirement) {
 	applicantAreas := map[string]bool{}
 	for _, area := range c.Areas {
-		applicantAreas[area.ID] = area.Kind == AreaApplicant
+		applicantAreas[area.ID] = area.Kind == definition.AreaApplicant
 	}
 	// Fields and documents keep separate ids, so they are tracked apart.
 	fields, documents := requirementSet{}, requirementSet{}

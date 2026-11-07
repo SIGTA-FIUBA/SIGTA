@@ -1,4 +1,4 @@
-package domain
+package definition
 
 import "slices"
 
@@ -45,7 +45,7 @@ type stepValidator struct {
 	steps     map[string]Step
 }
 
-func (v stepValidator) validate(s Step) []Problem {
+func (v stepValidator) validate(s Step) []ValidationProblem {
 	problems := v.owner(s)
 	problems = append(problems, v.contents(s)...)
 	if s.Action == ActionDecide {
@@ -54,22 +54,22 @@ func (v stepValidator) validate(s Step) []Problem {
 	return append(problems, v.next(s)...)
 }
 
-func (v stepValidator) owner(s Step) []Problem {
+func (v stepValidator) owner(s Step) []ValidationProblem {
 	area, ok := v.areas[s.Area]
 	switch {
 	case !ok:
-		return []Problem{{Code: CodeUnknownArea, Value: s.Area}}
+		return []ValidationProblem{{Code: CodeUnknownArea, Value: s.Area}}
 	case area.Kind == AreaApplicant && s.Profile != "":
-		return []Problem{{Code: CodeApplicantWithProfile}}
+		return []ValidationProblem{{Code: CodeApplicantWithProfile}}
 	case area.Kind == AreaApplicant && s.Action != ActionEnterData && s.Action != ActionUploadDocument:
-		return []Problem{{Code: CodeApplicantAction}}
+		return []ValidationProblem{{Code: CodeApplicantAction}}
 	case area.Kind != AreaApplicant && s.Profile != ProfileStaffOperative && s.Profile != ProfileStaffApprover:
-		return []Problem{{Code: CodeInvalidProfile, Value: string(s.Profile)}}
+		return []ValidationProblem{{Code: CodeInvalidProfile, Value: string(s.Profile)}}
 	}
 	return nil
 }
 
-func (v stepValidator) contents(s Step) []Problem {
+func (v stepValidator) contents(s Step) []ValidationProblem {
 	problems := validateReferences(CodeUnknownField, CodeRepeatedField, slices.Concat(s.Fields, s.OptionalFields), v.fields)
 	problems = append(problems, validateReferences(CodeUnknownDocument, CodeRepeatedDocument, slices.Concat(s.Documents, s.OptionalDocuments), v.documents)...)
 	hasFields := len(s.Fields)+len(s.OptionalFields) > 0
@@ -78,75 +78,75 @@ func (v stepValidator) contents(s Step) []Problem {
 	switch s.Action {
 	case ActionEnterData:
 		if !hasFields {
-			problems = append(problems, Problem{Code: CodeEnterDataNoFields})
+			problems = append(problems, ValidationProblem{Code: CodeEnterDataNoFields})
 		}
 		if hasDocuments {
-			problems = append(problems, Problem{Code: CodeEnterDataWithDocuments})
+			problems = append(problems, ValidationProblem{Code: CodeEnterDataWithDocuments})
 		}
 	case ActionUploadDocument:
 		if !hasDocuments {
-			problems = append(problems, Problem{Code: CodeUploadNoDocuments})
+			problems = append(problems, ValidationProblem{Code: CodeUploadNoDocuments})
 		}
 		if hasFields {
-			problems = append(problems, Problem{Code: CodeUploadWithFields})
+			problems = append(problems, ValidationProblem{Code: CodeUploadWithFields})
 		}
 	case ActionConfirmExternalFact:
 		if hasDocuments {
-			problems = append(problems, Problem{Code: CodeConfirmWithDocuments})
+			problems = append(problems, ValidationProblem{Code: CodeConfirmWithDocuments})
 		}
 	case ActionDecide:
 		// The fields and documents of a decision are its grounds, recorded
 		// together with the outcome.
 	default:
-		problems = append(problems, Problem{Code: CodeUnknownAction, Value: string(s.Action)})
+		problems = append(problems, ValidationProblem{Code: CodeUnknownAction, Value: string(s.Action)})
 	}
 	return problems
 }
 
-func (v stepValidator) outcomes(s Step) []Problem {
-	var problems []Problem
+func (v stepValidator) outcomes(s Step) []ValidationProblem {
+	var problems []ValidationProblem
 	if s.Next != "" {
-		problems = append(problems, Problem{Code: CodeDecideWithNext})
+		problems = append(problems, ValidationProblem{Code: CodeDecideWithNext})
 	}
 	if len(s.Outcomes) < 2 {
-		problems = append(problems, Problem{Code: CodeDecideFewOutcomes})
+		problems = append(problems, ValidationProblem{Code: CodeDecideFewOutcomes})
 	}
 	seenIDs := map[string]bool{}
 	seenNames := map[string]bool{}
 	for _, o := range s.Outcomes {
 		problems = append(problems, validateEntry(KindOutcome, o.ID, o.Name, seenIDs)...)
 		problems = append(problems, repeatedName(KindOutcome, o.Name, seenNames)...)
-		outcome := Ref{Kind: KindOutcome, ID: o.ID}
+		outcome := Element{Kind: KindOutcome, ID: o.ID}
 		if _, ok := v.steps[o.Next]; !ok {
-			problems = append(problems, within(outcome, []Problem{{Code: CodeUnknownNextStep, Value: o.Next}})...)
+			problems = append(problems, within(outcome, []ValidationProblem{{Code: CodeUnknownNextStep, Value: o.Next}})...)
 		}
 		if o.Next != "" && o.Next == s.ID {
-			problems = append(problems, Problem{Code: CodeOutcomeLoops, Path: []Ref{outcome}})
+			problems = append(problems, ValidationProblem{Code: CodeOutcomeLoops, Path: []Element{outcome}})
 		}
 	}
 	return problems
 }
 
-func (v stepValidator) next(s Step) []Problem {
-	var problems []Problem
+func (v stepValidator) next(s Step) []ValidationProblem {
+	var problems []ValidationProblem
 	if len(s.Outcomes) > 0 {
-		problems = append(problems, Problem{Code: CodeOutcomesOutsideDecide})
+		problems = append(problems, ValidationProblem{Code: CodeOutcomesOutsideDecide})
 	}
 	if _, ok := v.steps[s.Next]; s.Next != "" && !ok {
-		problems = append(problems, Problem{Code: CodeUnknownNextStep, Value: s.Next})
+		problems = append(problems, ValidationProblem{Code: CodeUnknownNextStep, Value: s.Next})
 	}
 	return problems
 }
 
-func validateReferences(unknown, repeated Code, ids []string, declared map[string]bool) []Problem {
-	var problems []Problem
+func validateReferences(unknown, repeated ProblemCode, ids []string, declared map[string]bool) []ValidationProblem {
+	var problems []ValidationProblem
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if !declared[id] {
-			problems = append(problems, Problem{Code: unknown, Value: id})
+			problems = append(problems, ValidationProblem{Code: unknown, Value: id})
 		}
 		if seen[id] {
-			problems = append(problems, Problem{Code: repeated, Value: id})
+			problems = append(problems, ValidationProblem{Code: repeated, Value: id})
 		}
 		seen[id] = true
 	}

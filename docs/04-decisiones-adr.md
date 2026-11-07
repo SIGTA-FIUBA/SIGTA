@@ -314,6 +314,28 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-016: El dominio de los tipos de trámite se divide en definición, versión y catálogo
+
+**Estado:** aceptada
+
+**Contexto.** ADR-014 dejó un solo paquete `domain/` por módulo. En `procedure/` ese paquete juntaba cuatro responsabilidades: el modelo de la definición y su validación, el reporte de los problemas encontrados, el versionado (contenido, hash y autoría) y los requisitos que muestra el catálogo. Los tests no seguían esa división (`validate_test.go` probaba varios archivos a la vez), y varios nombres decían qué tipo de dato eran y no para qué servían (`Definition`, `Version`, `Problem`, `Ref`, `Code`, `Kind`, `Encoded`).
+
+**Decisión.**
+- `procedure/domain/` se divide en tres paquetes:
+  - `definition/`: la definición de un tipo de trámite (`ProcedureTypeDefinition`), sus áreas, datos, documentos, pasos y salidas, y su validación (`ValidationProblem`, `ValidationError`).
+  - `version/`: el contenido que se publica (`Content`), su hash, la autoría y la versión publicada (`ProcedureTypeVersion`). Importa `definition/`.
+  - `catalog/`: los requisitos que el catálogo muestra al titular. Importa `definition/` y `version/`.
+- Los nombres pasan a decir qué representan dentro del dominio: `ProcedureTypeDefinition`, `ProcedureTypeVersion` (con `ProcedureTypeID`, `EncodedContent`, `VerifyDigest` y `DecodeContent`), `ValidationProblem`, `ValidationError`, `ProblemCode`, `ElementKind` y `Element`.
+- Los tests de cada paquete van en el paquete externo (`definition_test`, `version_test`, `catalog_test`) y prueban la API pública. Lo no exportado que hace falta probar se expone en `export_test.go`, que solo se compila con los tests. La definición y las áreas de prueba que comparten están en `definition/definitiontest`.
+
+**Consecuencias.**
+- Los tags JSON no cambian, así que la codificación del contenido y el hash de las versiones ya publicadas siguen iguales. Lo comprueban los tests de `version/testdata/formatN.json`.
+- La aplicación, los puertos y los adaptadores importan los subpaquetes que usan. `ApplicantRequirements` pasa de método de `Content` a función de `catalog/`.
+- Un paquete del dominio no puede usar lo no exportado de otro: lo que se comparta entre ellos tiene que exportarse o quedarse en `definition/`.
+- El módulo `auth/` mantiene un solo `domain/`. Si crece de la misma forma, se divide con el mismo criterio.
+
+---
+
 ## ADR-017: Los permisos del personal se asignan con roles configurables, administrados en SIGTA
 
 **Estado:** propuesta, a acordar con el equipo

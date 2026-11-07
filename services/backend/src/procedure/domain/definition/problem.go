@@ -1,104 +1,104 @@
-package domain
+package definition
 
 import (
 	"fmt"
 	"strings"
 )
 
-// Code names a kind of problem. Codes are stable: an editor shows its own text
-// for each one, in any language, and places the problem by its Path.
-type Code string
+// ProblemCode names a kind of problem. Codes are stable: an editor shows its
+// own text for each one, in any language, and places the problem by its Path.
+type ProblemCode string
 
 const (
-	CodeNoID                   Code = "no_id"
-	CodeInvalidID              Code = "invalid_id"
-	CodeNoName                 Code = "no_name"
-	CodeNameWithSpaces         Code = "name_with_spaces"
-	CodeDeclaredTwice          Code = "declared_twice"
-	CodeRepeatedName           Code = "repeated_name"
-	CodeNameInUse              Code = "name_in_use"
-	CodeNoSteps                Code = "no_steps"
-	CodeUnusedField            Code = "unused_field"
-	CodeUnusedDocument         Code = "unused_document"
-	CodeUnreachableStep        Code = "unreachable_step"
-	CodeStepNeverCloses        Code = "step_never_closes"
-	CodeUnknownArea            Code = "unknown_area"
-	CodeUnknownAreaKind        Code = "unknown_area_kind"
-	CodeApplicantAreas         Code = "applicant_areas"
-	CodeApplicantWithProfile   Code = "applicant_with_profile"
-	CodeApplicantAction        Code = "applicant_action"
-	CodeInvalidProfile         Code = "invalid_profile"
-	CodeUnknownAction          Code = "unknown_action"
-	CodeUnknownField           Code = "unknown_field"
-	CodeUnknownDocument        Code = "unknown_document"
-	CodeRepeatedField          Code = "repeated_field"
-	CodeRepeatedDocument       Code = "repeated_document"
-	CodeEnterDataNoFields      Code = "enter_data_no_fields"
-	CodeEnterDataWithDocuments Code = "enter_data_with_documents"
-	CodeUploadNoDocuments      Code = "upload_no_documents"
-	CodeUploadWithFields       Code = "upload_with_fields"
-	CodeConfirmWithDocuments   Code = "confirm_with_documents"
-	CodeDecideWithNext         Code = "decide_with_next"
-	CodeDecideFewOutcomes      Code = "decide_few_outcomes"
-	CodeOutcomesOutsideDecide  Code = "outcomes_outside_decide"
-	CodeUnknownNextStep        Code = "unknown_next_step"
-	CodeOutcomeLoops           Code = "outcome_loops"
-	CodeUnknownFieldType       Code = "unknown_field_type"
-	CodeOptionsOutsideOption   Code = "options_outside_option"
-	CodeOptionFieldNoOptions   Code = "option_field_no_options"
-	CodeNoDescription          Code = "no_description"
-	CodeBlankText              Code = "blank_text"
-	CodeNoAcceptedTypes        Code = "no_accepted_types"
-	CodeInvalidAcceptedType    Code = "invalid_accepted_type"
-	CodeRepeatedAcceptedType   Code = "repeated_accepted_type"
-	CodeNoMaxSize              Code = "no_max_size"
+	CodeNoID                   ProblemCode = "no_id"
+	CodeInvalidID              ProblemCode = "invalid_id"
+	CodeNoName                 ProblemCode = "no_name"
+	CodeNameWithSpaces         ProblemCode = "name_with_spaces"
+	CodeDeclaredTwice          ProblemCode = "declared_twice"
+	CodeRepeatedName           ProblemCode = "repeated_name"
+	CodeNameInUse              ProblemCode = "name_in_use"
+	CodeNoSteps                ProblemCode = "no_steps"
+	CodeUnusedField            ProblemCode = "unused_field"
+	CodeUnusedDocument         ProblemCode = "unused_document"
+	CodeUnreachableStep        ProblemCode = "unreachable_step"
+	CodeStepNeverCloses        ProblemCode = "step_never_closes"
+	CodeUnknownArea            ProblemCode = "unknown_area"
+	CodeUnknownAreaKind        ProblemCode = "unknown_area_kind"
+	CodeApplicantAreas         ProblemCode = "applicant_areas"
+	CodeApplicantWithProfile   ProblemCode = "applicant_with_profile"
+	CodeApplicantAction        ProblemCode = "applicant_action"
+	CodeInvalidProfile         ProblemCode = "invalid_profile"
+	CodeUnknownAction          ProblemCode = "unknown_action"
+	CodeUnknownField           ProblemCode = "unknown_field"
+	CodeUnknownDocument        ProblemCode = "unknown_document"
+	CodeRepeatedField          ProblemCode = "repeated_field"
+	CodeRepeatedDocument       ProblemCode = "repeated_document"
+	CodeEnterDataNoFields      ProblemCode = "enter_data_no_fields"
+	CodeEnterDataWithDocuments ProblemCode = "enter_data_with_documents"
+	CodeUploadNoDocuments      ProblemCode = "upload_no_documents"
+	CodeUploadWithFields       ProblemCode = "upload_with_fields"
+	CodeConfirmWithDocuments   ProblemCode = "confirm_with_documents"
+	CodeDecideWithNext         ProblemCode = "decide_with_next"
+	CodeDecideFewOutcomes      ProblemCode = "decide_few_outcomes"
+	CodeOutcomesOutsideDecide  ProblemCode = "outcomes_outside_decide"
+	CodeUnknownNextStep        ProblemCode = "unknown_next_step"
+	CodeOutcomeLoops           ProblemCode = "outcome_loops"
+	CodeUnknownFieldType       ProblemCode = "unknown_field_type"
+	CodeOptionsOutsideOption   ProblemCode = "options_outside_option"
+	CodeOptionFieldNoOptions   ProblemCode = "option_field_no_options"
+	CodeNoDescription          ProblemCode = "no_description"
+	CodeBlankText              ProblemCode = "blank_text"
+	CodeNoAcceptedTypes        ProblemCode = "no_accepted_types"
+	CodeInvalidAcceptedType    ProblemCode = "invalid_accepted_type"
+	CodeRepeatedAcceptedType   ProblemCode = "repeated_accepted_type"
+	CodeNoMaxSize              ProblemCode = "no_max_size"
 )
 
-type Kind string
+type ElementKind string
 
 const (
-	KindDefinition    Kind = "definition"
-	KindArea          Kind = "area"
-	KindField         Kind = "field"
-	KindOption        Kind = "option"
-	KindDocument      Kind = "document"
-	KindStep          Kind = "step"
-	KindOutcome       Kind = "outcome"
-	KindDeadline      Kind = "deadline"
-	KindAdmissibility Kind = "admissibility"
+	KindDefinition    ElementKind = "definition"
+	KindArea          ElementKind = "area"
+	KindField         ElementKind = "field"
+	KindOption        ElementKind = "option"
+	KindDocument      ElementKind = "document"
+	KindStep          ElementKind = "step"
+	KindOutcome       ElementKind = "outcome"
+	KindDeadline      ElementKind = "deadline"
+	KindAdmissibility ElementKind = "admissibility"
 )
 
-// Ref points at one element of a definition. An element that has no id, or
+// Element points at one element of a definition. An element that has no id, or
 // whose id is not valid, has an empty ID. Deadlines and admissibility
 // conditions have no id, so Position says which one it is, counting from 1.
-type Ref struct {
-	Kind     Kind
+type Element struct {
+	Kind     ElementKind
 	ID       string
 	Position int
 }
 
-func (r Ref) String() string {
+func (e Element) String() string {
 	switch {
-	case r.ID != "":
-		return fmt.Sprintf("%s %q", r.Kind, r.ID)
-	case r.Position > 0:
-		return fmt.Sprintf("%s %d", r.Kind, r.Position)
+	case e.ID != "":
+		return fmt.Sprintf("%s %q", e.Kind, e.ID)
+	case e.Position > 0:
+		return fmt.Sprintf("%s %d", e.Kind, e.Position)
 	default:
-		return string(r.Kind)
+		return string(e.Kind)
 	}
 }
 
-// Problem is one thing wrong in a definition: what (Code), where (Path, from
-// the outermost element to the innermost) and the values involved.
-type Problem struct {
-	Code  Code
-	Path  []Ref
+// ValidationProblem is one thing wrong in a definition: what (Code), where
+// (Path, from the outermost element to the innermost) and the values involved.
+type ValidationProblem struct {
+	Code  ProblemCode
+	Path  []Element
 	Value string
 	Other string
 }
 
 // String is the English text of the problem, for logs and tests.
-func (p Problem) String() string {
+func (p ValidationProblem) String() string {
 	text, aboutLast := p.text()
 	path := p.Path
 	if aboutLast && len(path) > 0 {
@@ -113,8 +113,8 @@ func (p Problem) String() string {
 
 // text says what is wrong. When aboutLast is true the text already names the
 // last element of the path, so String leaves it out of the prefix.
-func (p Problem) text() (text string, aboutLast bool) {
-	var last Ref
+func (p ValidationProblem) text() (text string, aboutLast bool) {
+	var last Element
 	if len(p.Path) > 0 {
 		last = p.Path[len(p.Path)-1]
 	}
@@ -205,9 +205,9 @@ func (p Problem) text() (text string, aboutLast bool) {
 	return "unknown problem " + string(p.Code), false
 }
 
-func within(parent Ref, problems []Problem) []Problem {
+func within(parent Element, problems []ValidationProblem) []ValidationProblem {
 	for i := range problems {
-		problems[i].Path = append([]Ref{parent}, problems[i].Path...)
+		problems[i].Path = append([]Element{parent}, problems[i].Path...)
 	}
 	return problems
 }
