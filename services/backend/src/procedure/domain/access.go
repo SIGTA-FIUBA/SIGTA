@@ -32,8 +32,7 @@ func (k UserKind) Known() bool {
 	return false
 }
 
-// Covers tells whether someone with this profile can act on a step that asks
-// for the other one: the approval profile also does what the operative does.
+// Covers: the approval profile also does what the operative does.
 func (p Profile) Covers(step Profile) bool {
 	switch p {
 	case ProfileStaffApprover:
@@ -53,7 +52,6 @@ type Permission struct {
 	Profile       Profile
 }
 
-// Actor is whoever makes a request, with the permissions they have.
 type Actor struct {
 	UserID      string
 	Kind        UserKind

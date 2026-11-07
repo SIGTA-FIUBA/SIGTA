@@ -152,8 +152,8 @@ func (s *ProcedureService) actor(ctx context.Context, userID string) (domain.Act
 	return actor, nil
 }
 
-// visible returns the procedure if the actor can see it. Otherwise it answers
-// as if it did not exist, and records the attempt.
+// visible returns the procedure if the actor can see it, and records the
+// attempt otherwise.
 func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, action string) (domain.Actor, domain.Procedure, error) {
 	actor, err := s.actor(ctx, userID)
 	if err != nil {
@@ -172,7 +172,6 @@ func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, act
 	return actor, p, nil
 }
 
-// canAct is false for any step but the open one.
 func (s *ProcedureService) canAct(ctx context.Context, actor domain.Actor, p domain.Procedure, stepID string) (bool, error) {
 	if stepID != p.OpenStep {
 		return false, nil

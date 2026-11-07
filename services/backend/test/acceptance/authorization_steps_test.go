@@ -324,8 +324,6 @@ func (w *authorizationWorld) thenAction(result string) error {
 	if result == "allowed" {
 		return w.err
 	}
-	// Someone who cannot see the procedure is told it does not exist, which
-	// is a denial too.
 	if !errors.Is(w.err, domain.ErrAccessDenied) && !errors.Is(w.err, domain.ErrProcedureNotFound) {
 		return fmt.Errorf("got %v, want a denial", w.err)
 	}

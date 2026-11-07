@@ -9,7 +9,6 @@ import (
 
 var ErrUnknownUser = errors.New("user not registered for access")
 
-// Procedures stores procedures.
 type Procedures interface {
 	Add(ctx context.Context, p domain.Procedure) error
 	// Get fails with domain.ErrProcedureNotFound if there is no such
