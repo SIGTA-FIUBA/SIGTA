@@ -17,7 +17,7 @@
 | R-06 | Alucinaciones con consecuencia administrativa | Media | Alta | 6 |
 | R-15 | Pérdida de contexto en el receso | Alta | Media | 6 |
 | R-16 | La primera validación muestra una herramienta pensada para el titular | Alta | Media | 6 |
-| R-17 | La base de SSTIC no soporta pgvector | Media | Alta | 6 |
+| R-17 | La base de la Subsecretaría de TICs no soporta pgvector | Media | Alta | 6 |
 | R-04 | Las plantillas de documentos no se entregan | Media | Media | 4 |
 | R-05 | Disponibilidad del equipo por debajo de lo comprometido | Media | Media | 4 |
 | R-07 | Inyección de prompts a través de documentos | Media | Media | 4 |
@@ -162,13 +162,13 @@ El compromiso es de 384 horas por integrante. Con once semanas de carga baja o n
 - **Mitigación:** confirmar con la cátedra que junio y julio cuentan como trabajo del proyecto. Registrar horas por integrante desde el sprint 1.
 - **Contingencia:** extender el trabajo de cierre y preparación de la defensa a junio y julio con horas registradas.
 
-### R-17 — La base de datos de SSTIC no soporta pgvector
+### R-17 — La base de datos de la Subsecretaría de TICs no soporta pgvector
 **Categoría:** Técnico · **P:** Media · **S:** Alta · **Exposición:** 6 · **Estado:** Abierto
 
-SSTIC garantiza PostgreSQL 11.9 o superior en la infraestructura de FIUBA ([requisitos](12-requisitos-infraestructura-fiuba.md)). SIGTA se desarrolla sobre PostgreSQL 18 y guarda los vectores de la base de conocimiento del asistente con pgvector. Las versiones recientes de pgvector ya no soportan PostgreSQL 11, y no se sabe si el servidor de SSTIC tiene la extensión. Si no la tiene, cambia la arquitectura del asistente.
+La Subsecretaría de TICs garantiza PostgreSQL 11.9 o superior en la infraestructura de FIUBA ([requisitos](12-requisitos-infraestructura-fiuba.md)). SIGTA se desarrolla sobre PostgreSQL 18 y guarda los vectores de la base de conocimiento del asistente con pgvector. Las versiones recientes de pgvector ya no soportan PostgreSQL 11, y no se sabe si el servidor de la Subsecretaría de TICs tiene la extensión. Si no la tiene, cambia la arquitectura del asistente.
 
-- **Disparador:** SSTIC confirma que el servidor no tiene pgvector o que su versión de PostgreSQL no lo soporta.
-- **Mitigación:** preguntarle a SSTIC la versión de PostgreSQL y si instala pgvector, antes de construir el asistente sobre la base.
+- **Disparador:** la Subsecretaría de TICs confirma que el servidor no tiene pgvector o que su versión de PostgreSQL no lo soporta.
+- **Mitigación:** preguntarle a la Subsecretaría de TICs la versión de PostgreSQL y si instala pgvector, antes de construir el asistente sobre la base.
 - **Contingencia:** desplegar una base propia de SIGTA dentro del stack o guardar los vectores fuera de PostgreSQL, detrás del mismo puerto.
 
 ---
