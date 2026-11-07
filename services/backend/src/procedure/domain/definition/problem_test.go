@@ -15,6 +15,13 @@ import (
 	"backend/src/procedure/domain/definition/definitiontest"
 )
 
+func problemsOf(err error) []definition.ValidationProblem {
+	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
+		return invalid.Problems
+	}
+	return nil
+}
+
 func TestProblemsOf(t *testing.T) {
 	d := definitiontest.Definition()
 	d.Steps[2].Outcomes[0].Next = "missing"
@@ -24,13 +31,13 @@ func TestProblemsOf(t *testing.T) {
 		{Code: definition.CodeUnknownField, Path: []definition.Element{{Kind: "step", ID: "request"}}, Value: "email"},
 		{Code: definition.CodeUnknownNextStep, Path: []definition.Element{{Kind: "step", ID: "review"}, {Kind: "outcome", ID: "complete"}}, Value: "missing"},
 	}
-	got := definition.ValidationProblemsOf(d.Validate(definitiontest.Areas()))
+	got := problemsOf(d.Validate(definitiontest.Areas()))
 	if len(got) != len(want) {
-		t.Fatalf("ValidationProblemsOf() = %v, want %v", got, want)
+		t.Fatalf("problems = %v, want %v", got, want)
 	}
 	for _, w := range want {
 		if !slices.ContainsFunc(got, func(g definition.ValidationProblem) bool { return reflect.DeepEqual(g, w) }) {
-			t.Errorf("ValidationProblemsOf() = %v, missing %v", got, w)
+			t.Errorf("problems = %v, missing %v", got, w)
 		}
 	}
 }
@@ -39,15 +46,15 @@ func TestProblemsOfAreas(t *testing.T) {
 	areas := definitiontest.Areas()
 	areas[2].Name = areas[1].Name
 	want := definition.ValidationProblem{Code: definition.CodeNameInUse, Path: []definition.Element{{Kind: "area", ID: "commission"}}, Value: "Dirección de Alumnos", Other: "office"}
-	got := definition.ValidationProblemsOf(definitiontest.Definition().Validate(areas))
+	got := problemsOf(definitiontest.Definition().Validate(areas))
 	if len(got) != 1 || !reflect.DeepEqual(got[0], want) {
-		t.Errorf("ValidationProblemsOf() = %v, want %v", got, want)
+		t.Errorf("problems = %v, want %v", got, want)
 	}
 }
 
 func TestProblemsOfValidDefinition(t *testing.T) {
-	if got := definition.ValidationProblemsOf(definitiontest.Definition().Validate(definitiontest.Areas())); len(got) != 0 {
-		t.Errorf("ValidationProblemsOf() = %v, want none", got)
+	if got := problemsOf(definitiontest.Definition().Validate(definitiontest.Areas())); len(got) != 0 {
+		t.Errorf("problems = %v, want none", got)
 	}
 }
 
@@ -97,8 +104,5 @@ func TestErrorsMatchTheirKind(t *testing.T) {
 	err := definitiontest.Definition().Validate(append(definitiontest.Areas(), definition.Area{ID: "office", Name: "Otra", Kind: definition.AreaOffice}))
 	if !errors.Is(err, definition.ErrInvalidAreas) || errors.Is(err, definition.ErrInvalidDefinition) {
 		t.Errorf("Validate() = %v, want only ErrInvalidAreas", err)
-	}
-	if got := definition.ValidationProblemsOf(errors.New("other")); got != nil {
-		t.Errorf("ValidationProblemsOf() = %v, want none for an error without problems", got)
 	}
 }

@@ -56,9 +56,9 @@ type ProcedureTypes interface {
 	//
 	// It fails with version.ErrInvalidAuthorship, with a
 	// *definition.ValidationError (definition.ErrInvalidAreas or
-	// definition.ErrInvalidDefinition) whose problems ValidationProblemsOf
-	// reads, with an *OutdatedBaseError if the base is not the latest version,
-	// and with version.ErrAlteredContent, output.ErrWrongVersion or
+	// definition.ErrInvalidDefinition) that carries the problems found, with
+	// an *OutdatedBaseError if the base is not the latest version, and with
+	// version.ErrAlteredContent, output.ErrWrongVersion or
 	// version.ErrUnknownFormat if the latest version cannot be trusted or read.
 	Publish(ctx context.Context, p Publication) (version.ProcedureTypeVersion, error)
 	// Version returns a published version after checking its digest, for the

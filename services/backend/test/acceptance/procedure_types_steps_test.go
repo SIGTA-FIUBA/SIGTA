@@ -374,7 +374,7 @@ func (w *procedureTypeWorld) thenAskedToStartAgain(number int) error {
 }
 
 func (w *procedureTypeWorld) thenProblemReported() error {
-	for _, p := range definition.ValidationProblemsOf(w.err) {
+	for _, p := range validationProblems(w.err) {
 		if p.Code == w.problem {
 			return nil
 		}
@@ -430,4 +430,11 @@ func (w *procedureTypeWorld) thenNothingOnTop() error {
 		return fmt.Errorf("got %w, want ErrAlteredContent", w.err)
 	}
 	return w.thenNoVersion()
+}
+
+func validationProblems(err error) []definition.ValidationProblem {
+	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
+		return invalid.Problems
+	}
+	return nil
 }

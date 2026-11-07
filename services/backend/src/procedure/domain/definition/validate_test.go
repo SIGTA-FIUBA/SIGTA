@@ -279,7 +279,7 @@ func TestCatalogTextProblemsSayWhichElement(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := definitiontest.Definition()
 			testCase.change(&d)
-			problems := definition.ValidationProblemsOf(d.Validate(definitiontest.Areas()))
+			problems := problemsOf(d.Validate(definitiontest.Areas()))
 			if len(problems) != 1 || problems[0].String() != testCase.want {
 				t.Errorf("problems = %v, want %q", problems, testCase.want)
 			}
@@ -313,7 +313,7 @@ func TestInvalidCatalogTexts(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := definitiontest.Definition()
 			testCase.change(&d)
-			problems := definition.ValidationProblemsOf(d.Validate(definitiontest.Areas()))
+			problems := problemsOf(d.Validate(definitiontest.Areas()))
 			if len(problems) != 1 || problems[0].Code != testCase.want {
 				t.Errorf("problems = %v, want %s", problems, testCase.want)
 			}

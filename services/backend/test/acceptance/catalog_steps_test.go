@@ -344,10 +344,10 @@ func (w *catalogWorld) thenRejected(code string) error {
 	if !errors.Is(w.publish, definition.ErrInvalidDefinition) {
 		return fmt.Errorf("Publish() error = %w, want an invalid definition", w.publish)
 	}
-	for _, problem := range definition.ValidationProblemsOf(w.publish) {
+	for _, problem := range validationProblems(w.publish) {
 		if string(problem.Code) == code {
 			return nil
 		}
 	}
-	return fmt.Errorf("problems = %v, want %q", definition.ValidationProblemsOf(w.publish), code)
+	return fmt.Errorf("problems = %v, want %q", validationProblems(w.publish), code)
 }

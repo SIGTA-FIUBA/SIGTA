@@ -26,10 +26,3 @@ func (e *ValidationError) Error() string {
 }
 
 func (e *ValidationError) Unwrap() error { return e.Cause }
-
-func ValidationProblemsOf(err error) []ValidationProblem {
-	if invalid, ok := errors.AsType[*ValidationError](err); ok {
-		return invalid.Problems
-	}
-	return nil
-}
