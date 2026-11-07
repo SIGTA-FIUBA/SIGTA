@@ -37,7 +37,7 @@ El trámite empieza en el primer paso. Cada paso tiene un área responsable y un
 | `confirm_external_fact` | Confirmar un hecho ocurrido fuera de SIGTA, como una carátula o una firma en el expediente electrónico | `fields` y `optional_fields`, si hace falta registrar algo, como el número de expediente |
 | `decide` | Elegir una salida | `outcomes`, al menos dos, cada una con su `next`; y, si hacen falta, los `fields` y `documents` que fundamentan la decisión, como el acta |
 
-- Los pasos de un área de tipo `office` o `external` llevan `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción. Los pasos del titular no llevan perfil y solo cargan datos o documentos.
+- Los pasos de un área de tipo `office` o `external` llevan `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción. Los pasos del titular no llevan perfil y solo cargan datos o documentos. Con ADR-017 (propuesta), el paso va a declarar el permiso que exige en vez de un perfil.
 - Un paso sin `next` ni `outcomes` cierra el trámite.
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
 - Un paso tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.

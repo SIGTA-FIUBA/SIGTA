@@ -368,7 +368,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Contexto.** Los trámites contienen datos personales de estudiantes. El 4/11 la Secretaría pidió que la arquitectura los trate conforme a la Ley 25.326, y que lo que se mande al servicio de IA sea solo contenido académico (programas, cargas horarias, contenidos mínimos), sin datos identificatorios. La Subsecretaría de TICs preguntó qué datos van a cada modelo, con qué políticas y si eso cumple la ley. Si se hostea un modelo propio, pide además sus requisitos de infraestructura. El volumen informado por la Secretaría es de unos 300 trámites por cuatrimestre, concentrados antes de cada cuatrimestre.
 
 **Decisión.**
-- Los componentes de IA usan un **modelo de terceros por API**, detrás de un puerto.
+- Los componentes de IA empiezan con un **modelo de terceros por API**, detrás de un puerto. Un modelo propio no queda descartado: la elección se revisa cuando se conozcan el flujo de cada trámite y los costos de cada opción.
 - Antes de cada llamada, un paso que corre dentro de SIGTA **quita los datos identificatorios** (nombre, documento, legajo, correo, firmas y cualquier dato de una persona). El puerto del modelo solo recibe contenido académico.
 - Solo se usan proveedores cuyas condiciones garanticen que los datos enviados no se usan para entrenar y que su retención sea nula o acotada. El proveedor elegido y sus condiciones se registran.
 - Cada llamada registra qué tipo de contenido salió, además del costo, la latencia y la versión del prompt.
@@ -377,7 +377,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Consecuencias.**
 - La anonimización pasa a ser un componente propio, con su set de evaluación: un dato identificatorio que llega al modelo es un error grave.
 - Afecta sobre todo a la lectura de documentos (SIG-37) y a la validación asistida (SIG-38). El analítico tiene datos personales; los programas, en general, no.
-- No hace falta pedirle a TICs una GPU. Si un proveedor deja de cumplir las condiciones, la alternativa es un modelo propio detrás del mismo puerto.
+- Para empezar no hace falta pedirle a TICs una GPU. Un modelo propio va detrás del mismo puerto, y se evalúa con esos costos o si un proveedor deja de cumplir las condiciones.
 - Quedan abiertos, con la Secretaría y el área legal, la base legal, la inscripción de la base y la retención de los documentos (D-09).
 
 ---

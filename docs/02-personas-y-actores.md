@@ -7,16 +7,14 @@ Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en
 
 ## 1. Roles de la plataforma
 
-La plataforma tiene **dos roles**. Son los mismos dos que ordenan el User Story Mapping.
+La plataforma distingue al **titular del trámite**, que es un rol fijo, y al **personal**, que tiene los roles que le asigna el administrador (ADR-017). Operativo y de aprobación son los roles iniciales. Son los mismos dos tipos de persona que ordenan el User Story Mapping, y las personas P2 y P3 se mantienen como arquetipos.
 
-| Rol | Perfiles de permisos | Qué hace |
+| Persona usuaria | Roles iniciales | Qué hace |
 |---|---|---|
-| **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
-| **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma |
+| **Titular del trámite** | Titular, fijo | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
+| **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el rol de aprobación además aprueba y firma |
 
-**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles.
-
-> **Cambio propuesto (ADR-017).** La Secretaría pidió el 4/11 un administrador que asigne roles con permisos a los usuarios de cada área que interviene. Operativo y de aprobación pasan a ser roles iniciales configurables, no perfiles fijos. Las personas P2 y P3 se mantienen como arquetipos para el mapa de usuario.
+**Por qué dos roles iniciales para el personal.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como una sola persona usuaria. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen el rol operativo del de aprobación.
 
 ## 2. Actores que no son roles de la plataforma
 
