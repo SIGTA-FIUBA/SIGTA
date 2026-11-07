@@ -1,4 +1,4 @@
-package domain
+package definition_test
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"backend/src/procedure/domain/definition"
 )
 
 // readJSON rejects unknown keys, so that a misspelled key fails instead of
@@ -33,7 +35,7 @@ func TestDrafts(t *testing.T) {
 	if dir == "" {
 		t.Skip("PROCEDURE_DRAFTS is not set")
 	}
-	var areas []Area
+	var areas []definition.Area
 	readJSON(t, filepath.Join(dir, "areas.json"), &areas)
 	paths, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
@@ -48,7 +50,7 @@ func TestDrafts(t *testing.T) {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
-			var d Definition
+			var d definition.ProcedureTypeDefinition
 			readJSON(t, path, &d)
 			if err := d.Validate(areas); err != nil {
 				t.Errorf("Validate() = %v", err)

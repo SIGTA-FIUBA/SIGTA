@@ -241,7 +241,7 @@ En el código, el servicio de trámites se divide primero por módulo y, dentro 
 | Ruta en `services/backend/src/` | Contenido |
 | --- | --- |
 | `auth/` | Ingreso y sesiones: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
-| `procedure/` | Tipos de trámite y sus versiones, con los mismos componentes |
+| `procedure/` | Tipos de trámite y sus versiones, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/` y `catalog/` (ADR-016) |
 | `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
 | `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
 

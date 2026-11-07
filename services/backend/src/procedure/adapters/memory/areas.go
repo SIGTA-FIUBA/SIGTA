@@ -4,20 +4,20 @@ import (
 	"context"
 	"slices"
 
-	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/ports/output"
 )
 
 var _ output.AreaCatalog = (*AreaCatalog)(nil)
 
 type AreaCatalog struct {
-	areas []domain.Area
+	areas []definition.Area
 }
 
-func NewAreaCatalog(areas ...domain.Area) *AreaCatalog {
+func NewAreaCatalog(areas ...definition.Area) *AreaCatalog {
 	return &AreaCatalog{areas: slices.Clone(areas)}
 }
 
-func (c *AreaCatalog) List(context.Context) ([]domain.Area, error) {
+func (c *AreaCatalog) List(context.Context) ([]definition.Area, error) {
 	return slices.Clone(c.areas), nil
 }

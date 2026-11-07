@@ -1,25 +1,32 @@
-package domain
+package catalog_test
 
-import "testing"
+import (
+	"testing"
+
+	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/definition/definitiontest"
+	"backend/src/procedure/domain/version"
+)
 
 func TestApplicantRequirements(t *testing.T) {
-	content := NewContent(Definition{
-		Fields: []Field{
-			{ID: "shared", Name: "Dato", Type: FieldText},
-			{ID: "note", Name: "Nota", Type: FieldText},
-			{ID: "both", Name: "En dos pasos", Type: FieldText},
-			{ID: "staff", Name: "Del personal", Type: FieldText},
+	content := version.NewContent(definition.ProcedureTypeDefinition{
+		Fields: []definition.Field{
+			{ID: "shared", Name: "Dato", Type: definition.FieldText},
+			{ID: "note", Name: "Nota", Type: definition.FieldText},
+			{ID: "both", Name: "En dos pasos", Type: definition.FieldText},
+			{ID: "staff", Name: "Del personal", Type: definition.FieldText},
 		},
-		Documents: []Document{{ID: "shared", Name: "Documento"}, {ID: "minutes", Name: "Acta"}},
-		Steps: []Step{
+		Documents: []definition.Document{{ID: "shared", Name: "Documento"}, {ID: "minutes", Name: "Acta"}},
+		Steps: []definition.Step{
 			{ID: "data", Area: "applicant", Fields: []string{"shared"}, OptionalFields: []string{"note", "both"}},
 			{ID: "again", Area: "applicant", Fields: []string{"both"}, OptionalFields: []string{"shared"}},
 			{ID: "documents", Area: "applicant", OptionalDocuments: []string{"shared"}},
 			{ID: "review", Area: "office", Fields: []string{"staff"}, Documents: []string{"minutes"}},
 		},
-	}, testAreas())
+	}, definitiontest.Areas())
 
-	fields, documents := content.ApplicantRequirements()
+	fields, documents := catalog.ApplicantRequirements(content)
 
 	wantFields := []struct {
 		id       string

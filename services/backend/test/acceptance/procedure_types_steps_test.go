@@ -12,7 +12,8 @@ import (
 
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
-	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
@@ -21,23 +22,23 @@ const procedureType int64 = 1
 
 // procedureTypeWorld is the state of one scenario of US08.
 type procedureTypeWorld struct {
-	areas    []domain.Area
+	areas    []definition.Area
 	versions *memory.ProcedureVersions
-	authors  domain.Authorship
+	authors  version.Authorship
 	now      time.Time
 
-	definition domain.Definition
+	definition definition.ProcedureTypeDefinition
 	revisions  int
 
 	// The result of the last publication.
-	published domain.Version
+	published version.ProcedureTypeVersion
 	err       error
 	before    int
-	problem   domain.Code
+	problem   definition.ProblemCode
 
-	followed     domain.Version
+	followed     version.ProcedureTypeVersion
 	previousName string
-	requested    domain.Version
+	requested    version.ProcedureTypeVersion
 }
 
 func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
@@ -90,7 +91,7 @@ func (w *procedureTypeWorld) latest() (int, error) {
 	return v.Number, err
 }
 
-func (w *procedureTypeWorld) publish(base int, d domain.Definition) error {
+func (w *procedureTypeWorld) publish(base int, d definition.ProcedureTypeDefinition) error {
 	before, err := w.latest()
 	if err != nil {
 		return err
@@ -107,33 +108,33 @@ func (w *procedureTypeWorld) publish(base int, d domain.Definition) error {
 }
 
 // validDefinition uses the four actions and every kind of area.
-func validDefinition(name string) domain.Definition {
-	return domain.Definition{
+func validDefinition(name string) definition.ProcedureTypeDefinition {
+	return definition.ProcedureTypeDefinition{
 		Name:        name,
 		Description: "Un trámite de prueba",
-		Fields:      []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
-		Documents: []domain.Document{
+		Fields:      []definition.Field{{ID: "full_name", Name: "Nombre completo", Type: definition.FieldText}},
+		Documents: []definition.Document{
 			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 		},
-		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
+		Steps: []definition.Step{
+			{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
 			{
-				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionDecide,
-				Outcomes: []domain.Outcome{
+				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide,
+				Outcomes: []definition.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				},
 			},
-			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
-			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: domain.ProfileStaffApprover, Action: domain.ActionConfirmExternalFact},
+			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
+			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: definition.ProfileStaffApprover, Action: definition.ActionConfirmExternalFact},
 		},
 	}
 }
 
 // revised returns the current definition with a visible change.
-func (w *procedureTypeWorld) revised() domain.Definition {
+func (w *procedureTypeWorld) revised() definition.ProcedureTypeDefinition {
 	w.revisions++
 	d := w.definition
 	d.Documents = slices.Clone(d.Documents)
@@ -158,10 +159,10 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 }
 
 func (w *procedureTypeWorld) givenAreas(applicant, office, external string) error {
-	w.areas = []domain.Area{
-		{ID: areaID(applicant), Name: applicant, Kind: domain.AreaApplicant},
-		{ID: areaID(office), Name: office, Kind: domain.AreaOffice},
-		{ID: areaID(external), Name: external, Kind: domain.AreaExternal},
+	w.areas = []definition.Area{
+		{ID: areaID(applicant), Name: applicant, Kind: definition.AreaApplicant},
+		{ID: areaID(office), Name: office, Kind: definition.AreaOffice},
+		{ID: areaID(external), Name: external, Kind: definition.AreaExternal},
 	}
 	return nil
 }
@@ -169,7 +170,7 @@ func (w *procedureTypeWorld) givenAreas(applicant, office, external string) erro
 func areaID(name string) string { return strings.ReplaceAll(name, " ", "_") }
 
 func (w *procedureTypeWorld) givenAuthors(proposer, approver string) error {
-	w.authors = domain.Authorship{ProposedBy: proposer, ApprovedBy: approver}
+	w.authors = version.Authorship{ProposedBy: proposer, ApprovedBy: approver}
 	return nil
 }
 
@@ -198,17 +199,17 @@ func (w *procedureTypeWorld) givenProcedure(number int, name string) error {
 // covers, as if someone had changed it directly in the store.
 func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 	w.definition = validDefinition("subject equivalence")
-	encoded, err := domain.NewContent(w.definition, w.areas).Encode()
+	encoded, err := version.NewContent(w.definition, w.areas).Encode()
 	if err != nil {
 		return err
 	}
-	return w.versions.Add(context.Background(), domain.Version{
-		ProcedureType: procedureType,
-		Number:        number,
-		Digest:        domain.Digest(encoded),
-		Encoded:       append(encoded, ' '),
-		Authorship:    w.authors,
-		PublishedAt:   w.now,
+	return w.versions.Add(context.Background(), version.ProcedureTypeVersion{
+		ProcedureTypeID: procedureType,
+		Number:          number,
+		Digest:          version.Digest(encoded),
+		EncodedContent:  append(encoded, ' '),
+		Authorship:      w.authors,
+		PublishedAt:     w.now,
 	})
 }
 
@@ -253,25 +254,25 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	switch problem {
 	case "a step with an action outside the four":
 		d.Steps[0].Action = "approve"
-		w.problem = domain.CodeUnknownAction
+		w.problem = definition.CodeUnknownAction
 	case "a step in an unknown area":
 		d.Steps[decision].Area = "nowhere"
-		w.problem = domain.CodeUnknownArea
+		w.problem = definition.CodeUnknownArea
 	case "a reference to an undeclared document":
 		d.Steps[document].Documents = []string{"transcript", "undeclared"}
-		w.problem = domain.CodeUnknownDocument
+		w.problem = definition.CodeUnknownDocument
 	case "a step unreachable from the first one":
-		d.Steps = append(d.Steps, domain.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
-		w.problem = domain.CodeUnreachableStep
+		d.Steps = append(d.Steps, definition.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact})
+		w.problem = definition.CodeUnreachableStep
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
-		w.problem = domain.CodeStepNeverCloses
+		w.problem = definition.CodeStepNeverCloses
 	case "a field no step uses":
-		d.Fields = append(d.Fields, domain.Field{ID: "unused", Name: extraName, Type: domain.FieldText})
-		w.problem = domain.CodeUnusedField
+		d.Fields = append(d.Fields, definition.Field{ID: "unused", Name: extraName, Type: definition.FieldText})
+		w.problem = definition.CodeUnusedField
 	case "an office step without a profile":
 		d.Steps[decision].Profile = ""
-		w.problem = domain.CodeInvalidProfile
+		w.problem = definition.CodeInvalidProfile
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}
@@ -301,7 +302,7 @@ func (w *procedureTypeWorld) thenPublished(number int, name string) error {
 	if w.published.Number != number {
 		return fmt.Errorf("published version %d, want %d", w.published.Number, number)
 	}
-	c, err := w.published.Content()
+	c, err := w.published.DecodeContent()
 	if err != nil {
 		return err
 	}
@@ -340,7 +341,7 @@ func (w *procedureTypeWorld) thenStillRecords(proposer, approver string) error {
 	if err != nil {
 		return err
 	}
-	want := domain.Authorship{ProposedBy: proposer, ApprovedBy: approver}
+	want := version.Authorship{ProposedBy: proposer, ApprovedBy: approver}
 	if stored.Authorship != want || w.published.Authorship != want {
 		return fmt.Errorf("stored %+v and returned %+v, want %+v", stored.Authorship, w.published.Authorship, want)
 	}
@@ -373,7 +374,7 @@ func (w *procedureTypeWorld) thenAskedToStartAgain(number int) error {
 }
 
 func (w *procedureTypeWorld) thenProblemReported() error {
-	for _, p := range domain.ProblemsOf(w.err) {
+	for _, p := range validationProblems(w.err) {
 		if p.Code == w.problem {
 			return nil
 		}
@@ -397,18 +398,18 @@ func (w *procedureTypeWorld) thenShowsPreviousName(number int) error {
 	if err != nil {
 		return err
 	}
-	c, err := v.Content()
+	c, err := v.DecodeContent()
 	if err != nil {
 		return err
 	}
-	if !slices.ContainsFunc(c.Areas, func(a domain.Area) bool { return a.Name == w.previousName }) {
+	if !slices.ContainsFunc(c.Areas, func(a definition.Area) bool { return a.Name == w.previousName }) {
 		return fmt.Errorf("version %d shows %+v, want the name %q", number, c.Areas, w.previousName)
 	}
 	return nil
 }
 
 func (w *procedureTypeWorld) thenVersionNotReturned() error {
-	if !errors.Is(w.err, domain.ErrAlteredContent) {
+	if !errors.Is(w.err, version.ErrAlteredContent) {
 		return fmt.Errorf("got %w, want ErrAlteredContent", w.err)
 	}
 	if w.requested.Number != 0 {
@@ -425,8 +426,15 @@ func (w *procedureTypeWorld) thenNothingOnTop() error {
 	if err := w.publish(latest, w.revised()); err != nil {
 		return err
 	}
-	if !errors.Is(w.err, domain.ErrAlteredContent) {
+	if !errors.Is(w.err, version.ErrAlteredContent) {
 		return fmt.Errorf("got %w, want ErrAlteredContent", w.err)
 	}
 	return w.thenNoVersion()
+}
+
+func validationProblems(err error) []definition.ValidationProblem {
+	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
+		return invalid.Problems
+	}
+	return nil
 }

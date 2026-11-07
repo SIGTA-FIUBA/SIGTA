@@ -1,4 +1,4 @@
-package domain
+package definition
 
 import (
 	"mime"
@@ -40,40 +40,40 @@ type Document struct {
 	MaxSize int64 `json:"max_size,omitempty"`
 }
 
-func validateFields(fields []Field, seen map[string]bool) []Problem {
-	var problems []Problem
+func validateFields(fields []Field, seen map[string]bool) []ValidationProblem {
+	var problems []ValidationProblem
 	for _, f := range fields {
 		problems = append(problems, validateEntry(KindField, f.ID, f.Name, seen)...)
 		switch f.Type {
 		case FieldText, FieldLongText, FieldNumber, FieldDate, FieldOption, FieldDegree, FieldSubjectList:
 		default:
-			problems = append(problems, Problem{Code: CodeUnknownFieldType, Path: []Ref{{Kind: KindField, ID: f.ID}}, Value: string(f.Type)})
+			problems = append(problems, ValidationProblem{Code: CodeUnknownFieldType, Path: []Element{{Kind: KindField, ID: f.ID}}, Value: string(f.Type)})
 		}
-		problems = append(problems, within(Ref{Kind: KindField, ID: f.ID}, validateOptions(f))...)
+		problems = append(problems, within(Element{Kind: KindField, ID: f.ID}, validateOptions(f))...)
 	}
 	return problems
 }
 
-func validateDocuments(documents []Document, seen map[string]bool) []Problem {
-	var problems []Problem
+func validateDocuments(documents []Document, seen map[string]bool) []ValidationProblem {
+	var problems []ValidationProblem
 	for _, doc := range documents {
 		problems = append(problems, validateEntry(KindDocument, doc.ID, doc.Name, seen)...)
-		ref := Ref{Kind: KindDocument, ID: doc.ID}
+		ref := Element{Kind: KindDocument, ID: doc.ID}
 		if len(doc.AcceptedTypes) == 0 {
-			problems = append(problems, Problem{Code: CodeNoAcceptedTypes, Path: []Ref{ref}})
+			problems = append(problems, ValidationProblem{Code: CodeNoAcceptedTypes, Path: []Element{ref}})
 		}
 		accepted := map[string]bool{}
 		for _, mediaType := range doc.AcceptedTypes {
 			switch {
 			case !validMediaType(mediaType):
-				problems = append(problems, Problem{Code: CodeInvalidAcceptedType, Path: []Ref{ref}, Value: mediaType})
+				problems = append(problems, ValidationProblem{Code: CodeInvalidAcceptedType, Path: []Element{ref}, Value: mediaType})
 			case accepted[mediaType]:
-				problems = append(problems, Problem{Code: CodeRepeatedAcceptedType, Path: []Ref{ref}, Value: mediaType})
+				problems = append(problems, ValidationProblem{Code: CodeRepeatedAcceptedType, Path: []Element{ref}, Value: mediaType})
 			}
 			accepted[mediaType] = true
 		}
 		if doc.MaxSize <= 0 {
-			problems = append(problems, Problem{Code: CodeNoMaxSize, Path: []Ref{ref}})
+			problems = append(problems, ValidationProblem{Code: CodeNoMaxSize, Path: []Element{ref}})
 		}
 	}
 	return problems
@@ -86,17 +86,17 @@ func validMediaType(value string) bool {
 	return err == nil && parsed == value && strings.Contains(value, "/") && !strings.Contains(value, "*")
 }
 
-func validateOptions(f Field) []Problem {
+func validateOptions(f Field) []ValidationProblem {
 	if f.Type != FieldOption {
 		if len(f.Options) > 0 {
-			return []Problem{{Code: CodeOptionsOutsideOption}}
+			return []ValidationProblem{{Code: CodeOptionsOutsideOption}}
 		}
 		return nil
 	}
 	if len(f.Options) == 0 {
-		return []Problem{{Code: CodeOptionFieldNoOptions}}
+		return []ValidationProblem{{Code: CodeOptionFieldNoOptions}}
 	}
-	var problems []Problem
+	var problems []ValidationProblem
 	seenIDs := map[string]bool{}
 	seenNames := map[string]bool{}
 	for _, o := range f.Options {
