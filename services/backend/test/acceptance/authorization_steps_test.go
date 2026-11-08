@@ -17,68 +17,65 @@ import (
 )
 
 type authorizationWorld struct {
-	types      *application.ProcedureTypeService
-	service    *application.ProcedureService
-	procedures *memory.ProcedureRepository
-	denied     *memory.DeniedAttempts
-	now        time.Time
+	types       *application.ProcedureTypeService
+	service     *application.ProcedureService
+	memberships *application.MembershipService
+	access      *memory.Access
+	procedures  *memory.ProcedureRepository
+	denied      *memory.DeniedAttempts
+	now         time.Time
 
-	typeIDs  map[string]int64
-	steps    map[string][]string
-	profiles map[string][]domain.Profile
-	nextID   int
+	typeIDs map[string]int64
+	steps   map[string][]domain.Step
+	nextID  int
 
-	current string
-	created []string
+	current    string
+	created    []string
+	membership domain.Membership
 
 	user   string
 	err    error
-	errs   []error
 	view   input.ProcedureView
 	listed []domain.Procedure
 }
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	w := &authorizationWorld{
+		access:     memory.NewAccess("admin@fi.uba.ar"),
 		procedures: memory.NewProcedureRepository(),
 		denied:     memory.NewDeniedAttempts(),
 		now:        time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:    map[string]int64{},
-		steps:      map[string][]string{},
-		profiles:   map[string][]domain.Profile{},
+		steps:      map[string][]domain.Step{},
 	}
-	areas := memory.NewAreaCatalog(
-		domain.Area{ID: "applicant", Name: "Titular", Kind: domain.AreaApplicant},
-		domain.Area{ID: "office", Name: "Secretaría", Kind: domain.AreaOffice},
-	)
-	clock := func() time.Time { return w.now }
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), areas, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, memory.NewAccess(), w.denied, w.newID, clock)
 
+	sc.Given(`^the staff areas "([^"]*)" and "([^"]*)"$`, w.givenStaffAreas)
 	sc.Given(`^a published "([^"]*)" procedure type with these steps:$`, w.givenProcedureType)
-	sc.Given(`^SIGTA has these users:$`, w.givenUsers)
-	sc.Given(`^SIGTA has these staff permissions:$`, w.givenPermissions)
+	sc.Given(`^"([^"]*)" is an administrator$`, w.givenAdministrator)
+	sc.Given(`^SIGTA has these memberships:$`, w.givenMemberships)
+	sc.Given(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the "([^"]*)" profile until "([^"]*)"$`, w.givenMembershipUntil)
 	sc.Given(`^a "([^"]*)" procedure whose open step is "([^"]*)"$`, w.givenProcedureOn)
 	sc.Given(`^a "([^"]*)" procedure$`, w.givenProcedure)
 	sc.Given(`^"([^"]*)" has a "([^"]*)" procedure$`, w.givenOwnProcedure)
 
-	sc.When(`^a user is registered as "([^"]*)"$`, w.register)
-	sc.When(`^a staff permission is granted on "([^"]*)" with the "([^"]*)" profile$`, w.grantNew)
-	sc.When(`^a staff permission is granted to "([^"]*)" on "([^"]*)" with the "([^"]*)" profile$`, w.grant)
+	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the "([^"]*)" profile(?: on "([^"]*)")?$`, w.grant)
+	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
+	sc.When(`^it is "([^"]*)"$`, w.itIs)
 	sc.When(`^"([^"]*)" starts a "([^"]*)" procedure$`, w.start)
 	sc.When(`^"([^"]*)" acts on that step$`, w.actOnOpenStep)
-	sc.When(`^"([^"]*)" acts on each open step$`, w.actOnEach)
 	sc.When(`^"([^"]*)" sends the approval directly to the API$`, w.sendApproval)
 	sc.When(`^"([^"]*)" opens that procedure(?: by its identifier)?$`, w.open)
 	sc.When(`^"([^"]*)" lists (?:their|the) procedures$`, w.list)
 	sc.When(`^a new version of "([^"]*)" is published$`, w.publishNewVersion)
 
-	sc.Then(`^the user is registered$`, w.thenNoError)
-	sc.Then(`^the user is not registered$`, w.thenFails(domain.ErrUnknownUserKind))
-	sc.Then(`^the permission is not granted$`, w.thenFails(domain.ErrInvalidPermission))
+	sc.Then(`^the procedure is started$`, w.thenStarted)
 	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
+	sc.Then(`^"([^"]*)" cannot start a "([^"]*)" procedure$`, w.thenCannotStart)
+	sc.Then(`^the membership is granted by "([^"]*)" from now on$`, w.thenGranted)
+	sc.Then(`^the membership is denied$`, w.thenFails(domain.ErrAccessDenied))
+	sc.Then(`^the membership is not granted$`, w.thenFails(domain.ErrInvalidMembership))
+	sc.Then(`^the membership records that "([^"]*)" ended it$`, w.thenEndedBy)
 	sc.Then(`^the action is (allowed|denied)$`, w.thenAction)
-	sc.Then(`^both actions are allowed$`, w.thenAllAllowed)
 	sc.Then(`^the procedure is shown$`, w.thenNoError)
 	sc.Then(`^no action is offered on the "([^"]*)" step$`, w.thenNotOffered)
 	sc.Then(`^access is denied$`, w.thenFails(domain.ErrProcedureNotFound))
@@ -96,14 +93,25 @@ func (w *authorizationWorld) newID() string {
 	return "P-" + strconv.Itoa(w.nextID)
 }
 
+func (w *authorizationWorld) givenStaffAreas(first, second string) error {
+	areas := memory.NewAreaCatalog(
+		domain.Area{ID: "applicant", Name: "Titular", Kind: domain.AreaApplicant},
+		domain.Area{ID: areaID(first), Name: first, Kind: domain.AreaOffice},
+		domain.Area{ID: areaID(second), Name: second, Kind: domain.AreaOffice},
+	)
+	clock := func() time.Time { return w.now }
+	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), areas, clock)
+	w.service = application.NewProcedureService(w.types, w.procedures, w.access, w.denied, w.newID, clock)
+	w.memberships = application.NewMembershipService(w.types, areas, w.access, w.denied, w.newID, clock)
+	return nil
+}
+
 func (w *authorizationWorld) definition(name, description string) domain.Definition {
 	staff := w.steps[name]
-	steps := []domain.Step{{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0]}}
-	profiles := w.profiles[name]
-	for i, id := range staff {
-		s := domain.Step{ID: id, Name: id, Area: "office", Profile: profiles[i], Action: domain.ActionConfirmExternalFact}
+	steps := []domain.Step{{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
+	for i, s := range staff {
 		if i+1 < len(staff) {
-			s.Next = staff[i+1]
+			s.Next = staff[i+1].ID
 		}
 		steps = append(steps, s)
 	}
@@ -154,36 +162,65 @@ func (w *authorizationWorld) typeID(name string) int64 {
 	return 999
 }
 
+func (w *authorizationWorld) scope(name string) []int64 {
+	if name == "" {
+		return nil
+	}
+	return []int64{w.typeID(name)}
+}
+
 func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
-		w.steps[name] = append(w.steps[name], row.Cells[0].Value)
-		w.profiles[name] = append(w.profiles[name], domain.Profile(row.Cells[1].Value))
+		id := row.Cells[0].Value
+		w.steps[name] = append(w.steps[name], domain.Step{
+			ID:      id,
+			Name:    id,
+			Area:    areaID(row.Cells[1].Value),
+			Profile: domain.Profile(row.Cells[2].Value),
+			Action:  domain.ActionConfirmExternalFact,
+		})
 	}
 	return w.publish(name, "Descripción de "+name)
 }
 
-func (w *authorizationWorld) givenUsers(table *godog.Table) error {
+func (w *authorizationWorld) givenAdministrator(user string) error {
+	administrator, err := w.access.Administrator(context.Background(), user)
+	if err != nil {
+		return err
+	}
+	if !administrator {
+		return fmt.Errorf("%s is not an administrator", user)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
-		if err := w.service.Register(context.Background(), row.Cells[0].Value, domain.UserKind(row.Cells[1].Value)); err != nil {
+		_, err := w.memberships.Grant(context.Background(), "admin@fi.uba.ar", input.MembershipGrant{
+			UserID:  row.Cells[0].Value,
+			Area:    areaID(row.Cells[1].Value),
+			Profile: domain.Profile(row.Cells[2].Value),
+			Scope:   w.scope(row.Cells[3].Value),
+		})
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w *authorizationWorld) givenPermissions(table *godog.Table) error {
-	ctx := context.Background()
-	for _, row := range table.Rows[1:] {
-		user := row.Cells[0].Value
-		if err := w.service.Register(ctx, user, domain.KindStaff); err != nil {
-			return err
-		}
-		p := domain.Permission{UserID: user, ProcedureType: w.typeID(row.Cells[1].Value), Profile: domain.Profile(row.Cells[2].Value)}
-		if err := w.service.Grant(ctx, p); err != nil {
-			return err
-		}
+func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, profile, until string) error {
+	end, err := time.Parse(time.DateOnly, until)
+	if err != nil {
+		return err
 	}
-	return nil
+	_, err = w.memberships.Grant(context.Background(), administrator, input.MembershipGrant{
+		UserID:  user,
+		Area:    areaID(area),
+		Profile: domain.Profile(profile),
+		Until:   end,
+	})
+	return err
 }
 
 func (w *authorizationWorld) givenProcedureOn(name, step string) error {
@@ -203,7 +240,7 @@ func (w *authorizationWorld) givenProcedureOn(name, step string) error {
 }
 
 func (w *authorizationWorld) givenProcedure(name string) error {
-	return w.givenProcedureOn(name, w.steps[name][0])
+	return w.givenProcedureOn(name, w.steps[name][0].ID)
 }
 
 func (w *authorizationWorld) givenOwnProcedure(user, name string) error {
@@ -216,20 +253,38 @@ func (w *authorizationWorld) givenOwnProcedure(user, name string) error {
 	return nil
 }
 
-func (w *authorizationWorld) register(kind string) {
-	w.err = w.service.Register(context.Background(), "new@fi.uba.ar", domain.UserKind(kind))
+func (w *authorizationWorld) grant(administrator, user, area, profile, scope string) {
+	w.user = administrator
+	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, input.MembershipGrant{
+		UserID:  user,
+		Area:    areaID(area),
+		Profile: domain.Profile(profile),
+		Scope:   w.scope(scope),
+	})
 }
 
-func (w *authorizationWorld) grantNew(name, profile string) error {
-	if err := w.service.Register(context.Background(), "new-staff@fi.uba.ar", domain.KindStaff); err != nil {
+func (w *authorizationWorld) end(administrator, user, area string) error {
+	ctx := context.Background()
+	all, err := w.access.Memberships(ctx, user)
+	if err != nil {
 		return err
 	}
-	w.grant("new-staff@fi.uba.ar", name, profile)
-	return nil
+	for _, m := range all {
+		if m.Area == areaID(area) {
+			w.membership = m
+			return w.memberships.End(ctx, administrator, m.ID)
+		}
+	}
+	return fmt.Errorf("%s has no membership in %s", user, area)
 }
 
-func (w *authorizationWorld) grant(user, name, profile string) {
-	w.err = w.service.Grant(context.Background(), domain.Permission{UserID: user, ProcedureType: w.typeID(name), Profile: domain.Profile(profile)})
+func (w *authorizationWorld) itIs(date string) error {
+	day, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		return err
+	}
+	w.now = day.Add(12 * time.Hour)
+	return nil
 }
 
 func (w *authorizationWorld) start(user, name string) {
@@ -248,17 +303,6 @@ func (w *authorizationWorld) actOnOpenStep(user string) error {
 		return err
 	}
 	w.err = w.act(user, p.ID, p.OpenStep)
-	return nil
-}
-
-func (w *authorizationWorld) actOnEach(user string) error {
-	for _, id := range w.created {
-		p, err := w.procedures.Get(context.Background(), id)
-		if err != nil {
-			return err
-		}
-		w.errs = append(w.errs, w.act(user, p.ID, p.OpenStep))
-	}
 	return nil
 }
 
@@ -292,6 +336,52 @@ func (w *authorizationWorld) thenFails(want error) func() error {
 	}
 }
 
+func (w *authorizationWorld) thenStarted() error {
+	if w.err != nil {
+		return w.err
+	}
+	all, err := w.procedures.List(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, p := range all {
+		if p.Applicant == w.user {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s started no procedure", w.user)
+}
+
+func (w *authorizationWorld) thenCannotStart(user, name string) error {
+	w.start(user, name)
+	return w.thenNotStarted()
+}
+
+func (w *authorizationWorld) thenGranted(administrator string) error {
+	if w.err != nil {
+		return w.err
+	}
+	stored, err := w.access.Membership(context.Background(), w.membership.ID)
+	if err != nil {
+		return err
+	}
+	if stored.GrantedBy != administrator || !stored.From.Equal(w.now) || !stored.Until.IsZero() {
+		return fmt.Errorf("stored %+v, want granted by %s from %s with no end", stored, administrator, w.now)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) thenEndedBy(administrator string) error {
+	stored, err := w.access.Membership(context.Background(), w.membership.ID)
+	if err != nil {
+		return err
+	}
+	if stored.EndedBy != administrator || !stored.Until.Equal(w.now) {
+		return fmt.Errorf("stored %+v, want ended by %s at %s", stored, administrator, w.now)
+	}
+	return nil
+}
+
 func (w *authorizationWorld) thenNotStarted() error {
 	if !errors.Is(w.err, domain.ErrAccessDenied) {
 		return fmt.Errorf("got %w, want %w", w.err, domain.ErrAccessDenied)
@@ -316,13 +406,6 @@ func (w *authorizationWorld) thenAction(result string) error {
 		return fmt.Errorf("got %w, want a denial", w.err)
 	}
 	return nil
-}
-
-func (w *authorizationWorld) thenAllAllowed() error {
-	if len(w.errs) != 2 {
-		return fmt.Errorf("acted %d times, want 2", len(w.errs))
-	}
-	return errors.Join(w.errs...)
 }
 
 func (w *authorizationWorld) thenNotOffered(step string) error {

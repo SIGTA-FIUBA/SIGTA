@@ -37,7 +37,7 @@ Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuit
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
-Quien tiene a cargo un paso: el titular (`applicant`), un área de la facultad (`office`), como la Dirección de Alumnos o Mesa de Entradas, o un evaluador externo (`external`), como una Comisión Curricular. Las áreas son comunes a todos los tipos de trámite.
+Quien tiene a cargo un paso: el titular (`applicant`) o un área del personal (`office`), como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas del personal no son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-017). El tipo `external` solo aparece en versiones publicadas antes de ADR-017, y se trata como `office`.
 
 **Pase**
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
@@ -52,7 +52,7 @@ Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. 
 Actor ajeno a la Secretaría que dictamina sobre el contenido académico del trámite: comisión curricular, departamento u otra unidad académica, según el trámite. No usa la plataforma (duda pendiente, ver alcance).
 
 **Derivación**
-Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de un área `external`, que registra el destino, la fecha y, si corresponde, el número de expediente. La acción ocurre afuera.
+Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de otra área, que registra el destino, la fecha y, si corresponde, el número de expediente. Si el evaluador no usa SIGTA, el paso es del área que registra su dictamen.
 
 **Retorno**
 Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009).
@@ -67,16 +67,16 @@ Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reinic
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).
 
 **Rol**
-Cada uno de los tres tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite**, **personal** (el Secretario del mapa de usuario) y **administrador** (ADR-016). Solo el titular inicia trámites.
+Cada uno de los dos tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite** (`applicant`) y **personal** (`staff`, el Secretario del mapa de usuario). No se guardan: es personal quien tiene al menos una membresía vigente, y titular cualquier otra persona que ingresa (ADR-017). Solo el titular inicia trámites.
 
 **Perfil**
-Nivel de permisos del personal en un tipo de trámite. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. Una misma persona puede tener perfiles distintos en tipos de trámite distintos. En el mapa de usuario son un solo rol; en permisos se distinguen.
+Rango del personal dentro de un área, que da su membresía. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma, y cubre los pasos operativos. En el mapa de usuario son un solo rol; en permisos se distinguen.
 
-**Permiso**
-Lo que le da a una persona del personal un perfil sobre un tipo de trámite. Referencia el tipo y no una versión, así que publicar una versión nueva no lo cambia. Lo asigna el administrador (ADR-016).
+**Membresía**
+Pertenencia de una persona a un área, con un perfil. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-017).
 
 **Administrador**
-Persona que da de alta al personal y le asigna permisos. No actúa sobre trámites por ser administrador.
+Marca sobre una persona que le permite otorgar y dar de baja membresías. No es un rol ni da acceso a los trámites: para actuar sobre ellos necesita una membresía.
 
 **Titular del trámite**
 Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.

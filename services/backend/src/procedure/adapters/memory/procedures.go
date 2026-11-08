@@ -54,38 +54,62 @@ func (s *ProcedureRepository) List(context.Context) ([]domain.Procedure, error) 
 }
 
 type Access struct {
-	mu          sync.Mutex
-	kinds       map[string]domain.UserKind
-	permissions map[string][]domain.Permission
+	mu             sync.Mutex
+	administrators map[string]bool
+	memberships    []domain.Membership
 }
 
-func NewAccess() *Access {
-	return &Access{kinds: map[string]domain.UserKind{}, permissions: map[string][]domain.Permission{}}
-}
-
-func (s *Access) Register(_ context.Context, userID string, kind domain.UserKind) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.kinds[userID] = kind
-	return nil
-}
-
-func (s *Access) Actor(_ context.Context, userID string) (domain.Actor, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	kind, ok := s.kinds[userID]
-	if !ok {
-		return domain.Actor{}, output.ErrUnknownUser
+func NewAccess(administrators ...string) *Access {
+	a := &Access{administrators: map[string]bool{}}
+	for _, id := range administrators {
+		a.administrators[id] = true
 	}
-	return domain.Actor{UserID: userID, Kind: kind, Permissions: slices.Clone(s.permissions[userID])}, nil
+	return a
 }
 
-func (s *Access) Grant(_ context.Context, p domain.Permission) error {
+func (s *Access) Administrator(_ context.Context, userID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	granted := slices.DeleteFunc(s.permissions[p.UserID], func(q domain.Permission) bool { return q.ProcedureType == p.ProcedureType })
-	s.permissions[p.UserID] = append(granted, p)
+	return s.administrators[userID], nil
+}
+
+func (s *Access) Memberships(_ context.Context, userID string) ([]domain.Membership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var found []domain.Membership
+	for _, m := range s.memberships {
+		if m.UserID == userID {
+			found = append(found, cloneMembership(m))
+		}
+	}
+	return found, nil
+}
+
+func (s *Access) Membership(_ context.Context, id string) (domain.Membership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.memberships, func(m domain.Membership) bool { return m.ID == id })
+	if i < 0 {
+		return domain.Membership{}, domain.ErrMembershipNotFound
+	}
+	return cloneMembership(s.memberships[i]), nil
+}
+
+func (s *Access) SaveMembership(_ context.Context, m domain.Membership) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m = cloneMembership(m)
+	if i := slices.IndexFunc(s.memberships, func(q domain.Membership) bool { return q.ID == m.ID }); i >= 0 {
+		s.memberships[i] = m
+		return nil
+	}
+	s.memberships = append(s.memberships, m)
 	return nil
+}
+
+func cloneMembership(m domain.Membership) domain.Membership {
+	m.Scope = slices.Clone(m.Scope)
+	return m
 }
 
 type DeniedAttempts struct {

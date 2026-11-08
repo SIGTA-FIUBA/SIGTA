@@ -361,7 +361,8 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
 - Las áreas salen del contenido de la versión (`content.Areas`) y pasan a ser entidades globales, y desaparece el tipo de área `external`. Es un cambio del formato de configuración (ADR-012, ADR-013) y de los tipos de trámite ya cargados.
 - La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área. Hay que ajustar el glosario y `AGENTS.md`.
-- Lo implementado para ADR-016 en `procedure/` (tipos de usuario, permisos por tipo de trámite) se reescribe, y `auth` deja el rol único: `/me` informa si la persona es personal, si es administradora y sus membresías. Cambia el contrato y `SIGTA_USERS_FILE`.
+- La autorización de `procedure/` sigue este modelo. Las versiones ya publicadas con áreas `external` se siguen leyendo, y esas áreas se tratan como del personal; las áreas nuevas ya no aceptan ese tipo.
+- Durante la transición, `auth` sigue con el rol único de cada usuario (`applicant`, `staff_operative` o `staff_approver`) que usan `/me` y `SIGTA_USERS_FILE`. Migrarlo para que `/me` informe si la persona es personal, si es administradora y sus membresías cambia el contrato y la configuración, y se hace en un cambio aparte.
 - Hacen falta historias para administrar áreas y membresías. Mientras no existan, se cargan desde la configuración del despliegue.
 
 ---

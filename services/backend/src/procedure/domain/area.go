@@ -4,10 +4,14 @@ import "strconv"
 
 type AreaKind string
 
+// The applicant area holds the steps of whoever started the procedure, and
+// every other area is staffed through memberships (ADR-017).
 const (
 	AreaApplicant AreaKind = "applicant"
 	AreaOffice    AreaKind = "office"
-	AreaExternal  AreaKind = "external"
+	// AreaExternal is only read from versions published before ADR-017, and
+	// it is treated as an office area. New areas cannot use it.
+	AreaExternal AreaKind = "external"
 )
 
 type Area struct {
@@ -32,7 +36,7 @@ func validateAreas(areas []Area) []Problem {
 		switch a.Kind {
 		case AreaApplicant:
 			applicants++
-		case AreaOffice, AreaExternal:
+		case AreaOffice:
 		default:
 			problems = append(problems, Problem{Code: CodeUnknownAreaKind, Path: []Ref{{Kind: KindArea, ID: a.ID}}, Value: string(a.Kind)})
 		}

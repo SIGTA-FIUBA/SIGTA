@@ -5,54 +5,62 @@ Feature: Profiles and authorization
   so that procedures and approval decisions are protected.
 
   Background:
-    Given a published "subject equivalence" procedure type with these steps:
-      | step    | profile         |
-      | verify  | staff_operative |
-      | approve | staff_approver  |
+    Given the staff areas "student affairs" and "curricular commission"
+    And a published "subject equivalence" procedure type with these steps:
+      | step     | area                  | profile         |
+      | verify   | student affairs       | staff_operative |
+      | evaluate | curricular commission | staff_operative |
+      | approve  | student affairs       | staff_approver  |
     And a published "credit recognition" procedure type with these steps:
-      | step   | profile         |
-      | verify | staff_operative |
-    And SIGTA has these users:
-      | user                | kind          |
-      | applicant@fi.uba.ar | applicant     |
-      | other@fi.uba.ar     | applicant     |
-      | admin@fi.uba.ar     | administrator |
-    And SIGTA has these staff permissions:
-      | staff               | procedure type      | profile         |
-      | operative@fi.uba.ar | subject equivalence | staff_operative |
-      | approver@fi.uba.ar  | subject equivalence | staff_approver  |
-      | approver@fi.uba.ar  | credit recognition  | staff_operative |
+      | step   | area            | profile         |
+      | verify | student affairs | staff_operative |
+    And "admin@fi.uba.ar" is an administrator
+    And SIGTA has these memberships:
+      | staff                | area                  | profile         | scope              |
+      | operative@fi.uba.ar  | student affairs       | staff_operative |                    |
+      | approver@fi.uba.ar   | student affairs       | staff_approver  |                    |
+      | commission@fi.uba.ar | curricular commission | staff_operative |                    |
+      | scoped@fi.uba.ar     | student affairs       | staff_operative | credit recognition |
 
-  Scenario Outline: SIGTA recognizes three kinds of user
-    When a user is registered as "<kind>"
-    Then the user is registered
-
-    Examples:
-      | kind          |
-      | applicant     |
-      | staff         |
-      | administrator |
-
-  Scenario: a kind of user outside the three is rejected
-    When a user is registered as "supervisor"
-    Then the user is not registered
+  Scenario: anyone who signs in is an applicant by default
+    When "new@fi.uba.ar" starts a "subject equivalence" procedure
+    Then the procedure is started
 
   Scenario: staff cannot start a procedure
     When "operative@fi.uba.ar" starts a "subject equivalence" procedure
     Then the procedure is not started
     And a denied attempt is recorded with who tried, what they tried and when
 
-  Scenario: an applicant cannot be granted a staff permission
-    When a staff permission is granted to "applicant@fi.uba.ar" on "subject equivalence" with the "staff_operative" profile
-    Then the permission is not granted
+  Scenario: a membership turns an applicant into staff
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
+    Then the membership is granted by "admin@fi.uba.ar" from now on
+    And "new@fi.uba.ar" cannot start a "subject equivalence" procedure
 
-  Scenario: a staff permission needs a known profile
-    When a staff permission is granted on "subject equivalence" with the "supervisor" profile
-    Then the permission is not granted
+  Scenario: only an administrator grants memberships
+    When "approver@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
+    Then the membership is denied
+    And a denied attempt is recorded with who tried, what they tried and when
 
-  Scenario: a staff permission needs a published procedure type
-    When a staff permission is granted on "unknown procedure" with the "staff_operative" profile
-    Then the permission is not granted
+  Scenario Outline: a membership needs a staff area, a known profile and published procedure types
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "<area>" with the "<profile>" profile on "<scope>"
+    Then the membership is not granted
+
+    Examples:
+      | area            | profile         | scope              |
+      | unknown area    | staff_operative |                    |
+      | applicant       | staff_operative |                    |
+      | student affairs | supervisor      |                    |
+      | student affairs | staff_operative | unknown procedure  |
+
+  Scenario: a person has one membership per area and scope
+    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the "staff_approver" profile
+    Then the membership is not granted
+
+  Scenario: a membership with a narrower scope raises the profile on those procedure types
+    Given a "subject equivalence" procedure whose open step is "approve"
+    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the "staff_approver" profile on "subject equivalence"
+    And "operative@fi.uba.ar" acts on that step
+    Then the action is allowed
 
   Scenario Outline: who can act on each step
     Given a "<procedure type>" procedure whose open step is "<step>"
@@ -60,28 +68,59 @@ Feature: Profiles and authorization
     Then the action is <result>
 
     Examples:
-      | procedure type      | step    | user                | result  |
-      | subject equivalence | verify  | operative@fi.uba.ar | allowed |
-      | subject equivalence | verify  | approver@fi.uba.ar  | allowed |
-      | subject equivalence | approve | approver@fi.uba.ar  | allowed |
-      | subject equivalence | approve | operative@fi.uba.ar | denied  |
-      | credit recognition  | verify  | approver@fi.uba.ar  | allowed |
-      | credit recognition  | verify  | operative@fi.uba.ar | denied  |
-      | subject equivalence | verify  | applicant@fi.uba.ar | denied  |
-      | subject equivalence | verify  | admin@fi.uba.ar     | denied  |
+      | procedure type      | step     | user                 | result  |
+      | subject equivalence | request  | applicant@fi.uba.ar  | allowed |
+      | subject equivalence | request  | other@fi.uba.ar      | denied  |
+      | subject equivalence | request  | operative@fi.uba.ar  | denied  |
+      | subject equivalence | verify   | operative@fi.uba.ar  | allowed |
+      | subject equivalence | verify   | approver@fi.uba.ar   | allowed |
+      | subject equivalence | approve  | approver@fi.uba.ar   | allowed |
+      | subject equivalence | approve  | operative@fi.uba.ar  | denied  |
+      | subject equivalence | evaluate | commission@fi.uba.ar | allowed |
+      | subject equivalence | evaluate | operative@fi.uba.ar  | denied  |
+      | subject equivalence | verify   | commission@fi.uba.ar | denied  |
+      | credit recognition  | verify   | scoped@fi.uba.ar     | allowed |
+      | subject equivalence | verify   | scoped@fi.uba.ar     | denied  |
+      | subject equivalence | verify   | applicant@fi.uba.ar  | denied  |
+      | subject equivalence | verify   | admin@fi.uba.ar      | denied  |
 
-  Scenario: the same person has a different profile in each procedure type
-    Given a "credit recognition" procedure whose open step is "verify"
-    And a "subject equivalence" procedure whose open step is "approve"
-    When "approver@fi.uba.ar" acts on each open step
-    Then both actions are allowed
+  Scenario: an ended membership no longer lets the person act
+    Given a "subject equivalence" procedure whose open step is "verify"
+    When "admin@fi.uba.ar" ends the membership of "operative@fi.uba.ar" in "student affairs"
+    And "operative@fi.uba.ar" acts on that step
+    Then the action is denied
+    And the membership records that "admin@fi.uba.ar" ended it
 
-  Scenario: staff only see procedures of the types they have a permission on
+  Scenario: a person whose memberships ended is an applicant again
+    When "admin@fi.uba.ar" ends the membership of "operative@fi.uba.ar" in "student affairs"
+    And "operative@fi.uba.ar" starts a "subject equivalence" procedure
+    Then the procedure is started
+
+  Scenario Outline: a membership with an end date holds until then
+    Given "admin@fi.uba.ar" grants "substitute@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile until "2026-11-10"
+    And a "subject equivalence" procedure whose open step is "verify"
+    When it is "<date>"
+    And "substitute@fi.uba.ar" acts on that step
+    Then the action is <result>
+
+    Examples:
+      | date       | result  |
+      | 2026-11-09 | allowed |
+      | 2026-11-10 | denied  |
+
+  Scenario: staff see the procedures that go through their areas
     Given a "subject equivalence" procedure
     And a "credit recognition" procedure
-    When "operative@fi.uba.ar" lists the procedures
+    When "commission@fi.uba.ar" lists the procedures
     Then they see 1 procedure
     And it is a "subject equivalence" procedure
+
+  Scenario: the scope narrows the procedures staff see
+    Given a "subject equivalence" procedure
+    And a "credit recognition" procedure
+    When "scoped@fi.uba.ar" lists the procedures
+    Then they see 1 procedure
+    And it is a "credit recognition" procedure
 
   Scenario: an operative profile is not offered approval actions
     Given a "subject equivalence" procedure whose open step is "approve"
@@ -107,13 +146,18 @@ Feature: Profiles and authorization
     Then they see 1 procedure
     And none of them belongs to "other@fi.uba.ar"
 
+  Scenario: an administrator without a membership does not see procedures of others
+    Given "applicant@fi.uba.ar" has a "subject equivalence" procedure
+    When "admin@fi.uba.ar" lists the procedures
+    Then they see 0 procedures
+
   Scenario: authorization is enforced by the server, not only by the interface
     Given a "subject equivalence" procedure whose open step is "approve"
     When "operative@fi.uba.ar" sends the approval directly to the API
     Then the action is denied
     And the procedure stays on the "approve" step
 
-  Scenario: a permission keeps working when a new version is published
+  Scenario: a membership keeps working when a new version is published
     Given a "subject equivalence" procedure whose open step is "verify"
     When a new version of "subject equivalence" is published
     And "operative@fi.uba.ar" acts on that step

@@ -115,7 +115,15 @@ func TestFormatTwo(t *testing.T) {
 	if !bytes.Equal(encoded, stored) {
 		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
 	}
-	if err := formatTwoContent().Definition.Validate(formatTwoContent().Areas); err != nil {
+	// The fixture predates ADR-017, which keeps the external kind only for
+	// reading published versions: today the same area would be an office one.
+	areas := formatTwoContent().Areas
+	for i := range areas {
+		if areas[i].Kind == AreaExternal {
+			areas[i].Kind = AreaOffice
+		}
+	}
+	if err := formatTwoContent().Definition.Validate(areas); err != nil {
 		t.Errorf("Validate() = %v, want the fixture to be a valid definition", err)
 	}
 }

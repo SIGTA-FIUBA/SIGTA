@@ -11,7 +11,7 @@ func testAreas() []Area {
 	return []Area{
 		{ID: "applicant", Name: "Titular", Kind: AreaApplicant},
 		{ID: "office", Name: "Dirección de Alumnos", Kind: AreaOffice},
-		{ID: "commission", Name: "Comisión Curricular", Kind: AreaExternal},
+		{ID: "commission", Name: "Comisión Curricular", Kind: AreaOffice},
 	}
 }
 
@@ -57,7 +57,7 @@ func TestValidDefinitions(t *testing.T) {
 			d.Fields[0].Type = FieldOption
 			d.Fields[0].Options = []Option{{ID: "yes", Name: "Sí"}, {ID: "no", Name: "No"}}
 		}},
-		{name: "external area with approver", change: func(d *Definition) {
+		{name: "another office area with approver", change: func(d *Definition) {
 			d.Steps[3].Area = "commission"
 			d.Steps[3].Profile = ProfileStaffApprover
 		}},
@@ -118,7 +118,7 @@ func TestInvalidDefinitions(t *testing.T) {
 			`step "review": outcome "complete": unknown next step "closed"`,
 		}},
 		{name: "office step without profile", change: func(d *Definition) { d.Steps[3].Profile = "" }, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
-		{name: "external step without profile", change: func(d *Definition) {
+		{name: "step of another office area without profile", change: func(d *Definition) {
 			d.Steps[3].Area = "commission"
 			d.Steps[3].Profile = ""
 		}, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
@@ -252,6 +252,7 @@ func TestInvalidAreas(t *testing.T) {
 	}{
 		{name: "duplicated area", change: func(a []Area) { a[1].ID = "applicant" }, want: `area "applicant" is declared twice`},
 		{name: "unknown area kind", change: func(a []Area) { a[1].Kind = "dean" }, want: `area "office": unknown kind "dean"`},
+		{name: "external area kind", change: func(a []Area) { a[2].Kind = AreaExternal }, want: `area "commission": unknown kind "external"`},
 		{name: "duplicated area name", change: func(a []Area) { a[2].Name = "Dirección de Alumnos" }, want: `area "commission": name "Dirección de Alumnos" is already used by area "office"`},
 		{name: "no applicant area", change: func(a []Area) { a[0].Kind = AreaOffice }, want: "areas must have one applicant area, found 0"},
 		{name: "two applicant areas", change: func(a []Area) { a[1].Kind = AreaApplicant }, want: "areas must have one applicant area, found 2"},

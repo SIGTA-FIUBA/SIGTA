@@ -157,11 +157,11 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 	}
 }
 
-func (w *procedureTypeWorld) givenAreas(applicant, office, external string) error {
+func (w *procedureTypeWorld) givenAreas(applicant, office, other string) error {
 	w.areas = []domain.Area{
 		{ID: areaID(applicant), Name: applicant, Kind: domain.AreaApplicant},
 		{ID: areaID(office), Name: office, Kind: domain.AreaOffice},
-		{ID: areaID(external), Name: external, Kind: domain.AreaExternal},
+		{ID: areaID(other), Name: other, Kind: domain.AreaOffice},
 	}
 	return nil
 }

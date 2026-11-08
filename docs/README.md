@@ -21,7 +21,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [Anteproyecto](anteproyecto.pdf) | Documento aprobado por la cátedra; el resto de los artefactos parte de él |
 | [00 · Charter](00-charter.md) | Problema, objetivo, reglas fuera de negociación, métricas de éxito y restricciones |
 | [01 · Glosario](01-glosario.md) | Vocabulario único del dominio; las entradas (V) faltan validar con la Secretaría |
-| [02 · Personas y actores](02-personas-y-actores.md) | Roles (titular y Secretario con dos perfiles), actores externos y tabla de permisos |
+| [02 · Personas y actores](02-personas-y-actores.md) | Roles (titular y Secretario), áreas y membresías, actores externos y tabla de permisos |
 | [03 · Alcance](03-scope.md) | Los cinco trámites, alcance positivo y negativo, supuestos S-01 a S-08 |
 | [04 · Decisiones (ADR)](04-decisiones-adr.md) | ADR-001 a ADR-015 y decisiones pendientes |
 | [05 · Riesgos](05-riesgos.md) | Registro de riesgos con disparador, mitigación y contingencia |

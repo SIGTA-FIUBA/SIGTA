@@ -7,15 +7,18 @@ Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en
 
 ## 1. Roles de la plataforma
 
-La plataforma tiene **tres roles**, que se excluyen entre sí (ADR-016). Los dos primeros son los que ordenan el User Story Mapping.
+La plataforma tiene **dos roles**, que se excluyen entre sí y son los mismos que ordenan el User Story Mapping (ADR-017). Ninguno se guarda: se derivan de las membresías.
 
 | Rol | Perfiles de permisos | Qué hace |
 |---|---|---|
-| **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
-| **Secretario** (personal) | **Operativo** o **de aprobación**, por tipo de trámite | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma |
-| **Administrador** | Uno | Da de alta al personal y le asigna permisos; no actúa sobre trámites por ser administrador |
+| **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente. Es titular toda persona que ingresa sin una membresía vigente |
+| **Secretario** (personal) | **Operativo** o **de aprobación**, por área | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma. Es personal quien tiene al menos una membresía vigente, y no inicia trámites |
 
-**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles. Cada persona del personal tiene un perfil en cada tipo de trámite en que trabaja, y ninguno en los demás: puede aprobar equivalencias y solo operar en reconocimiento de créditos.
+**Por qué un rol con dos perfiles.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen dos perfiles.
+
+**Áreas y membresías.** El personal se organiza en áreas (Secretaría, Comisión Curricular X, etc.) que se crean como datos, sin una lista fija. Una membresía pone a una persona en un área con un perfil, opcionalmente solo para algunos tipos de trámite (alcance), y con una vigencia. Una persona puede estar en varias áreas.
+
+**Administrador.** Es una marca sobre una persona y no un rol: otorga y da de baja membresías, y no le da acceso a los trámites.
 
 ## 2. Actores que no son roles de la plataforma
 
@@ -97,12 +100,12 @@ La plataforma tiene **tres roles**, que se excluyen entre sí (ADR-016). Los dos
 
 ## 4. Permisos
 
-| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Asigna permisos | Edita configuración |
+| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Otorga membresías | Edita configuración |
 |---|---|---|---|---|---|---|
 | Titular | Solo los propios | Solo los suyos, del titular | No | No | No | No |
-| Secretario operativo en un tipo de trámite | Los de ese tipo | Sí, en ese tipo | Sí, en ese tipo | No | No | A confirmar (D-08) |
-| Secretario de aprobación en un tipo de trámite | Los de ese tipo | Sí, en ese tipo | Sí, en ese tipo | Sí, en ese tipo | No | A confirmar (D-08) |
-| Administrador | No | No | No | No | Sí | A confirmar (D-08) |
+| Secretario operativo en un área | Los que pasan por su área, dentro de su alcance | Sí, en su área | Sí, en su área | No | No | A confirmar (D-08) |
+| Secretario de aprobación en un área | Los que pasan por su área, dentro de su alcance | Sí, en su área | Sí, en su área | Sí, en su área | No | A confirmar (D-08) |
+| Administrador (marca) | Solo por sus membresías | Solo por sus membresías | Solo por sus membresías | Solo por sus membresías | Sí | A confirmar (D-08) |
 | Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
-> La tabla sigue el modelo de ADR-016. Falta confirmar con la Secretaría si el permiso tiene que limitarse también a un área (D-09) y si el personal ve todos los trámites de sus tipos o solo los que esperan un paso suyo.
+> La tabla sigue el modelo de ADR-017. Falta confirmar con la Secretaría qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si hacen falta más rangos o alcances (D-12).

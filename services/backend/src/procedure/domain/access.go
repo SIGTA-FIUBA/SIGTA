@@ -2,30 +2,28 @@ package domain
 
 import (
 	"errors"
+	"slices"
 	"time"
 )
 
 var (
-	ErrUnknownUserKind   = errors.New("unknown kind of user")
-	ErrAccessDenied      = errors.New("access denied")
-	ErrProcedureNotFound = errors.New("procedure not found")
-	ErrInvalidPermission = errors.New("invalid staff permission")
+	ErrAccessDenied       = errors.New("access denied")
+	ErrProcedureNotFound  = errors.New("procedure not found")
+	ErrInvalidMembership  = errors.New("invalid membership")
+	ErrMembershipNotFound = errors.New("membership not found")
 )
 
-type UserKind string
+// Role is derived, never stored: a person with an active membership is staff,
+// and anyone else is an applicant (ADR-017).
+type Role string
 
 const (
-	KindApplicant     UserKind = "applicant"
-	KindStaff         UserKind = "staff"
-	KindAdministrator UserKind = "administrator"
+	RoleApplicant Role = "applicant"
+	RoleStaff     Role = "staff"
 )
 
-func (k UserKind) Known() bool {
-	switch k {
-	case KindApplicant, KindStaff, KindAdministrator:
-		return true
-	}
-	return false
+func (p Profile) Known() bool {
+	return p == ProfileStaffOperative || p == ProfileStaffApprover
 }
 
 func (p Profile) Covers(step Profile) bool {
@@ -38,50 +36,88 @@ func (p Profile) Covers(step Profile) bool {
 	return false
 }
 
-type Permission struct {
-	UserID        string
-	ProcedureType int64
-	Profile       Profile
+// Membership makes a person staff of an area with a profile. Scope, when not
+// empty, restricts it to some procedure types; it names types and not
+// versions. A zero Until means it holds until it is ended.
+type Membership struct {
+	ID        string
+	UserID    string
+	Area      string
+	Profile   Profile
+	Scope     []int64
+	From      time.Time
+	Until     time.Time
+	GrantedBy string
+	EndedBy   string
+}
+
+func (m Membership) ActiveAt(at time.Time) bool {
+	return !at.Before(m.From) && (m.Until.IsZero() || at.Before(m.Until))
+}
+
+func (m Membership) covers(procedureType int64) bool {
+	return len(m.Scope) == 0 || slices.Contains(m.Scope, procedureType)
+}
+
+// Overlaps tells whether two memberships of the same person would hold at once
+// in the same area with the same scope. A different scope is allowed, so that
+// someone can have a higher profile on some procedure types.
+func (m Membership) Overlaps(other Membership) bool {
+	if m.UserID != other.UserID || m.Area != other.Area || !sameScope(m.Scope, other.Scope) {
+		return false
+	}
+	startsBeforeOtherEnds := other.Until.IsZero() || m.From.Before(other.Until)
+	endsAfterOtherStarts := m.Until.IsZero() || other.From.Before(m.Until)
+	return startsBeforeOtherEnds && endsAfterOtherStarts
+}
+
+func sameScope(a, b []int64) bool {
+	a, b = slices.Clone(a), slices.Clone(b)
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Equal(slices.Compact(a), slices.Compact(b))
 }
 
 type Actor struct {
-	UserID      string
-	Kind        UserKind
-	Permissions []Permission
+	UserID        string
+	Administrator bool
+	Memberships   []Membership
 }
 
-func (a Actor) profileOn(procedureType int64) (Profile, bool) {
-	for _, p := range a.Permissions {
-		if p.ProcedureType == procedureType {
-			return p.Profile, true
-		}
+func NewActor(userID string, administrator bool, memberships []Membership, at time.Time) Actor {
+	active := slices.DeleteFunc(slices.Clone(memberships), func(m Membership) bool { return !m.ActiveAt(at) })
+	return Actor{UserID: userID, Administrator: administrator, Memberships: active}
+}
+
+func (a Actor) Role() Role {
+	if len(a.Memberships) > 0 {
+		return RoleStaff
 	}
-	return "", false
+	return RoleApplicant
 }
 
-func (a Actor) CanSee(p Procedure) bool {
-	switch a.Kind {
-	case KindApplicant:
+func (a Actor) CanSee(p Procedure, c Content) bool {
+	if a.Role() == RoleApplicant {
 		return p.Applicant == a.UserID
-	case KindStaff:
-		_, ok := a.profileOn(p.ProcedureType)
-		return ok
+	}
+	for _, s := range c.Definition.Steps {
+		if slices.ContainsFunc(a.Memberships, func(m Membership) bool { return m.Area == s.Area && m.covers(p.ProcedureType) }) {
+			return true
+		}
 	}
 	return false
 }
 
+// CanActOn tells whether the actor may act on a step of the procedure. Steps
+// of the applicant area belong to the applicant of the procedure; any other
+// area, including the legacy external kind, belongs to its members.
 func (a Actor) CanActOn(p Procedure, step Step, area Area) bool {
-	switch area.Kind {
-	case AreaApplicant:
-		return a.Kind == KindApplicant && p.Applicant == a.UserID
-	case AreaOffice:
-		if a.Kind != KindStaff {
-			return false
-		}
-		profile, ok := a.profileOn(p.ProcedureType)
-		return ok && profile.Covers(step.Profile)
+	if area.Kind == AreaApplicant {
+		return a.Role() == RoleApplicant && p.Applicant == a.UserID
 	}
-	return false
+	return slices.ContainsFunc(a.Memberships, func(m Membership) bool {
+		return m.Area == step.Area && m.covers(p.ProcedureType) && m.Profile.Covers(step.Profile)
+	})
 }
 
 type DeniedAttempt struct {

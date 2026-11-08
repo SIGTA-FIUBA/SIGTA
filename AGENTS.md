@@ -33,12 +33,12 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Tipo de trámite | procedure type | Definición configurada de un trámite | — |
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | staff, con perfil `staff_operative` o `staff_approver` por tipo de trámite | Rol del personal, con perfil **operativo** o **de aprobación** en cada tipo de trámite (ADR-016) | Dos roles distintos |
-| Permiso | permission | Perfil de una persona del personal sobre un tipo de trámite | Una versión: el permiso no cambia al publicar |
-| Administrador | administrator | Rol que da de alta al personal y asigna permisos | Personal: no actúa sobre trámites |
+| Secretario | staff | Rol del personal: quien tiene al menos una membresía vigente (ADR-017) | Titular: los roles se excluyen y el personal no inicia trámites |
+| Membresía | membership | Pertenencia de una persona a un área, con perfil `staff_operative` o `staff_approver`, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
+| Administrador | administrator | Marca sobre una persona que le permite dar de alta membresías | Un rol: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
-| Área | area (`applicant`, `office` o `external`) | Quien tiene a cargo un paso | Rol o perfil |
+| Área | area (`applicant` o `office`) | Quien tiene a cargo un paso: el titular o un área del personal, que se crea como dato | Rol o perfil |
 | Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
 | Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |
@@ -49,7 +49,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Evaluador externo | external evaluator | Comisión o unidad académica que dictamina; no usa la plataforma | Un rol de SIGTA |
 | Hallazgo | finding | Resultado de la validación asistida sobre un requisito | Una decisión |
 
-Las acciones del modelo de dominio son **cargar dato** (`enter_data`), **cargar documento** (`upload_document`), **confirmar hecho externo** (`confirm_external_fact`) y **decidir** (`decide`). Una decisión elige una de sus salidas, cada una con su paso siguiente; continuar, devolver o pedir información son salidas posibles, no acciones. Derivar es pasar a un paso de un área `external`.
+Las acciones del modelo de dominio son **cargar dato** (`enter_data`), **cargar documento** (`upload_document`), **confirmar hecho externo** (`confirm_external_fact`) y **decidir** (`decide`). Una decisión elige una de sus salidas, cada una con su paso siguiente; continuar, devolver o pedir información son salidas posibles, no acciones. Derivar es pasar a un paso de otra área; si quien dictamina no usa SIGTA, el paso es del área que registra el dictamen.
 
 ## Arquitectura
 

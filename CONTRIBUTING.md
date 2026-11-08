@@ -37,13 +37,13 @@ El trámite empieza en el primer paso. Cada paso tiene un área responsable y un
 | `confirm_external_fact` | Confirmar un hecho ocurrido fuera de SIGTA, como una carátula o una firma en el expediente electrónico | `fields` y `optional_fields`, si hace falta registrar algo, como el número de expediente |
 | `decide` | Elegir una salida | `outcomes`, al menos dos, cada una con su `next`; y, si hacen falta, los `fields` y `documents` que fundamentan la decisión, como el acta |
 
-- Los pasos de un área de tipo `office` o `external` llevan `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción. Los pasos del titular no llevan perfil y solo cargan datos o documentos.
+- Los pasos de un área del personal (`office`) llevan `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción. Los pasos del titular no llevan perfil y solo cargan datos o documentos.
 - Un paso sin `next` ni `outcomes` cierra el trámite.
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
 - Un paso tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
 - Los plazos y las condiciones de admisibilidad son texto que el catálogo muestra: nada los aplica todavía. A confirmar: si el motor tiene que aplicarlos, como pedía "Plazos y condiciones de admisibilidad", que figura en Linear como duplicado de "Modelo de definición de trámite".
 
-No hay estados en la configuración: el estado que ve el titular se calcula a partir del tipo de área del paso abierto (`applicant` es "Esperando al titular", `office` es "En el área", `external` es "Derivado", y sin paso abierto es "Cerrado"). Tampoco hay estados de resultado: el dictamen es un documento que se carga, y las salidas de una decisión son pasos del proceso, no resultados.
+No hay estados en la configuración: el estado que ve el titular se calcula a partir del área del paso abierto (`applicant` es "Esperando al titular", un área del personal es "En" seguido del nombre del área, y sin paso abierto es "Cerrado"). Las versiones publicadas antes de ADR-017 pueden tener áreas `external`, que se tratan como `office`. Tampoco hay estados de resultado: el dictamen es un documento que se carga, y las salidas de una decisión son pasos del proceso, no resultados.
 
 Los pases entre áreas y los avisos al titular no son pasos: pasar al paso siguiente es el pase, y el aviso sale cuando cambia el estado. A confirmar: si la notificación de la resolución al titular, que tiene fecha y medio, es un paso del tipo de trámite o un evento del sistema.
 
@@ -55,7 +55,7 @@ Se rechaza:
 
 - `id` vacío, repetido o fuera del formato: minúsculas ASCII, dígitos y guiones bajos, empezando por una letra. Así dos `id` que se ven iguales son el mismo.
 - Nombres vacíos o con espacios al principio o al final.
-- Tipos de dato o de área desconocidos, perfiles desconocidos o un paso de `office` o `external` sin perfil.
+- Tipos de dato o de área desconocidos (incluido `external`, que ya no se acepta), perfiles desconocidos o un paso de un área del personal sin perfil.
 - Opciones fuera de un dato `option`, un dato `option` sin opciones, u opciones con `id` o nombre repetido.
 - Salidas de una decisión con `id` o nombre repetido.
 - Referencias a áreas, datos, documentos o pasos que no existen, o referencias repetidas en un paso.
