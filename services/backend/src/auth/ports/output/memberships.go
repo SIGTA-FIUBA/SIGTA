@@ -28,7 +28,3 @@ type MembershipRepository interface {
 	Get(ctx context.Context, id string) (domain.Membership, error)
 	Save(ctx context.Context, m domain.Membership) error
 }
-
-type DeniedAttemptLog interface {
-	Record(ctx context.Context, a domain.DeniedAttempt) error
-}

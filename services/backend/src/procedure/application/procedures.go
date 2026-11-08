@@ -2,10 +2,8 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
@@ -17,7 +15,6 @@ var _ input.Procedures = (*ProcedureService)(nil)
 
 const (
 	actionStart = "start"
-	actionOpen  = "open"
 	actionAct   = "act"
 )
 
@@ -28,9 +25,9 @@ type ProcedureService struct {
 	newID          func() string
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, newID func() string) *ProcedureService {
 	return &ProcedureService{
-		authorizer:     authorizer{staff: staff, deniedAttempts: deniedAttempts, clock: clock},
+		authorizer:     authorizer{staffAuthorizer: staff},
 		procedureTypes: procedureTypes,
 		procedures:     procedures,
 		newID:          newID,
@@ -38,12 +35,12 @@ func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.
 }
 
 func (s *ProcedureService) Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error) {
-	staff, err := s.staff.IsStaff(ctx, userID)
+	staff, err := s.staffAuthorizer.IsStaff(ctx, userID)
 	if err != nil {
 		return domain.Procedure{}, fmt.Errorf("role of %s: %w", userID, err)
 	}
 	if staff {
-		return domain.Procedure{}, s.deny(ctx, userID, actionStart, "")
+		return domain.Procedure{}, denied(userID, actionStart)
 	}
 	version, err := s.latest(ctx, procedureType)
 	if err != nil {
@@ -67,7 +64,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 }
 
 func (s *ProcedureService) Open(ctx context.Context, userID, procedureID string) (input.ProcedureView, error) {
-	reach, p, content, err := s.visible(ctx, userID, procedureID, actionOpen)
+	reach, p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
@@ -106,7 +103,7 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 			}
 			contents[key] = content
 		}
-		if s.canSee(userID, reach, p, content) {
+		if canSee(userID, reach, p, content) {
 			seen = append(seen, p)
 		}
 	}
@@ -114,7 +111,7 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 }
 
 func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID string) error {
-	reach, p, content, err := s.visible(ctx, userID, procedureID, actionAct)
+	reach, p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
 		return err
 	}
@@ -123,13 +120,13 @@ func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID 
 		return err
 	}
 	if !allowed {
-		return s.deny(ctx, userID, actionAct+" "+stepID, p.ID)
+		return denied(userID, actionAct+" "+stepID)
 	}
 	return nil
 }
 
 func (s *ProcedureService) reach(ctx context.Context, userID string) ([]authinput.AreaReach, error) {
-	reach, err := s.staff.Reach(ctx, userID)
+	reach, err := s.staffAuthorizer.Reach(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("areas of %s: %w", userID, err)
 	}
@@ -138,7 +135,7 @@ func (s *ProcedureService) reach(ctx context.Context, userID string) ([]authinpu
 
 // visible returns the procedure if the person can see it, and answers as if
 // it did not exist otherwise.
-func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, action string) ([]authinput.AreaReach, domain.Procedure, domain.Content, error) {
+func (s *ProcedureService) visible(ctx context.Context, userID, procedureID string) ([]authinput.AreaReach, domain.Procedure, domain.Content, error) {
 	reach, err := s.reach(ctx, userID)
 	if err != nil {
 		return nil, domain.Procedure{}, domain.Content{}, err
@@ -151,10 +148,7 @@ func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, act
 	if err != nil {
 		return nil, domain.Procedure{}, domain.Content{}, err
 	}
-	if !s.canSee(userID, reach, p, content) {
-		if err := s.deny(ctx, userID, action, p.ID); !errors.Is(err, domain.ErrAccessDenied) {
-			return nil, domain.Procedure{}, domain.Content{}, err
-		}
+	if !canSee(userID, reach, p, content) {
 		return nil, domain.Procedure{}, domain.Content{}, fmt.Errorf("procedure %s: %w", procedureID, domain.ErrProcedureNotFound)
 	}
 	return reach, p, content, nil

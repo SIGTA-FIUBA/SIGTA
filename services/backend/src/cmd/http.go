@@ -61,9 +61,8 @@ func run(logger *slog.Logger) error {
 	areaRepository := memory.NewAreaRepository(areas...)
 	administrators := memory.NewAdministrators(directory.administrators...)
 	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
-	deniedAttempts := memory.NewDeniedAttemptLog()
-	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, deniedAttempts, time.Now)
-	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, deniedAttempts, newID, time.Now)
+	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
+	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, time.Now)

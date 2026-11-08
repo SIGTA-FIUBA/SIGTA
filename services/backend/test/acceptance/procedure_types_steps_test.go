@@ -84,7 +84,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 }
 
 func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
-	auth := authapp.NewAreaService(w.areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), authmem.NewDeniedAttemptLog(), func() time.Time { return w.now })
+	auth := authapp.NewAreaService(w.areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), func() time.Time { return w.now })
 	return application.NewProcedureTypeService(w.versions, auth, func() time.Time { return w.now })
 }
 

@@ -4,32 +4,23 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
-	"backend/src/procedure/ports/output"
 )
 
-// authorizer asks auth what a person can do as staff (ADR-018) and records
-// every denied attempt.
+// authorizer asks auth what a person can do as staff (ADR-018).
 type authorizer struct {
-	staff          authinput.StaffAuthorizer
-	deniedAttempts output.DeniedAttemptLog
-	clock          func() time.Time
+	staffAuthorizer authinput.StaffAuthorizer
 }
 
-func (a authorizer) deny(ctx context.Context, userID, action, procedureID string) error {
-	attempt := domain.DeniedAttempt{UserID: userID, Action: action, Procedure: procedureID, At: a.clock().UTC()}
-	if err := a.deniedAttempts.Record(ctx, attempt); err != nil {
-		return fmt.Errorf("record denied attempt: %w", err)
-	}
+func denied(userID, action string) error {
 	return fmt.Errorf("%s %s: %w", userID, action, domain.ErrAccessDenied)
 }
 
 // canSee gives the applicant their own procedures, and staff those that pass
 // through their areas within their scope.
-func (a authorizer) canSee(userID string, reach []authinput.AreaReach, p domain.Procedure, c domain.Content) bool {
+func canSee(userID string, reach []authinput.AreaReach, p domain.Procedure, c domain.Content) bool {
 	if len(reach) == 0 {
 		return p.Applicant == userID
 	}
@@ -53,7 +44,7 @@ func (a authorizer) canAct(ctx context.Context, userID string, staff bool, p dom
 	if step.Role == domain.RoleApplicant {
 		return !staff && p.Applicant == userID, nil
 	}
-	holds, err := a.staff.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))
+	holds, err := a.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))
 	if err != nil {
 		return false, fmt.Errorf("profile of %s in %s: %w", userID, step.Area, err)
 	}

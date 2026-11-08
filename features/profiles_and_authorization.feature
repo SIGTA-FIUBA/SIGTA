@@ -29,7 +29,6 @@ Feature: Profiles and authorization
   Scenario: staff cannot start a procedure
     When "operative@fi.uba.ar" starts a "subject equivalence" procedure
     Then the procedure is not started
-    And a denied attempt is recorded with who tried, what they tried and when
 
   Scenario: a membership turns an applicant into staff
     When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
@@ -39,7 +38,6 @@ Feature: Profiles and authorization
   Scenario: only an administrator grants memberships
     When "approver@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
     Then the membership is denied
-    And a denied attempt is recorded with who tried, what they tried and when
 
   Scenario Outline: a membership needs a staff area and a known profile
     When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "<area>" with the "<profile>" profile on "<scope>"
@@ -161,18 +159,3 @@ Feature: Profiles and authorization
     When a new version of "subject equivalence" is published
     And "operative@fi.uba.ar" acts on that step
     Then the action is allowed
-
-  Scenario: a denied attempt is recorded
-    Given "other@fi.uba.ar" has a "subject equivalence" procedure
-    When "applicant@fi.uba.ar" opens that procedure by its identifier
-    Then a denied attempt is recorded with who tried, what they tried, on which procedure and when
-
-  Scenario: a denied action on a step is recorded
-    Given a "subject equivalence" procedure whose open step is "approve"
-    When "operative@fi.uba.ar" acts on that step
-    Then a denied attempt is recorded with who tried, what they tried, on which procedure and when
-
-  Scenario: an allowed action is not recorded as a denied attempt
-    Given a "subject equivalence" procedure whose open step is "verify"
-    When "operative@fi.uba.ar" acts on that step
-    Then no denied attempt is recorded

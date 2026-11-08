@@ -12,7 +12,6 @@ import (
 var (
 	_ output.Administrators       = (*Administrators)(nil)
 	_ output.MembershipRepository = (*MembershipRepository)(nil)
-	_ output.DeniedAttemptLog     = (*DeniedAttemptLog)(nil)
 )
 
 type Administrators struct {
@@ -93,26 +92,4 @@ func (r *MembershipRepository) Save(_ context.Context, m domain.Membership) erro
 func cloneMembership(m domain.Membership) domain.Membership {
 	m.Scope = slices.Clone(m.Scope)
 	return m
-}
-
-type DeniedAttemptLog struct {
-	mu       sync.Mutex
-	attempts []domain.DeniedAttempt
-}
-
-func NewDeniedAttemptLog() *DeniedAttemptLog {
-	return &DeniedAttemptLog{}
-}
-
-func (l *DeniedAttemptLog) Record(_ context.Context, a domain.DeniedAttempt) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.attempts = append(l.attempts, a)
-	return nil
-}
-
-func (l *DeniedAttemptLog) All() []domain.DeniedAttempt {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return slices.Clone(l.attempts)
 }

@@ -3,7 +3,6 @@ package domain
 import (
 	"errors"
 	"slices"
-	"time"
 )
 
 var (
@@ -15,11 +14,4 @@ var (
 // Staff see the procedures that pass through their areas (ADR-017).
 func (c Content) PassesThrough(area string) bool {
 	return slices.ContainsFunc(c.Definition.Steps, func(s Step) bool { return s.Area == area })
-}
-
-type DeniedAttempt struct {
-	UserID    string
-	Action    string
-	Procedure string
-	At        time.Time
 }

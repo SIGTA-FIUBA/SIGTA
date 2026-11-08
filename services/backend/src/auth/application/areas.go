@@ -24,13 +24,15 @@ type AreaService struct {
 	administratorGuard
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
+	clock       func() time.Time
 }
 
-func NewAreaService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, deniedAttempts output.DeniedAttemptLog, clock func() time.Time) *AreaService {
+func NewAreaService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, clock func() time.Time) *AreaService {
 	return &AreaService{
-		administratorGuard: administratorGuard{administrators: administrators, deniedAttempts: deniedAttempts, clock: clock},
+		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
+		clock:              clock,
 	}
 }
 

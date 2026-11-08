@@ -102,7 +102,6 @@ func (w *authenticationWorld) server() http.Handler {
 			memory.NewAreaRepository(w.areas...),
 			memory.NewAdministrators(),
 			w.memberships,
-			memory.NewDeniedAttemptLog(),
 			func() string { return "M-new" },
 			func() time.Time { return w.now },
 		)

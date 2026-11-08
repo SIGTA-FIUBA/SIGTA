@@ -27,14 +27,16 @@ type MembershipService struct {
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
 	newID       func() string
+	clock       func() time.Time
 }
 
-func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *MembershipService {
+func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, newID func() string, clock func() time.Time) *MembershipService {
 	return &MembershipService{
-		administratorGuard: administratorGuard{administrators: administrators, deniedAttempts: deniedAttempts, clock: clock},
+		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
 		newID:              newID,
+		clock:              clock,
 	}
 }
 

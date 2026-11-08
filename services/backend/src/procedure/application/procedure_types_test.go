@@ -45,7 +45,7 @@ func newService(versions output.ProcedureVersions, areas ...authdomain.Area) *Pr
 }
 
 func newServiceOn(versions output.ProcedureVersions, areas *authmem.AreaRepository) *ProcedureTypeService {
-	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), authmem.NewDeniedAttemptLog(), time.Now)
+	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
 	return NewProcedureTypeService(versions, auth, func() time.Time { return publishedAt })
 }
 

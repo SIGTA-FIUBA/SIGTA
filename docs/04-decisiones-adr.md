@@ -352,7 +352,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - **Actuar en un paso.** Se puede actuar en el paso abierto si el área del paso es la de una membresía vigente, el rango cubre el perfil del paso y, si hay alcance, el tipo de trámite está en él. Los pasos del titular los hace solo el titular de ese trámite. Se controla en el momento de cada acción: el trámite no se asigna a personas.
 - **Ver trámites.** El personal ve los trámites que pasan por sus áreas, recortados por el alcance. El titular ve solo los suyos. A quien no puede ver un trámite se le responde como si no existiera.
 - **Administrador.** Es una marca sobre la persona y no un tipo de usuario ni una membresía. Da de alta las áreas y las membresías. No le da acceso a los trámites: para actuar sobre ellos necesita una membresía.
-- **Registro.** Cada cambio de membresía queda registrado con quién, qué y cuándo. La autorización se aplica en el caso de uso del servidor, y cada negativa queda registrada con quién, qué, sobre qué trámite y cuándo.
+- **Registro.** Cada cambio de membresía queda registrado con quién, qué y cuándo. La autorización se aplica en el caso de uso del servidor. Registrar los intentos sin permiso no es parte de esta decisión: queda para una historia de auditoría, junto con los cambios de áreas y membresías y los ingresos.
 
 **Consecuencias.**
 - D-09 queda resuelta: el área forma parte del permiso.

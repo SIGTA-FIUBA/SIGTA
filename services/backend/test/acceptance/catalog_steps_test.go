@@ -32,7 +32,7 @@ type catalogWorld struct {
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
 	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría"})
-	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), authmem.NewDeniedAttemptLog(), time.Now)
+	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
 	world := &catalogWorld{
 		service: application.NewProcedureTypeService(versions, auth, time.Now),
 		types:   map[string]int64{},

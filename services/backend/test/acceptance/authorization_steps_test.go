@@ -30,9 +30,7 @@ type authorizationWorld struct {
 	storedAreas       *authmem.AreaRepository
 	administrators    *authmem.Administrators
 	storedMemberships *authmem.MembershipRepository
-	membershipDenials *authmem.DeniedAttemptLog
 	procedures        *memory.ProcedureRepository
-	deniedAttempts    *memory.DeniedAttemptLog
 	now               time.Time
 
 	typeIDs map[string]int64
@@ -53,9 +51,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	w := &authorizationWorld{
 		administrators:    authmem.NewAdministrators("admin@fi.uba.ar"),
 		storedMemberships: authmem.NewMembershipRepository(),
-		membershipDenials: authmem.NewDeniedAttemptLog(),
 		procedures:        memory.NewProcedureRepository(),
-		deniedAttempts:    memory.NewDeniedAttemptLog(),
 		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:           map[string]int64{},
 		steps:             map[string][]domain.Step{},
@@ -104,8 +100,6 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^it is a "([^"]*)" procedure$`, w.thenOfType)
 	sc.Then(`^none of them belongs to "([^"]*)"$`, w.thenNoneOf)
 	sc.Then(`^the procedure stays on the "([^"]*)" step$`, w.thenStaysOn)
-	sc.Then(`^a denied attempt is recorded with who tried, what they tried(, on which procedure)? and when$`, w.thenDeniedRecorded)
-	sc.Then(`^no denied attempt is recorded$`, w.thenNoDenied)
 }
 
 func (w *authorizationWorld) newID() string {
@@ -122,10 +116,10 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	)
 	w.storedAreas = areas
 	clock := func() time.Time { return w.now }
-	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.membershipDenials, w.newID, clock)
-	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, w.membershipDenials, clock)
+	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
+	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.deniedAttempts, w.newID, clock)
+	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
 	return nil
 }
 
@@ -489,41 +483,6 @@ func (w *authorizationWorld) thenStaysOn(step string) error {
 	}
 	if p.OpenStep != step {
 		return fmt.Errorf("open step is %q, want %q", p.OpenStep, step)
-	}
-	return nil
-}
-
-// lastDenied reads the denials of procedure, or else those of auth, where a
-// denied membership grant is recorded.
-func (w *authorizationWorld) lastDenied() (domain.DeniedAttempt, bool) {
-	if all := w.deniedAttempts.All(); len(all) > 0 {
-		return all[len(all)-1], true
-	}
-	if all := w.membershipDenials.All(); len(all) > 0 {
-		last := all[len(all)-1]
-		return domain.DeniedAttempt{UserID: last.UserID, Action: last.Action, At: last.At}, true
-	}
-	return domain.DeniedAttempt{}, false
-}
-
-func (w *authorizationWorld) thenDeniedRecorded(onProcedure string) error {
-	got, ok := w.lastDenied()
-	if !ok {
-		return errors.New("no denied attempt was recorded")
-	}
-	want := domain.DeniedAttempt{UserID: w.user, Action: got.Action, At: w.now}
-	if onProcedure != "" {
-		want.Procedure = w.current
-	}
-	if got.Action == "" || got != want {
-		return fmt.Errorf("recorded %+v, want %+v with an action", got, want)
-	}
-	return nil
-}
-
-func (w *authorizationWorld) thenNoDenied() error {
-	if got, ok := w.lastDenied(); ok {
-		return fmt.Errorf("recorded %+v", got)
 	}
 	return nil
 }

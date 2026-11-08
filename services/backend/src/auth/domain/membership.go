@@ -115,9 +115,3 @@ func (p Permissions) Role() Role {
 	}
 	return RoleApplicant
 }
-
-type DeniedAttempt struct {
-	UserID string
-	Action string
-	At     time.Time
-}

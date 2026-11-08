@@ -23,7 +23,6 @@ Feature: Staff areas
       | approver@fi.uba.ar  | student affairs | staff_approver |       |
     When "approver@fi.uba.ar" creates the area "degree office" named "Degree Office"
     Then the area is denied
-    And a denied attempt is recorded with who tried, what they tried and when
 
   Scenario Outline: an area needs a valid and unused identifier and name
     When "admin@fi.uba.ar" creates the area "<id>" named "<name>"
