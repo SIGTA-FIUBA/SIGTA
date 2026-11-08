@@ -13,6 +13,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | Trabajar en un componente de IA | ADR-002, riesgos R-06 y R-07, y la estrategia de pruebas del [proceso](09-proceso-y-metricas.md) |
 | Decidir si algo entra en el alcance | [Alcance](03-scope.md): si no está en el alcance positivo, está fuera |
 | Saber qué toca ahora | [Plan de sprints](11-plan-de-sprints.md) y [roadmap](10-roadmap.md) |
+| Configurar un tipo de trámite | [Relevamiento](13-relevamiento-de-tramites.md) y sus [dudas abiertas](14-dudas-abiertas.md) |
 
 ## Índice
 
@@ -31,3 +32,5 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [09 · Proceso y métricas](09-proceso-y-metricas.md) | Definition of Ready y of Done, estimación, estados en Linear, estrategia de pruebas |
 | [10 · Roadmap](10-roadmap.md) | Bloques, calendario, hitos y puntos de control |
 | [11 · Plan de sprints](11-plan-de-sprints.md) | Historias asignadas a cada sprint |
+| [13 · Relevamiento de los trámites](13-relevamiento-de-tramites.md) | Actores, acciones y circuito de los cinco trámites, y cómo queda la equivalencia en SIGTA |
+| [14 · Dudas abiertas](14-dudas-abiertas.md) | Lo que todavía no se sabe y cómo se avanza mientras tanto |
