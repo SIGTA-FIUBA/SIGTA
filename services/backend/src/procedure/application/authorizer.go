@@ -7,6 +7,8 @@ import (
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 )
 
 func denied(userID, action string) error {
@@ -14,8 +16,8 @@ func denied(userID, action string) error {
 }
 
 // canSee takes the areas where the person has an active membership: without
-// any, they are an applicant (ADR-017).
-func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c domain.Content) bool {
+// any, they are an applicant (ADR-020).
+func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c version.Content) bool {
 	isApplicant := len(memberOf) == 0
 	if isApplicant {
 		return p.Applicant == userID
@@ -26,16 +28,16 @@ func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c
 	})
 }
 
-func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplicant bool, p domain.Procedure, c domain.Content, stepID string) (bool, error) {
+func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplicant bool, p domain.Procedure, c version.Content, stepID string) (bool, error) {
 	if stepID != p.OpenStep {
 		return false, nil
 	}
-	i := slices.IndexFunc(c.Definition.Steps, func(step domain.Step) bool { return step.ID == stepID })
+	i := slices.IndexFunc(c.Definition.Steps, func(step definition.Step) bool { return step.ID == stepID })
 	if i < 0 {
 		return false, fmt.Errorf("procedure %s: open step %q is not in version %d", p.ID, stepID, p.Version)
 	}
 	step := c.Definition.Steps[i]
-	if step.Role == domain.RoleApplicant {
+	if step.Role == definition.RoleApplicant {
 		return isApplicant && p.Applicant == userID, nil
 	}
 	holds, err := s.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))

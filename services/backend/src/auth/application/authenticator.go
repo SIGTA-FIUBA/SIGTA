@@ -54,7 +54,7 @@ func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin,
 }
 
 // CompleteLogin registers someone new to SIGTA as an applicant: only a
-// membership makes them staff (ADR-017).
+// membership makes them staff (ADR-020).
 func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
 	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
 		return "", domain.ErrLoginStateMismatch

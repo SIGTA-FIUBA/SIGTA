@@ -33,7 +33,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Tipo de trámite | procedure type | Definición configurada de un trámite | — |
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | staff | Rol del personal: quien tiene al menos una membresía vigente (ADR-017) | Titular: los roles se excluyen y el personal no inicia trámites |
+| Secretario | staff | Rol del personal: quien tiene al menos una membresía vigente (ADR-020) | Titular: los roles se excluyen y el personal no inicia trámites |
 | Membresía | membership | Pertenencia de una persona a un área, con perfil `staff_operative` o `staff_approver`, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
 | Administrador | administrator | Marca sobre una persona que le permite dar de alta membresías | Un rol: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
@@ -55,7 +55,7 @@ Las acciones del modelo de dominio son **cargar dato** (`enter_data`), **cargar 
 
 Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL con pgvector. Cada servicio sigue **puertos y adaptadores**: el núcleo define interfaces y los adaptadores dependen de él, nunca al revés.
 
-- **Entre módulos, la API pública** (ADR-018). Un módulo del backend usa a otro solo por su `ports/input/`, recibida por constructor, sin puerto ni adaptador propio; nunca importa su `domain/`, `application/` ni `adapters/` (lo rechaza `depguard`). `procedure` usa `auth`, nunca al revés.
+- **Entre módulos, la API pública** (ADR-021). Un módulo del backend usa a otro solo por su `ports/input/`, recibida por constructor, sin puerto ni adaptador propio; nunca importa su `domain/`, `application/` ni `adapters/` (lo rechaza `depguard`). `procedure` usa `auth`, nunca al revés.
 - **Contrato primero.** Todo cambio de API empieza en `contracts/openapi.yaml`. Después se regenera con `make contracts`; la CI falla si el código generado no coincide con el contrato. No editar a mano `api.gen.go` ni `schema.d.ts`.
 - **Historial de acciones** en una tabla que solo crece, escrita en la misma transacción que el estado. Sin event sourcing.
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
@@ -69,7 +69,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/` y `catalog/` (ADR-016). Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |

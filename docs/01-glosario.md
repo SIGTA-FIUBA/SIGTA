@@ -37,7 +37,7 @@ Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuit
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
-Parte de la organización a la que pertenece el personal, como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas existen solo dentro del rol de personal: el titular no tiene área. No son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-017). Cada paso dice su rol: los del titular (`applicant`) no tienen área, y los del personal (`staff`) son de un área. Las versiones publicadas antes del formato 3 modelaban al titular como un área de tipo `applicant`, y se convierten al leerlas.
+Parte de la organización a la que pertenece el personal, como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas existen solo dentro del rol de personal: el titular no tiene área. No son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-020). Cada paso dice su rol: los del titular (`applicant`) no tienen área, y los del personal (`staff`) son de un área. Las versiones publicadas antes del formato 3 modelaban al titular como un área de tipo `applicant`, y se convierten al leerlas.
 
 **Pase**
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
@@ -67,13 +67,13 @@ Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reinic
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).
 
 **Rol**
-Cada uno de los dos tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite** (`applicant`) y **personal** (`staff`, el Secretario del mapa de usuario). No se guardan: es personal quien tiene al menos una membresía vigente, y titular cualquier otra persona que ingresa (ADR-017). Solo el titular inicia trámites.
+Cada uno de los dos tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite** (`applicant`) y **personal** (`staff`, el Secretario del mapa de usuario). No se guardan: es personal quien tiene al menos una membresía vigente, y titular cualquier otra persona que ingresa (ADR-020). Solo el titular inicia trámites.
 
 **Perfil**
 Rango del personal dentro de un área, que da su membresía. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma, y cubre los pasos operativos. En el mapa de usuario son un solo rol; en permisos se distinguen.
 
 **Membresía**
-Pertenencia de una persona a un área, con un perfil. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-017).
+Pertenencia de una persona a un área, con un perfil. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-020).
 
 **Administrador**
 Marca sobre una persona que le permite otorgar y dar de baja membresías. No es un rol ni da acceso a los trámites: para actuar sobre ellos necesita una membresía.

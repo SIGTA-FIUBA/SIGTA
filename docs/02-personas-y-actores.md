@@ -7,9 +7,9 @@ Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en
 
 ## 1. Roles de la plataforma
 
-La plataforma tiene **dos roles**, que se excluyen entre sí y son los mismos que ordenan el User Story Mapping (ADR-017). Ninguno se guarda: se derivan de las membresías.
+La plataforma tiene **dos roles**, que se excluyen entre sí y son los mismos que ordenan el User Story Mapping (ADR-020). Ninguno se guarda: se derivan de las membresías.
 
-| Rol | Perfiles de permisos | Qué hace |
+| Persona usuaria | Roles iniciales | Qué hace |
 |---|---|---|
 | **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente. Es titular toda persona que ingresa sin una membresía vigente |
 | **Secretario** (personal) | **Operativo** o **de aprobación**, por área | Recibe, verifica, deriva, registra retornos; el perfil de aprobación además aprueba y firma. Es personal quien tiene al menos una membresía vigente, y no inicia trámites |
@@ -108,4 +108,4 @@ La plataforma tiene **dos roles**, que se excluyen entre sí y son los mismos qu
 | Administrador (marca) | Solo por sus membresías | Solo por sus membresías | Solo por sus membresías | Solo por sus membresías | Sí | A confirmar (D-08) |
 | Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
-> La tabla sigue el modelo de ADR-017. Falta confirmar con la Secretaría qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si hacen falta más rangos o alcances (D-12).
+> La tabla sigue el modelo de ADR-020. Falta confirmar con la Secretaría qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si hacen falta más rangos o alcances (D-12).

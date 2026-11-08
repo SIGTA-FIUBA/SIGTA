@@ -164,7 +164,7 @@ type NewMembership struct {
 // Profile staff_approver cubre también los pasos de staff_operative.
 type Profile string
 
-// Role Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
 type Role string
 
 // User defines model for User.
@@ -175,7 +175,7 @@ type User struct {
 	Id            string              `json:"id"`
 	Name          string              `json:"name"`
 
-	// Role Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+	// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
 	Role Role `json:"role"`
 }
 

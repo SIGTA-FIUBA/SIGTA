@@ -1,14 +1,18 @@
-package domain
+package version
 
-import "fmt"
+import (
+	"fmt"
+
+	"backend/src/procedure/domain/definition"
+)
 
 // legacyContent is the shape of formats 1 and 2, which are never rewritten:
 // the applicant was an area of kind "applicant", and every other kind
-// ("office", or "external" before ADR-017) was staff.
+// ("office", or "external" before ADR-020) was staff.
 type legacyContent struct {
-	Format     int          `json:"format"`
-	Definition Definition   `json:"definition"`
-	Areas      []legacyArea `json:"areas,omitempty"`
+	Format     int                                `json:"format"`
+	Definition definition.ProcedureTypeDefinition `json:"definition"`
+	Areas      []legacyArea                       `json:"areas,omitempty"`
 }
 
 type legacyArea struct {
@@ -30,17 +34,17 @@ func (l legacyContent) convert() (Content, error) {
 			applicant[a.ID] = true
 			continue
 		}
-		c.Areas = append(c.Areas, Area{ID: a.ID, Name: a.Name})
+		c.Areas = append(c.Areas, definition.Area{ID: a.ID, Name: a.Name})
 	}
-	steps := make([]Step, len(l.Definition.Steps))
+	steps := make([]definition.Step, len(l.Definition.Steps))
 	for i, s := range l.Definition.Steps {
 		if s.Role != "" {
 			return Content{}, fmt.Errorf("decode content: format %d has no role, found %q in step %q", l.Format, s.Role, s.ID)
 		}
 		if applicant[s.Area] {
-			s.Role, s.Area = RoleApplicant, ""
+			s.Role, s.Area = definition.RoleApplicant, ""
 		} else {
-			s.Role = RoleStaff
+			s.Role = definition.RoleStaff
 		}
 		steps[i] = s
 	}

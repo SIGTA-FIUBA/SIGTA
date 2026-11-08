@@ -19,6 +19,8 @@ import (
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 )
 
@@ -34,7 +36,7 @@ type authorizationWorld struct {
 	now               time.Time
 
 	typeIDs map[string]int64
-	steps   map[string][]domain.Step
+	steps   map[string][]definition.Step
 	nextID  int
 
 	current    string
@@ -54,7 +56,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 		procedures:        memory.NewProcedureRepository(),
 		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:           map[string]int64{},
-		steps:             map[string][]domain.Step{},
+		steps:             map[string][]definition.Step{},
 	}
 
 	sc.Given(`^the staff areas "([^"]*)" and "([^"]*)"$`, w.givenStaffAreas)
@@ -108,7 +110,7 @@ func (w *authorizationWorld) newID() string {
 }
 
 // givenStaffAreas wires both modules as the server does: auth keeps the areas
-// and memberships, and procedure asks auth through its public API (ADR-018).
+// and memberships, and procedure asks auth through its public API (ADR-021).
 func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	areas := authmem.NewAreaRepository(
 		authdomain.Area{ID: areaID(first), Name: first},
@@ -123,19 +125,19 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	return nil
 }
 
-func (w *authorizationWorld) definition(name, description string) domain.Definition {
+func (w *authorizationWorld) definition(name, description string) definition.ProcedureTypeDefinition {
 	staff := w.steps[name]
-	steps := []domain.Step{{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
+	steps := []definition.Step{{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
 	for i, s := range staff {
 		if i+1 < len(staff) {
 			s.Next = staff[i+1].ID
 		}
 		steps = append(steps, s)
 	}
-	return domain.Definition{
+	return definition.ProcedureTypeDefinition{
 		Name:        name,
 		Description: description,
-		Fields:      []domain.Field{{ID: "reason", Name: "Motivo", Type: domain.FieldLongText}},
+		Fields:      []definition.Field{{ID: "reason", Name: "Motivo", Type: definition.FieldLongText}},
 		Steps:       steps,
 	}
 }
@@ -154,7 +156,7 @@ func (w *authorizationWorld) publish(name, description string) error {
 		ProcedureType: typeID,
 		Base:          base,
 		Definition:    w.definition(name, description),
-		Authorship:    domain.Authorship{ProposedBy: "proponente", ApprovedBy: "aprobador"},
+		Authorship:    version.Authorship{ProposedBy: "proponente", ApprovedBy: "aprobador"},
 	})
 	return err
 }
@@ -189,13 +191,13 @@ func (w *authorizationWorld) scope(name string) []int64 {
 func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		id := row.Cells[0].Value
-		w.steps[name] = append(w.steps[name], domain.Step{
+		w.steps[name] = append(w.steps[name], definition.Step{
 			ID:      id,
 			Name:    id,
-			Role:    domain.RoleStaff,
+			Role:    definition.RoleStaff,
 			Area:    areaID(row.Cells[1].Value),
-			Profile: domain.Profile(row.Cells[2].Value),
-			Action:  domain.ActionConfirmExternalFact,
+			Profile: definition.Profile(row.Cells[2].Value),
+			Action:  definition.ActionConfirmExternalFact,
 		})
 	}
 	return w.publish(name, "Descripción de "+name)
@@ -545,13 +547,13 @@ func (w *authorizationWorld) thenCanGrant(administrator, can, user, area string)
 }
 
 func (w *authorizationWorld) thenPublishesWithArea(area string) error {
-	w.steps["new procedure type"] = []domain.Step{{
+	w.steps["new procedure type"] = []definition.Step{{
 		ID:      "review",
 		Name:    "Revisión",
-		Role:    domain.RoleStaff,
+		Role:    definition.RoleStaff,
 		Area:    areaID(area),
-		Profile: domain.ProfileStaffOperative,
-		Action:  domain.ActionConfirmExternalFact,
+		Profile: definition.ProfileStaffOperative,
+		Action:  definition.ActionConfirmExternalFact,
 	}}
 	return w.publish("new procedure type", "Descripción del trámite nuevo")
 }

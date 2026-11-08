@@ -14,7 +14,9 @@ import (
 	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
-	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 )
 
@@ -22,7 +24,7 @@ import (
 type catalogWorld struct {
 	service *application.ProcedureTypeService
 	types   map[string]int64
-	latest  map[string]domain.Definition
+	latest  map[string]definition.ProcedureTypeDefinition
 
 	entries []input.CatalogEntry
 	err     error
@@ -36,7 +38,7 @@ func registerCatalogSteps(sc *godog.ScenarioContext) {
 	world := &catalogWorld{
 		service: application.NewProcedureTypeService(versions, auth, time.Now),
 		types:   map[string]int64{},
-		latest:  map[string]domain.Definition{},
+		latest:  map[string]definition.ProcedureTypeDefinition{},
 	}
 
 	sc.Given(`^a published "([^"]*)" procedure type described as "([^"]*)"$`, world.givenPublished)
@@ -69,40 +71,40 @@ type tamperableVersions struct {
 	altered bool
 }
 
-func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]domain.Version, error) {
+func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error) {
 	versions, err := s.ProcedureVersions.LatestOfEach(ctx)
 	if err == nil && s.altered {
-		versions[0].Encoded = append(versions[0].Encoded, ' ')
+		versions[0].EncodedContent = append(versions[0].EncodedContent, ' ')
 	}
 	return versions, err
 }
 
-func catalogDefinition(name, description string) domain.Definition {
-	return domain.Definition{
+func catalogDefinition(name, description string) definition.ProcedureTypeDefinition {
+	return definition.ProcedureTypeDefinition{
 		Name:          name,
 		Description:   description,
 		Deadlines:     []string{"Hasta 30 días antes de cursar"},
 		Admissibility: []string{"Ser estudiante regular"},
-		Fields: []domain.Field{
-			{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText},
-			{ID: "reason", Name: "Motivo", Type: domain.FieldLongText},
-			{ID: "file_number", Name: "Número de expediente", Type: domain.FieldText},
+		Fields: []definition.Field{
+			{ID: "full_name", Name: "Nombre completo", Type: definition.FieldText},
+			{ID: "reason", Name: "Motivo", Type: definition.FieldLongText},
+			{ID: "file_number", Name: "Número de expediente", Type: definition.FieldText},
 		},
-		Documents: []domain.Document{
+		Documents: []definition.Document{
 			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 		},
-		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Role: domain.RoleApplicant, Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
-			{ID: "ruling", Name: "Dictamen", Role: domain.RoleStaff, Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
-			{ID: "record", Name: "Registro", Role: domain.RoleStaff, Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact, Fields: []string{"file_number"}},
+		Steps: []definition.Step{
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
+			{ID: "ruling", Name: "Dictamen", Role: definition.RoleStaff, Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
+			{ID: "record", Name: "Registro", Role: definition.RoleStaff, Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
 	}
 }
 
-func (w *catalogWorld) publishDefinition(name string, definition domain.Definition) error {
+func (w *catalogWorld) publishDefinition(name string, d definition.ProcedureTypeDefinition) error {
 	base := 0
 	typeID, known := w.types[name]
 	if known {
@@ -118,11 +120,11 @@ func (w *catalogWorld) publishDefinition(name string, definition domain.Definiti
 	_, err := w.service.Publish(context.Background(), input.Publication{
 		ProcedureType: typeID,
 		Base:          base,
-		Definition:    definition,
-		Authorship:    domain.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
+		Definition:    d,
+		Authorship:    version.Authorship{ProposedBy: "ana", ApprovedBy: "beto"},
 	})
 	if err == nil {
-		w.latest[name] = definition
+		w.latest[name] = d
 	}
 	return err
 }
@@ -146,19 +148,19 @@ func (w *catalogWorld) givenPublished(name, description string) error {
 }
 
 func (w *catalogWorld) givenNewVersion(name, description string) error {
-	definition := w.latest[name]
-	definition.Description = description
-	return w.publishDefinition(name, definition)
+	d := w.latest[name]
+	d.Description = description
+	return w.publishDefinition(name, d)
 }
 
 func (w *catalogWorld) givenMandatoryLater(field string) error {
-	for name, definition := range w.latest {
-		definition.Steps = slices.Clone(definition.Steps)
-		definition.Steps[0].Next = "more"
-		definition.Steps = slices.Insert(definition.Steps, 1, domain.Step{
-			ID: "more", Name: "Ampliación", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
+	for name, d := range w.latest {
+		d.Steps = slices.Clone(d.Steps)
+		d.Steps[0].Next = "more"
+		d.Steps = slices.Insert(d.Steps, 1, definition.Step{
+			ID: "more", Name: "Ampliación", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
-		if err := w.publishDefinition(name, definition); err != nil {
+		if err := w.publishDefinition(name, d); err != nil {
 			return err
 		}
 	}
@@ -174,22 +176,22 @@ func (w *catalogWorld) publishNew(name string) error {
 }
 
 func (w *catalogWorld) publishBroken(problem string) error {
-	definition := catalogDefinition("broken", "Un trámite")
+	d := catalogDefinition("broken", "Un trámite")
 	switch problem {
 	case "no description":
-		definition.Description = ""
+		d.Description = ""
 	case "a document without formats":
-		definition.Documents[0].AcceptedTypes = nil
+		d.Documents[0].AcceptedTypes = nil
 	case "a document with a wrong format":
-		definition.Documents[0].AcceptedTypes = []string{"pdf"}
+		d.Documents[0].AcceptedTypes = []string{"pdf"}
 	case "a document without a size limit":
-		definition.Documents[0].MaxSizeBytes = 0
+		d.Documents[0].MaxSizeBytes = 0
 	case "a blank deadline":
-		definition.Deadlines = []string{" "}
+		d.Deadlines = []string{" "}
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}
-	w.publish = w.publishDefinition("broken", definition)
+	w.publish = w.publishDefinition("broken", d)
 	return nil
 }
 
@@ -242,17 +244,17 @@ func (w *catalogWorld) thenField(name, id, kind string) error {
 	return fmt.Errorf("field %q is not shown", id)
 }
 
-func (w *catalogWorld) document(name, id string) (domain.DocumentRequirement, bool, error) {
+func (w *catalogWorld) document(name, id string) (catalog.DocumentRequirement, bool, error) {
 	entry, err := w.entry(name)
 	if err != nil {
-		return domain.DocumentRequirement{}, false, err
+		return catalog.DocumentRequirement{}, false, err
 	}
 	for _, requirement := range entry.Documents {
 		if requirement.Document.ID == id {
 			return requirement, true, nil
 		}
 	}
-	return domain.DocumentRequirement{}, false, nil
+	return catalog.DocumentRequirement{}, false, nil
 }
 
 func (w *catalogWorld) thenDocument(name, id, kind string) error {
@@ -333,20 +335,20 @@ func (w *catalogWorld) thenCondition(name, text string) error {
 }
 
 func (w *catalogWorld) thenNotShown() error {
-	if !errors.Is(w.err, domain.ErrAlteredContent) {
-		return fmt.Errorf("Catalog() error = %w, want %w", w.err, domain.ErrAlteredContent)
+	if !errors.Is(w.err, version.ErrAlteredContent) {
+		return fmt.Errorf("Catalog() error = %w, want %w", w.err, version.ErrAlteredContent)
 	}
 	return nil
 }
 
 func (w *catalogWorld) thenRejected(code string) error {
-	if !errors.Is(w.publish, domain.ErrInvalidDefinition) {
+	if !errors.Is(w.publish, definition.ErrInvalidDefinition) {
 		return fmt.Errorf("Publish() error = %w, want an invalid definition", w.publish)
 	}
-	for _, problem := range domain.ProblemsOf(w.publish) {
+	for _, problem := range validationProblems(w.publish) {
 		if string(problem.Code) == code {
 			return nil
 		}
 	}
-	return fmt.Errorf("problems = %v, want %q", domain.ProblemsOf(w.publish), code)
+	return fmt.Errorf("problems = %v, want %q", validationProblems(w.publish), code)
 }

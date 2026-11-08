@@ -105,7 +105,7 @@ export interface paths {
         put?: never;
         /**
          * Crea un área del personal
-         * @description Solo para administradores (ADR-017). El identificador queda fijo: va en minúsculas, empieza con una letra y no puede ser applicant ni el de un área existente o dada de baja. El nombre no puede repetir el de otra área.
+         * @description Solo para administradores (ADR-020). El identificador queda fijo: va en minúsculas, empieza con una letra y no puede ser applicant ni el de un área existente o dada de baja. El nombre no puede repetir el de otra área.
          */
         post: operations["createArea"];
         delete?: never;
@@ -125,7 +125,7 @@ export interface paths {
         put?: never;
         /**
          * Otorga una membresía a una persona
-         * @description Solo para administradores (ADR-017). La membresía pone a la persona en un área con un perfil, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
+         * @description Solo para administradores (ADR-020). La membresía pone a la persona en un área con un perfil, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
          */
         post: operations["grantMembership"];
         delete?: never;
@@ -147,7 +147,7 @@ export interface components {
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
         /**
-         * @description Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+         * @description Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
          * @enum {string}
          */
         Role: "applicant" | "staff";

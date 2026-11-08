@@ -13,7 +13,7 @@ var (
 )
 
 // Role is derived, never stored: a person with an active membership is staff,
-// and anyone else is an applicant (ADR-017).
+// and anyone else is an applicant (ADR-020).
 type Role string
 
 const (

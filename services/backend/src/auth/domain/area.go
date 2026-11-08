@@ -13,7 +13,7 @@ var (
 
 var areaIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-// Area exists only within staff: the applicant has none (ADR-017). A deleted
+// Area exists only within staff: the applicant has none (ADR-020). A deleted
 // area is kept, so that memberships and published versions still name it.
 type Area struct {
 	ID        string

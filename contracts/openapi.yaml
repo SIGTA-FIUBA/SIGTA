@@ -129,7 +129,7 @@ paths:
       operationId: createArea
       summary: Crea un área del personal
       description: >
-        Solo para administradores (ADR-017). El identificador queda fijo: va en
+        Solo para administradores (ADR-020). El identificador queda fijo: va en
         minúsculas, empieza con una letra y no puede ser applicant ni el de un
         área existente o dada de baja. El nombre no puede repetir el de otra
         área.
@@ -159,7 +159,7 @@ paths:
       operationId: grantMembership
       summary: Otorga una membresía a una persona
       description: >
-        Solo para administradores (ADR-017). La membresía pone a la persona en
+        Solo para administradores (ADR-020). La membresía pone a la persona en
         un área con un perfil, opcionalmente solo para algunos tipos de trámite
         (scope), y con una vigencia. No puede repetir el área y el alcance de
         otra membresía vigente de la misma persona.
@@ -229,7 +229,7 @@ components:
     Role:
       type: string
       description: >
-        Se deriva de las membresías (ADR-017). staff: tiene al menos una
+        Se deriva de las membresías (ADR-020). staff: tiene al menos una
         membresía vigente en un área. applicant: cualquier otra persona.
       enum: [applicant, staff]
     FieldRequirement:

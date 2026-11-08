@@ -45,7 +45,7 @@ type AreaReach struct {
 	Scope []int64
 }
 
-// Other modules ask StaffAuthorizer instead of reading memberships (ADR-018).
+// Other modules ask StaffAuthorizer instead of reading memberships (ADR-021).
 type StaffAuthorizer interface {
 	IsStaff(ctx context.Context, userID string) (bool, error)
 	Holds(ctx context.Context, userID, area string, procedureType int64, profile Profile) (bool, error)

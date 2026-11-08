@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/version"
 )
 
 var (
@@ -22,14 +22,14 @@ var (
 type ProcedureVersions interface {
 	// Latest returns the version with the highest number, or ErrNoVersion if
 	// the procedure type has none.
-	Latest(ctx context.Context, procedureType int64) (domain.Version, error)
+	Latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error)
 	// LatestOfEach returns the latest version of every procedure type that has
 	// one, ordered by procedure type.
-	LatestOfEach(ctx context.Context) ([]domain.Version, error)
+	LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error)
 	// Get fails with ErrNoVersion if the version does not exist.
-	Get(ctx context.Context, procedureType int64, number int) (domain.Version, error)
+	Get(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error)
 	// Add fails with ErrVersionExists if the procedure type already has a
 	// version with that number, also when another publication added it at the
 	// same time.
-	Add(ctx context.Context, v domain.Version) error
+	Add(ctx context.Context, v version.ProcedureTypeVersion) error
 }
