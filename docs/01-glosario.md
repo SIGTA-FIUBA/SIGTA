@@ -70,7 +70,7 @@ Persona de la Secretaría que ejecuta una acción en un sistema externo y la reg
 Conjunto de permisos que se asigna a una persona usuaria. El **titular del trámite** es un rol fijo. Los roles del personal los define y asigna el administrador (ADR-017).
 
 **Perfil**
-Nivel de permisos dentro del rol Secretario. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. En el mapa de usuario son un solo rol; en permisos se distinguen. Con ADR-017 (propuesta), los dos perfiles pasan a ser roles iniciales que el **administrador** asigna y puede cambiar, cada uno con un conjunto de **permisos**.
+Cada uno de los dos roles iniciales del personal (ADR-017): el **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. El **administrador** los asigna y puede cambiarlos, y cada uno es un conjunto de **permisos**. En el mapa de usuario son una sola persona usuaria. Hasta que se implementen los roles configurables, el código los tiene fijos como `staff_operative` y `staff_approver`.
 
 **Permiso**
 Habilitación para ejecutar una acción del modelo de dominio, como avanzar un paso, derivar, aprobar o editar un tipo de trámite. El administrador agrupa permisos en roles y asigna esos roles al personal (ADR-017).

@@ -276,7 +276,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** aceptada
 
 **Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
 
@@ -295,7 +295,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-015: La interfaz se arma con Mantine y toma su aspecto de un único tema
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** aceptada
 
 **Contexto.** ADR-011 fijó React, TypeScript y Vite, pero no cómo se construye la interfaz. El equipo revisa con dificultad el código de frontend, y la mayor parte la va a escribir un agente. Las opciones evaluadas en noviembre de 2026 fueron: shadcn/ui, que copia los componentes al repositorio y los estiliza con cadenas largas de clases de Tailwind; Base UI y React Aria, que no traen estilo y dejan todo el CSS a cargo del equipo; Radix Themes, sin versiones nuevas desde enero de 2026; IBM Carbon, pesado y difícil de alejar del aspecto de IBM; y Mantine, una biblioteca completa (formularios, fechas, menús, notificaciones) que se configura con propiedades y un objeto de tema.
 
@@ -338,7 +338,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-017: Los permisos del personal se asignan con roles configurables, administrados en SIGTA
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** aceptada
 **Reemplaza:** la hipótesis de dos perfiles fijos del Secretario (operativo y de aprobación)
 
 **Contexto.** El modelo de permisos partía de un rol Secretario con dos perfiles fijos, y D-02 preguntaba si eran personas distintas (supuesto S-07). El código y el contrato ya los tienen fijos como `staff_operative` y `staff_approver`. Al preguntarle por D-02, la Secretaría respondió el 4/11 con otro esquema: un rol de administrador y usuarios internos de cada área que interviene, con permisos que asigna el administrador. Los permisos van por rol y, más adelante, por tipo de trámite. También pide que quede registrado quién hizo cada acción en cada expediente. Además ofreció una reunión con las áreas para relevar el circuito en detalle.
@@ -363,7 +363,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-018: A un modelo de terceros solo llega contenido académico, sin datos identificatorios
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** aceptada
 
 **Contexto.** Los trámites contienen datos personales de estudiantes. El 4/11 la Secretaría pidió que la arquitectura los trate conforme a la Ley 25.326, y que lo que se mande al servicio de IA sea solo contenido académico (programas, cargas horarias, contenidos mínimos), sin datos identificatorios. La Subsecretaría de TICs preguntó qué datos van a cada modelo, con qué políticas y si eso cumple la ley. Si se hostea un modelo propio, pide además sus requisitos de infraestructura. El volumen informado por la Secretaría es de unos 300 trámites por cuatrimestre, concentrados antes de cada cuatrimestre.
 
