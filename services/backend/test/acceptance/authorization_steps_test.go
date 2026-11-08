@@ -576,8 +576,11 @@ func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, permis
 	if can == "can" {
 		return err
 	}
+	if err == nil {
+		return fmt.Errorf("granted, want %w", authdomain.ErrInvalidMembership)
+	}
 	if !errors.Is(err, authdomain.ErrInvalidMembership) {
-		return fmt.Errorf("got %v, want %v", err, authdomain.ErrInvalidMembership)
+		return fmt.Errorf("got %w, want %w", err, authdomain.ErrInvalidMembership)
 	}
 	return nil
 }

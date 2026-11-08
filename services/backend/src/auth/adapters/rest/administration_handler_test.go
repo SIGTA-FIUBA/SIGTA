@@ -2,6 +2,7 @@ package rest_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -19,20 +20,25 @@ func signedIn(t *testing.T, serverURL, email string) *http.Client {
 	return client
 }
 
-func decode[T any](t *testing.T, res *http.Response, err error, want int) T {
+// decode reads the body of a response into body, and closes it.
+func decode(t *testing.T, res *http.Response, err error, want int, body any) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = res.Body.Close() }()
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if res.StatusCode != want {
 		t.Fatalf("%s %s: got %d, want %d", res.Request.Method, res.Request.URL.Path, res.StatusCode, want)
 	}
-	var body T
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal(raw, body); err != nil {
 		t.Fatal(err)
 	}
-	return body
 }
 
 func TestAnAdministratorCreatesAnAreaAndGrantsAMembershipInIt(t *testing.T) {
@@ -40,18 +46,22 @@ func TestAnAdministratorCreatesAnAreaAndGrantsAMembershipInIt(t *testing.T) {
 	admin := signedIn(t, srv.URL, "admin@fi.uba.ar")
 
 	res, err := post(t, admin, srv.URL+"/areas", strings.NewReader(`{"id": "degree_office", "name": "Títulos"}`))
-	area := decode[api.Area](t, res, err, http.StatusCreated)
+	var area api.Area
+	decode(t, res, err, http.StatusCreated, &area)
 	if area.Id != "degree_office" || area.Name != "Títulos" || len(area.Permissions) != 0 {
 		t.Fatalf("area = %+v", area)
 	}
 
 	res, err = post(t, admin, srv.URL+"/areas/degree_office/permissions", strings.NewReader(`{"id": "sign", "name": "Firmar"}`))
-	if permission := decode[api.Permission](t, res, err, http.StatusCreated); permission != (api.Permission{Id: "sign", Name: "Firmar"}) {
+	var permission api.Permission
+	decode(t, res, err, http.StatusCreated, &permission)
+	if permission != (api.Permission{Id: "sign", Name: "Firmar"}) {
 		t.Fatalf("permission = %+v", permission)
 	}
 
 	res, err = post(t, admin, srv.URL+"/memberships", strings.NewReader(`{"user_id": "u1", "area": "degree_office", "permissions": ["sign"], "scope": [2]}`))
-	membership := decode[api.Membership](t, res, err, http.StatusCreated)
+	var membership api.Membership
+	decode(t, res, err, http.StatusCreated, &membership)
 	if membership.UserId != "u1" || membership.Area != "degree_office" || !slices.Equal(membership.Permissions, []string{"sign"}) ||
 		len(membership.Scope) != 1 || membership.Scope[0] != 2 || membership.GrantedBy != "u3" || membership.Until != nil {
 		t.Fatalf("membership = %+v", membership)
@@ -59,7 +69,9 @@ func TestAnAdministratorCreatesAnAreaAndGrantsAMembershipInIt(t *testing.T) {
 
 	// The membership makes the applicant staff.
 	res, err = get(t, signedIn(t, srv.URL, "titular@fi.uba.ar"), srv.URL+"/me")
-	if user := decode[api.User](t, res, err, http.StatusOK); user.Role != "staff" || user.Administrator {
+	var user api.User
+	decode(t, res, err, http.StatusOK, &user)
+	if user.Role != "staff" || user.Administrator {
 		t.Fatalf("user = %+v, want staff and not an administrator", user)
 	}
 }

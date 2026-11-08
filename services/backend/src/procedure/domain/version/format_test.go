@@ -2,6 +2,7 @@ package version_test
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"reflect"
 	"testing"
@@ -77,7 +78,7 @@ func formatThreeContent() version.Content {
 // changed, and ContentFormat has to go up with a new fixture instead.
 func readFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	stored, err := os.ReadFile("testdata/" + name)
+	stored, err := fs.ReadFile(os.DirFS("testdata"), name)
 	if err != nil {
 		t.Fatal(err)
 	}
