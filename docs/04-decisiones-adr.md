@@ -336,10 +336,56 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-017: Los permisos del personal se asignan con roles configurables, administrados en SIGTA
+
+**Estado:** aceptada
+**Reemplaza:** la hipótesis de dos perfiles fijos del Secretario (operativo y de aprobación)
+
+**Contexto.** El modelo de permisos partía de un rol Secretario con dos perfiles fijos, y D-02 preguntaba si eran personas distintas (supuesto S-07). El código y el contrato ya los tienen fijos como `staff_operative` y `staff_approver`. Al preguntarle por D-02, la Secretaría respondió el 4/11 con otro esquema: un rol de administrador y usuarios internos de cada área que interviene, con permisos que asigna el administrador. Los permisos van por rol y, más adelante, por tipo de trámite. También pide que quede registrado quién hizo cada acción en cada expediente. Además ofreció una reunión con las áreas para relevar el circuito en detalle.
+
+**Decisión.**
+- Un **permiso** habilita una acción del modelo de dominio (por ejemplo avanzar pasos, derivar, aprobar o editar tipos de trámite).
+- Un **rol** es un conjunto de permisos que se define en SIGTA. A cada usuario del personal se le asignan uno o más roles.
+- El rol **administrador** gestiona usuarios, roles y permisos. Lo crea el despliegue, no la interfaz.
+- El titular sigue siendo un rol aparte, que no se configura.
+- Los usuarios del personal pueden ser de cualquier área de la facultad. Cuáles entran se define en la reunión con las áreas.
+- Los permisos por tipo de trámite quedan para después. El modelo no debe impedirlos.
+- Cada acción queda en el historial con su autor, como ya preveía el historial de acciones.
+
+**Consecuencias.**
+- Se cierran D-02 y el supuesto S-07: lo que eran perfiles fijos pasan a ser roles iniciales que el administrador puede cambiar.
+- SIG-14 ("Perfiles y autorización") se replantea, y el campo `role` del contrato pasa a ser una lista de roles. El cambio tiene que entrar antes de que más código dependa de `staff_operative` y `staff_approver`.
+- El paso de un tipo de trámite deja de declarar un perfil fijo y declara el permiso que exige. Afecta el modelo de definición (SIG-12) y los borradores de los cinco trámites.
+- La nota de SIG-13 ("solo entra la Secretaría de Gestión Académica") queda reemplazada. El mapa de qué área hace cada paso se completa en la reunión con las áreas.
+- D-08 sigue abierta, pero ahora se puede resolver como un permiso para proponer y otro para aprobar.
+
+---
+
+## ADR-018: A un modelo de terceros solo llega contenido académico, sin datos identificatorios
+
+**Estado:** aceptada
+
+**Contexto.** Los trámites contienen datos personales de estudiantes. El 4/11 la Secretaría pidió que la arquitectura los trate conforme a la Ley 25.326, y que lo que se mande al servicio de IA sea solo contenido académico (programas, cargas horarias, contenidos mínimos), sin datos identificatorios. La Subsecretaría de TICs preguntó qué datos van a cada modelo, con qué políticas y si eso cumple la ley. Si se hostea un modelo propio, pide además sus requisitos de infraestructura. El volumen informado por la Secretaría es de unos 300 trámites por cuatrimestre, concentrados antes de cada cuatrimestre.
+
+**Decisión.**
+- Los componentes de IA empiezan con un **modelo de terceros por API**, detrás de un puerto. Un modelo propio no queda descartado: la elección se revisa cuando se conozcan el flujo de cada trámite y los costos de cada opción.
+- Antes de cada llamada, un paso que corre dentro de SIGTA **quita los datos identificatorios** (nombre, documento, legajo, correo, firmas y cualquier dato de una persona). El puerto del modelo solo recibe contenido académico.
+- Solo se usan proveedores cuyas condiciones garanticen que los datos enviados no se usan para entrenar y que su retención sea nula o acotada. El proveedor elegido y sus condiciones se registran.
+- Cada llamada registra qué tipo de contenido salió, además del costo, la latencia y la versión del prompt.
+- Sigue vigente ADR-005: en desarrollo y en la CI no hay datos reales, y los modelos usan adaptadores deterministas.
+
+**Consecuencias.**
+- La anonimización pasa a ser un componente propio, con su set de evaluación: un dato identificatorio que llega al modelo es un error grave.
+- Afecta sobre todo a la lectura de documentos (SIG-37) y a la validación asistida (SIG-38). El analítico tiene datos personales; los programas, en general, no.
+- Para empezar no hace falta pedirle a TICs una GPU. Un modelo propio va detrás del mismo puerto, y se evalúa con esos costos o si un proveedor deja de cumplir las condiciones.
+- Quedan abiertos, con la Secretaría y el área legal, la base legal, la inscripción de la base y la retención de los documentos (D-09).
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |
 |---|---|---|---|
-| D-02 | Si los perfiles operativo y de aprobación son personas distintas | Diseñar permisos (US64, sprint 1) | Canal con Secretaría |
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
 | D-08 | Quién puede proponer y quién aprobar una versión de un tipo de trámite: el equipo, la Secretaría o ambos | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
+| D-09 | Cuánto tiempo se conservan los documentos de un trámite cerrado | La estimación de almacenamiento para TICs | Secretaría |

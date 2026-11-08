@@ -190,7 +190,7 @@ flowchart LR
 - **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. En el entorno local y en las pruebas se usa un adaptador de identidad falso.
 - **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/auth/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
 - **Quién puede ingresar.** Cualquier cuenta del dominio institucional. La primera vez que ingresa una cuenta que SIGTA no conoce, se registra como titular, con el nombre que informa el proveedor; los perfiles del personal se asignan en SIGTA. Hasta que los usuarios se guarden en PostgreSQL, las cuentas registradas así se pierden al reiniciar el servicio, y el personal se carga desde el archivo de `SIGTA_USERS_FILE` (ver "Configuración del servicio de trámites"); en desarrollo hay tres usuarios sintéticos, uno por rol.
-- **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
+- **El servicio de trámites valida el token** en cada pedido y autoriza según el área y los roles de cada persona, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y los roles que le asigna el administrador, cada uno con un conjunto de permisos (ADR-017; hoy el código tiene fijos los perfiles operativo y de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
 ### Diseño interno de cada servicio
@@ -366,14 +366,14 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 - **Cola en PostgreSQL:** encolar en la misma transacción que el cambio garantiza que ningún trabajo se pierda, sin otro servicio que operar.
 - **Una sola base relacional:** PostgreSQL con pgvector cubre estado, historial, cola, búsqueda de texto en español y vectores.
 - **Contrato primero:** el frontend, el servicio de trámites y el de inteligencia artificial están en lenguajes distintos; OpenAPI genera el código de cada lado para que no se desfasen.
-- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución. Usar un modelo por API externa depende de cómo se resuelva el tratamiento de esos datos.
+- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución. Por eso a un modelo por API externa solo llega contenido académico, después de quitar los datos identificatorios dentro de SIGTA (ADR-018).
 
 ## Decisiones abiertas
 
 | Tema | Qué falta definir | Depende de |
 | --- | --- | --- |
-| Dónde corren los modelos | Si la infraestructura de destino tiene GPU para un modelo de pesos abiertos, o si se usa un modelo por API y con qué datos | Subsecretaría de TICs y datos personales |
-| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento, cómo se ejercen la rectificación y la supresión, y si un documento puede salir de la institución hacia un modelo por API (Ley 25.326) | Secretaría y área legal de la facultad |
+| Modelo | Qué proveedor por API cumple las condiciones de ADR-018 (que no entrene con los datos y que su retención sea nula o acotada), y si conviene un modelo propio según el flujo de cada trámite y los costos de cada opción | Equipo y Subsecretaría de TICs |
+| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento (D-09) y cómo se ejercen la rectificación y la supresión (Ley 25.326) | Secretaría y área legal de la facultad |
 | Etiquetado de la evaluación | Quién ajeno al equipo etiqueta las respuestas esperadas, cuántos casos y cómo se mide el acuerdo entre etiquetadores | Equipo y Secretaría |
 | Extracción de texto | Cómo se extrae el texto de un documento escaneado antes de clasificarlo | Pruebas con documentos de ejemplo |
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
