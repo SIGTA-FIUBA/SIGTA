@@ -276,7 +276,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** propuesta, a acordar con el equipo. ADR-018 reemplaza la regla de cómo un módulo usa a otro.
 
 **Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
 
@@ -366,6 +366,33 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - `/me` informa el rol derivado (`applicant` o `staff`) y si la persona es administradora. `SIGTA_USERS_FILE` deja el campo `role` y declara `administrator` y `memberships`. Las membresías de cada persona se suman a `/me` cuando una pantalla las necesite.
 - Un área se da de baja sin borrarse, como una membresía: deja de listarse y de aceptar membresías, sigue nombrada en el historial y su identificador no se reusa. No se puede dar de baja mientras tenga membresías sin terminar. `auth` no sabe qué tipos de trámite usan un área, así que dar de baja una que todavía usan deja sus pasos sin personal hasta publicar una versión que la reemplace.
 - La API permite crear áreas (`POST /areas`) y otorgar membresías (`POST /memberships`), solo a administradores. Dar de baja un área y terminar una membresía existen como casos de uso, pero todavía no tienen endpoints, y nada de esto tiene pantallas: hacen falta historias para la interfaz de administración. Mientras no existan, las membresías iniciales se cargan desde la configuración del despliegue y las áreas de prueba están en el código.
+
+---
+
+## ADR-018: Un módulo llama a otro por su API pública, sin puertos entre módulos
+
+**Estado:** propuesta, a acordar con el equipo. Reemplaza la regla de ADR-014 sobre cómo un módulo usa a otro.
+
+**Contexto.** ADR-014 pide que un módulo use a otro a través de un puerto. Con ADR-017, `procedure` necesita de `auth` las áreas y las membresías, y eso llevó a definir los puertos `AreaCatalog` y `StaffDirectory` en `procedure`, dos adaptadores que los implementan (uno sobre `auth`, otro en memoria para los tests) y copias en `procedure` de conceptos de `auth`: el perfil, la membresía (`StaffMembership`) y la jerarquía de rangos (`Covers`). Cada concepto tiene dos definiciones que hay que mantener iguales, y la decisión de si una persona alcanza para un paso queda en `procedure` aunque los rangos, la vigencia y el alcance son de `auth`. Los puertos sirven para reemplazar una dependencia o simularla en las pruebas. Un módulo del mismo binario no se reemplaza, y simularlo no ahorra nada: sus adaptadores en memoria ya son baratos.
+
+**Decisión.**
+- Cada módulo expone una **API pública** en `ports/input/`: las interfaces de sus casos de uso y los tipos que reciben y devuelven.
+- Otro módulo importa solo esa API y la recibe por constructor, sin definir un puerto propio ni un adaptador. Nunca importa `domain/`, `application/` ni `adapters/` de otro módulo.
+- Los tipos de la API pública se usan tal cual en el módulo que la llama; no se copian ni se traducen.
+- Cada regla vive en el módulo dueño de sus datos. `auth` responde si una persona tiene un rango en un área para un tipo de trámite (vigencia, alcance y jerarquía de rangos) y qué áreas y alcances alcanza. `procedure` decide qué exige cada paso, quién es el titular de un trámite y qué trámites se muestran, y le pregunta a `auth` lo que es de `auth`.
+- Las dependencias entre módulos van en un solo sentido: `procedure` usa `auth`, nunca al revés.
+- Los puertos de salida (`ports/output/`) quedan para lo que está fuera del módulo y puede cambiar o hay que simular: la base de datos, el proveedor de identidad, el correo y los modelos de IA.
+- Las pruebas de un módulo usan el otro módulo real, armado con sus adaptadores en memoria.
+
+**Consecuencias.**
+- Desaparecen `procedure/adapters/auth/`, los puertos `AreaCatalog` y `StaffDirectory`, el catálogo de áreas en memoria de `procedure`, `Actor`, `StaffMembership` y `Profile.Covers`. Cada área y membresía se define una sola vez, en `auth`, que expone `StaffAuthorizer` (`IsStaff`, `Holds`, `Reach`).
+- Cada versión de un tipo de trámite sigue guardando su copia de las áreas que usa (ADR-012, ADR-017). No es una traducción entre módulos: es lo que permite leer una versión publicada igual que el día en que se publicó.
+- El perfil de un paso sigue siendo un tipo de `procedure`, porque forma parte del contenido versionado y se valida al publicar. Al preguntarle a `auth` se convierte a su perfil; la jerarquía entre perfiles vive solo en `auth`. El formato del contenido no cambia.
+- El área del titular la agrega `procedure` a cada tipo de trámite, con el identificador que `auth` reserva y expone en su API (`ApplicantAreaID`).
+- Un cambio en la API pública de `auth` obliga a tocar a quien la usa. Hoy el cambio quedaba en el adaptador.
+- Los ciclos entre módulos los rechaza el compilador de Go. Que nadie importe el interior de otro módulo lo controla una regla de `depguard` en `golangci-lint`.
+- Si un módulo se separa algún día en un servicio aparte, el puerto vuelve a hacer falta, con un adaptador sobre la red. Hasta entonces no se agrega.
+- ADR-017 decía que `procedure` lee a `auth` a través de sus puertos; con esta decisión lo hace por la API pública de `auth`. El README y `AGENTS.md` se actualizan junto con la implementación.
 
 ---
 
