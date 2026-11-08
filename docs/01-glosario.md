@@ -37,7 +37,7 @@ Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuit
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
-Quien tiene a cargo un paso: el titular (`applicant`), un área de la facultad (`office`), como la Dirección de Alumnos o Mesa de Entradas, o un evaluador externo (`external`), como una Comisión Curricular. Las áreas son comunes a todos los tipos de trámite.
+Quien tiene a cargo un paso: el titular (`applicant`), un área de la facultad (`office`), como la Dirección de Alumnos o Intercambios Académicos, o un evaluador externo (`external`), como una Comisión Curricular. Las áreas son comunes a todos los tipos de trámite.
 
 **Pase**
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.

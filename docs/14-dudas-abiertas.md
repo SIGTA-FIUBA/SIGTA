@@ -26,13 +26,14 @@ Salen de "Flujos de los trámites" ([relevamiento](13-relevamiento-de-tramites.m
 | DU-04 | En los pases, ¿FIUBA ve algo antes de que llegue de Rectorado? | El estudiante inicia en SIGTA al presentar en Rectorado; el trámite espera en un paso externo hasta que la DA lo recibe | Supuesto |
 | DU-05 | ¿Quiénes de la DA usan el sistema? ¿La Directora General es otra área? | Todo el personal de la DA, de Intercambios y la Directora General, con los roles que asigna el administrador. La Directora General tiene un rol propio | Supuesto, en línea con la respuesta del 4/11 |
 | DU-06 | ¿Quién sube los documentos al expediente electrónico? | La DA, fuera de SIGTA. SIGTA guarda solo el número de expediente | Supuesto (ADR-004) |
+| DU-34 | Rectorado, el CBC y el Despacho del Consejo Directivo no usan SIGTA, pero tampoco evalúan. Si sus pasos son de un área `external`, el trámite se muestra "En evaluación externa" y cuenta días sin retorno, como una derivación. ¿Se separa "evaluador externo" de "otra dependencia", o sus pasos los confirma la DA, como el archivo? | Se modelan como `external`, como en el relevamiento. Mesa de Entrada ya no es un área: el archivo lo confirma la DA | Se espera, con el equipo, junto con SIG-71 |
 
 ### Equivalencia entre asignaturas
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
 | DU-07 | ¿Qué documentación se pide además de la nota? ¿Se sigue pidiendo foto del DNI? | Los datos de la nota al Decano y el PDF del historial académico del SIU Guaraní. Sin domicilio, teléfono, DNI ni firma | Decidido por el equipo; a confirmar con la Secretaría |
-| DU-08 | ¿Quién revisa que esté completo antes de caratular? | SIGTA, con reglas en código y sin IA. No hay paso de revisión; si después la DA ve un problema, pide una subsanación | Decidido por el equipo |
+| DU-08 | ¿Quién revisa que esté completo antes de caratular? | SIGTA, con reglas en código: no deja enviar si falta algo. No hay paso de revisión; si después la DA ve un problema, pide una subsanación. El contenido de los documentos lo revisa después la validación asistida, que propone hallazgos y no decide | Decidido por el equipo |
 | DU-09 | Si son materias de varias carreras, ¿va a una CC o a varias? | A una, la de la carrera de destino. Para dos carreras, dos trámites | Decidido por el equipo |
 | DU-10 | ¿Cuáles son las equivalencias automáticas y por dónde van? | Fuera de SIGTA por ahora | Decidido por el equipo |
 | DU-11 | ¿El SIU Guaraní deja descargar el historial académico como PDF con texto? | Se asume que sí. Si no, el listado se carga como dato del formulario | Supuesto; a confirmar con la Secretaría |
@@ -100,14 +101,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
-| DU-31 | ¿Los perfiles operativo y de aprobación son personas distintas? (D-02) | La Secretaría respondió el 4/11 con otro esquema: un administrador que asigna roles configurables. Se registra en su propio ADR | Se cierra al aprobarse ese ADR |
 | DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | Se espera; con roles configurables se puede resolver como dos permisos | Se espera, con la Secretaría, antes de la interfaz de edición |
-
-## 5. De los componentes de IA
-
-| ID | Duda | Por ahora | Cómo |
-| --- | --- | --- | --- |
-| DU-33 | ¿Hace falta la validación asistida con IA? En equivalencia, la completitud se revisa con reglas en código (DU-08) | Cada trámite usa reglas en código primero y solo suma IA si no alcanzan. Sacar la validación asistida del proyecto es un cambio de alcance: el anteproyecto compromete tres usos de IA | Se espera, con el equipo y los directores, antes del sprint 12 |
 
 ---
 
@@ -116,3 +110,5 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | ID | Duda | Respuesta | Fecha |
 | --- | --- | --- | --- |
 | — | ¿Hace falta un editor de flujos? | Sí: los tipos de trámite se editan desde la interfaz (ADR-013) | Antes del 8/11 |
+| DU-31 | ¿Los perfiles operativo y de aprobación son personas distintas? (D-02) | No es así: la Secretaría pidió un administrador que asigna roles configurables (ADR-017, aceptado) | 8/11 |
+| DU-33 | ¿Se mantiene la validación asistida con IA, si la completitud se puede revisar con reglas en código? | Sí, se mantiene (ADR-002). Las reglas en código revisan que esté todo; la IA revisa el contenido, propone hallazgos y decide una persona | 8/11 |

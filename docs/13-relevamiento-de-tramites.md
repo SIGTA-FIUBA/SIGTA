@@ -18,11 +18,11 @@ Cómo circulan hoy los cinco trámites, según el relevamiento que el equipo arm
 | Intercambios Académicos | Recibe y registra los intercambios | Sí | Área `office` |
 | Decano y Secretarios | Firman resoluciones | Sí, pero firman fuera de SIGTA | La DA confirma la firma como hecho externo |
 | Comisión Curricular (CC) | Dictamina | No | Área `external` |
-| Despacho del Consejo Directivo | Arma la resolución y la lleva al Consejo | No | Área `external` |
+| Despacho del Consejo Directivo | Arma la resolución y la lleva al Consejo | No | Área `external` (ver DU-34) |
 | Consejo Directivo (CD) | Trata y aprueba en sesión | No | Área `external` |
-| Rectorado (Dpto. de Alumnos de la UBA) | Recibe los pases y los manda a FIUBA | No | Área `external` |
-| Ciclo Básico Común (CBC) | Adjunta el analítico en los pases dentro de la UBA | No | Área `external` |
-| Mesa de Entrada | Archiva el expediente | No | Área `external` |
+| Rectorado (Dpto. de Alumnos de la UBA) | Recibe los pases y los manda a FIUBA | No | Área `external` (ver DU-34) |
+| Ciclo Básico Común (CBC) | Adjunta el analítico en los pases dentro de la UBA | No | Área `external` (ver DU-34) |
+| Mesa de Entrada | Archiva el expediente | No | No es un área: la DA confirma el archivo |
 
 Los actores que no usan SIGTA no cambian nada en la plataforma: cuando el expediente vuelve, la DA confirma en SIGTA lo que pasó afuera (ADR-004).
 
@@ -39,11 +39,13 @@ El relevamiento usa nueve acciones. Todas entran en las cuatro del modelo:
 | Generar documento | `upload_document` de la DA (proyecto o resolución) |
 | Firmar | `confirm_external_fact`: la firma ocurre fuera de SIGTA |
 | Marcar como completado | `confirm_external_fact` (dictamen recibido, carga en el SIU, visto bueno) |
-| Archivar | Último paso, de Mesa de Entrada (`external`) |
+| Archivar | Último paso, de la DA: `confirm_external_fact` con la fecha de archivo |
 
 ## 3. Circuitos
 
 Los cinco terminan igual: la DA confirma la carga en el SIU, la Directora General da el visto bueno y Mesa de Entrada archiva.
+
+**El archivo en SIGTA.** Mesa de Entrada no usa SIGTA, así que el último paso queda a cargo de la DA, que confirma que el expediente se archivó y carga la fecha. El trámite se cierra recién entonces: si el expediente nunca se archiva, el paso sigue abierto en la bandeja de la DA y se puede reclamar. Las tablas siguientes muestran el circuito tal como es hoy, con Mesa de Entrada como último actor.
 
 ### 3.1 Equivalencia entre asignaturas
 
@@ -69,7 +71,7 @@ Los cinco terminan igual: la DA confirma la carga en el SIU, la Directora Genera
 - La nota la arma SIGTA con los datos que carga el estudiante: qué solicita, legajo, carrera, plan y año de ingreso. Nombre y correo salen del ingreso con la cuenta de la UBA.
 - No se piden domicilio, localidad, teléfono, DNI ni firma: no hacen falta para tramitar (Ley 25.326, recolectar solo lo necesario) y el ingreso con la cuenta de la UBA identifica a quien pide.
 - El listado de aprobadas se sube como el PDF del historial académico que descarga el SIU Guaraní. Las materias que cursa se eligen en el formulario.
-- La completitud la revisa SIGTA con reglas en código, sin IA: no deja enviar si falta un dato, si el PDF no tiene texto, si no tiene el legajo del estudiante o si no tiene filas de materias. Por eso no hay un paso de revisión de la DA antes de abrir el expediente. Si la DA ve un problema después, le pide una subsanación al estudiante.
+- La completitud la revisa SIGTA con reglas en código: no deja enviar si falta un dato, si el PDF no tiene texto, si no tiene el legajo del estudiante o si no tiene filas de materias. Por eso no hay un paso de revisión de la DA antes de abrir el expediente. Si la DA ve un problema después, le pide una subsanación al estudiante. El contenido de los documentos lo revisa después la validación asistida, que propone hallazgos y no decide.
 - Dictamina una sola CC, la de la carrera de destino. Equivalencias para dos carreras son dos trámites.
 - Las equivalencias automáticas quedan fuera por ahora.
 
