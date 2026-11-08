@@ -316,7 +316,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-016: El personal tiene un perfil por tipo de trámite
 
-**Estado:** propuesta, a acordar con el equipo y la Secretaría
+**Estado:** reemplazada por ADR-017
 
 **Contexto.** El modelo de US07 tenía tres perfiles fijos por persona: titular, Secretario operativo y Secretario de aprobación. Cada persona tenía uno solo, así que nadie podía ser operativo en un trámite y de aprobación en otro, y el supuesto S-07 (que los dos perfiles son personas distintas) condicionaba el modelo. En su respuesta al relevamiento, la Secretaría propuso un rol de administrador, usuarios internos para cada área que interviene, permisos otorgados por el administrador "por rol y eventualmente por tipo de trámite", y el registro de quién hizo cada acción en cada expediente.
 
@@ -337,11 +337,43 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-017: El personal actúa según su membresía a un área y su rango en ella
+
+**Estado:** propuesta, a acordar con el equipo y la Secretaría. Reemplaza a ADR-016.
+
+**Contexto.** ADR-016 ataba el permiso al tipo de trámite y separaba tres tipos de usuario excluyentes. En su respuesta al relevamiento, la Secretaría pidió un administrador, "usuarios internos del sistema para cada área interviniente con diferentes permisos otorgados por el administrador", un esquema "por rol (y eventualmente por tipo de trámite)" y el registro de quién hizo cada acción en cada expediente. Además, hoy la Secretaría avanza los pasos, pero más adelante pueden hacerlo otras áreas. Con ADR-016 quedaban tres problemas: el área no formaba parte del permiso; los pasos de un evaluador externo no los podía registrar nadie; y como cada persona tiene una sola cuenta UBA (ADR-010), quien administra no podía ser también personal.
+
+**Decisión.**
+- **Roles: titular y personal.** La única distinción fija es entre dos roles, titular (`applicant`) y personal (`staff`). Ninguno se guarda como campo: los dos se derivan de una relación. Al ingresar no hay forma de saber si una persona es alumna o personal, así que toda persona que ingresa es titular por defecto: puede iniciar trámites y es titular de los que inicia. Tener al menos una membresía vigente la hace personal en lugar de titular. Los roles se excluyen: el personal no inicia trámites, y eso decide qué pantallas ve cada persona. Las áreas y los rangos existen solo dentro del rol de personal.
+- **Áreas.** Dentro del personal no hay áreas fijas: el administrador crea las que hagan falta (Secretaría, Comisión Curricular X, etc.) como datos de SIGTA y no de cada versión de un tipo de trámite. Las áreas no tienen tipo. Cada paso de un tipo de trámite es del titular o de un área. Un paso que hoy resuelve alguien de afuera (por ejemplo, el dictamen de una comisión) se asigna al área de quien lo registra en SIGTA.
+- **Membresía.** Une a una persona con un área y le da un rango: **operativo** o **de aprobación**. El de aprobación cubre también los pasos operativos. Opcionalmente, la membresía tiene un **alcance**, una lista de tipos de trámite que restringe dónde actúa la persona dentro del área. Sin alcance, vale para todos los tipos, incluidos los que se publiquen después. El alcance referencia el tipo y no una versión.
+- **Varias áreas.** Una persona puede tener membresías en varias áreas. En una misma área tiene una sola membresía vigente, salvo que necesite un rango distinto según el tipo de trámite (por ejemplo, de aprobación en equivalencias y operativo en el resto). En ese caso tiene dos, y si las dos aplican a un trámite vale el rango más alto.
+- **Vigencia.** La membresía tiene una fecha desde y una fecha hasta opcional, y registra quién la otorgó. Sin fecha hasta, vale hasta que se la da de baja. También se puede otorgar con una fecha hasta, por ejemplo para una suplencia. Cambiar un rango cierra la membresía y abre otra. Una baja cierra la vigencia sin borrar nada. Las acciones ya hechas quedan en el historial del trámite con su autor.
+- **Actuar en un paso.** Se puede actuar en el paso abierto si el área del paso es la de una membresía vigente, el rango cubre el perfil del paso y, si hay alcance, el tipo de trámite está en él. Los pasos del titular los hace solo el titular de ese trámite. Se controla en el momento de cada acción: el trámite no se asigna a personas.
+- **Ver trámites.** El personal ve los trámites que pasan por sus áreas, recortados por el alcance. El titular ve solo los suyos. A quien no puede ver un trámite se le responde como si no existiera.
+- **Administrador.** Es una marca sobre la persona y no un tipo de usuario ni una membresía. Da de alta las áreas y las membresías. No le da acceso a los trámites: para actuar sobre ellos necesita una membresía.
+- **Registro.** Cada cambio de membresía queda registrado con quién, qué y cuándo. La autorización se aplica en el caso de uso del servidor, y cada negativa queda registrada con quién, qué, sobre qué trámite y cuándo.
+
+**Consecuencias.**
+- D-09 queda resuelta: el área forma parte del permiso.
+- S-07 sigue sin condicionar el modelo: una persona puede tener cualquier rango en cualquier área.
+- Sumar un área a la plataforma no requiere código ni publicar tipos de trámite nuevos.
+- Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
+- Las áreas salen del contenido de la versión (`content.Areas`) y pasan a ser entidades globales, y desaparece el tipo de área `external`. Es un cambio del formato de configuración (ADR-012, ADR-013) y de los tipos de trámite ya cargados.
+- La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área. Hay que ajustar el glosario y `AGENTS.md`.
+- Lo implementado para ADR-016 en `procedure/` (tipos de usuario, permisos por tipo de trámite) se reescribe, y `auth` deja el rol único: `/me` informa si la persona es personal, si es administradora y sus membresías. Cambia el contrato y `SIGTA_USERS_FILE`.
+- Hacen falta historias para administrar áreas y membresías. Mientras no existan, se cargan desde la configuración del despliegue.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |
 |---|---|---|---|
-| D-02 | Si los perfiles operativo y de aprobación son personas distintas. Ya no condiciona el modelo: con ADR-016, una persona puede tener los dos | — | Resuelta por ADR-016 |
+| D-02 | Si los perfiles operativo y de aprobación son personas distintas. Ya no condiciona el modelo: con ADR-017, una persona puede tener cualquier rango en cualquier área | — | Resuelta por ADR-017 |
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
 | D-08 | Quién puede proponer y quién aprobar una versión de un tipo de trámite: el equipo, la Secretaría o ambos | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
-| D-09 | Si en un mismo trámite intervienen oficinas distintas con personas que no deben hacer los pasos de la otra; si es así, el permiso suma el área (ADR-016) | La gestión de permisos por el administrador | Canal con la Secretaría |
+| D-09 | Si en un mismo trámite intervienen oficinas distintas con personas que no deben hacer los pasos de la otra | — | Resuelta por ADR-017: el área forma parte del permiso |
+| D-10 | Qué ve el personal: todos los trámites que pasan por su área o solo los que tienen abierto un paso suyo (ADR-017) | La bandeja del personal | Canal con la Secretaría |
+| D-11 | Si hay un administrador global o un responsable por área que da de alta a su propio personal (ADR-017) | La gestión de membresías | Canal con la Secretaría |
+| D-12 | Si dentro de un área hacen falta más de dos rangos, y si el alcance por tipo de trámite se usa o alcanza con áreas más finas (ADR-017) | La gestión de membresías | Canal con la Secretaría |
