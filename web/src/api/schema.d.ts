@@ -106,8 +106,11 @@ export interface components {
          * @enum {string}
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
-        /** @enum {string} */
-        Role: "applicant" | "staff_operative" | "staff_approver";
+        /**
+         * @description Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+         * @enum {string}
+         */
+        Role: "applicant" | "staff";
         FieldRequirement: {
             id: string;
             name: string;
@@ -143,6 +146,8 @@ export interface components {
             email: string;
             name: string;
             role: components["schemas"]["Role"];
+            /** @description Si puede otorgar y dar de baja membresías. No da acceso a los trámites */
+            administrator: boolean;
         };
     };
     responses: {

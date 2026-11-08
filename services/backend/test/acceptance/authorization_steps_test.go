@@ -10,6 +10,11 @@ import (
 
 	"github.com/cucumber/godog"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
+	procedureauth "backend/src/procedure/adapters/auth"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -17,13 +22,15 @@ import (
 )
 
 type authorizationWorld struct {
-	types       *application.ProcedureTypeService
-	service     *application.ProcedureService
-	memberships *application.MembershipService
-	access      *memory.Access
-	procedures  *memory.ProcedureRepository
-	denied      *memory.DeniedAttempts
-	now         time.Time
+	types             *application.ProcedureTypeService
+	service           *application.ProcedureService
+	memberships       *authapp.MembershipService
+	administrators    *authmem.Administrators
+	storedMemberships *authmem.MembershipRepository
+	membershipDenials *authmem.DeniedAttemptLog
+	procedures        *memory.ProcedureRepository
+	deniedAttempts    *memory.DeniedAttemptLog
+	now               time.Time
 
 	typeIDs map[string]int64
 	steps   map[string][]domain.Step
@@ -31,7 +38,7 @@ type authorizationWorld struct {
 
 	current    string
 	created    []string
-	membership domain.Membership
+	membership authdomain.Membership
 
 	user   string
 	err    error
@@ -41,12 +48,14 @@ type authorizationWorld struct {
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	w := &authorizationWorld{
-		access:     memory.NewAccess("admin@fi.uba.ar"),
-		procedures: memory.NewProcedureRepository(),
-		denied:     memory.NewDeniedAttempts(),
-		now:        time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
-		typeIDs:    map[string]int64{},
-		steps:      map[string][]domain.Step{},
+		administrators:    authmem.NewAdministrators("admin@fi.uba.ar"),
+		storedMemberships: authmem.NewMembershipRepository(),
+		membershipDenials: authmem.NewDeniedAttemptLog(),
+		procedures:        memory.NewProcedureRepository(),
+		deniedAttempts:    memory.NewDeniedAttemptLog(),
+		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
+		typeIDs:           map[string]int64{},
+		steps:             map[string][]domain.Step{},
 	}
 
 	sc.Given(`^the staff areas "([^"]*)" and "([^"]*)"$`, w.givenStaffAreas)
@@ -72,8 +81,8 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
 	sc.Then(`^"([^"]*)" cannot start a "([^"]*)" procedure$`, w.thenCannotStart)
 	sc.Then(`^the membership is granted by "([^"]*)" from now on$`, w.thenGranted)
-	sc.Then(`^the membership is denied$`, w.thenFails(domain.ErrAccessDenied))
-	sc.Then(`^the membership is not granted$`, w.thenFails(domain.ErrInvalidMembership))
+	sc.Then(`^the membership is denied$`, w.thenFails(authdomain.ErrAccessDenied))
+	sc.Then(`^the membership is not granted$`, w.thenFails(authdomain.ErrInvalidMembership))
 	sc.Then(`^the membership records that "([^"]*)" ended it$`, w.thenEndedBy)
 	sc.Then(`^the action is (allowed|denied)$`, w.thenAction)
 	sc.Then(`^the procedure is shown$`, w.thenNoError)
@@ -93,16 +102,18 @@ func (w *authorizationWorld) newID() string {
 	return "P-" + strconv.Itoa(w.nextID)
 }
 
+// givenStaffAreas wires both modules as the server does: auth keeps the areas
+// and memberships, and procedure reads them through its adapters.
 func (w *authorizationWorld) givenStaffAreas(first, second string) error {
-	areas := memory.NewAreaCatalog(
-		domain.Area{ID: "applicant", Name: "Titular", Kind: domain.AreaApplicant},
-		domain.Area{ID: areaID(first), Name: first, Kind: domain.AreaOffice},
-		domain.Area{ID: areaID(second), Name: second, Kind: domain.AreaOffice},
+	areas := authmem.NewAreaRepository(
+		authdomain.Area{ID: areaID(first), Name: first},
+		authdomain.Area{ID: areaID(second), Name: second},
 	)
 	clock := func() time.Time { return w.now }
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), areas, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, w.access, w.denied, w.newID, clock)
-	w.memberships = application.NewMembershipService(w.types, areas, w.access, w.denied, w.newID, clock)
+	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.membershipDenials, w.newID, clock)
+	catalog := procedureauth.NewAreaCatalog(authapp.NewAreaService(areas), domain.Area{ID: "applicant", Name: "Titular", Kind: domain.AreaApplicant})
+	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), catalog, clock)
+	w.service = application.NewProcedureService(w.types, w.procedures, procedureauth.NewStaffDirectory(w.memberships), w.deniedAttempts, w.newID, clock)
 	return nil
 }
 
@@ -184,7 +195,7 @@ func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table)
 }
 
 func (w *authorizationWorld) givenAdministrator(user string) error {
-	administrator, err := w.access.Administrator(context.Background(), user)
+	administrator, err := w.administrators.IsAdministrator(context.Background(), user)
 	if err != nil {
 		return err
 	}
@@ -196,10 +207,10 @@ func (w *authorizationWorld) givenAdministrator(user string) error {
 
 func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
-		_, err := w.memberships.Grant(context.Background(), "admin@fi.uba.ar", input.MembershipGrant{
+		_, err := w.memberships.Grant(context.Background(), "admin@fi.uba.ar", authinput.MembershipGrant{
 			UserID:  row.Cells[0].Value,
 			Area:    areaID(row.Cells[1].Value),
-			Profile: domain.Profile(row.Cells[2].Value),
+			Profile: authdomain.Profile(row.Cells[2].Value),
 			Scope:   w.scope(row.Cells[3].Value),
 		})
 		if err != nil {
@@ -214,10 +225,10 @@ func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, pro
 	if err != nil {
 		return err
 	}
-	_, err = w.memberships.Grant(context.Background(), administrator, input.MembershipGrant{
+	_, err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:  user,
 		Area:    areaID(area),
-		Profile: domain.Profile(profile),
+		Profile: authdomain.Profile(profile),
 		Until:   end,
 	})
 	return err
@@ -255,17 +266,17 @@ func (w *authorizationWorld) givenOwnProcedure(user, name string) error {
 
 func (w *authorizationWorld) grant(administrator, user, area, profile, scope string) {
 	w.user = administrator
-	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, input.MembershipGrant{
+	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:  user,
 		Area:    areaID(area),
-		Profile: domain.Profile(profile),
+		Profile: authdomain.Profile(profile),
 		Scope:   w.scope(scope),
 	})
 }
 
 func (w *authorizationWorld) end(administrator, user, area string) error {
 	ctx := context.Background()
-	all, err := w.access.Memberships(ctx, user)
+	all, err := w.storedMemberships.ListByUser(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -361,7 +372,7 @@ func (w *authorizationWorld) thenGranted(administrator string) error {
 	if w.err != nil {
 		return w.err
 	}
-	stored, err := w.access.Membership(context.Background(), w.membership.ID)
+	stored, err := w.storedMemberships.Get(context.Background(), w.membership.ID)
 	if err != nil {
 		return err
 	}
@@ -372,7 +383,7 @@ func (w *authorizationWorld) thenGranted(administrator string) error {
 }
 
 func (w *authorizationWorld) thenEndedBy(administrator string) error {
-	stored, err := w.access.Membership(context.Background(), w.membership.ID)
+	stored, err := w.storedMemberships.Get(context.Background(), w.membership.ID)
 	if err != nil {
 		return err
 	}
@@ -469,12 +480,24 @@ func (w *authorizationWorld) thenStaysOn(step string) error {
 	return nil
 }
 
+// lastDenied reads the denials of procedure, or else those of auth, where a
+// denied membership grant is recorded.
+func (w *authorizationWorld) lastDenied() (domain.DeniedAttempt, bool) {
+	if all := w.deniedAttempts.All(); len(all) > 0 {
+		return all[len(all)-1], true
+	}
+	if all := w.membershipDenials.All(); len(all) > 0 {
+		last := all[len(all)-1]
+		return domain.DeniedAttempt{UserID: last.UserID, Action: last.Action, At: last.At}, true
+	}
+	return domain.DeniedAttempt{}, false
+}
+
 func (w *authorizationWorld) thenDeniedRecorded(onProcedure string) error {
-	all := w.denied.All()
-	if len(all) == 0 {
+	got, ok := w.lastDenied()
+	if !ok {
 		return errors.New("no denied attempt was recorded")
 	}
-	got := all[len(all)-1]
 	want := domain.DeniedAttempt{UserID: w.user, Action: got.Action, At: w.now}
 	if onProcedure != "" {
 		want.Procedure = w.current
@@ -486,8 +509,8 @@ func (w *authorizationWorld) thenDeniedRecorded(onProcedure string) error {
 }
 
 func (w *authorizationWorld) thenNoDenied() error {
-	if all := w.denied.All(); len(all) > 0 {
-		return fmt.Errorf("recorded %+v", all)
+	if got, ok := w.lastDenied(); ok {
+		return fmt.Errorf("recorded %+v", got)
 	}
 	return nil
 }

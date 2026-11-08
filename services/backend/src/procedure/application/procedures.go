@@ -21,14 +21,19 @@ const (
 )
 
 type ProcedureService struct {
-	gate
-	types      input.ProcedureTypes
-	procedures output.ProcedureRepository
-	newID      func() string
+	authorizer
+	procedureTypes input.ProcedureTypes
+	procedures     output.ProcedureRepository
+	newID          func() string
 }
 
-func NewProcedureService(types input.ProcedureTypes, procedures output.ProcedureRepository, access output.Access, denied output.DeniedAttempts, newID func() string, now func() time.Time) *ProcedureService {
-	return &ProcedureService{gate: gate{access: access, denied: denied, now: now}, types: types, procedures: procedures, newID: newID}
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff output.StaffDirectory, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *ProcedureService {
+	return &ProcedureService{
+		authorizer:     authorizer{staff: staff, deniedAttempts: deniedAttempts, clock: clock},
+		procedureTypes: procedureTypes,
+		procedures:     procedures,
+		newID:          newID,
+	}
 }
 
 func (s *ProcedureService) Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error) {
@@ -36,7 +41,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 	if err != nil {
 		return domain.Procedure{}, err
 	}
-	if actor.Role() != domain.RoleApplicant {
+	if actor.IsStaff() {
 		return domain.Procedure{}, s.deny(ctx, actor, actionStart, "")
 	}
 	version, err := s.latest(ctx, procedureType)
@@ -145,7 +150,7 @@ func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, act
 }
 
 func (s *ProcedureService) content(ctx context.Context, p domain.Procedure) (domain.Content, error) {
-	version, err := s.types.Version(ctx, p.ProcedureType, p.Version)
+	version, err := s.procedureTypes.Version(ctx, p.ProcedureType, p.Version)
 	if err != nil {
 		return domain.Content{}, err
 	}
@@ -173,7 +178,7 @@ func canAct(actor domain.Actor, p domain.Procedure, content domain.Content, step
 }
 
 func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (domain.Version, error) {
-	entries, err := s.types.Catalog(ctx)
+	entries, err := s.procedureTypes.Catalog(ctx)
 	if err != nil {
 		return domain.Version{}, err
 	}
@@ -181,5 +186,5 @@ func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (dom
 	if i < 0 {
 		return domain.Version{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrNoVersion)
 	}
-	return s.types.Version(ctx, procedureType, entries[i].Version)
+	return s.procedureTypes.Version(ctx, procedureType, entries[i].Version)
 }

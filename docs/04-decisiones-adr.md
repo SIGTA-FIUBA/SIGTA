@@ -359,10 +359,11 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - S-07 sigue sin condicionar el modelo: una persona puede tener cualquier rango en cualquier área.
 - Sumar un área a la plataforma no requiere código ni publicar tipos de trámite nuevos.
 - Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
-- Las áreas salen del contenido de la versión (`content.Areas`) y pasan a ser entidades globales, y desaparece el tipo de área `external`. Es un cambio del formato de configuración (ADR-012, ADR-013) y de los tipos de trámite ya cargados.
+- Las áreas son entidades globales del módulo `auth`, junto con las membresías y la marca de administrador, porque describen a las personas y a la organización y no a un trámite. Cada versión de un tipo de trámite sigue guardando una copia de las áreas que usa (`content.Areas`), para leerse igual si un área cambia de nombre. Desaparece el tipo de área `external`.
 - La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área. Hay que ajustar el glosario y `AGENTS.md`.
-- La autorización de `procedure/` sigue este modelo. Las versiones ya publicadas con áreas `external` se siguen leyendo, y esas áreas se tratan como del personal; las áreas nuevas ya no aceptan ese tipo.
-- Durante la transición, `auth` sigue con el rol único de cada usuario (`applicant`, `staff_operative` o `staff_approver`) que usan `/me` y `SIGTA_USERS_FILE`. Migrarlo para que `/me` informe si la persona es personal, si es administradora y sus membresías cambia el contrato y la configuración, y se hace en un cambio aparte.
+- Las reglas que dependen del trámite (qué ve y en qué pasos actúa cada persona) quedan en `procedure`, que le pide a `auth` las áreas y las membresías vigentes a través de sus puertos (`AreaCatalog`, `StaffDirectory`), como pide ADR-014. `auth` no depende de `procedure`: por eso, al otorgar una membresía no se comprueba que los tipos de su alcance existan, y un tipo inexistente simplemente no coincide con ningún trámite.
+- Las versiones ya publicadas con áreas `external` se siguen leyendo, y esas áreas se tratan como del personal; las áreas nuevas ya no aceptan ese tipo.
+- `/me` informa el rol derivado (`applicant` o `staff`) y si la persona es administradora. `SIGTA_USERS_FILE` deja el campo `role` y declara `administrator` y `memberships`. Las membresías de cada persona se suman a `/me` cuando una pantalla las necesite.
 - Hacen falta historias para administrar áreas y membresías. Mientras no existan, se cargan desde la configuración del despliegue.
 
 ---

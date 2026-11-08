@@ -41,7 +41,7 @@ Feature: Profiles and authorization
     Then the membership is denied
     And a denied attempt is recorded with who tried, what they tried and when
 
-  Scenario Outline: a membership needs a staff area, a known profile and published procedure types
+  Scenario Outline: a membership needs a staff area and a known profile
     When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "<area>" with the "<profile>" profile on "<scope>"
     Then the membership is not granted
 
@@ -50,7 +50,6 @@ Feature: Profiles and authorization
       | unknown area    | staff_operative |                    |
       | applicant       | staff_operative |                    |
       | student affairs | supervisor      |                    |
-      | student affairs | staff_operative | unknown procedure  |
 
   Scenario: a person has one membership per area and scope
     When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the "staff_approver" profile

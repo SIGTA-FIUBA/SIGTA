@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"backend/src/auth/domain"
@@ -124,35 +125,53 @@ func or(value, fallback string) string {
 
 // userEntry is one person in SIGTA_USERS_FILE. The file holds real names and
 // emails, so it lives with the deployment's secrets and never in the
-// repository.
+// repository. Someone without memberships is an applicant.
 type userEntry struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
-	Role  string `json:"role"`
+	ID            string            `json:"id"`
+	Email         string            `json:"email"`
+	Name          string            `json:"name"`
+	Administrator bool              `json:"administrator,omitempty"`
+	Memberships   []membershipEntry `json:"memberships,omitempty"`
 }
 
-// loadUsers reads the people who can log in, until users are stored in
-// PostgreSQL. It rejects the whole file on any invalid entry, so a typo does
-// not silently leave someone out.
-func loadUsers(path, allowedDomain string) ([]domain.User, error) {
+type membershipEntry struct {
+	Area    string  `json:"area"`
+	Profile string  `json:"profile"`
+	Scope   []int64 `json:"scope,omitempty"`
+}
+
+// people is what SIGTA_USERS_FILE loads, until users and memberships are
+// stored in PostgreSQL and administered from the interface.
+type people struct {
+	users          []domain.User
+	administrators []string
+	memberships    []domain.Membership
+}
+
+// loadUsers reads the people who can log in. It rejects the whole file on any
+// invalid entry, so a typo does not silently leave someone out.
+func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) {
 	file, err := os.Open(path) //nolint:gosec // G304: the path comes from configuration.
 	if err != nil {
-		return nil, err
+		return people{}, err
 	}
 	defer func() { _ = file.Close() }()
 	var entries []userEntry
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&entries); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return people{}, fmt.Errorf("%s: %w", path, err)
 	}
 
+	known := map[string]bool{}
+	for _, a := range areas {
+		known[a.ID] = true
+	}
 	ids, emails := map[string]bool{}, map[string]bool{}
 	var problems []error
-	users := make([]domain.User, 0, len(entries))
+	var loaded people
 	for i, e := range entries {
-		user := domain.User{ID: e.ID, Email: domain.NormalizeEmail(e.Email), Name: strings.TrimSpace(e.Name), Role: domain.Role(e.Role)}
+		user := domain.User{ID: e.ID, Email: domain.NormalizeEmail(e.Email), Name: strings.TrimSpace(e.Name)}
 		switch {
 		case user.ID == "" || ids[user.ID]:
 			problems = append(problems, fmt.Errorf("entry %d: empty or repeated id %q", i, user.ID))
@@ -160,14 +179,34 @@ func loadUsers(path, allowedDomain string) ([]domain.User, error) {
 			problems = append(problems, fmt.Errorf("entry %d: email outside %s or repeated", i, allowedDomain))
 		case user.Name == "":
 			problems = append(problems, fmt.Errorf("entry %d: empty name", i))
-		case !user.Role.Known():
-			problems = append(problems, fmt.Errorf("entry %d: unknown role %q", i, e.Role))
 		}
 		ids[user.ID], emails[user.Email] = true, true
-		users = append(users, user)
+		loaded.users = append(loaded.users, user)
+		if e.Administrator {
+			loaded.administrators = append(loaded.administrators, user.ID)
+		}
+		for j, m := range e.Memberships {
+			membership := domain.Membership{
+				ID:        fmt.Sprintf("%s-%d", user.ID, j+1),
+				UserID:    user.ID,
+				Area:      m.Area,
+				Profile:   domain.Profile(m.Profile),
+				Scope:     m.Scope,
+				GrantedBy: "SIGTA_USERS_FILE",
+			}
+			switch {
+			case !known[membership.Area]:
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown area %q", i, j+1, m.Area))
+			case !membership.Profile.Known():
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown profile %q", i, j+1, m.Profile))
+			case slices.ContainsFunc(loaded.memberships, membership.Overlaps):
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: repeats area %q with the same scope", i, j+1, m.Area))
+			}
+			loaded.memberships = append(loaded.memberships, membership)
+		}
 	}
 	if len(problems) > 0 {
-		return nil, fmt.Errorf("%s: %w", path, errors.Join(problems...))
+		return people{}, fmt.Errorf("%s: %w", path, errors.Join(problems...))
 	}
-	return users, nil
+	return loaded, nil
 }

@@ -22,7 +22,8 @@ const (
 )
 
 type AuthHandler struct {
-	auth ports.Authenticator
+	auth        ports.Authenticator
+	memberships ports.Memberships
 	// appURL is where the browser lands after logging in.
 	appURL   string
 	loginURL string
@@ -30,8 +31,8 @@ type AuthHandler struct {
 	secureCookies bool
 }
 
-func NewAuthHandler(auth ports.Authenticator, appURL, loginURL string, secureCookies bool) *AuthHandler {
-	return &AuthHandler{auth: auth, appURL: appURL, loginURL: loginURL, secureCookies: secureCookies}
+func NewAuthHandler(auth ports.Authenticator, memberships ports.Memberships, appURL, loginURL string, secureCookies bool) *AuthHandler {
+	return &AuthHandler{auth: auth, memberships: memberships, appURL: appURL, loginURL: loginURL, secureCookies: secureCookies}
 }
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req api.BeginLoginRequestObject) (api.BeginLoginResponseObject, error) {
@@ -119,11 +120,16 @@ func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUser
 	if err != nil {
 		return nil, err
 	}
+	permissions, err := h.memberships.Permissions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
 	return api.GetCurrentUser200JSONResponse{
-		Id:    user.ID,
-		Email: openapi_types.Email(user.Email),
-		Name:  user.Name,
-		Role:  api.Role(user.Role),
+		Id:            user.ID,
+		Email:         openapi_types.Email(user.Email),
+		Name:          user.Name,
+		Role:          api.Role(permissions.Role()),
+		Administrator: permissions.Administrator,
 	}, nil
 }
 

@@ -89,7 +89,7 @@ func (s *AuthService) register(ctx context.Context, email, name string) (domain.
 	if name == "" {
 		name = email
 	}
-	user, err := s.users.Register(ctx, domain.User{ID: newToken(), Email: email, Name: name, Role: domain.RoleApplicant})
+	user, err := s.users.Register(ctx, domain.User{ID: newToken(), Email: email, Name: name})
 	if err != nil {
 		return domain.User{}, fmt.Errorf("register: %w", err)
 	}

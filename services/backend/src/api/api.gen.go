@@ -40,9 +40,8 @@ func (e LoginError) Valid() bool {
 
 // Defines values for Role.
 const (
-	Applicant      Role = "applicant"
-	StaffApprover  Role = "staff_approver"
-	StaffOperative Role = "staff_operative"
+	Applicant Role = "applicant"
+	Staff     Role = "staff"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
@@ -50,9 +49,7 @@ func (e Role) Valid() bool {
 	switch e {
 	case Applicant:
 		return true
-	case StaffApprover:
-		return true
-	case StaffOperative:
+	case Staff:
 		return true
 	default:
 		return false
@@ -99,15 +96,19 @@ type FieldRequirement struct {
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
 
-// Role defines model for Role.
+// Role Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
 type Role string
 
 // User defines model for User.
 type User struct {
-	Email openapi_types.Email `json:"email"`
-	Id    string              `json:"id"`
-	Name  string              `json:"name"`
-	Role  Role                `json:"role"`
+	// Administrator Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+	Administrator bool                `json:"administrator"`
+	Email         openapi_types.Email `json:"email"`
+	Id            string              `json:"id"`
+	Name          string              `json:"name"`
+
+	// Role Se deriva de las membresías (ADR-017). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+	Role Role `json:"role"`
 }
 
 // SessionCookie defines model for SessionCookie.

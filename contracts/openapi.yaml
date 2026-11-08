@@ -162,7 +162,10 @@ components:
       enum: [state_mismatch, rejected, domain_not_allowed]
     Role:
       type: string
-      enum: [applicant, staff_operative, staff_approver]
+      description: >
+        Se deriva de las membresías (ADR-017). staff: tiene al menos una
+        membresía vigente en un área. applicant: cualquier otra persona.
+      enum: [applicant, staff]
     FieldRequirement:
       type: object
       required: [id, name, required]
@@ -225,7 +228,7 @@ components:
             $ref: "#/components/schemas/DocumentRequirement"
     User:
       type: object
-      required: [id, email, name, role]
+      required: [id, email, name, role, administrator]
       properties:
         id:
           type: string
@@ -236,3 +239,6 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/Role"
+        administrator:
+          type: boolean
+          description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites

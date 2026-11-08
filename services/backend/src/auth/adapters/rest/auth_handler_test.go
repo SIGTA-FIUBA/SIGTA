@@ -33,13 +33,21 @@ func newServer(t *testing.T) *httptest.Server {
 		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
 		dev.NewIdentityProvider(srv.URL+"/auth/callback", ""),
 		memory.NewUserRepository(
-			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant},
-			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative},
+			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"},
+			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
 		),
 		memory.NewSessionStore(),
 		time.Now,
 	)
-	server := rest.NewAuthHandler(auth, srv.URL+"/me", srv.URL+"/login", false)
+	memberships := application.NewMembershipService(
+		memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría"}),
+		memory.NewAdministrators(),
+		memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Profile: domain.ProfileStaffOperative}),
+		memory.NewDeniedAttemptLog(),
+		func() string { return "m2" },
+		time.Now,
+	)
+	server := rest.NewAuthHandler(auth, memberships, srv.URL+"/me", srv.URL+"/login", false)
 	api.Mount(mux, api.NewServer(server, nil), slog.Default())
 	return srv
 }
@@ -264,7 +272,7 @@ type brokenAuth struct{ ports.Authenticator }
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 
 func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
-	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, "", "", false), nil), slog.New(slog.DiscardHandler))
+	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, nil, "", "", false), nil), slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 
