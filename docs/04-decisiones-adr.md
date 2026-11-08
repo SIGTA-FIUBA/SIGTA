@@ -276,7 +276,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
 
-**Estado:** aceptada
+**Estado:** propuesta, a acordar con el equipo
 
 **Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
 
@@ -295,7 +295,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-015: La interfaz se arma con Mantine y toma su aspecto de un único tema
 
-**Estado:** aceptada
+**Estado:** propuesta, a acordar con el equipo
 
 **Contexto.** ADR-011 fijó React, TypeScript y Vite, pero no cómo se construye la interfaz. El equipo revisa con dificultad el código de frontend, y la mayor parte la va a escribir un agente. Las opciones evaluadas en noviembre de 2026 fueron: shadcn/ui, que copia los componentes al repositorio y los estiliza con cadenas largas de clases de Tailwind; Base UI y React Aria, que no traen estilo y dejan todo el CSS a cargo del equipo; Radix Themes, sin versiones nuevas desde enero de 2026; IBM Carbon, pesado y difícil de alejar del aspecto de IBM; y Mantine, una biblioteca completa (formularios, fechas, menús, notificaciones) que se configura con propiedades y un objeto de tema.
 
