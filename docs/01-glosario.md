@@ -37,7 +37,7 @@ Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuit
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
-Quien tiene a cargo un paso: el titular (`applicant`) o un área del personal (`office`), como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas del personal no son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-017). El tipo `external` solo aparece en versiones publicadas antes de ADR-017, y se trata como `office`.
+Parte de la organización a la que pertenece el personal, como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas existen solo dentro del rol de personal: el titular no tiene área. No son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-017). Cada paso dice su rol: los del titular (`applicant`) no tienen área, y los del personal (`staff`) son de un área. Las versiones publicadas antes del formato 3 modelaban al titular como un área de tipo `applicant`, y se convierten al leerlas.
 
 **Pase**
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.

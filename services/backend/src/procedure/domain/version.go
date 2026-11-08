@@ -19,10 +19,12 @@ import (
 // up whenever Content changes, so that code that does not know a format
 // refuses to read it instead of reading it partly. Format 2 added what the
 // catalog shows, all of it optional in the encoding, so format 1 still reads.
-const ContentFormat = 2
+// Format 3 gives each step a role and leaves areas to staff (ADR-017): formats
+// 1 and 2 are converted when read (see legacy.go).
+const ContentFormat = 3
 
-// Content carries the areas its steps use, so that a version reads the same
-// after an area is renamed.
+// Content carries the staff areas its steps use, so that a version reads the
+// same after an area is renamed.
 type Content struct {
 	Format     int        `json:"format"`
 	Definition Definition `json:"definition"`
@@ -32,7 +34,9 @@ type Content struct {
 func NewContent(d Definition, areas []Area) Content {
 	used := map[string]bool{}
 	for _, s := range d.Steps {
-		used[s.Area] = true
+		if s.Area != "" {
+			used[s.Area] = true
+		}
 	}
 	var referenced []Area
 	for _, a := range areas {
@@ -109,18 +113,39 @@ func (v Version) Verify() error {
 
 // Content rejects keys it does not know: they mean the version was published
 // by a newer model, or that a key was renamed, and ignoring them would change
-// what the version says without failing its digest.
+// what the version says without failing its digest. Formats before 3 are
+// converted to the current shape.
 func (v Version) Content() (Content, error) {
-	var c Content
-	decoder := json.NewDecoder(bytes.NewReader(v.Encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&c); err != nil {
+	var head struct {
+		Format int `json:"format"`
+	}
+	if err := json.Unmarshal(v.Encoded, &head); err != nil {
 		return Content{}, fmt.Errorf("decode content: %w", err)
 	}
-	if c.Format < 1 || c.Format > ContentFormat {
-		return Content{}, fmt.Errorf("%w %d, want 1 to %d", ErrUnknownFormat, c.Format, ContentFormat)
+	switch {
+	case head.Format < 1 || head.Format > ContentFormat:
+		return Content{}, fmt.Errorf("%w %d, want 1 to %d", ErrUnknownFormat, head.Format, ContentFormat)
+	case head.Format < 3:
+		var legacy legacyContent
+		if err := decodeStrict(v.Encoded, &legacy); err != nil {
+			return Content{}, err
+		}
+		return legacy.convert()
+	}
+	var c Content
+	if err := decodeStrict(v.Encoded, &c); err != nil {
+		return Content{}, err
 	}
 	return c, nil
+}
+
+func decodeStrict(encoded []byte, into any) error {
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(into); err != nil {
+		return fmt.Errorf("decode content: %w", err)
+	}
+	return nil
 }
 
 func plain(name string) bool {

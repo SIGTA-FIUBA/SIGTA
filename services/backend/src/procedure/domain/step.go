@@ -11,6 +11,15 @@ const (
 	ActionDecide              Action = "decide"
 )
 
+// Role says who does a step: the applicant of the procedure, or staff of
+// the area of the step (ADR-017).
+type Role string
+
+const (
+	RoleApplicant Role = "applicant"
+	RoleStaff     Role = "staff"
+)
+
 type Profile string
 
 const (
@@ -21,7 +30,8 @@ const (
 type Step struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
-	Area              string    `json:"area"`
+	Role              Role      `json:"role,omitempty"`
+	Area              string    `json:"area,omitempty"`
 	Profile           Profile   `json:"profile,omitempty"`
 	Action            Action    `json:"action"`
 	Fields            []string  `json:"fields,omitempty"`
@@ -55,18 +65,30 @@ func (v stepValidator) validate(s Step) []Problem {
 }
 
 func (v stepValidator) owner(s Step) []Problem {
-	area, ok := v.areas[s.Area]
-	switch {
-	case !ok:
-		return []Problem{{Code: CodeUnknownArea, Value: s.Area}}
-	case area.Kind == AreaApplicant && s.Profile != "":
-		return []Problem{{Code: CodeApplicantWithProfile}}
-	case area.Kind == AreaApplicant && s.Action != ActionEnterData && s.Action != ActionUploadDocument:
-		return []Problem{{Code: CodeApplicantAction}}
-	case area.Kind != AreaApplicant && s.Profile != ProfileStaffOperative && s.Profile != ProfileStaffApprover:
-		return []Problem{{Code: CodeInvalidProfile, Value: string(s.Profile)}}
+	switch s.Role {
+	case RoleApplicant:
+		var problems []Problem
+		if s.Area != "" {
+			problems = append(problems, Problem{Code: CodeApplicantWithArea, Value: s.Area})
+		}
+		if s.Profile != "" {
+			problems = append(problems, Problem{Code: CodeApplicantWithProfile})
+		}
+		if s.Action != ActionEnterData && s.Action != ActionUploadDocument {
+			problems = append(problems, Problem{Code: CodeApplicantAction})
+		}
+		return problems
+	case RoleStaff:
+		var problems []Problem
+		if _, ok := v.areas[s.Area]; !ok {
+			problems = append(problems, Problem{Code: CodeUnknownArea, Value: s.Area})
+		}
+		if s.Profile != ProfileStaffOperative && s.Profile != ProfileStaffApprover {
+			problems = append(problems, Problem{Code: CodeInvalidProfile, Value: string(s.Profile)})
+		}
+		return problems
 	}
-	return nil
+	return []Problem{{Code: CodeUnknownRole, Value: string(s.Role)}}
 }
 
 func (v stepValidator) contents(s Step) []Problem {

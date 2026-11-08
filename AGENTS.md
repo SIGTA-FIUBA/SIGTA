@@ -38,7 +38,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Administrador | administrator | Marca sobre una persona que le permite dar de alta membresías | Un rol: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
-| Área | area (`applicant` o `office`) | Quien tiene a cargo un paso: el titular o un área del personal, que se crea como dato | Rol o perfil |
+| Área | area | Parte de la organización a la que pertenece el personal, creada como dato; un paso del personal es de un área | Rol: el titular no tiene área, y cada paso dice su rol (`applicant` o `staff`) |
 | Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
 | Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |

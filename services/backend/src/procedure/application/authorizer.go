@@ -38,9 +38,9 @@ func (a authorizer) canSee(userID string, reach []authinput.AreaReach, p domain.
 	})
 }
 
-// canAct gives the open step of the applicant area to the applicant of the
-// procedure, and that of any other area to whoever auth says holds its
-// profile there.
+// canAct gives an open step of the applicant to the applicant of the
+// procedure, and a staff step to whoever auth says holds its profile in its
+// area.
 func (a authorizer) canAct(ctx context.Context, userID string, staff bool, p domain.Procedure, c domain.Content, stepID string) (bool, error) {
 	if stepID != p.OpenStep {
 		return false, nil
@@ -50,11 +50,7 @@ func (a authorizer) canAct(ctx context.Context, userID string, staff bool, p dom
 		return false, fmt.Errorf("procedure %s: open step %q is not in version %d", p.ID, stepID, p.Version)
 	}
 	step := c.Definition.Steps[i]
-	area, ok := c.AreaOf(step)
-	if !ok {
-		return false, fmt.Errorf("procedure %s: area %q is not in version %d", p.ID, step.Area, p.Version)
-	}
-	if area.Kind == domain.AreaApplicant {
+	if step.Role == domain.RoleApplicant {
 		return !staff && p.Applicant == userID, nil
 	}
 	holds, err := a.staff.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))

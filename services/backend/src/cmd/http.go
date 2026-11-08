@@ -159,9 +159,9 @@ func devProcedureType() input.Publication {
 				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
 			},
 			Steps: []procedure.Step{
-				{ID: "request", Name: "Solicitud", Area: "applicant", Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
-				{ID: "documents", Name: "Documentación", Area: "applicant", Action: procedure.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Area: "office", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact},
+				{ID: "request", Name: "Solicitud", Role: procedure.RoleApplicant, Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
+				{ID: "documents", Name: "Documentación", Role: procedure.RoleApplicant, Action: procedure.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "review", Name: "Revisión", Role: procedure.RoleStaff, Area: "office", Profile: procedure.ProfileStaffOperative, Action: procedure.ActionConfirmExternalFact},
 			},
 		},
 	}

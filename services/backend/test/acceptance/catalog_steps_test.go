@@ -94,10 +94,10 @@ func catalogDefinition(name, description string) domain.Definition {
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 		},
 		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
-			{ID: "ruling", Name: "Dictamen", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
-			{ID: "record", Name: "Registro", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact, Fields: []string{"file_number"}},
+			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Role: domain.RoleApplicant, Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
+			{ID: "ruling", Name: "Dictamen", Role: domain.RoleStaff, Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
+			{ID: "record", Name: "Registro", Role: domain.RoleStaff, Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
 	}
 }
@@ -156,7 +156,7 @@ func (w *catalogWorld) givenMandatoryLater(field string) error {
 		definition.Steps = slices.Clone(definition.Steps)
 		definition.Steps[0].Next = "more"
 		definition.Steps = slices.Insert(definition.Steps, 1, domain.Step{
-			ID: "more", Name: "Ampliación", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
+			ID: "more", Name: "Ampliación", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
 		if err := w.publishDefinition(name, definition); err != nil {
 			return err

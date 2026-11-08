@@ -30,7 +30,7 @@ func testDefinition() domain.Definition {
 		Description: "Un trámite para las pruebas",
 		Fields:      []domain.Field{{ID: "national_id", Name: "DNI", Type: domain.FieldText}},
 		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"national_id"}},
+			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"national_id"}},
 		},
 	}
 }
@@ -175,7 +175,7 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	areas := authmem.NewAreaRepository(office)
 	reviewed := testDefinition()
 	reviewed.Steps[0].Next = "review"
-	reviewed.Steps = append(reviewed.Steps, domain.Step{ID: "review", Name: "Revisión", Area: "office", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
+	reviewed.Steps = append(reviewed.Steps, domain.Step{ID: "review", Name: "Revisión", Role: domain.RoleStaff, Area: "office", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
 	if _, err := newServiceOn(versions, areas).Publish(ctx, publication(1, 0, reviewed)); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
@@ -196,8 +196,8 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Content() = %v", err)
 	}
-	if area, ok := c.AreaOf(reviewed.Steps[1]); !ok || area.Name != "Secretaría" {
-		t.Errorf("version 1 area = %v, want the previous name", area)
+	if want := []domain.Area{{ID: "office", Name: "Secretaría"}}; !reflect.DeepEqual(c.Areas, want) {
+		t.Errorf("version 1 areas = %v, want the previous name %v", c.Areas, want)
 	}
 }
 
@@ -211,7 +211,7 @@ func TestPublishRejects(t *testing.T) {
 		want    error
 	}{
 		{name: "invalid definition", service: newService(memory.NewProcedureVersions()), p: publication(1, 0, invalid), want: domain.ErrInvalidDefinition},
-		{name: "staff area named like the applicant area", service: newService(memory.NewProcedureVersions(), authdomain.Area{ID: "titular", Name: "Titular"}), p: publication(1, 0, testDefinition()), want: domain.ErrInvalidAreas},
+		{name: "area stored with an invalid id", service: newService(memory.NewProcedureVersions(), authdomain.Area{ID: "Office", Name: "Secretaría"}), p: publication(1, 0, testDefinition()), want: domain.ErrInvalidAreas},
 		{name: "same proposer and approver", service: newService(memory.NewProcedureVersions()), p: input.Publication{
 			ProcedureType: 1, Definition: testDefinition(), Authorship: domain.Authorship{ProposedBy: "ana", ApprovedBy: "ana"},
 		}, want: domain.ErrInvalidAuthorship},

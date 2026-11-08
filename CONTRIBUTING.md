@@ -28,7 +28,7 @@ Cada dato tiene un tipo: `text`, `long_text`, `number`, `date`, `option`, `degre
 
 ### Pasos
 
-El trámite empieza en el primer paso. Cada paso tiene un área responsable y una sola de cuatro acciones:
+El trámite empieza en el primer paso. Cada paso tiene un rol (`role`), que dice quién lo hace, y una sola de cuatro acciones:
 
 | Acción | Uso | Lleva |
 | --- | --- | --- |
@@ -37,25 +37,25 @@ El trámite empieza en el primer paso. Cada paso tiene un área responsable y un
 | `confirm_external_fact` | Confirmar un hecho ocurrido fuera de SIGTA, como una carátula o una firma en el expediente electrónico | `fields` y `optional_fields`, si hace falta registrar algo, como el número de expediente |
 | `decide` | Elegir una salida | `outcomes`, al menos dos, cada una con su `next`; y, si hacen falta, los `fields` y `documents` que fundamentan la decisión, como el acta |
 
-- Los pasos de un área del personal (`office`) llevan `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción. Los pasos del titular no llevan perfil y solo cargan datos o documentos.
+- Un paso es del titular (`role: applicant`) o del personal (`role: staff`). Las áreas son solo del personal: un paso del titular no lleva `area` ni `profile`, y solo carga datos o documentos. Un paso del personal lleva `area`, una de las áreas creadas en SIGTA, y `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción.
 - Un paso sin `next` ni `outcomes` cierra el trámite.
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
-- Un paso tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
+- Un paso del personal tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
 - Los plazos y las condiciones de admisibilidad son texto que el catálogo muestra: nada los aplica todavía. A confirmar: si el motor tiene que aplicarlos, como pedía "Plazos y condiciones de admisibilidad", que figura en Linear como duplicado de "Modelo de definición de trámite".
 
-No hay estados en la configuración: el estado que ve el titular se calcula a partir del área del paso abierto (`applicant` es "Esperando al titular", un área del personal es "En" seguido del nombre del área, y sin paso abierto es "Cerrado"). Las versiones publicadas antes de ADR-017 pueden tener áreas `external`, que se tratan como `office`. Tampoco hay estados de resultado: el dictamen es un documento que se carga, y las salidas de una decisión son pasos del proceso, no resultados.
+No hay estados en la configuración: el estado que ve el titular se calcula a partir del paso abierto (un paso del titular es "Esperando al titular", uno del personal es "En" seguido del nombre de su área, y sin paso abierto es "Cerrado"). Tampoco hay estados de resultado: el dictamen es un documento que se carga, y las salidas de una decisión son pasos del proceso, no resultados.
 
 Los pases entre áreas y los avisos al titular no son pasos: pasar al paso siguiente es el pase, y el aviso sale cuando cambia el estado. A confirmar: si la notificación de la resolución al titular, que tiene fecha y medio, es un paso del tipo de trámite o un evento del sistema.
 
 ### Validación
 
-No se publica una definición inválida. El error lista juntos los problemas de datos, documentos y pasos; los de recorrido (pasos inalcanzables o que no cierran) aparecen una vez corregidos esos. Un área inválida del catálogo impide publicar cualquier tipo de trámite.
+No se publica una definición inválida. El error lista juntos los problemas de datos, documentos y pasos; los de recorrido (pasos inalcanzables o que no cierran) aparecen una vez corregidos esos. Un área del personal inválida impide publicar cualquier tipo de trámite.
 
 Se rechaza:
 
 - `id` vacío, repetido o fuera del formato: minúsculas ASCII, dígitos y guiones bajos, empezando por una letra. Así dos `id` que se ven iguales son el mismo.
 - Nombres vacíos o con espacios al principio o al final.
-- Tipos de dato o de área desconocidos (incluido `external`, que ya no se acepta), perfiles desconocidos o un paso de un área del personal sin perfil.
+- Tipos de dato o roles desconocidos, perfiles desconocidos, un paso del personal sin área o sin perfil, y un paso del titular con área o con perfil.
 - Opciones fuera de un dato `option`, un dato `option` sin opciones, u opciones con `id` o nombre repetido.
 - Salidas de una decisión con `id` o nombre repetido.
 - Referencias a áreas, datos, documentos o pasos que no existen, o referencias repetidas en un paso.
@@ -75,13 +75,13 @@ La versión no se escribe: la asigna el servicio al publicar (ADR-012).
 - Al publicar, el servicio arma el contenido del tipo de trámite (su definición más las áreas que usan sus pasos), lo codifica y calcula el hash SHA-256 de esos bytes. Si el contenido es igual al de la última versión, no publica nada y devuelve la última, con su propia autoría. Para comparar vuelve a codificar la última, así que un cambio en la codificación no genera una versión que no cambia nada.
 - Quien publica indica la versión desde la que editó (0 para la primera). Si en el medio se publicó otra, se rechaza: hay que volver a editar desde la última. Si dos personas publican a la vez desde la misma versión, una la guarda y la otra se rechaza como desactualizada, aunque haya publicado el mismo contenido: al volver a publicar recibe la versión guardada.
 - Cada versión la propone una persona y la aprueba otra (ADR-013); se comparan sin distinguir mayúsculas. La versión guarda a las dos y la fecha de publicación, en microsegundos, fuera del contenido hasheado. Hoy son textos; con la autenticación van a ser los identificadores de las personas autenticadas. A confirmar: si la autoría y la fecha entran en el hash.
-- Una versión publicada no cambia. Guarda su contenido byte por byte, tal como se hasheó, así que se lee igual aunque después se renombre un área. El contenido lleva su número de formato (`format`), que sube cada vez que cambia `Content`, y una clave desconocida hace fallar la lectura: así un código que no conoce un formato no lo lee a medias. Cada `testdata/formatN.json` guarda los bytes de una versión de ese formato con todas sus claves y no se edita nunca; si su test falla, cambió el formato. Se siguen leyendo los formatos anteriores: una versión de formato 1 no tiene descripción, plazos, condiciones ni tipos y tamaño de sus documentos, y el catálogo la muestra sin esos datos. A confirmar: si un formato anterior se convierte al leerlo y si las claves que recibe se controlan contra las de su formato, porque hoy una versión de formato 1 con claves del formato 2 se lee sin error.
+- Una versión publicada no cambia. Guarda su contenido byte por byte, tal como se hasheó, así que se lee igual aunque después se renombre un área. El contenido lleva su número de formato (`format`), que sube cada vez que cambia `Content`, y una clave desconocida hace fallar la lectura: así un código que no conoce un formato no lo lee a medias. Cada `testdata/formatN.json` guarda los bytes de una versión de ese formato con todas sus claves y no se edita nunca; si su test falla, cambió el formato. Se siguen leyendo los formatos anteriores, y se convierten al formato actual al leerlos (`legacy.go`): una versión de formato 1 no tiene descripción, plazos, condiciones ni tipos y tamaño de sus documentos, y el catálogo la muestra sin esos datos. En los formatos 1 y 2 el titular era un área de tipo `applicant` y el resto de las áreas (`office` y `external`) eran del personal: al leerlos, cada paso toma su rol y la versión conserva solo las áreas del personal. Los bytes guardados no cambian, así que el hash sigue verificando. A confirmar: si las claves que recibe un formato se controlan contra las de ese formato, porque hoy una versión de formato 1 con claves del formato 2 se lee sin error.
 - El hash se verifica cada vez que se lee una versión: al publicar sobre la última y al leerla para un trámite. También se controla que la fila sea la del tipo de trámite y el número pedidos.
 - Cualquier cambio que se vea en el trámite genera una versión, incluso corregir un nombre.
 - Un trámite en curso termina con la versión con la que empezó; los nuevos toman la última. No se migra un trámite en curso a otra versión.
 - Previsto: un tipo de trámite se da de baja marcándolo inactivo; no se inician trámites nuevos y los que están en curso terminan con su versión.
 
-Hoy las versiones y las áreas solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del área del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
+Hoy las versiones y las áreas solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
 
 ## Commits
 

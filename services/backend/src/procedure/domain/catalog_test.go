@@ -12,10 +12,10 @@ func TestApplicantRequirements(t *testing.T) {
 		},
 		Documents: []Document{{ID: "shared", Name: "Documento"}, {ID: "minutes", Name: "Acta"}},
 		Steps: []Step{
-			{ID: "data", Area: "applicant", Fields: []string{"shared"}, OptionalFields: []string{"note", "both"}},
-			{ID: "again", Area: "applicant", Fields: []string{"both"}, OptionalFields: []string{"shared"}},
-			{ID: "documents", Area: "applicant", OptionalDocuments: []string{"shared"}},
-			{ID: "review", Area: "office", Fields: []string{"staff"}, Documents: []string{"minutes"}},
+			{ID: "data", Role: RoleApplicant, Fields: []string{"shared"}, OptionalFields: []string{"note", "both"}},
+			{ID: "again", Role: RoleApplicant, Fields: []string{"both"}, OptionalFields: []string{"shared"}},
+			{ID: "documents", Role: RoleApplicant, OptionalDocuments: []string{"shared"}},
+			{ID: "review", Role: RoleStaff, Area: "office", Fields: []string{"staff"}, Documents: []string{"minutes"}},
 		},
 	}, testAreas())
 

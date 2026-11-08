@@ -86,7 +86,6 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 
 	for name, body := range map[string]string{
 		"used id":          `{"id": "office", "name": "Otra"}`,
-		"reserved id":      `{"id": "applicant", "name": "Titular"}`,
 		"uppercase id":     `{"id": "Office", "name": "Otra"}`,
 		"used name":        `{"id": "other", "name": "Secretaría"}`,
 		"empty name":       `{"id": "other", "name": " "}`,

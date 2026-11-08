@@ -13,7 +13,6 @@ import (
 	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
-	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -52,7 +51,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 		now:      time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC),
 	}
 
-	sc.Given(`^the areas "([^"]*)", "([^"]*)" and "([^"]*)"$`, w.givenAreas)
+	sc.Given(`^the staff areas are "([^"]*)" and "([^"]*)"$`, w.givenAreas)
 	sc.Given(`^"([^"]*)" proposes and "([^"]*)" approves every publication$`, w.givenAuthors)
 	sc.Given(`^version (\d+) of "([^"]*)" is published$`, w.givenPublished)
 	sc.Given(`^version (\d+) of "([^"]*)" was proposed by "([^"]*)" and approved by "([^"]*)"$`, w.givenPublishedBy)
@@ -124,17 +123,17 @@ func validDefinition(name string) domain.Definition {
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 		},
 		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
+			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Role: domain.RoleApplicant, Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
 			{
-				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionDecide,
+				ID: "review", Name: "Revisión", Role: domain.RoleStaff, Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionDecide,
 				Outcomes: []domain.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				},
 			},
-			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
-			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: domain.ProfileStaffApprover, Action: domain.ActionConfirmExternalFact},
+			{ID: "evaluation", Name: "Evaluación", Role: domain.RoleStaff, Area: "curricular_commission", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
+			{ID: "signature", Name: "Firma", Role: domain.RoleStaff, Area: "student_affairs", Profile: domain.ProfileStaffApprover, Action: domain.ActionConfirmExternalFact},
 		},
 	}
 }
@@ -164,20 +163,15 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 	}
 }
 
-// givenAreas stores the staff areas in auth. The applicant area is not one of
-// them: procedure adds it to every procedure type.
-func (w *procedureTypeWorld) givenAreas(applicant, office, other string) error {
-	if applicant != authinput.ApplicantAreaID {
-		return fmt.Errorf("the applicant area is %q, not %q", authinput.ApplicantAreaID, applicant)
-	}
+// givenAreas stores the staff areas in auth. The applicant has no area.
+func (w *procedureTypeWorld) givenAreas(office, other string) error {
 	w.areas = authmem.NewAreaRepository(
 		authdomain.Area{ID: areaID(office), Name: office},
 		authdomain.Area{ID: areaID(other), Name: other},
 	)
 	w.stepAreas = []domain.Area{
-		{ID: authinput.ApplicantAreaID, Name: "Titular", Kind: domain.AreaApplicant},
-		{ID: areaID(office), Name: office, Kind: domain.AreaOffice},
-		{ID: areaID(other), Name: other, Kind: domain.AreaOffice},
+		{ID: areaID(office), Name: office},
+		{ID: areaID(other), Name: other},
 	}
 	return nil
 }
@@ -277,7 +271,7 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 		d.Steps[document].Documents = []string{"transcript", "undeclared"}
 		w.problem = domain.CodeUnknownDocument
 	case "a step unreachable from the first one":
-		d.Steps = append(d.Steps, domain.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
+		d.Steps = append(d.Steps, domain.Step{ID: "orphan", Name: extraName, Role: domain.RoleStaff, Area: "student_affairs", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact})
 		w.problem = domain.CodeUnreachableStep
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
@@ -285,9 +279,12 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	case "a field no step uses":
 		d.Fields = append(d.Fields, domain.Field{ID: "unused", Name: extraName, Type: domain.FieldText})
 		w.problem = domain.CodeUnusedField
-	case "an office step without a profile":
+	case "a staff step without a profile":
 		d.Steps[decision].Profile = ""
 		w.problem = domain.CodeInvalidProfile
+	case "an applicant step in a staff area":
+		d.Steps[0].Area = "student_affairs"
+		w.problem = domain.CodeApplicantWithArea
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}

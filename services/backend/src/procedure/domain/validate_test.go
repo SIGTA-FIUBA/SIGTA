@@ -9,9 +9,8 @@ import (
 
 func testAreas() []Area {
 	return []Area{
-		{ID: "applicant", Name: "Titular", Kind: AreaApplicant},
-		{ID: "office", Name: "Dirección de Alumnos", Kind: AreaOffice},
-		{ID: "commission", Name: "Comisión Curricular", Kind: AreaOffice},
+		{ID: "office", Name: "Dirección de Alumnos"},
+		{ID: "commission", Name: "Comisión Curricular"},
 	}
 }
 
@@ -22,13 +21,13 @@ func testDefinition() Definition {
 		Fields:      []Field{{ID: "national_id", Name: "DNI", Type: FieldText}},
 		Documents:   []Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024}},
 		Steps: []Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
-			{ID: "letter", Name: "Carta", Area: "applicant", Action: ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
-			{ID: "review", Name: "Revisión", Area: "office", Profile: ProfileStaffOperative, Action: ActionDecide, Outcomes: []Outcome{
+			{ID: "request", Name: "Solicitud", Role: RoleApplicant, Action: ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
+			{ID: "letter", Name: "Carta", Role: RoleApplicant, Action: ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
+			{ID: "review", Name: "Revisión", Role: RoleStaff, Area: "office", Profile: ProfileStaffOperative, Action: ActionDecide, Outcomes: []Outcome{
 				{ID: "complete", Name: "Completa", Next: "closed"},
 				{ID: "incomplete", Name: "Incompleta", Next: "letter"},
 			}},
-			{ID: "closed", Name: "Archivado", Area: "office", Profile: ProfileStaffOperative, Action: ActionConfirmExternalFact},
+			{ID: "closed", Name: "Archivado", Role: RoleStaff, Area: "office", Profile: ProfileStaffOperative, Action: ActionConfirmExternalFact},
 		},
 	}
 }
@@ -99,7 +98,7 @@ func TestInvalidDefinitions(t *testing.T) {
 		want   []string
 	}{
 		{name: "unknown action", change: func(d *Definition) { d.Steps[3].Action = "approve" }, want: []string{`step "closed": unknown action "approve"`}},
-		{name: "unknown area", change: func(d *Definition) { d.Steps[0].Area = "dean" }, want: []string{`step "request": unknown area "dean"`}},
+		{name: "unknown area", change: func(d *Definition) { d.Steps[3].Area = "dean" }, want: []string{`step "closed": unknown area "dean"`}},
 		{name: "unknown field", change: func(d *Definition) { d.Steps[0].Fields = []string{"email"} }, want: []string{
 			`field "national_id" is not used by any step`,
 			`step "request": unknown field "email"`,
@@ -124,6 +123,10 @@ func TestInvalidDefinitions(t *testing.T) {
 		}, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
 		{name: "unknown profile", change: func(d *Definition) { d.Steps[3].Profile = "boss" }, want: []string{`step "closed": profile "boss" must be staff_operative or staff_approver`}},
 		{name: "applicant step with profile", change: func(d *Definition) { d.Steps[0].Profile = ProfileStaffApprover }, want: []string{`step "request": steps of the applicant have no profile`}},
+		{name: "applicant step with area", change: func(d *Definition) { d.Steps[0].Area = "office" }, want: []string{`step "request": steps of the applicant have no area, found "office"`}},
+		{name: "staff step without area", change: func(d *Definition) { d.Steps[3].Area = "" }, want: []string{`step "closed": unknown area ""`}},
+		{name: "step without role", change: func(d *Definition) { d.Steps[0].Role = "" }, want: []string{`step "request": role "" must be applicant or staff`}},
+		{name: "unknown role", change: func(d *Definition) { d.Steps[3].Role = "dean" }, want: []string{`step "closed": role "dean" must be applicant or staff`}},
 		{name: "enter data without fields", change: func(d *Definition) { d.Steps[0].Fields = nil }, want: []string{
 			`field "national_id" is not used by any step`,
 			`step "request": enter_data needs at least one field`,
@@ -182,12 +185,10 @@ func TestInvalidDefinitions(t *testing.T) {
 		{name: "duplicated outcome", change: func(d *Definition) { d.Steps[2].Outcomes[1].ID = "complete" }, want: []string{`step "review": outcome "complete" is declared twice`}},
 		{name: "duplicated field reference", change: func(d *Definition) { d.Steps[0].OptionalFields = []string{"national_id"} }, want: []string{`step "request": field "national_id" is listed twice`}},
 		{name: "applicant decides", change: func(d *Definition) {
-			d.Steps[2].Area = "applicant"
-			d.Steps[2].Profile = ""
+			d.Steps[2].Role, d.Steps[2].Area, d.Steps[2].Profile = RoleApplicant, "", ""
 		}, want: []string{`step "review": the applicant only enters data or uploads documents`}},
 		{name: "applicant confirms", change: func(d *Definition) {
-			d.Steps[3].Area = "applicant"
-			d.Steps[3].Profile = ""
+			d.Steps[3].Role, d.Steps[3].Area, d.Steps[3].Profile = RoleApplicant, "", ""
 		}, want: []string{`step "closed": the applicant only enters data or uploads documents`}},
 		{name: "enter data with documents", change: func(d *Definition) { d.Steps[0].Documents = []string{"letter"} }, want: []string{`step "request": enter_data takes no documents`}},
 		{name: "upload with fields", change: func(d *Definition) { d.Steps[1].Fields = []string{"national_id"} }, want: []string{`step "letter": upload_document takes no fields`}},
@@ -250,15 +251,11 @@ func TestInvalidAreas(t *testing.T) {
 		change func([]Area)
 		want   string
 	}{
-		{name: "duplicated area", change: func(a []Area) { a[1].ID = "applicant" }, want: `area "applicant" is declared twice`},
-		{name: "unknown area kind", change: func(a []Area) { a[1].Kind = "dean" }, want: `area "office": unknown kind "dean"`},
-		{name: "external area kind", change: func(a []Area) { a[2].Kind = AreaExternal }, want: `area "commission": unknown kind "external"`},
-		{name: "duplicated area name", change: func(a []Area) { a[2].Name = "Dirección de Alumnos" }, want: `area "commission": name "Dirección de Alumnos" is already used by area "office"`},
-		{name: "no applicant area", change: func(a []Area) { a[0].Kind = AreaOffice }, want: "areas must have one applicant area, found 0"},
-		{name: "two applicant areas", change: func(a []Area) { a[1].Kind = AreaApplicant }, want: "areas must have one applicant area, found 2"},
+		{name: "duplicated area", change: func(a []Area) { a[1].ID = "office" }, want: `area "office" is declared twice`},
+		{name: "duplicated area name", change: func(a []Area) { a[1].Name = "Dirección de Alumnos" }, want: `area "commission": name "Dirección de Alumnos" is already used by area "office"`},
 		{name: "area without id", change: func(a []Area) { a[0].ID = "" }, want: "area has no id"},
-		{name: "area with an invalid id", change: func(a []Area) { a[0].ID = "Applicant" }, want: `area id "Applicant" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
-		{name: "area without name", change: func(a []Area) { a[1].Name = "" }, want: `area "office" has no name`},
+		{name: "area with an invalid id", change: func(a []Area) { a[0].ID = "Office" }, want: `area id "Office" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
+		{name: "area without name", change: func(a []Area) { a[0].Name = "" }, want: `area "office" has no name`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -274,7 +271,7 @@ func TestInvalidAreas(t *testing.T) {
 // A definition is checked against valid areas only: otherwise a duplicated
 // area would reach the content of the version.
 func TestValidateChecksTheAreas(t *testing.T) {
-	areas := append(testAreas(), Area{ID: "office", Name: "Mesa de Entradas", Kind: AreaOffice})
+	areas := append(testAreas(), Area{ID: "office", Name: "Mesa de Entradas"})
 	if err := testDefinition().Validate(areas); !errors.Is(err, ErrInvalidAreas) {
 		t.Errorf("Validate() = %v, want ErrInvalidAreas", err)
 	}

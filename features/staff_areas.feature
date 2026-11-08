@@ -34,7 +34,6 @@ Feature: Staff areas
       |                 | Degree Office         |
       | Degree Office   | Degree Office         |
       | 1st_office      | Degree Office         |
-      | applicant       | Degree Office         |
       | student_affairs | Degree Office         |
       | degree_office   |                       |
       | degree_office   | Curricular Commission |

@@ -23,8 +23,8 @@ const (
 	CodeUnreachableStep        Code = "unreachable_step"
 	CodeStepNeverCloses        Code = "step_never_closes"
 	CodeUnknownArea            Code = "unknown_area"
-	CodeUnknownAreaKind        Code = "unknown_area_kind"
-	CodeApplicantAreas         Code = "applicant_areas"
+	CodeUnknownRole            Code = "unknown_role"
+	CodeApplicantWithArea      Code = "applicant_with_area"
 	CodeApplicantWithProfile   Code = "applicant_with_profile"
 	CodeApplicantAction        Code = "applicant_action"
 	CodeInvalidProfile         Code = "invalid_profile"
@@ -145,10 +145,10 @@ func (p Problem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("name %q is already used by area %q", p.Value, p.Other), false
 	case CodeUnknownArea:
 		return fmt.Sprintf("unknown area %q", p.Value), false
-	case CodeUnknownAreaKind:
-		return fmt.Sprintf("unknown kind %q", p.Value), false
-	case CodeApplicantAreas:
-		return fmt.Sprintf("areas must have one applicant area, found %s", p.Value), false
+	case CodeUnknownRole:
+		return fmt.Sprintf("role %q must be applicant or staff", p.Value), false
+	case CodeApplicantWithArea:
+		return fmt.Sprintf("steps of the applicant have no area, found %q", p.Value), false
 	case CodeApplicantWithProfile:
 		return "steps of the applicant have no profile", false
 	case CodeApplicantAction:

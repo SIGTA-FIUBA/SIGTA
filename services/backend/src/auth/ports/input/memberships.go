@@ -16,10 +16,6 @@ const (
 	ProfileStaffApprover  = domain.ProfileStaffApprover
 )
 
-// ApplicantAreaID is reserved for the steps of whoever started a procedure:
-// no staff area can use it.
-const ApplicantAreaID = domain.ApplicantAreaID
-
 type Areas interface {
 	List(ctx context.Context) ([]domain.Area, error)
 	Create(ctx context.Context, administratorID string, a domain.Area) (domain.Area, error)

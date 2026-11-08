@@ -34,7 +34,7 @@ func TestProblemsOf(t *testing.T) {
 
 func TestProblemsOfAreas(t *testing.T) {
 	areas := testAreas()
-	areas[2].Name = areas[1].Name
+	areas[1].Name = areas[0].Name
 	want := Problem{Code: CodeNameInUse, Path: []Ref{{Kind: "area", ID: "commission"}}, Value: "Dirección de Alumnos", Other: "office"}
 	got := ProblemsOf(testDefinition().Validate(areas))
 	if len(got) != 1 || !reflect.DeepEqual(got[0], want) {
@@ -91,7 +91,7 @@ func TestEveryCodeHasItsText(t *testing.T) {
 }
 
 func TestErrorsMatchTheirKind(t *testing.T) {
-	err := testDefinition().Validate(append(testAreas(), Area{ID: "office", Name: "Otra", Kind: AreaOffice}))
+	err := testDefinition().Validate(append(testAreas(), Area{ID: "office", Name: "Otra"}))
 	if !errors.Is(err, ErrInvalidAreas) || errors.Is(err, ErrInvalidDefinition) {
 		t.Errorf("Validate() = %v, want only ErrInvalidAreas", err)
 	}

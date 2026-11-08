@@ -24,14 +24,14 @@ func testVersion(t *testing.T, number int, d Definition) Version {
 
 func TestContentCarriesOnlyUsedAreas(t *testing.T) {
 	content := NewContent(testDefinition(), testAreas())
-	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"applicant", "office"}) {
-		t.Errorf("Areas = %v, want applicant and office", ids)
+	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"office"}) {
+		t.Errorf("Areas = %v, want only office: the applicant has no area", ids)
 	}
 
 	d := testDefinition()
 	d.Steps[3].Area = "commission"
 	content = NewContent(d, testAreas())
-	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"applicant", "commission", "office"}) {
+	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"commission", "office"}) {
 		t.Errorf("Areas = %v, want the office of the decision too", ids)
 	}
 }
@@ -47,7 +47,7 @@ func areaIDs(areas []Area) []string {
 func TestDigest(t *testing.T) {
 	base := Digest(encode(t, testDefinition(), testAreas()))
 
-	unused := append(testAreas(), Area{ID: "front_desk", Name: "Mesa de Entradas", Kind: AreaOffice})
+	unused := append(testAreas(), Area{ID: "front_desk", Name: "Mesa de Entradas"})
 	if got := Digest(encode(t, testDefinition(), unused)); got != base {
 		t.Errorf("an unused area changed the digest")
 	}
@@ -59,7 +59,7 @@ func TestDigest(t *testing.T) {
 	}
 
 	renamed := testAreas()
-	renamed[1].Name = "Dirección General de Alumnos"
+	renamed[0].Name = "Dirección General de Alumnos"
 	if got := Digest(encode(t, testDefinition(), renamed)); got == base {
 		t.Errorf("renaming a used area kept the digest")
 	}
@@ -107,7 +107,7 @@ func TestContentRejectsUnknownKeys(t *testing.T) {
 
 func TestContentRejectsAnotherFormat(t *testing.T) {
 	for _, encoded := range []string{
-		`{"format":3,"definition":{"name":"Trámite"}}`,
+		`{"format":4,"definition":{"name":"Trámite"}}`,
 		`{"definition":{"name":"Trámite"}}`,
 	} {
 		v := Version{Number: 1, Digest: Digest([]byte(encoded)), Encoded: []byte(encoded)}

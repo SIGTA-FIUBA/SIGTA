@@ -90,7 +90,7 @@ func (s *AreaService) Delete(ctx context.Context, administratorID, areaID string
 
 func (s *AreaService) validate(ctx context.Context, a domain.Area) error {
 	if !domain.ValidAreaID(a.ID) {
-		return fmt.Errorf("id %q has to be lowercase letters, digits and underscores, start with a letter and not be %q", a.ID, domain.ApplicantAreaID)
+		return fmt.Errorf("id %q has to be lowercase letters, digits and underscores, and start with a letter", a.ID)
 	}
 	if a.Name == "" {
 		return errors.New("an area needs a name")

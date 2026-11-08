@@ -5,7 +5,7 @@ Feature: Define and publish a procedure type
   so that a new procedure type needs no code changes.
 
   Background:
-    Given the areas "applicant", "student affairs" and "curricular commission"
+    Given the staff areas are "student affairs" and "curricular commission"
     And "ana" proposes and "beto" approves every publication
 
   Scenario: publishing a valid definition creates its first version
@@ -57,7 +57,8 @@ Feature: Define and publish a procedure type
       | a step unreachable from the first one    |
       | a step that never reaches a closing step |
       | a field no step uses                     |
-      | an office step without a profile         |
+      | a staff step without a profile           |
+      | an applicant step in a staff area        |
 
   Scenario: a procedure in progress keeps its version
     Given a procedure that started with version 1 of "subject equivalence"

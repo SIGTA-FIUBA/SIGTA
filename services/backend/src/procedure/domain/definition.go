@@ -6,7 +6,7 @@ import (
 )
 
 // Definition describes a procedure type. A procedure starts at the first step, and a step without next or outcomes
-// closes it. Areas are shared by every procedure type, while fields and
+// closes it. Staff areas are shared by every procedure type, while fields and
 // documents belong to the one that declares them.
 type Definition struct {
 	Name        string `json:"name"`

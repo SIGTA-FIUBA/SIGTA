@@ -131,7 +131,7 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 
 func (w *authorizationWorld) definition(name, description string) domain.Definition {
 	staff := w.steps[name]
-	steps := []domain.Step{{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
+	steps := []domain.Step{{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
 	for i, s := range staff {
 		if i+1 < len(staff) {
 			s.Next = staff[i+1].ID
@@ -198,6 +198,7 @@ func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table)
 		w.steps[name] = append(w.steps[name], domain.Step{
 			ID:      id,
 			Name:    id,
+			Role:    domain.RoleStaff,
 			Area:    areaID(row.Cells[1].Value),
 			Profile: domain.Profile(row.Cells[2].Value),
 			Action:  domain.ActionConfirmExternalFact,
@@ -588,6 +589,7 @@ func (w *authorizationWorld) thenPublishesWithArea(area string) error {
 	w.steps["new procedure type"] = []domain.Step{{
 		ID:      "review",
 		Name:    "Revisión",
+		Role:    domain.RoleStaff,
 		Area:    areaID(area),
 		Profile: domain.ProfileStaffOperative,
 		Action:  domain.ActionConfirmExternalFact,
