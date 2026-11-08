@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -64,7 +65,14 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
+	summaries := proceduremem.NewProcedureSummaries()
+	if cfg.development() {
+		for _, summary := range devProcedures(time.Now()) {
+			summaries.Add(summary)
+		}
+	}
+	inbox := procedurerest.NewInboxHandler(procedureapp.NewInboxService(summaries, time.Now), roleOf(auth))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inbox)
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
@@ -76,6 +84,21 @@ func run(logger *slog.Logger) error {
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
 	return server.ListenAndServe()
+}
+
+// roleOf lets the procedure module ask for the role of whoever has a session,
+// without depending on the auth module.
+func roleOf(auth *application.AuthService) procedurerest.Authenticate {
+	return func(ctx context.Context, sessionToken string) (string, error) {
+		user, err := auth.Authenticate(ctx, sessionToken)
+		if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) || errors.Is(err, domain.ErrUnknownUser) {
+			return "", procedurerest.ErrNoSession
+		}
+		if err != nil {
+			return "", err
+		}
+		return string(user.Role), nil
+	}
 }
 
 func usersOf(cfg config) ([]domain.User, error) {

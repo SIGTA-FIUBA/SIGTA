@@ -23,17 +23,24 @@ type CatalogServer interface {
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
 }
 
+// InboxServer is the part of the contract that answers the staff's inbox, in
+// the procedure module.
+type InboxServer interface {
+	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
+}
+
 // Server joins what each module answers into the one interface the contract
-// generates. A test that only calls one module can leave the other nil.
+// generates. A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
+	InboxServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog}
+func NewServer(auth AuthServer, catalog CatalogServer, inbox InboxServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, InboxServer: inbox}
 }
 
 // Mount registers the API on mux. Errors raised outside the handlers answer

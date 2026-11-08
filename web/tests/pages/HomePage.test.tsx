@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { render } from '../render'
 import { HomePage } from '../../src/pages/HomePage'
@@ -23,5 +23,22 @@ describe('HomePage', () => {
     )
 
     expect(screen.getByRole('link', { name: 'Ver los trámites disponibles' })).toHaveAttribute('href', '/catalog')
+  })
+
+  it('links to the inbox only for the staff', () => {
+    const page = (role: string) =>
+      createMemoryRouter([
+        {
+          element: <Outlet context={{ id: 'u1', email: 'u@fi.uba.ar', name: 'Persona', role }} />,
+          children: [{ path: '/', element: <HomePage /> }],
+        },
+      ])
+
+    const { unmount } = render(<RouterProvider router={page('staff_operative')} />)
+    expect(screen.getByRole('link', { name: 'Ver la bandeja' })).toHaveAttribute('href', '/inbox')
+    unmount()
+
+    render(<RouterProvider router={page('applicant')} />)
+    expect(screen.queryByRole('link', { name: 'Ver la bandeja' })).not.toBeInTheDocument()
   })
 })

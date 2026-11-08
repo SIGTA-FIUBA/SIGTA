@@ -36,7 +36,7 @@ export function AppLayout() {
               No se pudo cerrar la sesión. Volvé a intentarlo.
             </Alert>
           )}
-          <Outlet />
+          <Outlet context={user} />
         </Container>
       </AppShell.Main>
     </AppShell>

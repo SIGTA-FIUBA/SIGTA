@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -32,6 +33,63 @@ func (e LoginError) Valid() bool {
 	case Rejected:
 		return true
 	case StateMismatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProcedureListSort.
+const (
+	LastMoved ProcedureListSort = "last_moved"
+	Oldest    ProcedureListSort = "oldest"
+)
+
+// Valid indicates whether the value is a known member of the ProcedureListSort enum.
+func (e ProcedureListSort) Valid() bool {
+	switch e {
+	case LastMoved:
+		return true
+	case Oldest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProcedureListView.
+const (
+	All  ProcedureListView = "all"
+	Mine ProcedureListView = "mine"
+)
+
+// Valid indicates whether the value is a known member of the ProcedureListView enum.
+func (e ProcedureListView) Valid() bool {
+	switch e {
+	case All:
+		return true
+	case Mine:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProcedureState.
+const (
+	InOffice      ProcedureState = "in_office"
+	Referred      ProcedureState = "referred"
+	WithApplicant ProcedureState = "with_applicant"
+)
+
+// Valid indicates whether the value is a known member of the ProcedureState enum.
+func (e ProcedureState) Valid() bool {
+	switch e {
+	case InOffice:
+		return true
+	case Referred:
+		return true
+	case WithApplicant:
 		return true
 	default:
 		return false
@@ -99,6 +157,61 @@ type FieldRequirement struct {
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
 
+// NamedOption defines model for NamedOption.
+type NamedOption struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ProcedureList defines model for ProcedureList.
+type ProcedureList struct {
+	// Areas Áreas responsables presentes en la vista, para filtrar
+	Areas []NamedOption       `json:"areas"`
+	Items []ProcedureListItem `json:"items"`
+
+	// ProcedureTypes Tipos de trámite presentes en la vista, para filtrar
+	ProcedureTypes []NamedOption `json:"procedure_types"`
+}
+
+// ProcedureListItem defines model for ProcedureListItem.
+type ProcedureListItem struct {
+	// Actionable Si el perfil de quien mira puede hacer el paso abierto
+	Actionable bool `json:"actionable"`
+
+	// AgeDays Días desde que empezó el trámite
+	AgeDays       int    `json:"age_days"`
+	ApplicantName string `json:"applicant_name"`
+
+	// Area Área responsable del paso abierto
+	Area     string `json:"area"`
+	AreaName string `json:"area_name"`
+
+	// DaysReferred Solo si está derivado: días que lleva en el evaluador externo sin retorno
+	DaysReferred *int   `json:"days_referred,omitempty"`
+	Id           string `json:"id"`
+
+	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	LastMovedAt       time.Time `json:"last_moved_at"`
+	ProcedureType     int64     `json:"procedure_type"`
+	ProcedureTypeName string    `json:"procedure_type_name"`
+	StartedAt         time.Time `json:"started_at"`
+
+	// State Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
+	State ProcedureState `json:"state"`
+
+	// StepName Paso abierto, el que se espera ahora
+	StepName string `json:"step_name"`
+}
+
+// ProcedureListSort oldest: primero los que empezaron hace más tiempo. last_moved: primero los que se movieron más recientemente.
+type ProcedureListSort string
+
+// ProcedureListView mine: lo que el perfil de quien mira puede hacer ahora. all: todos los trámites en curso.
+type ProcedureListView string
+
+// ProcedureState Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
+type ProcedureState string
+
 // Role defines model for Role.
 type Role string
 
@@ -115,6 +228,9 @@ type SessionCookie = string
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -146,6 +262,18 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// ListProceduresParams defines parameters for ListProcedures.
+type ListProceduresParams struct {
+	View          *ProcedureListView `form:"view,omitempty" json:"view,omitempty"`
+	ProcedureType *int64             `form:"procedure_type,omitempty" json:"procedure_type,omitempty"`
+	State         *ProcedureState    `form:"state,omitempty" json:"state,omitempty"`
+
+	// Area Área responsable del paso abierto
+	Area         *string            `form:"area,omitempty" json:"area,omitempty"`
+	Sort         *ProcedureListSort `form:"sort,omitempty" json:"sort,omitempty"`
+	SigtaSession *SessionCookie     `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -163,6 +291,9 @@ type ServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
+	// ListProcedures Bandeja y listado de trámites del personal
+	// (GET /procedures)
+	ListProcedures(w http.ResponseWriter, r *http.Request, params ListProceduresParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -365,6 +496,106 @@ func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ListProcedures operation middleware
+func (siw *ServerInterfaceWrapper) ListProcedures(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProceduresParams
+
+	// ------------- Optional query parameter "view" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "view", r.URL.Query(), &params.View, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "view"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "view", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "procedure_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "procedure_type", r.URL.Query(), &params.ProcedureType, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "procedure_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedure_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "area" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "area", r.URL.Query(), &params.Area, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "area"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "area", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProcedures(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -490,11 +721,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures", wrapper.ListProcedures)
 
 	return m
 }
 
 type BadRequestJSONResponse Error
+
+type ForbiddenJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -649,6 +883,70 @@ func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesRespons
 	return err
 }
 
+type ListProceduresRequestObject struct {
+	Params ListProceduresParams
+}
+
+type ListProceduresResponseObject interface {
+	VisitListProceduresResponse(w http.ResponseWriter) error
+}
+
+type ListProcedures200JSONResponse ProcedureList
+
+func (response ListProcedures200JSONResponse) VisitListProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedures400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListProcedures400JSONResponse) VisitListProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedures401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListProcedures401JSONResponse) VisitListProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedures403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListProcedures403JSONResponse) VisitListProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -666,6 +964,9 @@ type StrictServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
+	// ListProcedures Bandeja y listado de trámites del personal
+	// (GET /procedures)
+	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -828,6 +1129,32 @@ func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProcedureTypesResponseObject); ok {
 		if err := validResponse.VisitListProcedureTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProcedures operation middleware
+func (sh *strictHandler) ListProcedures(w http.ResponseWriter, r *http.Request, params ListProceduresParams) {
+	var request ListProceduresRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProcedures(ctx, request.(ListProceduresRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProcedures")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProceduresResponseObject); ok {
+		if err := validResponse.VisitListProceduresResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -94,6 +94,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bandeja y listado de trámites del personal
+         * @description Solo para el personal. Con view=mine devuelve lo que el perfil de quien mira puede hacer ahora; con view=all, todos los trámites en curso. Los filtros se combinan. Las opciones de filtro salen de todos los trámites de la vista, sin filtrar, para que elegir un filtro no haga desaparecer los demás.
+         */
+        get: operations["listProcedures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -137,6 +157,60 @@ export interface components {
             fields: components["schemas"]["FieldRequirement"][];
             documents: components["schemas"]["DocumentRequirement"][];
         };
+        /**
+         * @description mine: lo que el perfil de quien mira puede hacer ahora. all: todos los trámites en curso.
+         * @default mine
+         * @enum {string}
+         */
+        ProcedureListView: "mine" | "all";
+        /**
+         * @description oldest: primero los que empezaron hace más tiempo. last_moved: primero los que se movieron más recientemente.
+         * @default oldest
+         * @enum {string}
+         */
+        ProcedureListSort: "oldest" | "last_moved";
+        /**
+         * @description Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
+         * @enum {string}
+         */
+        ProcedureState: "with_applicant" | "in_office" | "referred";
+        NamedOption: {
+            id: string;
+            name: string;
+        };
+        ProcedureListItem: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            procedure_type_name: string;
+            applicant_name: string;
+            /** @description Paso abierto, el que se espera ahora */
+            step_name: string;
+            /** @description Área responsable del paso abierto */
+            area: string;
+            area_name: string;
+            state: components["schemas"]["ProcedureState"];
+            /** @description Si el perfil de quien mira puede hacer el paso abierto */
+            actionable: boolean;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description Cuándo el trámite llegó al paso abierto
+             */
+            last_moved_at: string;
+            /** @description Días desde que empezó el trámite */
+            age_days: number;
+            /** @description Solo si está derivado: días que lleva en el evaluador externo sin retorno */
+            days_referred?: number;
+        };
+        ProcedureList: {
+            items: components["schemas"]["ProcedureListItem"][];
+            /** @description Tipos de trámite presentes en la vista, para filtrar */
+            procedure_types: components["schemas"]["NamedOption"][];
+            /** @description Áreas responsables presentes en la vista, para filtrar */
+            areas: components["schemas"]["NamedOption"][];
+        };
         User: {
             id: string;
             /** Format: email */
@@ -157,6 +231,15 @@ export interface components {
         };
         /** @description Sin sesión válida */
         Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description La sesión es válida, pero su rol no puede hacer esto */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -291,6 +374,38 @@ export interface operations {
                     "application/json": components["schemas"]["CatalogEntry"][];
                 };
             };
+        };
+    };
+    listProcedures: {
+        parameters: {
+            query?: {
+                view?: components["schemas"]["ProcedureListView"];
+                procedure_type?: number;
+                state?: components["schemas"]["ProcedureState"];
+                /** @description Área responsable del paso abierto */
+                area?: string;
+                sort?: components["schemas"]["ProcedureListSort"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trámites y opciones de filtro */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

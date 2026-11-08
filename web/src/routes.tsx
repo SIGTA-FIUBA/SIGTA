@@ -2,7 +2,9 @@ import type { RouteObject } from 'react-router'
 import { AppLayout } from './layout/AppLayout'
 import { CatalogPage } from './pages/CatalogPage'
 import { HomePage } from './pages/HomePage'
+import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
+import { ProcedurePage } from './pages/ProcedurePage'
 import { requireSession, skipLoginWithSession } from './session'
 
 export const routes: RouteObject[] = [
@@ -12,6 +14,10 @@ export const routes: RouteObject[] = [
   {
     loader: requireSession,
     element: <AppLayout />,
-    children: [{ path: '/', element: <HomePage /> }],
+    children: [
+      { path: '/', element: <HomePage /> },
+      { path: '/inbox', element: <InboxPage /> },
+      { path: '/procedures/:id', element: <ProcedurePage /> },
+    ],
   },
 ]

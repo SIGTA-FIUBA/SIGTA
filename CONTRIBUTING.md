@@ -83,6 +83,16 @@ La versión no se escribe: la asigna el servicio al publicar (ADR-012).
 
 Hoy las versiones y las áreas solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del área del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
 
+La bandeja del personal (`GET /procedures`) lee un resumen de cada trámite en curso: tipo, titular, paso abierto, área y perfil de ese paso, y cuándo empezó y llegó a ese paso. Lo que decide está en `services/backend/src/procedure/domain/inbox/`:
+
+- El estado se deriva del área del paso abierto: `with_applicant` (titular), `in_office` (personal) o `referred` (evaluador externo). No es el resultado del trámite (ADR-009).
+- Un perfil puede hacer un paso de un área `office` con su perfil; el de aprobación también hace los operativos. Los pasos del titular y de un área `external` no los hace el personal.
+- `view=mine` muestra lo que el perfil puede hacer; `view=all`, todo lo que está en curso, marcando lo accionable. Los filtros (tipo, estado, área) se combinan, y las opciones de filtro salen de la vista sin filtrar.
+- Un trámite derivado muestra los días que lleva en el evaluador sin retorno, contados desde que llegó al paso.
+- Solo el personal la ve: un titular recibe 403.
+
+Hasta que se puedan iniciar y avanzar trámites, el resumen vive en memoria y en desarrollo el servidor carga una docena de trámites inventados (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar. En la web, los filtros viven en la URL, así se conservan al ir a un trámite y volver.
+
 ## Commits
 
 Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/), en inglés y en una sola línea de hasta 72 caracteres:

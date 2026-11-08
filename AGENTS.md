@@ -66,7 +66,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/` y `catalog/` (ADR-016). Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/`, `catalog/` (ADR-016) e `inbox/` (bandeja del personal). Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
