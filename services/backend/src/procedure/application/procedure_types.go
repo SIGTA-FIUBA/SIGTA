@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -16,11 +17,15 @@ var _ input.ProcedureTypes = (*ProcedureTypeService)(nil)
 
 type ProcedureTypeService struct {
 	versions output.ProcedureVersions
-	areas    output.AreaCatalog
+	areas    authinput.Areas
 	now      func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureVersions, areas output.AreaCatalog, now func() time.Time) *ProcedureTypeService {
+// applicantArea holds the steps of whoever started a procedure. It is not an
+// area of auth, which reserves its identifier.
+var applicantArea = domain.Area{ID: authinput.ApplicantAreaID, Name: "Titular", Kind: domain.AreaApplicant}
+
+func NewProcedureTypeService(versions output.ProcedureVersions, areas authinput.Areas, now func() time.Time) *ProcedureTypeService {
 	return &ProcedureTypeService{versions: versions, areas: areas, now: now}
 }
 
@@ -28,9 +33,9 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	if err := p.Authorship.Validate(); err != nil {
 		return domain.Version{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
 	}
-	areas, err := s.areas.List(ctx)
+	areas, err := s.stepAreas(ctx)
 	if err != nil {
-		return domain.Version{}, fmt.Errorf("list areas: %w", err)
+		return domain.Version{}, err
 	}
 	if err := p.Definition.Validate(areas); err != nil {
 		return domain.Version{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
@@ -73,6 +78,21 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 		return domain.Version{}, fmt.Errorf("publish procedure type %d version %d: %w", p.ProcedureType, v.Number, err)
 	}
 	return v, nil
+}
+
+// stepAreas lists the areas a step can belong to: the applicant area and the
+// staff areas of auth, which the version copies as they are now.
+func (s *ProcedureTypeService) stepAreas(ctx context.Context) ([]domain.Area, error) {
+	staff, err := s.areas.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list areas: %w", err)
+	}
+	areas := make([]domain.Area, 0, len(staff)+1)
+	areas = append(areas, applicantArea)
+	for _, a := range staff {
+		areas = append(areas, domain.Area{ID: a.ID, Name: a.Name, Kind: domain.AreaOffice})
+	}
+	return areas, nil
 }
 
 func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64, number int) (domain.Version, error) {

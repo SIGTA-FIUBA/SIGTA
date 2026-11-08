@@ -33,9 +33,3 @@ type ProcedureVersions interface {
 	// same time.
 	Add(ctx context.Context, v domain.Version) error
 }
-
-// AreaCatalog lists the areas shared by every procedure type. It returns them
-// as stored, without validating them: Definition.Validate does that.
-type AreaCatalog interface {
-	List(ctx context.Context) ([]domain.Area, error)
-}

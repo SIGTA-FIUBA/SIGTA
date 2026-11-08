@@ -12,7 +12,10 @@ import (
 	"backend/src/auth/ports/output"
 )
 
-var _ input.Memberships = (*MembershipService)(nil)
+var (
+	_ input.Memberships     = (*MembershipService)(nil)
+	_ input.StaffAuthorizer = (*MembershipService)(nil)
+)
 
 const (
 	actionGrant = "grant membership"
@@ -45,6 +48,34 @@ func (s *MembershipService) Permissions(ctx context.Context, userID string) (dom
 		return domain.Permissions{}, fmt.Errorf("permissions of %s: %w", userID, err)
 	}
 	return domain.NewPermissions(userID, administrator, memberships, s.clock()), nil
+}
+
+func (s *MembershipService) IsStaff(ctx context.Context, userID string) (bool, error) {
+	p, err := s.Permissions(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return p.Role() == domain.RoleStaff, nil
+}
+
+func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, profile input.Profile) (bool, error) {
+	p, err := s.Permissions(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return p.Holds(area, procedureType, profile), nil
+}
+
+func (s *MembershipService) Reach(ctx context.Context, userID string) ([]input.AreaReach, error) {
+	p, err := s.Permissions(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	reach := make([]input.AreaReach, 0, len(p.Memberships))
+	for _, m := range p.Memberships {
+		reach = append(reach, input.AreaReach{Area: m.Area, Scope: slices.Clone(m.Scope)})
+	}
+	return reach, nil
 }
 
 func (s *MembershipService) Grant(ctx context.Context, administratorID string, g input.MembershipGrant) (domain.Membership, error) {

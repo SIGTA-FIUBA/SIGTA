@@ -17,7 +17,6 @@ import (
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	out "backend/src/auth/ports/output"
-	procedureauth "backend/src/procedure/adapters/auth"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
@@ -67,7 +66,7 @@ func run(logger *slog.Logger) error {
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, deniedAttempts, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), procedureauth.NewAreaCatalog(areaService, applicantArea), time.Now)
+	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, time.Now)
 	if cfg.development() {
 		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
 			return fmt.Errorf("publish the example procedure type: %w", err)
@@ -140,9 +139,6 @@ func devPeople() people {
 func devAreas() []domain.Area {
 	return []domain.Area{{ID: "office", Name: "Área de prueba"}}
 }
-
-// applicantArea holds the steps of whoever started a procedure.
-var applicantArea = procedure.Area{ID: domain.ApplicantAreaID, Name: "Titular", Kind: procedure.AreaApplicant}
 
 // devProcedureType is a made-up procedure type, so that the catalog has
 // something to show in local development. It describes no real process.

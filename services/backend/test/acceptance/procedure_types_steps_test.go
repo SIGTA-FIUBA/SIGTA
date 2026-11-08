@@ -10,6 +10,10 @@ import (
 
 	"github.com/cucumber/godog"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -21,10 +25,12 @@ const procedureType int64 = 1
 
 // procedureTypeWorld is the state of one scenario of US08.
 type procedureTypeWorld struct {
-	areas    []domain.Area
-	versions *memory.ProcedureVersions
-	authors  domain.Authorship
-	now      time.Time
+	// areas is what auth keeps, and stepAreas what a version copies of them.
+	areas     *authmem.AreaRepository
+	stepAreas []domain.Area
+	versions  *memory.ProcedureVersions
+	authors   domain.Authorship
+	now       time.Time
 
 	definition domain.Definition
 	revisions  int
@@ -79,7 +85,8 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 }
 
 func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
-	return application.NewProcedureTypeService(w.versions, memory.NewAreaCatalog(w.areas...), func() time.Time { return w.now })
+	auth := authapp.NewAreaService(w.areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), authmem.NewDeniedAttemptLog(), func() time.Time { return w.now })
+	return application.NewProcedureTypeService(w.versions, auth, func() time.Time { return w.now })
 }
 
 func (w *procedureTypeWorld) latest() (int, error) {
@@ -157,9 +164,18 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 	}
 }
 
+// givenAreas stores the staff areas in auth. The applicant area is not one of
+// them: procedure adds it to every procedure type.
 func (w *procedureTypeWorld) givenAreas(applicant, office, other string) error {
-	w.areas = []domain.Area{
-		{ID: areaID(applicant), Name: applicant, Kind: domain.AreaApplicant},
+	if applicant != authinput.ApplicantAreaID {
+		return fmt.Errorf("the applicant area is %q, not %q", authinput.ApplicantAreaID, applicant)
+	}
+	w.areas = authmem.NewAreaRepository(
+		authdomain.Area{ID: areaID(office), Name: office},
+		authdomain.Area{ID: areaID(other), Name: other},
+	)
+	w.stepAreas = []domain.Area{
+		{ID: authinput.ApplicantAreaID, Name: "Titular", Kind: domain.AreaApplicant},
 		{ID: areaID(office), Name: office, Kind: domain.AreaOffice},
 		{ID: areaID(other), Name: other, Kind: domain.AreaOffice},
 	}
@@ -198,7 +214,7 @@ func (w *procedureTypeWorld) givenProcedure(number int, name string) error {
 // covers, as if someone had changed it directly in the store.
 func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 	w.definition = validDefinition("subject equivalence")
-	encoded, err := domain.NewContent(w.definition, w.areas).Encode()
+	encoded, err := domain.NewContent(w.definition, w.stepAreas).Encode()
 	if err != nil {
 		return err
 	}
@@ -279,14 +295,13 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 }
 
 func (w *procedureTypeWorld) renameArea(name string) error {
-	for i, a := range w.areas {
-		if a.Name == name {
-			w.previousName = a.Name
-			w.areas[i].Name = a.Name + " renamed"
-			return nil
-		}
+	a, err := w.areas.Get(context.Background(), areaID(name))
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("no area named %q", name)
+	w.previousName = a.Name
+	a.Name += " renamed"
+	return w.areas.Save(context.Background(), a)
 }
 
 func (w *procedureTypeWorld) askForVersion(number int) error {

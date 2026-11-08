@@ -55,6 +55,7 @@ Las acciones del modelo de dominio son **cargar dato** (`enter_data`), **cargar 
 
 Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL con pgvector. Cada servicio sigue **puertos y adaptadores**: el núcleo define interfaces y los adaptadores dependen de él, nunca al revés.
 
+- **Entre módulos, la API pública** (ADR-018). Un módulo del backend usa a otro solo por su `ports/input/`, recibida por constructor, sin puerto ni adaptador propio; nunca importa su `domain/`, `application/` ni `adapters/` (lo rechaza `depguard`). `procedure` usa `auth`, nunca al revés.
 - **Contrato primero.** Todo cambio de API empieza en `contracts/openapi.yaml`. Después se regenera con `make contracts`; la CI falla si el código generado no coincide con el contrato. No editar a mano `api.gen.go` ni `schema.d.ts`.
 - **Historial de acciones** en una tabla que solo crece, escrita en la misma transacción que el estado. Sin event sourcing.
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.

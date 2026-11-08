@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -27,7 +28,7 @@ type ProcedureService struct {
 	newID          func() string
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff output.StaffDirectory, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *ProcedureService {
 	return &ProcedureService{
 		authorizer:     authorizer{staff: staff, deniedAttempts: deniedAttempts, clock: clock},
 		procedureTypes: procedureTypes,
@@ -37,12 +38,12 @@ func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.
 }
 
 func (s *ProcedureService) Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error) {
-	actor, err := s.actor(ctx, userID)
+	staff, err := s.staff.IsStaff(ctx, userID)
 	if err != nil {
-		return domain.Procedure{}, err
+		return domain.Procedure{}, fmt.Errorf("role of %s: %w", userID, err)
 	}
-	if actor.IsStaff() {
-		return domain.Procedure{}, s.deny(ctx, actor, actionStart, "")
+	if staff {
+		return domain.Procedure{}, s.deny(ctx, userID, actionStart, "")
 	}
 	version, err := s.latest(ctx, procedureType)
 	if err != nil {
@@ -66,12 +67,12 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 }
 
 func (s *ProcedureService) Open(ctx context.Context, userID, procedureID string) (input.ProcedureView, error) {
-	actor, p, content, err := s.visible(ctx, userID, procedureID, actionOpen)
+	reach, p, content, err := s.visible(ctx, userID, procedureID, actionOpen)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
 	view := input.ProcedureView{Procedure: p}
-	allowed, err := canAct(actor, p, content, p.OpenStep)
+	allowed, err := s.canAct(ctx, userID, len(reach) > 0, p, content, p.OpenStep)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
@@ -82,7 +83,7 @@ func (s *ProcedureService) Open(ctx context.Context, userID, procedureID string)
 }
 
 func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Procedure, error) {
-	actor, err := s.actor(ctx, userID)
+	reach, err := s.reach(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 			}
 			contents[key] = content
 		}
-		if actor.CanSee(p, content) {
+		if s.canSee(userID, reach, p, content) {
 			seen = append(seen, p)
 		}
 	}
@@ -113,40 +114,50 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 }
 
 func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID string) error {
-	actor, p, content, err := s.visible(ctx, userID, procedureID, actionAct)
+	reach, p, content, err := s.visible(ctx, userID, procedureID, actionAct)
 	if err != nil {
 		return err
 	}
-	allowed, err := canAct(actor, p, content, stepID)
+	allowed, err := s.canAct(ctx, userID, len(reach) > 0, p, content, stepID)
 	if err != nil {
 		return err
 	}
 	if !allowed {
-		return s.deny(ctx, actor, actionAct+" "+stepID, p.ID)
+		return s.deny(ctx, userID, actionAct+" "+stepID, p.ID)
 	}
 	return nil
 }
 
-func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, action string) (domain.Actor, domain.Procedure, domain.Content, error) {
-	actor, err := s.actor(ctx, userID)
+func (s *ProcedureService) reach(ctx context.Context, userID string) ([]authinput.AreaReach, error) {
+	reach, err := s.staff.Reach(ctx, userID)
 	if err != nil {
-		return domain.Actor{}, domain.Procedure{}, domain.Content{}, err
+		return nil, fmt.Errorf("areas of %s: %w", userID, err)
+	}
+	return reach, nil
+}
+
+// visible returns the procedure if the person can see it, and answers as if
+// it did not exist otherwise.
+func (s *ProcedureService) visible(ctx context.Context, userID, procedureID, action string) ([]authinput.AreaReach, domain.Procedure, domain.Content, error) {
+	reach, err := s.reach(ctx, userID)
+	if err != nil {
+		return nil, domain.Procedure{}, domain.Content{}, err
 	}
 	p, err := s.procedures.Get(ctx, procedureID)
 	if err != nil {
-		return domain.Actor{}, domain.Procedure{}, domain.Content{}, fmt.Errorf("procedure %s: %w", procedureID, err)
+		return nil, domain.Procedure{}, domain.Content{}, fmt.Errorf("procedure %s: %w", procedureID, err)
 	}
 	content, err := s.content(ctx, p)
 	if err != nil {
-		return domain.Actor{}, domain.Procedure{}, domain.Content{}, err
+		return nil, domain.Procedure{}, domain.Content{}, err
 	}
-	if !actor.CanSee(p, content) {
-		if err := s.deny(ctx, actor, action, p.ID); !errors.Is(err, domain.ErrAccessDenied) {
-			return domain.Actor{}, domain.Procedure{}, domain.Content{}, err
+	if !s.canSee(userID, reach, p, content) {
+		if err := s.deny(ctx, userID, action, p.ID); !errors.Is(err, domain.ErrAccessDenied) {
+			return nil, domain.Procedure{}, domain.Content{}, err
 		}
-		return domain.Actor{}, domain.Procedure{}, domain.Content{}, fmt.Errorf("procedure %s: %w", procedureID, domain.ErrProcedureNotFound)
+		return nil, domain.Procedure{}, domain.Content{}, fmt.Errorf("procedure %s: %w", procedureID, domain.ErrProcedureNotFound)
 	}
-	return actor, p, content, nil
+	return reach, p, content, nil
 }
 
 func (s *ProcedureService) content(ctx context.Context, p domain.Procedure) (domain.Content, error) {
@@ -159,22 +170,6 @@ func (s *ProcedureService) content(ctx context.Context, p domain.Procedure) (dom
 		return domain.Content{}, fmt.Errorf("procedure type %d version %d: %w", p.ProcedureType, p.Version, err)
 	}
 	return content, nil
-}
-
-func canAct(actor domain.Actor, p domain.Procedure, content domain.Content, stepID string) (bool, error) {
-	if stepID != p.OpenStep {
-		return false, nil
-	}
-	i := slices.IndexFunc(content.Definition.Steps, func(st domain.Step) bool { return st.ID == stepID })
-	if i < 0 {
-		return false, fmt.Errorf("procedure %s: open step %q is not in version %d", p.ID, stepID, p.Version)
-	}
-	step := content.Definition.Steps[i]
-	j := slices.IndexFunc(content.Areas, func(a domain.Area) bool { return a.ID == step.Area })
-	if j < 0 {
-		return false, fmt.Errorf("procedure %s: area %q is not in version %d", p.ID, step.Area, p.Version)
-	}
-	return actor.CanActOn(p, step, content.Areas[j]), nil
 }
 
 func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (domain.Version, error) {

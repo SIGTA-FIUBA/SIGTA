@@ -16,7 +16,6 @@ import (
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
-	procedureauth "backend/src/procedure/adapters/auth"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -115,7 +114,7 @@ func (w *authorizationWorld) newID() string {
 }
 
 // givenStaffAreas wires both modules as the server does: auth keeps the areas
-// and memberships, and procedure reads them through its adapters.
+// and memberships, and procedure asks auth through its public API (ADR-018).
 func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	areas := authmem.NewAreaRepository(
 		authdomain.Area{ID: areaID(first), Name: first},
@@ -125,9 +124,8 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	clock := func() time.Time { return w.now }
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.membershipDenials, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, w.membershipDenials, clock)
-	catalog := procedureauth.NewAreaCatalog(w.areas, domain.Area{ID: authdomain.ApplicantAreaID, Name: "Titular", Kind: domain.AreaApplicant})
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), catalog, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, procedureauth.NewStaffDirectory(w.memberships), w.deniedAttempts, w.newID, clock)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, clock)
+	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.deniedAttempts, w.newID, clock)
 	return nil
 }
 

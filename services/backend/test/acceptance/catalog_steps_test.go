@@ -9,6 +9,9 @@ import (
 
 	"github.com/cucumber/godog"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -28,12 +31,10 @@ type catalogWorld struct {
 
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
-	areas := memory.NewAreaCatalog(
-		domain.Area{ID: "titular", Name: "Titular", Kind: domain.AreaApplicant},
-		domain.Area{ID: "secretaria", Name: "Secretaría", Kind: domain.AreaOffice},
-	)
+	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría"})
+	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), authmem.NewDeniedAttemptLog(), time.Now)
 	world := &catalogWorld{
-		service: application.NewProcedureTypeService(versions, areas, time.Now),
+		service: application.NewProcedureTypeService(versions, auth, time.Now),
 		types:   map[string]int64{},
 		latest:  map[string]domain.Definition{},
 	}
@@ -93,8 +94,8 @@ func catalogDefinition(name, description string) domain.Definition {
 			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
 		},
 		Steps: []domain.Step{
-			{ID: "request", Name: "Solicitud", Area: "titular", Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "titular", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
+			{ID: "request", Name: "Solicitud", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Area: "applicant", Action: domain.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
 			{ID: "ruling", Name: "Dictamen", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
 			{ID: "record", Name: "Registro", Area: "secretaria", Profile: domain.ProfileStaffOperative, Action: domain.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
@@ -155,7 +156,7 @@ func (w *catalogWorld) givenMandatoryLater(field string) error {
 		definition.Steps = slices.Clone(definition.Steps)
 		definition.Steps[0].Next = "more"
 		definition.Steps = slices.Insert(definition.Steps, 1, domain.Step{
-			ID: "more", Name: "Ampliación", Area: "titular", Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
+			ID: "more", Name: "Ampliación", Area: "applicant", Action: domain.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
 		if err := w.publishDefinition(name, definition); err != nil {
 			return err

@@ -11,61 +11,19 @@ var (
 	ErrProcedureNotFound = errors.New("procedure not found")
 )
 
-func (p Profile) Covers(step Profile) bool {
-	switch p {
-	case ProfileStaffApprover:
-		return step == ProfileStaffApprover || step == ProfileStaffOperative
-	case ProfileStaffOperative:
-		return step == ProfileStaffOperative
+// PassesThrough tells whether a step of the content is in the area. Staff see
+// the procedures that pass through their areas (ADR-017).
+func (c Content) PassesThrough(area string) bool {
+	return slices.ContainsFunc(c.Definition.Steps, func(s Step) bool { return s.Area == area })
+}
+
+// AreaOf returns the copy of the area of a step that the version keeps.
+func (c Content) AreaOf(s Step) (Area, bool) {
+	i := slices.IndexFunc(c.Areas, func(a Area) bool { return a.ID == s.Area })
+	if i < 0 {
+		return Area{}, false
 	}
-	return false
-}
-
-// StaffMembership is what procedure needs of an active membership, which auth
-// keeps (ADR-017). An empty Scope covers every procedure type.
-type StaffMembership struct {
-	Area    string
-	Profile Profile
-	Scope   []int64
-}
-
-func (m StaffMembership) covers(procedureType int64) bool {
-	return len(m.Scope) == 0 || slices.Contains(m.Scope, procedureType)
-}
-
-// Actor is a person at the moment they act on procedures, with their active
-// memberships. Without any, they are an applicant.
-type Actor struct {
-	UserID      string
-	Memberships []StaffMembership
-}
-
-func (a Actor) IsStaff() bool {
-	return len(a.Memberships) > 0
-}
-
-func (a Actor) CanSee(p Procedure, c Content) bool {
-	if !a.IsStaff() {
-		return p.Applicant == a.UserID
-	}
-	for _, s := range c.Definition.Steps {
-		if slices.ContainsFunc(a.Memberships, func(m StaffMembership) bool { return m.Area == s.Area && m.covers(p.ProcedureType) }) {
-			return true
-		}
-	}
-	return false
-}
-
-// CanActOn gives the steps of the applicant area to the applicant of the
-// procedure, and those of any other area, including the legacy external kind,
-// to its members.
-func (a Actor) CanActOn(p Procedure, step Step, area Area) bool {
-	if area.Kind == AreaApplicant {
-		return !a.IsStaff() && p.Applicant == a.UserID
-	}
-	return slices.ContainsFunc(a.Memberships, func(m StaffMembership) bool {
-		return m.Area == step.Area && m.covers(p.ProcedureType) && m.Profile.Covers(step.Profile)
-	})
+	return c.Areas[i], true
 }
 
 type DeniedAttempt struct {

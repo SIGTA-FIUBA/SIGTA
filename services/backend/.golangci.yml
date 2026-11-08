@@ -4,6 +4,7 @@ linters:
   default: standard
   enable:
     - bodyclose
+    - depguard
     - errorlint
     - gocritic
     - gosec
@@ -11,6 +12,29 @@ linters:
     - noctx
     - unconvert
   settings:
+    depguard:
+      # A module uses another only through its public API, ports/input
+      # (ADR-018). Tests may build the other module to run against it.
+      rules:
+        procedure-uses-auth-api:
+          files:
+            - "**/src/procedure/**"
+            - "!$test"
+          deny:
+            - pkg: backend/src/auth/domain
+              desc: use the public API of auth, backend/src/auth/ports/input (ADR-018)
+            - pkg: backend/src/auth/application
+              desc: use the public API of auth, backend/src/auth/ports/input (ADR-018)
+            - pkg: backend/src/auth/adapters
+              desc: use the public API of auth, backend/src/auth/ports/input (ADR-018)
+            - pkg: backend/src/auth/ports/output
+              desc: use the public API of auth, backend/src/auth/ports/input (ADR-018)
+        auth-does-not-use-procedure:
+          files:
+            - "**/src/auth/**"
+          deny:
+            - pkg: backend/src/procedure
+              desc: procedure depends on auth, never the reverse (ADR-018)
     misspell:
       # Spanish domain text, not a typo of "materials".
       ignore-rules:
