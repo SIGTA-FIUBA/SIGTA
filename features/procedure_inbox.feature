@@ -47,6 +47,16 @@ Feature: Procedure inbox
     Then "p-3" has been referred for 12 days
     And "p-1" shows no referral days
 
+  Scenario: a staff member sees only the procedure types they hold a profile in
+    Given a staff member holds the "staff_operative" profile only in "credit recognition"
+    When they list all the procedures
+    Then it lists the procedures "p-2, p-4"
+
+  Scenario: the profile held in each procedure type decides what needs action
+    Given a staff member holds the "staff_operative" profile in "credit recognition" and the "staff_approver" profile in "subject equivalence"
+    When they open their inbox
+    Then it lists the procedures "p-1"
+
   Scenario: an applicant cannot open the inbox
     When an applicant asks for the inbox
     Then they are told the inbox is only for the staff

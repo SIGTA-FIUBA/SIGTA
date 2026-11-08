@@ -58,7 +58,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
 - **Cada servicio es dueño de sus datos.** Comparten la instancia de PostgreSQL pero no los esquemas; ninguno lee las tablas del otro.
 - **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; roles, áreas y perfiles se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.
-- **Interfaz:** componentes de Mantine, con el aspecto definido solo en `web/src/theme/theme.ts` (ADR-015). Las reglas de diseño y su motivo están en [web/DESIGN.md](web/DESIGN.md), y el lint rechaza estilos, colores y medidas fuera del tema.
+- **Interfaz:** componentes de Mantine, con el aspecto definido solo en `web/src/theme/` (`theme.ts` y los módulos de CSS que solo él usa, ADR-015). Las reglas de diseño y su motivo están en [web/DESIGN.md](web/DESIGN.md), y el lint rechaza estilos, colores y medidas fuera del tema.
 - **No sumar componentes** (NATS, S3, gateway, observabilidad completa) sin que se cumpla su disparador, listado en la sección "Evolución" del README.
 
 ## Estructura del repositorio
@@ -68,7 +68,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
 | `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/`, `catalog/` (ADR-016) e `inbox/` (bandeja del personal). Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
-| `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
+| `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado y consultas compartidas), `theme/` (el único lugar del aspecto), `assets/` (logo de la FIUBA), `content/` (textos que comparten varias pantallas), `components/`, `layout/` (encabezado común, menú lateral y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
 | `features/` | Escenarios Gherkin de cada historia y su matriz de trazabilidad |

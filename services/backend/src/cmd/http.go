@@ -19,8 +19,10 @@ import (
 	out "backend/src/auth/ports/output"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
+	"backend/src/procedure/adapters/roleaccess"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/inbox"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 )
@@ -71,8 +73,8 @@ func run(logger *slog.Logger) error {
 			summaries.Add(summary)
 		}
 	}
-	inbox := procedurerest.NewInboxHandler(procedureapp.NewInboxService(summaries, time.Now), roleOf(auth))
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inbox)
+	inboxHandler := procedurerest.NewInboxHandler(procedureapp.NewInboxService(roleaccess.Permissions{}, summaries, time.Now), personOf(auth))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inboxHandler)
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
@@ -86,18 +88,18 @@ func run(logger *slog.Logger) error {
 	return server.ListenAndServe()
 }
 
-// roleOf lets the procedure module ask for the role of whoever has a session,
-// without depending on the auth module.
-func roleOf(auth *application.AuthService) procedurerest.Authenticate {
-	return func(ctx context.Context, sessionToken string) (string, error) {
+// personOf lets the procedure module ask who has a session, without
+// depending on the auth module.
+func personOf(auth *application.AuthService) procedurerest.Authenticate {
+	return func(ctx context.Context, sessionToken string) (inbox.Person, error) {
 		user, err := auth.Authenticate(ctx, sessionToken)
 		if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) || errors.Is(err, domain.ErrUnknownUser) {
-			return "", procedurerest.ErrNoSession
+			return inbox.Person{}, procedurerest.ErrNoSession
 		}
 		if err != nil {
-			return "", err
+			return inbox.Person{}, err
 		}
-		return string(user.Role), nil
+		return inbox.Person{ID: user.ID, Role: string(user.Role)}, nil
 	}
 }
 

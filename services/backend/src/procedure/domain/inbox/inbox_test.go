@@ -13,6 +13,8 @@ var (
 	office   = definition.Area{ID: "office", Name: "Oficina", Kind: definition.AreaOffice}
 	external = definition.Area{ID: "committee", Name: "Comisión", Kind: definition.AreaExternal}
 	titular  = definition.Area{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant}
+
+	operative = inbox.Access{EveryType: definition.ProfileStaffOperative}
 )
 
 func TestCanAct(t *testing.T) {
@@ -46,7 +48,7 @@ func TestBuildCountsWholeDaysAndNeverNegative(t *testing.T) {
 		{ID: "b", Area: external, StartedAt: now.Add(time.Hour), LastMovedAt: now.Add(time.Hour)},
 	}
 
-	list := inbox.Build(summaries, definition.ProfileStaffOperative, inbox.Query{View: inbox.ViewAll}, now)
+	list := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll}, now)
 
 	got := map[string][2]int{}
 	for _, item := range list.Items {
@@ -64,7 +66,7 @@ func TestBuildReturnsAnEmptyListAndOptionsOfTheView(t *testing.T) {
 		{ID: "c", ProcedureType: 1, ProcedureTypeName: "A", Area: office, Profile: definition.ProfileStaffOperative},
 	}
 
-	mine := inbox.Build(summaries, definition.ProfileStaffOperative, inbox.Query{View: inbox.ViewMine, ProcedureType: 9}, now)
+	mine := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewMine, ProcedureType: 9}, now)
 	if mine.Items == nil || len(mine.Items) != 0 {
 		t.Errorf("items = %#v, want an empty list", mine.Items)
 	}
@@ -72,7 +74,7 @@ func TestBuildReturnsAnEmptyListAndOptionsOfTheView(t *testing.T) {
 	if len(mine.ProcedureTypes) != 1 || mine.ProcedureTypes[0].Name != "A" {
 		t.Errorf("type options of mine = %v", mine.ProcedureTypes)
 	}
-	all := inbox.Build(summaries, definition.ProfileStaffOperative, inbox.Query{View: inbox.ViewAll}, now)
+	all := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll}, now)
 	if len(all.ProcedureTypes) != 2 || all.ProcedureTypes[0].Name != "A" || len(all.Areas) != 2 || all.Areas[0].Name != "Comisión" {
 		t.Errorf("options of all = %v, %v", all.ProcedureTypes, all.Areas)
 	}
@@ -84,9 +86,52 @@ func TestBuildBreaksTiesByID(t *testing.T) {
 		{ID: "a", Area: titular, StartedAt: now, LastMovedAt: now},
 	}
 	for _, sort := range []inbox.Sort{inbox.SortOldest, inbox.SortLastMoved} {
-		list := inbox.Build(summaries, definition.ProfileStaffOperative, inbox.Query{View: inbox.ViewAll, Sort: sort}, now)
+		list := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll, Sort: sort}, now)
 		if list.Items[0].ID != "a" {
 			t.Errorf("sort %q puts %q first, want %q", sort, list.Items[0].ID, "a")
 		}
+	}
+}
+
+func TestBuildShowsOnlyWhatTheAccessCanSee(t *testing.T) {
+	summaries := []inbox.Summary{
+		{ID: "own", ProcedureType: 1, ApplicantID: "ana", Area: titular},
+		{ID: "other", ProcedureType: 1, ApplicantID: "beto", Area: titular},
+		{ID: "credits", ProcedureType: 2, ApplicantID: "beto", Area: office, Profile: definition.ProfileStaffApprover},
+	}
+	ids := func(access inbox.Access) []string {
+		var got []string
+		for _, item := range inbox.Build(summaries, access, inbox.Query{View: inbox.ViewAll}, now).Items {
+			got = append(got, item.ID)
+		}
+		return got
+	}
+
+	if got := ids(inbox.Access{Applicant: "ana"}); len(got) != 1 || got[0] != "own" {
+		t.Errorf("an applicant sees %v, want only their own", got)
+	}
+	perType := inbox.Access{Profiles: map[int64]definition.Profile{2: definition.ProfileStaffApprover}}
+	if got := ids(perType); len(got) != 1 || got[0] != "credits" {
+		t.Errorf("a staff member with a profile in type 2 sees %v", got)
+	}
+	// The profile held in the type of the procedure decides, not another one.
+	mine := inbox.Build(summaries, inbox.Access{Profiles: map[int64]definition.Profile{1: definition.ProfileStaffApprover, 2: definition.ProfileStaffOperative}}, inbox.Query{View: inbox.ViewMine}, now)
+	if len(mine.Items) != 0 {
+		t.Errorf("an operative in type 2 can act on %v", mine.Items)
+	}
+	if got := ids(inbox.Access{}); len(got) != 0 {
+		t.Errorf("an empty access sees %v", got)
+	}
+}
+
+func TestAccessStaff(t *testing.T) {
+	if (inbox.Access{Applicant: "ana", EveryType: definition.ProfileStaffApprover}).Staff() {
+		t.Error("an applicant counts as staff")
+	}
+	if !(inbox.Access{Profiles: map[int64]definition.Profile{1: definition.ProfileStaffOperative}}).Staff() {
+		t.Error("a staff member with a per-type profile does not count as staff")
+	}
+	if (inbox.Access{}).Staff() {
+		t.Error("an empty access counts as staff")
 	}
 }

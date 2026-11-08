@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"backend/src/api"
-	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/inbox"
 	ports "backend/src/procedure/ports/input"
 )
@@ -15,10 +14,10 @@ import (
 // session.
 var ErrNoSession = errors.New("no valid session")
 
-// Authenticate tells the role of the person with a session, as the auth
-// module knows it. The procedure module does not depend on the auth module:
-// the composition root joins them.
-type Authenticate func(ctx context.Context, sessionToken string) (role string, err error)
+// Authenticate tells who has the session, as the auth module knows them. The
+// procedure module does not depend on the auth module: the composition root
+// joins them.
+type Authenticate func(ctx context.Context, sessionToken string) (inbox.Person, error)
 
 type InboxHandler struct {
 	inbox        ports.Inbox
@@ -34,22 +33,20 @@ func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProcedure
 	if req.Params.SigtaSession != nil {
 		token = *req.Params.SigtaSession
 	}
-	role, err := h.authenticate(ctx, token)
+	person, err := h.authenticate(ctx, token)
 	if errors.Is(err, ErrNoSession) {
 		return api.ListProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: "Iniciá sesión para continuar."}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	viewer := definition.Profile(role)
-	if viewer != definition.ProfileStaffOperative && viewer != definition.ProfileStaffApprover {
-		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal de la Secretaría."}}, nil
-	}
-
 	if !validParams(req.Params) {
 		return api.ListProcedures400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
 	}
-	list, err := h.inbox.List(ctx, viewer, queryOf(req.Params))
+	list, err := h.inbox.List(ctx, person, queryOf(req.Params))
+	if errors.Is(err, ports.ErrNotStaff) {
+		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal de la Secretaría."}}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

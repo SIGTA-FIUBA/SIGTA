@@ -29,8 +29,15 @@ func (s *ProcedureSummaries) Add(summary inbox.Summary) {
 	s.summaries = append(s.summaries, summary)
 }
 
-func (s *ProcedureSummaries) InProgress(context.Context) ([]inbox.Summary, error) {
+// InProgress filters by the access, as a query would.
+func (s *ProcedureSummaries) InProgress(_ context.Context, access inbox.Access) ([]inbox.Summary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return slices.Clone(s.summaries), nil
+	visible := []inbox.Summary{}
+	for _, summary := range s.summaries {
+		if access.CanSee(summary) {
+			visible = append(visible, summary)
+		}
+	}
+	return visible, nil
 }

@@ -15,9 +15,9 @@ export function ProcedurePage() {
   return (
     <Stack gap="md">
       <Title order={1}>Trámite</Title>
-      <Text c="dimmed">El detalle del trámite todavía no está disponible.</Text>
+      <Text c="dimmed">El detalle del trámite estará disponible próximamente.</Text>
       <Anchor component={Link} to={from}>
-        Volver a la bandeja
+        Volver a la bandeja de trámites
       </Anchor>
     </Stack>
   )

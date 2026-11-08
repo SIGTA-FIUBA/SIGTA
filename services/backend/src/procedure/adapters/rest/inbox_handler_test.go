@@ -14,23 +14,27 @@ import (
 	"backend/src/procedure/adapters/rest"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/inbox"
+	"backend/src/procedure/ports/input"
 )
 
 type fakeInbox struct {
 	list   inbox.List
 	err    error
-	viewer definition.Profile
+	person inbox.Person
 	query  inbox.Query
+	asked  bool
 }
 
-func (f *fakeInbox) List(_ context.Context, viewer definition.Profile, q inbox.Query) (inbox.List, error) {
-	f.viewer, f.query = viewer, q
+func (f *fakeInbox) List(_ context.Context, person inbox.Person, q inbox.Query) (inbox.List, error) {
+	f.person, f.query, f.asked = person, q, true
 	return f.list, f.err
 }
 
 func getProcedures(t *testing.T, box *fakeInbox, role string, authErr error, query string) *httptest.ResponseRecorder {
 	t.Helper()
-	authenticate := func(context.Context, string) (string, error) { return role, authErr }
+	authenticate := func(context.Context, string) (inbox.Person, error) {
+		return inbox.Person{ID: "u1", Role: role}, authErr
+	}
 	server := api.NewServer(nil, nil, rest.NewInboxHandler(box, authenticate))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	recorder := httptest.NewRecorder()
@@ -60,8 +64,8 @@ func TestListProceduresAnswersTheList(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body)
 	}
 	want := inbox.Query{View: inbox.ViewAll, ProcedureType: 7, State: inbox.StateReferred, Area: "committee", Sort: inbox.SortLastMoved}
-	if box.viewer != definition.ProfileStaffApprover || box.query != want {
-		t.Errorf("asked %q for %+v, want %+v", box.viewer, box.query, want)
+	if box.person != (inbox.Person{ID: "u1", Role: "staff_approver"}) || box.query != want {
+		t.Errorf("asked %+v for %+v, want %+v", box.person, box.query, want)
 	}
 	var got api.ProcedureList
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
@@ -102,7 +106,6 @@ func TestListProceduresRefuses(t *testing.T) {
 		want    int
 	}{
 		{"without a session", "", rest.ErrNoSession, "", http.StatusUnauthorized},
-		{"to an applicant", "applicant", nil, "", http.StatusForbidden},
 		{"an unknown view", "staff_operative", nil, "?view=everything", http.StatusBadRequest},
 		{"an unknown state", "staff_operative", nil, "?state=approved", http.StatusBadRequest},
 		{"an unknown sort", "staff_operative", nil, "?sort=name", http.StatusBadRequest},
@@ -114,10 +117,18 @@ func TestListProceduresRefuses(t *testing.T) {
 			if recorder := getProcedures(t, box, tt.role, tt.authErr, tt.query); recorder.Code != tt.want {
 				t.Errorf("status = %d, want %d", recorder.Code, tt.want)
 			}
-			if box.viewer != "" {
+			if box.asked {
 				t.Error("the inbox was queried")
 			}
 		})
+	}
+}
+
+func TestListProceduresRefusesWhoIsNotStaff(t *testing.T) {
+	recorder := getProcedures(t, &fakeInbox{err: input.ErrNotStaff}, "applicant", nil, "")
+
+	if recorder.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", recorder.Code)
 	}
 }
 

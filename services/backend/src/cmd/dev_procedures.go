@@ -51,6 +51,7 @@ func devProcedures(now time.Time) []inbox.Summary {
 			ID:                fmt.Sprintf("dev-%02d", i+1),
 			ProcedureType:     row.procedureType,
 			ProcedureTypeName: names[row.procedureType],
+			ApplicantID:       fmt.Sprintf("dev-applicant-%02d", i+1),
 			ApplicantName:     row.applicant,
 			StepName:          row.step,
 			Area:              row.area,

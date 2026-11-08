@@ -13,5 +13,5 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US06 | SIG-11, SIG-61 | [authentication.feature](authentication.feature) | 16 |
 | US08 | SIG-12 | [procedure_type_definition.feature](procedure_type_definition.feature) | 10 |
 | US13 | SIG-16 | [procedure_catalog.feature](procedure_catalog.feature) | 10 |
-| US17 | SIG-22 | [procedure_inbox.feature](procedure_inbox.feature) | 10 |
+| US17 | SIG-22 | [procedure_inbox.feature](procedure_inbox.feature) | 12 |
 | US37 | SIG-25 | [procedure_list_filters.feature](procedure_list_filters.feature) | 7 |

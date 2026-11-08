@@ -1,12 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InboxPage } from '../../src/pages/InboxPage'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
 import { render } from '../render'
 
+const day = 86_400_000
+const daysAgo = (days: number) => new Date(Date.now() - days * day - 3_600_000).toISOString()
+
+// pending: an office step this profile can do. referred: with an external
+// evaluator. waiting: on the applicant. Each of a different type and area.
 const pending = {
   id: 'p-1',
   procedure_type: 2,
@@ -17,11 +22,10 @@ const pending = {
   area_name: 'Dirección de Alumnos',
   state: 'in_office',
   actionable: true,
-  started_at: '2026-11-05T12:00:00Z',
-  last_moved_at: '2026-11-05T12:00:00Z',
+  started_at: daysAgo(3),
+  last_moved_at: daysAgo(3),
   age_days: 3,
 }
-
 const referred = {
   ...pending,
   id: 'p-2',
@@ -31,35 +35,56 @@ const referred = {
   area_name: 'Comisión Curricular',
   state: 'referred',
   actionable: false,
+  started_at: daysAgo(30),
+  last_moved_at: daysAgo(12),
   age_days: 30,
   days_referred: 12,
 }
+const waiting = {
+  ...pending,
+  id: 'p-3',
+  procedure_type: 3,
+  procedure_type_name: 'Créditos',
+  applicant_name: 'Titular Tres',
+  step_name: 'Documentación pedida',
+  area: 'applicant',
+  area_name: 'Titular',
+  state: 'with_applicant',
+  actionable: false,
+  started_at: daysAgo(8),
+  last_moved_at: daysAgo(1),
+  age_days: 8,
+}
 
 const options = {
-  procedure_types: [{ id: '2', name: 'Equivalencia' }],
+  procedure_types: [
+    { id: '3', name: 'Créditos' },
+    { id: '2', name: 'Equivalencia' },
+  ],
   areas: [
     { id: 'committee', name: 'Comisión Curricular' },
     { id: 'office', name: 'Dirección de Alumnos' },
+    { id: 'applicant', name: 'Titular' },
   ],
 }
 
-// stubApi answers /procedures with the items given, and keeps the queries.
 function stubApi(status: number, body: unknown) {
   const fetch = vi.fn(async (_request: Request) => Response.json(body, { status }))
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
 
-function lastQuery(fetch: ReturnType<typeof stubApi>) {
-  const request = fetch.mock.calls.at(-1)![0]
-  return Object.fromEntries(new URL(request.url).searchParams)
-}
-
-function renderInbox(path = '/inbox') {
+function renderInbox(path = '/inbox', role = 'staff_operative') {
+  const user = { id: 'u1', email: 'operativo@fi.uba.ar', name: 'Operativo', role }
   const router = createMemoryRouter(
     [
-      { path: '/inbox', element: <InboxPage /> },
-      { path: '/procedures/:id', element: <ProcedurePage /> },
+      {
+        element: <Outlet context={user} />,
+        children: [
+          { path: '/inbox', element: <InboxPage /> },
+          { path: '/procedures/:id', element: <ProcedurePage /> },
+        ],
+      },
     ],
     { initialEntries: [path] },
   )
@@ -72,91 +97,130 @@ function renderInbox(path = '/inbox') {
   return router
 }
 
+// The table and the cards are both in the DOM: CSS shows one per screen width.
+// The tests read the table.
+async function tableRows() {
+  const table = await screen.findByRole('table')
+  return within(table).getAllByRole('row').slice(1)
+}
+
+function listedNames() {
+  const table = screen.queryByRole('table')
+  if (table === null) {
+    return []
+  }
+  return within(table)
+    .getAllByRole('link')
+    .map((link) => link.textContent)
+}
+
 describe('InboxPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the procedure type, pending step, who has it and its age', async () => {
+  it('asks once for everything the person can see', async () => {
+    const fetch = stubApi(200, { items: [pending], ...options })
+    renderInbox()
+
+    await tableRows()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(Object.fromEntries(new URL(fetch.mock.calls[0]![0].url).searchParams)).toEqual({ view: 'all' })
+  })
+
+  it('shows the procedure type, pending step, who has it, state and age', async () => {
     stubApi(200, { items: [pending], ...options })
     renderInbox()
 
-    const item = (await screen.findByRole('link', { name: 'Equivalencia: Titular Uno' })).closest('article')!
-    expect(
-      within(item).getByText('Paso pendiente: Registrar expediente, a cargo de Dirección de Alumnos.'),
-    ).toBeVisible()
-    expect(within(item).getByText('Empezó hace 3 días.')).toBeVisible()
-    expect(within(item).getByText('En la Secretaría')).toBeVisible()
-    expect(screen.getByText('1 trámite')).toBeVisible()
+    const [row] = await tableRows()
+    expect(within(row!).getByRole('link', { name: 'Titular Uno' })).toBeVisible()
+    expect(within(row!).getByText('Equivalencia')).toBeVisible()
+    expect(within(row!).getByText('Registrar expediente')).toBeVisible()
+    expect(within(row!).getByText('Dirección de Alumnos')).toBeVisible()
+    expect(within(row!).getByText('En la Secretaría')).toBeVisible()
+    expect(within(row!).getByText('3 días')).toBeVisible()
+    expect(within(row!).getByText('Hace 3 días')).toBeVisible()
+    expect(screen.getByText('Perfil operativo')).toBeVisible()
   })
 
-  it('shows how long a referred procedure has been without return', async () => {
-    stubApi(200, { items: [referred], ...options })
-    renderInbox('/inbox?view=all')
-
-    const item = (await screen.findByRole('link', { name: 'Equivalencia: Titular Dos' })).closest('article')!
-    expect(within(item).getByText('Empezó hace 30 días. Derivado hace 12 días, sin retorno.')).toBeVisible()
-    expect(within(item).getByText('Derivado')).toBeVisible()
-  })
-
-  it('asks for what the profile can act on by default, the oldest first', async () => {
-    const fetch = stubApi(200, { items: [], ...options })
+  it('shows only what needs action by default', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
     renderInbox()
 
-    expect(await screen.findByText('No tenés trámites pendientes.')).toBeVisible()
-    expect(lastQuery(fetch)).toEqual({ view: 'mine', sort: 'oldest' })
+    await tableRows()
+    expect(listedNames()).toEqual(['Titular Uno'])
+    expect(screen.getByRole('radio', { name: 'Asignados (1)' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'Todos (3)' })).not.toBeChecked()
   })
 
-  it('marks what the profile can act on when listing all', async () => {
-    stubApi(200, { items: [pending, referred], ...options })
+  it('counts each state over everything visible, whatever the filters', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
+    renderInbox('/inbox?view=all&type=3')
+
+    await tableRows()
+    expect(screen.getByRole('button', { name: /Acción requerida\s*1/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /En la Secretaría\s*1/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /En evaluación externa\s*1/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Pendiente del titular\s*1/ })).toBeVisible()
+  })
+
+  it('lists everything in progress, marking what needs action, oldest first', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
     renderInbox('/inbox?view=all')
 
-    const first = (await screen.findByRole('link', { name: 'Equivalencia: Titular Uno' })).closest('article')!
-    const second = screen.getByRole('link', { name: 'Equivalencia: Titular Dos' }).closest('article')!
-    expect(within(first).getByText('Te toca')).toBeVisible()
-    expect(within(second).queryByText('Te toca')).not.toBeInTheDocument()
+    const rows = await tableRows()
+    expect(listedNames()).toEqual(['Titular Dos', 'Titular Tres', 'Titular Uno'])
+    expect(within(rows[2]!).getByText('Acción requerida')).toBeVisible()
+    expect(within(rows[0]!).queryByText('Acción requerida')).not.toBeInTheDocument()
+    expect(within(rows[0]!).getByText('12 días sin retorno')).toBeVisible()
   })
 
-  it('combines the filters and the sort in the query and the URL', async () => {
-    const fetch = stubApi(200, { items: [pending], ...options })
+  it('filters by state from a summary and by the selects, combined', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
     const router = renderInbox()
-    await screen.findByText('1 trámite')
+    await tableRows()
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Todos' }))
-    await userEvent.click(screen.getByRole('combobox', { name: 'Estado' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Derivado' }))
-    await userEvent.click(screen.getByRole('combobox', { name: 'Responsable' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Comisión Curricular' }))
-    await userEvent.click(screen.getByRole('combobox', { name: 'Ordenar por' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Movidos más recientemente' }))
+    await userEvent.click(screen.getByRole('button', { name: /En evaluación externa/ }))
+    expect(listedNames()).toEqual(['Titular Dos'])
 
-    expect(lastQuery(fetch)).toEqual({ view: 'all', state: 'referred', area: 'committee', sort: 'last_moved' })
+    await userEvent.click(screen.getByRole('combobox', { name: 'Tipo de trámite' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Créditos' }))
+    expect(listedNames()).toEqual([])
+    expect(screen.getByText('No hay trámites que coincidan con los filtros.')).toBeVisible()
     expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
       view: 'all',
       state: 'referred',
-      area: 'committee',
-      sort: 'last_moved',
+      type: '3',
     })
   })
 
-  it('keeps the filters when coming back from a procedure', async () => {
-    const fetch = stubApi(200, { items: [pending], ...options })
-    const router = renderInbox('/inbox?view=all&type=2&sort=last_moved')
+  it('sorts by the last movement', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
+    renderInbox('/inbox?view=all&sort=last_moved')
 
-    await userEvent.click(await screen.findByRole('link', { name: 'Equivalencia: Titular Uno' }))
-    expect(router.state.location.pathname).toBe('/procedures/p-1')
-    await userEvent.click(screen.getByRole('link', { name: 'Volver a la bandeja' }))
-
-    expect(await screen.findByRole('heading', { name: 'Bandeja' })).toBeVisible()
-    expect(router.state.location.search).toBe('?view=all&type=2&sort=last_moved')
-    expect(lastQuery(fetch)).toEqual({ view: 'all', procedure_type: '2', sort: 'last_moved' })
+    await tableRows()
+    expect(listedNames()).toEqual(['Titular Tres', 'Titular Uno', 'Titular Dos'])
   })
 
-  it('says when no procedure matches the filters', async () => {
-    stubApi(200, { items: [], ...options })
-    renderInbox('/inbox?view=all&state=referred')
+  it('keeps the filters when coming back from a procedure', async () => {
+    stubApi(200, { items: [pending, referred, waiting], ...options })
+    const router = renderInbox('/inbox?view=all&area=office')
 
-    expect(await screen.findByText('No hay trámites con estos filtros.')).toBeVisible()
+    const [row] = await tableRows()
+    await userEvent.click(within(row!).getByRole('link', { name: 'Titular Uno' }))
+    expect(router.state.location.pathname).toBe('/procedures/p-1')
+    await userEvent.click(screen.getByRole('link', { name: 'Volver a la bandeja de trámites' }))
+
+    await tableRows()
+    expect(router.state.location.search).toBe('?view=all&area=office')
+    expect(listedNames()).toEqual(['Titular Uno'])
+  })
+
+  it('says when nothing needs action', async () => {
+    stubApi(200, { items: [referred], ...options })
+    renderInbox()
+
+    expect(await screen.findByText('No hay trámites que requieran acción de este perfil.')).toBeVisible()
   })
 
   it('says when there is nothing in progress', async () => {
@@ -166,25 +230,25 @@ describe('InboxPage', () => {
     expect(await screen.findByText('No hay trámites en curso.')).toBeVisible()
   })
 
-  it('tells an applicant the inbox is only for the staff', async () => {
+  it('tells who is not staff that the inbox is not theirs', async () => {
     stubApi(403, { message: 'La bandeja es solo para el personal de la Secretaría.' })
-    renderInbox()
+    renderInbox('/inbox', 'applicant')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('La bandeja es solo para el personal de la Secretaría.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('disponible solo para el personal de la Secretaría')
   })
 
   it('says when the inbox fails', async () => {
     stubApi(500, { message: 'Ocurrió un error inesperado.' })
     renderInbox()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar la bandeja. Volvé a intentarlo')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la bandeja de trámites.')
   })
 
-  it('ignores filters in the URL that the API does not know', async () => {
-    const fetch = stubApi(200, { items: [], ...options })
+  it('ignores filters in the URL that it does not know', async () => {
+    stubApi(200, { items: [pending, referred], ...options })
     renderInbox('/inbox?view=everything&state=approved&type=abc&sort=name')
 
-    await screen.findByText('No tenés trámites pendientes.')
-    expect(lastQuery(fetch)).toEqual({ view: 'mine', sort: 'oldest' })
+    await tableRows()
+    expect(listedNames()).toEqual(['Titular Uno'])
   })
 })

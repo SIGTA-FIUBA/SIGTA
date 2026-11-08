@@ -16,14 +16,33 @@ import (
 	"backend/src/api"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/adapters/rest"
+	"backend/src/procedure/adapters/roleaccess"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/inbox"
 )
 
+// grantedPermissions plays the per-type permissions for the people a scenario
+// grants them to, and derives the rest from the role.
+type grantedPermissions struct {
+	roleaccess.Permissions
+	granted map[string]inbox.Access
+}
+
+func (p grantedPermissions) AccessOf(ctx context.Context, person inbox.Person) (inbox.Access, error) {
+	if access, ok := p.granted[person.ID]; ok {
+		return access, nil
+	}
+	return p.Permissions.AccessOf(ctx, person)
+}
+
+// grantee is the staff member a scenario grants per-type profiles to.
+const grantee = "staff-1"
+
 // inboxWorld is the state of one scenario of US17 and US37.
 type inboxWorld struct {
 	summaries *memory.ProcedureSummaries
+	granted   map[string]inbox.Access
 	service   *application.InboxService
 	now       time.Time
 	types     map[string]int64
@@ -36,21 +55,35 @@ type inboxWorld struct {
 func registerInboxSteps(sc *godog.ScenarioContext) {
 	now := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
 	summaries := memory.NewProcedureSummaries()
+	granted := map[string]inbox.Access{}
 	world := &inboxWorld{
 		summaries: summaries,
-		service:   application.NewInboxService(summaries, func() time.Time { return now }),
+		granted:   granted,
+		service:   application.NewInboxService(grantedPermissions{granted: granted}, summaries, func() time.Time { return now }),
 		now:       now,
 		types:     map[string]int64{},
 		areas:     map[string]string{},
 	}
 
 	sc.Given(`^these procedures in progress:$`, world.givenProcedures)
+	sc.Given(`^a staff member holds the "([^"]*)" profile only in "([^"]*)"$`, func(profile, typeName string) {
+		world.grant(map[string]string{typeName: profile})
+	})
+	sc.Given(`^a staff member holds the "([^"]*)" profile in "([^"]*)" and the "([^"]*)" profile in "([^"]*)"$`, func(p1, t1, p2, t2 string) {
+		world.grant(map[string]string{t1: p1, t2: p2})
+	})
+	sc.When(`^they list all the procedures$`, func() error {
+		return world.query(inbox.Person{ID: grantee}, inbox.Query{View: inbox.ViewAll})
+	})
+	sc.When(`^they open their inbox$`, func() error {
+		return world.query(inbox.Person{ID: grantee}, inbox.Query{View: inbox.ViewMine})
+	})
 
 	sc.When(`^a staff member with the "([^"]*)" profile opens their inbox$`, func(profile string) error {
-		return world.query(definition.Profile(profile), inbox.Query{View: inbox.ViewMine})
+		return world.query(inbox.Person{ID: "staff", Role: profile}, inbox.Query{View: inbox.ViewMine})
 	})
 	sc.When(`^a staff member with the "([^"]*)" profile lists all the procedures$`, func(profile string) error {
-		return world.query(definition.Profile(profile), inbox.Query{View: inbox.ViewAll})
+		return world.query(inbox.Person{ID: "staff", Role: profile}, inbox.Query{View: inbox.ViewAll})
 	})
 	sc.When(`^a staff member lists all the procedures of the "([^"]*)" type$`, func(name string) error {
 		return world.queryAll(inbox.Query{ProcedureType: world.types[name]})
@@ -119,8 +152,17 @@ func (w *inboxWorld) daysAgo(days int) time.Time {
 	return w.now.Add(-time.Duration(days) * 24 * time.Hour)
 }
 
-func (w *inboxWorld) query(viewer definition.Profile, q inbox.Query) error {
-	list, err := w.service.List(context.Background(), viewer, q)
+// grant gives the grantee a profile in each named procedure type.
+func (w *inboxWorld) grant(profiles map[string]string) {
+	access := inbox.Access{Profiles: map[int64]definition.Profile{}}
+	for typeName, profile := range profiles {
+		access.Profiles[w.types[typeName]] = definition.Profile(profile)
+	}
+	w.granted[grantee] = access
+}
+
+func (w *inboxWorld) query(person inbox.Person, q inbox.Query) error {
+	list, err := w.service.List(context.Background(), person, q)
 	w.list = list
 	return err
 }
@@ -129,12 +171,14 @@ func (w *inboxWorld) query(viewer definition.Profile, q inbox.Query) error {
 // list, with the filters and sort of the scenario.
 func (w *inboxWorld) queryAll(q inbox.Query) error {
 	q.View = inbox.ViewAll
-	return w.query(definition.ProfileStaffOperative, q)
+	return w.query(inbox.Person{ID: "staff", Role: string(definition.ProfileStaffOperative)}, q)
 }
 
 // request asks for the inbox over HTTP, with whatever role the session has.
 func (w *inboxWorld) request(role string, authErr error) {
-	authenticate := func(context.Context, string) (string, error) { return role, authErr }
+	authenticate := func(context.Context, string) (inbox.Person, error) {
+		return inbox.Person{ID: "someone", Role: role}, authErr
+	}
 	server := api.NewServer(nil, nil, rest.NewInboxHandler(w.service, authenticate))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	recorder := httptest.NewRecorder()

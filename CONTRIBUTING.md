@@ -90,8 +90,9 @@ La bandeja del personal (`GET /procedures`) lee un resumen de cada trámite en c
 - `view=mine` muestra lo que el perfil puede hacer; `view=all`, todo lo que está en curso, marcando lo accionable. Los filtros (tipo, estado, área) se combinan, y las opciones de filtro salen de la vista sin filtrar.
 - Un trámite derivado muestra los días que lleva en el evaluador sin retorno, contados desde que llegó al paso.
 - Solo el personal la ve: un titular recibe 403.
+- Lo que cada persona ve lo decide el puerto `Permissions`, antes de leer: devuelve un alcance (`inbox.Access`) con el perfil de la persona en cada tipo de trámite, o, para un titular, solo sus propios trámites. El almacenamiento recibe ese alcance y lee solo lo visible, y el dominio lo vuelve a controlar. Lo que requiere acción se decide con el perfil de la persona en el tipo de trámite de cada uno. Hasta que existan los permisos por tipo de trámite, el adaptador provisorio `adapters/roleaccess` le da al personal todos los tipos con su rol.
 
-Hasta que se puedan iniciar y avanzar trámites, el resumen vive en memoria y en desarrollo el servidor carga una docena de trámites inventados (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar. En la web, los filtros viven en la URL, así se conservan al ir a un trámite y volver.
+Hasta que se puedan iniciar y avanzar trámites, el resumen vive en memoria y en desarrollo el servidor carga una docena de trámites inventados (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar. La pantalla de la bandeja pide una sola vez todo lo visible y filtra, ordena y cuenta en el navegador; los filtros de la API quedan para otras vistas. Los filtros de la pantalla viven en la URL, así se conservan al ir a un trámite y volver.
 
 ## Commits
 

@@ -1,202 +1,418 @@
-import { Alert, Anchor, Badge, Group, Loader, Paper, SegmentedControl, Select, Stack, Text, Title } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
-import { Link, useLocation, useSearchParams } from 'react-router'
-import { api } from '../api/client'
+import {
+  Alert,
+  Anchor,
+  Badge,
+  Group,
+  Loader,
+  Paper,
+  SegmentedControl,
+  Select,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from '@mantine/core'
+import { Link, useLocation, useOutletContext, useSearchParams } from 'react-router'
+import { ForbiddenError, useProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 
 type Item = components['schemas']['ProcedureListItem']
 type State = components['schemas']['ProcedureState']
 type View = components['schemas']['ProcedureListView']
 type Sort = components['schemas']['ProcedureListSort']
+type User = components['schemas']['User']
 
 const stateNames: Record<State, string> = {
   in_office: 'En la Secretaría',
-  referred: 'Derivado',
-  with_applicant: 'Espera al titular',
+  referred: 'En evaluación externa',
+  with_applicant: 'Pendiente del titular',
 }
 
 const stateColors: Record<State, string> = {
-  in_office: 'blue',
-  referred: 'yellow',
+  in_office: 'fiuba',
+  referred: 'orange',
   with_applicant: 'gray',
 }
 
+const profileNames: Record<string, string> = {
+  staff_operative: 'Perfil operativo',
+  staff_approver: 'Perfil de aprobación',
+}
+
 const sortOptions = [
-  { value: 'oldest', label: 'Más antiguos primero' },
-  { value: 'last_moved', label: 'Movidos más recientemente' },
+  { value: 'oldest', label: 'Antigüedad (mayor a menor)' },
+  { value: 'last_moved', label: 'Último movimiento (más reciente)' },
 ]
 
 const stateOptions = (Object.keys(stateNames) as State[]).map((state) => ({ value: state, label: stateNames[state] }))
 
+type Filters = {
+  view: View
+  sort: Sort
+  state?: State
+  procedureType?: number
+  area?: string
+}
+
 // The filters live in the URL, so they survive going to a procedure and back,
 // and a filtered list can be shared as a link.
-function readFilters(params: URLSearchParams) {
-  const view: View = params.get('view') === 'all' ? 'all' : 'mine'
-  const sort: Sort = params.get('sort') === 'last_moved' ? 'last_moved' : 'oldest'
+function readFilters(params: URLSearchParams): Filters {
   const state = params.get('state')
   const type = Number(params.get('type'))
   return {
-    view,
-    sort,
+    view: params.get('view') === 'all' ? 'all' : 'mine',
+    sort: params.get('sort') === 'last_moved' ? 'last_moved' : 'oldest',
     state: state !== null && state in stateNames ? (state as State) : undefined,
     procedureType: Number.isInteger(type) && type > 0 ? type : undefined,
     area: params.get('area') ?? undefined,
   }
 }
 
-class ForbiddenError extends Error {}
-
-function daysText(days: number) {
-  if (days === 0) {
-    return 'hoy'
-  }
-  return days === 1 ? 'hace 1 día' : `hace ${days} días`
+// The API applies who can see what and what needs action. The page asks once
+// for everything visible and filters, sorts and counts it here, which is only
+// presentation: the list is small, since it holds procedures in progress.
+function matches(item: Item, filters: Filters) {
+  return (
+    (filters.view === 'all' || item.actionable) &&
+    (filters.state === undefined || item.state === filters.state) &&
+    (filters.procedureType === undefined || item.procedure_type === filters.procedureType) &&
+    (filters.area === undefined || item.area === filters.area)
+  )
 }
 
-function ItemCard({ item, showActionable, from }: { item: Item; showActionable: boolean; from: string }) {
+function compare(sort: Sort) {
+  return (a: Item, b: Item) => {
+    const byDate =
+      sort === 'last_moved'
+        ? Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
+        : Date.parse(a.started_at) - Date.parse(b.started_at)
+    return byDate !== 0 ? byDate : a.id.localeCompare(b.id)
+  }
+}
+
+function daysSince(timestamp: string) {
+  return Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 86_400_000))
+}
+
+function ageText(days: number) {
+  if (days === 0) {
+    return 'Hoy'
+  }
+  return days === 1 ? '1 día' : `${days} días`
+}
+
+function movedText(timestamp: string) {
+  const days = daysSince(timestamp)
+  if (days === 0) {
+    return 'Hoy'
+  }
+  return days === 1 ? 'Hace 1 día' : `Hace ${days} días`
+}
+
+function referredText(days: number) {
+  return days === 1 ? '1 día sin retorno' : `${days} días sin retorno`
+}
+
+type Tile = { key: string; label: string; count: number; hint: string; selected: boolean; onSelect: () => void }
+
+function SummaryTile({ tile }: { tile: Tile }) {
   return (
-    <Paper component="article" withBorder p="md">
+    <Paper
+      component="button"
+      type="button"
+      variant="interactive"
+      onClick={tile.onSelect}
+      aria-pressed={tile.selected}
+      withBorder
+      p="md"
+      w="100%"
+      h="100%"
+      ta="left"
+      bg={tile.selected ? 'fiuba.0' : 'white'}
+    >
       <Stack gap="xs">
-        <Group justify="space-between" wrap="wrap" gap="xs">
-          <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
-            {item.procedure_type_name}: {item.applicant_name}
-          </Anchor>
-          <Group gap="xs">
-            {showActionable && item.actionable && <Badge variant="filled">Te toca</Badge>}
-            <Badge variant="light" color={stateColors[item.state]}>
-              {stateNames[item.state]}
-            </Badge>
-          </Group>
-        </Group>
-        <Text>
-          Paso pendiente: {item.step_name}, a cargo de {item.area_name}.
+        <Text size="sm" fw={500} c="dimmed">
+          {tile.label}
         </Text>
-        <Text size="sm" c="dimmed">
-          Empezó {daysText(item.age_days)}.
-          {item.days_referred !== undefined && ` Derivado ${daysText(item.days_referred)}, sin retorno.`}
+        <Text fz="xl" fw={700}>
+          {tile.count}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {tile.hint}
         </Text>
       </Stack>
     </Paper>
   )
 }
 
+function StateCell({ item }: { item: Item }) {
+  return (
+    <Stack gap="xs" align="flex-start">
+      <Badge variant="light" color={stateColors[item.state]}>
+        {stateNames[item.state]}
+      </Badge>
+      {item.days_referred !== undefined && (
+        <Text size="xs" c="orange.9" fw={600}>
+          {referredText(item.days_referred)}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+function ItemLink({ item, from }: { item: Item; from: string }) {
+  return (
+    <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
+      {item.applicant_name}
+    </Anchor>
+  )
+}
+
+function ActionBadge({ item, show }: { item: Item; show: boolean }) {
+  return show && item.actionable ? (
+    <Badge variant="filled" size="sm">
+      Acción requerida
+    </Badge>
+  ) : null
+}
+
+function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; showAction: boolean }) {
+  return (
+    <Table.ScrollContainer minWidth={860} visibleFrom="md">
+      <Table verticalSpacing="sm" highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Trámite</Table.Th>
+            <Table.Th>Instancia pendiente</Table.Th>
+            <Table.Th>Estado</Table.Th>
+            <Table.Th ta="right">Antigüedad</Table.Th>
+            <Table.Th ta="right">Último movimiento</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {items.map((item) => (
+            <Table.Tr key={item.id}>
+              <Table.Td>
+                <Stack gap={0}>
+                  <ItemLink item={item} from={from} />
+                  <Text size="sm" c="dimmed">
+                    {item.procedure_type_name}
+                  </Text>
+                </Stack>
+              </Table.Td>
+              <Table.Td>
+                <Stack gap={0}>
+                  <Group gap="xs">
+                    <Text fw={500}>{item.step_name}</Text>
+                    <ActionBadge item={item} show={showAction} />
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    {item.area_name}
+                  </Text>
+                </Stack>
+              </Table.Td>
+              <Table.Td>
+                <StateCell item={item} />
+              </Table.Td>
+              <Table.Td ta="right">{ageText(item.age_days)}</Table.Td>
+              <Table.Td ta="right">
+                <Text size="sm" c="dimmed">
+                  {movedText(item.last_moved_at)}
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  )
+}
+
+function ItemCards({ items, from, showAction }: { items: Item[]; from: string; showAction: boolean }) {
+  return (
+    <Stack gap="sm" hiddenFrom="md">
+      {items.map((item) => (
+        <Paper key={item.id} component="article" withBorder p="md">
+          <Stack gap="xs">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <Stack gap={0}>
+                <ItemLink item={item} from={from} />
+                <Text size="sm" c="dimmed">
+                  {item.procedure_type_name}
+                </Text>
+              </Stack>
+              <Badge variant="light" color={stateColors[item.state]}>
+                {stateNames[item.state]}
+              </Badge>
+            </Group>
+            <Stack gap={0}>
+              <Group gap="xs">
+                <Text fw={500}>{item.step_name}</Text>
+                <ActionBadge item={item} show={showAction} />
+              </Group>
+              <Text size="sm" c="dimmed">
+                {item.area_name}
+              </Text>
+            </Stack>
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">
+                Iniciado hace {ageText(item.age_days).toLowerCase()}
+              </Text>
+              <Text size="sm" c={item.days_referred !== undefined ? 'orange.9' : 'dimmed'}>
+                {item.days_referred !== undefined
+                  ? referredText(item.days_referred)
+                  : `Último movimiento: ${movedText(item.last_moved_at).toLowerCase()}`}
+              </Text>
+            </Group>
+          </Stack>
+        </Paper>
+      ))}
+    </Stack>
+  )
+}
+
 export function InboxPage() {
   const [params, setParams] = useSearchParams()
   const location = useLocation()
+  const user = useOutletContext<User | null | undefined>()
   const filters = readFilters(params)
 
-  const list = useQuery({
-    queryKey: ['procedures', filters],
-    queryFn: async () => {
-      const { data, response } = await api.GET('/procedures', {
-        params: {
-          query: {
-            view: filters.view,
-            sort: filters.sort,
-            state: filters.state,
-            procedure_type: filters.procedureType,
-            area: filters.area,
-          },
-        },
-      })
-      if (response.status === 403) {
-        throw new ForbiddenError()
-      }
-      if (data === undefined) {
-        throw new Error(`GET /procedures answered ${response.status}`)
-      }
-      return data
-    },
-    placeholderData: (previous) => previous,
-  })
+  const list = useProcedures()
 
-  function setFilter(name: string, value: string | null) {
+  function update(changes: Record<string, string | null>) {
     const next = new URLSearchParams(params)
-    if (value === null || value === '') {
-      next.delete(name)
-    } else {
-      next.set(name, value)
+    for (const [name, value] of Object.entries(changes)) {
+      if (value === null || value === '') {
+        next.delete(name)
+      } else {
+        next.set(name, value)
+      }
     }
     setParams(next, { replace: true })
   }
 
+  const all = list.data?.items ?? []
+  const count = (state: State) => all.filter((item) => item.state === state).length
+  const actionable = all.filter((item) => item.actionable).length
+  const shown = all.filter((item) => matches(item, filters)).sort(compare(filters.sort))
   const filtered = filters.procedureType !== undefined || filters.state !== undefined || filters.area !== undefined
   const from = `${location.pathname}${location.search}`
-  const items = list.data?.items ?? []
+
+  const stateTile = (state: State, hint: string): Tile => ({
+    key: state,
+    label: stateNames[state],
+    count: count(state),
+    hint,
+    selected: filters.view === 'all' && filters.state === state,
+    onSelect: () => update({ view: 'all', state: filters.state === state ? null : state }),
+  })
+  const tiles: Tile[] = [
+    {
+      key: 'mine',
+      label: 'Acción requerida',
+      count: actionable,
+      hint: 'Instancias asignadas a este perfil',
+      selected: filters.view === 'mine' && !filtered,
+      onSelect: () => update({ view: null, state: null, type: null, area: null }),
+    },
+    stateTile('in_office', 'En áreas de la Secretaría'),
+    stateTile('referred', 'Derivados a evaluadores externos'),
+    stateTile('with_applicant', 'Documentación o datos solicitados'),
+  ]
 
   return (
     <Stack gap="lg">
-      <Title order={1}>Bandeja</Title>
-      <SegmentedControl
-        aria-label="Qué trámites ver"
-        value={filters.view}
-        onChange={(value) => setFilter('view', value === 'mine' ? null : value)}
-        data={[
-          { value: 'mine', label: 'Para mí' },
-          { value: 'all', label: 'Todos' },
-        ]}
-      />
-      <Group align="end" gap="sm" wrap="wrap">
-        <Select
-          label="Tipo de trámite"
-          placeholder="Todos"
-          clearable
-          data={(list.data?.procedure_types ?? []).map((option) => ({ value: option.id, label: option.name }))}
-          value={filters.procedureType === undefined ? null : String(filters.procedureType)}
-          onChange={(value) => setFilter('type', value)}
-        />
-        <Select
-          label="Estado"
-          placeholder="Todos"
-          clearable
-          data={stateOptions}
-          value={filters.state ?? null}
-          onChange={(value) => setFilter('state', value)}
-        />
-        <Select
-          label="Responsable"
-          placeholder="Todos"
-          clearable
-          data={(list.data?.areas ?? []).map((option) => ({ value: option.id, label: option.name }))}
-          value={filters.area ?? null}
-          onChange={(value) => setFilter('area', value)}
-        />
-        <Select
-          label="Ordenar por"
-          allowDeselect={false}
-          data={sortOptions}
-          value={filters.sort}
-          onChange={(value) => setFilter('sort', value === 'oldest' ? null : value)}
-        />
-      </Group>
+      <Stack gap={0}>
+        <Title order={1}>Bandeja de trámites</Title>
+        {user != null && profileNames[user.role] !== undefined && <Text c="dimmed">{profileNames[user.role]}</Text>}
+      </Stack>
 
       {list.isPending && <Loader aria-label="Cargando los trámites" />}
       {list.isError && list.error instanceof ForbiddenError && (
-        <Alert role="alert">La bandeja es solo para el personal de la Secretaría.</Alert>
+        <Alert role="alert">La bandeja de trámites está disponible solo para el personal de la Secretaría.</Alert>
       )}
       {list.isError && !(list.error instanceof ForbiddenError) && (
         <Alert color="red" role="alert">
-          No pudimos cargar la bandeja. Volvé a intentarlo más tarde.
+          No se pudo cargar la bandeja de trámites. Volvé a intentarlo más tarde.
         </Alert>
       )}
-      {list.isSuccess && items.length === 0 && (
-        <Text c="dimmed">
-          {filtered
-            ? 'No hay trámites con estos filtros.'
-            : filters.view === 'mine'
-              ? 'No tenés trámites pendientes.'
-              : 'No hay trámites en curso.'}
-        </Text>
-      )}
-      {list.isSuccess && items.length > 0 && (
-        <Stack gap="sm">
-          <Text size="sm" c="dimmed" aria-live="polite">
-            {items.length === 1 ? '1 trámite' : `${items.length} trámites`}
-          </Text>
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} showActionable={filters.view === 'all'} from={from} />
-          ))}
-        </Stack>
+
+      {list.isSuccess && (
+        <>
+          <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+            {tiles.map((tile) => (
+              <SummaryTile key={tile.key} tile={tile} />
+            ))}
+          </SimpleGrid>
+
+          <Paper withBorder>
+            <Stack gap={0}>
+              <Group justify="space-between" align="end" gap="sm" p="md">
+                <SegmentedControl
+                  aria-label="Trámites a mostrar"
+                  value={filters.view}
+                  onChange={(value) => update({ view: value === 'mine' ? null : value })}
+                  data={[
+                    { value: 'mine', label: `Asignados (${actionable})` },
+                    { value: 'all', label: `Todos (${all.length})` },
+                  ]}
+                />
+                <Group align="end" gap="sm">
+                  <Select
+                    label="Tipo de trámite"
+                    placeholder="Todos"
+                    clearable
+                    data={list.data.procedure_types.map((option) => ({ value: option.id, label: option.name }))}
+                    value={filters.procedureType === undefined ? null : String(filters.procedureType)}
+                    onChange={(value) => update({ type: value })}
+                  />
+                  <Select
+                    label="Estado"
+                    placeholder="Todos"
+                    clearable
+                    data={stateOptions}
+                    value={filters.state ?? null}
+                    onChange={(value) => update({ state: value })}
+                  />
+                  <Select
+                    label="Responsable"
+                    placeholder="Todos"
+                    clearable
+                    data={list.data.areas.map((option) => ({ value: option.id, label: option.name }))}
+                    value={filters.area ?? null}
+                    onChange={(value) => update({ area: value })}
+                  />
+                  <Select
+                    label="Ordenar por"
+                    allowDeselect={false}
+                    data={sortOptions}
+                    value={filters.sort}
+                    onChange={(value) => update({ sort: value === 'oldest' ? null : value })}
+                  />
+                </Group>
+              </Group>
+
+              {shown.length === 0 ? (
+                <Text c="dimmed" p="md">
+                  {filtered
+                    ? 'No hay trámites que coincidan con los filtros.'
+                    : filters.view === 'mine'
+                      ? 'No hay trámites que requieran acción de este perfil.'
+                      : 'No hay trámites en curso.'}
+                </Text>
+              ) : (
+                <>
+                  <ItemsTable items={shown} from={from} showAction={filters.view === 'all'} />
+                  <ItemCards items={shown} from={from} showAction={filters.view === 'all'} />
+                </>
+              )}
+              <Text size="sm" c="dimmed" p="md" aria-live="polite">
+                {shown.length === 1 ? '1 trámite' : `${shown.length} trámites`}
+              </Text>
+            </Stack>
+          </Paper>
+        </>
       )}
     </Stack>
   )

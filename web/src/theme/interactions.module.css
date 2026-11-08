@@ -1,0 +1,58 @@
+/*
+ * States the Styles API cannot write inline: hover, press and screen width.
+ * Only theme.ts uses these classes; screens never import CSS.
+ */
+
+/* A clickable panel (Paper variant="interactive") rises a little under the
+ * pointer and settles when pressed. */
+.interactive {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--mantine-shadow-sm);
+  border-color: var(--mantine-color-fiuba-3);
+}
+
+.interactive:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* A link of the side menu, on the logo's light blue: a white box with dark
+ * text, that tints under the pointer. The current page is filled in dark blue
+ * (theme.ts). */
+.menuLink {
+  border-radius: var(--mantine-radius-md);
+  box-shadow: var(--mantine-shadow-xs);
+}
+
+.menuLink:where(:not([data-active])) {
+  background-color: var(--mantine-color-white);
+  color: var(--mantine-color-black);
+}
+
+.menuLink:where(:not([data-active])):hover {
+  background-color: var(--mantine-color-fiuba-0);
+}
+
+/* On a phone every control is at least 44px tall, so a finger hits it. */
+@media (max-width: 48em) {
+  .touch {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive {
+    transition: none;
+  }
+
+  .interactive:hover {
+    transform: none;
+  }
+}

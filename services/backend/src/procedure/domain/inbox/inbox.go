@@ -18,6 +18,7 @@ type Summary struct {
 	ID                string
 	ProcedureType     int64
 	ProcedureTypeName string
+	ApplicantID       string
 	ApplicantName     string
 	StepName          string
 	Area              definition.Area
@@ -49,8 +50,9 @@ func StateOf(area definition.Area) State {
 	}
 }
 
-// CanAct tells whether a profile can do the open step. Only office steps are
-// done by the staff, and the approver profile also covers the operative steps.
+// CanAct tells whether a profile, held in the procedure type of s, can do its
+// open step. Only office steps are done by the staff, and the approver profile
+// also covers the operative steps.
 func CanAct(viewer definition.Profile, s Summary) bool {
 	if s.Area.Kind != definition.AreaOffice {
 		return false
@@ -118,15 +120,20 @@ type List struct {
 	Areas          []Option[string]
 }
 
-// Build answers a query over the procedures in progress, as seen by a profile
-// at a given moment.
-func Build(summaries []Summary, viewer definition.Profile, q Query, now time.Time) List {
+// Build answers a query over the procedures in progress, as seen with an
+// access at a given moment. The store already returns only what the access
+// can see; Build checks it again, so that a store that returns more never
+// shows it.
+func Build(summaries []Summary, access Access, q Query, now time.Time) List {
 	var inView []Item
 	for _, s := range summaries {
+		if !access.CanSee(s) {
+			continue
+		}
 		item := Item{
 			Summary:    s,
 			State:      StateOf(s.Area),
-			Actionable: CanAct(viewer, s),
+			Actionable: CanAct(access.ProfileIn(s.ProcedureType), s),
 			AgeDays:    daysBetween(s.StartedAt, now),
 		}
 		if item.State == StateReferred {
