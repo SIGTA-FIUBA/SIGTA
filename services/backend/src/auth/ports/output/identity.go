@@ -7,7 +7,6 @@ import (
 	"backend/src/auth/domain"
 )
 
-// Identity is what an identity provider asserts about whoever just logged in.
 type Identity struct {
 	Subject string
 	Email   string

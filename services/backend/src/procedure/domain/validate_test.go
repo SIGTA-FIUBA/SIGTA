@@ -19,7 +19,7 @@ func testDefinition() Definition {
 		Name:        "Trámite de prueba",
 		Description: "Un trámite para las pruebas",
 		Fields:      []Field{{ID: "national_id", Name: "DNI", Type: FieldText}},
-		Documents:   []Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024}},
+		Documents:   []Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024}},
 		Steps: []Step{
 			{ID: "request", Name: "Solicitud", Role: RoleApplicant, Action: ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
 			{ID: "letter", Name: "Carta", Role: RoleApplicant, Action: ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
@@ -70,7 +70,7 @@ func TestValidDefinitions(t *testing.T) {
 			d.Steps[1].Documents = nil
 		}},
 		{name: "decision with its grounds", change: func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "minutes", Name: "Acta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
+			d.Documents = append(d.Documents, Document{ID: "minutes", Name: "Acta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
 			d.Steps[2].Documents = []string{"minutes"}
 			d.Steps[2].OptionalFields = []string{"national_id"}
 		}},
@@ -223,10 +223,10 @@ func TestInvalidDefinitions(t *testing.T) {
 			d.Fields = append(d.Fields, Field{ID: "letter", Name: "Carta", Type: FieldText})
 		}, want: []string{`field "letter" is not used by any step`}},
 		{name: "unused document named like a used field", change: func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "national_id", Name: "Documento", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
+			d.Documents = append(d.Documents, Document{ID: "national_id", Name: "Documento", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
 		}, want: []string{`document "national_id" is not used by any step`}},
 		{name: "unused document", change: func(d *Definition) {
-			d.Documents = append(d.Documents, Document{ID: "photo", Name: "Foto", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024})
+			d.Documents = append(d.Documents, Document{ID: "photo", Name: "Foto", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
 		}, want: []string{`document "photo" is not used by any step`}},
 	}
 	for _, tt := range tests {
@@ -324,7 +324,7 @@ func TestInvalidCatalogTexts(t *testing.T) {
 		"repeated type": {func(definition *Definition) {
 			definition.Documents[0].AcceptedTypes = []string{"application/pdf", "application/pdf"}
 		}, CodeRepeatedAcceptedType},
-		"negative size": {func(definition *Definition) { definition.Documents[0].MaxSize = -1 }, CodeNoMaxSize},
+		"negative size": {func(definition *Definition) { definition.Documents[0].MaxSizeBytes = -1 }, CodeNoMaxSize},
 	}
 	for name, testCase := range cases {
 		t.Run(name, func(t *testing.T) {

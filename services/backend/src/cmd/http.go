@@ -112,8 +112,6 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 	}, logger)
 }
 
-// devApplicantEmail is who the development identity provider logs in by
-// default.
 const devApplicantEmail = "titular@fi.uba.ar"
 
 // devPeople are synthetic accounts for local development: an applicant, one
@@ -155,7 +153,7 @@ func devProcedureType() input.Publication {
 				{ID: "comment", Name: "Comentario", Type: procedure.FieldLongText},
 			},
 			Documents: []procedure.Document{
-				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
+				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSizeBytes: 10 << 20},
 			},
 			Steps: []procedure.Step{
 				{ID: "request", Name: "Solicitud", Role: procedure.RoleApplicant, Action: procedure.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},

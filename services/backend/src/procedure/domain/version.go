@@ -49,6 +49,10 @@ func NewContent(d Definition, areas []Area) Content {
 	return Content{Format: ContentFormat, Definition: d, Areas: referenced}
 }
 
+func (c Content) PassesThrough(area string) bool {
+	return slices.ContainsFunc(c.Definition.Steps, func(s Step) bool { return s.Area == area })
+}
+
 func (c Content) Encode() ([]byte, error) {
 	encoded, err := json.Marshal(c)
 	if err != nil {

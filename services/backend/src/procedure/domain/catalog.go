@@ -16,7 +16,7 @@ type DocumentRequirement struct {
 // optional.
 func (c Content) ApplicantRequirements() ([]FieldRequirement, []DocumentRequirement) {
 	// Fields and documents keep separate ids, so they are tracked apart.
-	fields, documents := requirementSet{}, requirementSet{}
+	fields, documents := mandatoryByID{}, mandatoryByID{}
 	for _, step := range c.Definition.Steps {
 		if step.Role == RoleApplicant {
 			fields.add(step.Fields, step.OptionalFields)
@@ -39,10 +39,9 @@ func (c Content) ApplicantRequirements() ([]FieldRequirement, []DocumentRequirem
 	return fieldRequirements, documentRequirements
 }
 
-// requirementSet tells, for each id asked for, whether it is mandatory.
-type requirementSet map[string]bool
+type mandatoryByID map[string]bool
 
-func (requirements requirementSet) add(mandatory, optional []string) {
+func (requirements mandatoryByID) add(mandatory, optional []string) {
 	for _, id := range optional {
 		if _, asked := requirements[id]; !asked {
 			requirements[id] = false

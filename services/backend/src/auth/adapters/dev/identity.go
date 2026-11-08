@@ -34,7 +34,7 @@ func (p *IdentityProvider) AuthorizationURL(pending domain.PendingLogin, loginHi
 		loginHint = p.defaultEmail
 	}
 	// The code carries the challenge, as a real provider would remember it.
-	code := codeChallenge(pending.CodeVerifier) + "." + loginHint
+	code := pkceS256Challenge(pending.CodeVerifier) + "." + loginHint
 	query := url.Values{"state": {pending.State}, "code": {code}}
 	return p.callbackURL + "?" + query.Encode()
 }
@@ -44,14 +44,13 @@ func (p *IdentityProvider) Exchange(_ context.Context, code string, pending doma
 	if !ok || email == "" {
 		return out.Identity{}, errors.New("dev identity provider needs an email as login_hint")
 	}
-	if subtle.ConstantTimeCompare([]byte(challenge), []byte(codeChallenge(pending.CodeVerifier))) != 1 {
+	if subtle.ConstantTimeCompare([]byte(challenge), []byte(pkceS256Challenge(pending.CodeVerifier))) != 1 {
 		return out.Identity{}, errors.New("PKCE code verifier does not match the challenge")
 	}
 	return out.Identity{Subject: "dev|" + email, Email: email}, nil
 }
 
-// codeChallenge is the PKCE S256 challenge for a verifier (RFC 7636).
-func codeChallenge(verifier string) string {
+func pkceS256Challenge(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }

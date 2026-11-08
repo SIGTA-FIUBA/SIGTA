@@ -89,9 +89,9 @@ func catalogDefinition(name, description string) domain.Definition {
 			{ID: "file_number", Name: "Número de expediente", Type: domain.FieldText},
 		},
 		Documents: []domain.Document{
-			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 		},
 		Steps: []domain.Step{
 			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
@@ -183,7 +183,7 @@ func (w *catalogWorld) publishBroken(problem string) error {
 	case "a document with a wrong format":
 		definition.Documents[0].AcceptedTypes = []string{"pdf"}
 	case "a document without a size limit":
-		definition.Documents[0].MaxSize = 0
+		definition.Documents[0].MaxSizeBytes = 0
 	case "a blank deadline":
 		definition.Deadlines = []string{" "}
 	default:
@@ -301,7 +301,7 @@ func (w *catalogWorld) thenAccepts(id, mediaType string, size int64) error {
 			if requirement.Document.ID != id {
 				continue
 			}
-			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSize != size {
+			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSizeBytes != size {
 				return fmt.Errorf("document %q = %+v", id, requirement.Document)
 			}
 			return nil

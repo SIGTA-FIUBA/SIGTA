@@ -8,7 +8,6 @@ import (
 	"backend/src/auth/ports/output"
 )
 
-// administratorGuard lets only an administrator manage areas and memberships.
 type administratorGuard struct {
 	administrators output.Administrators
 }

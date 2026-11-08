@@ -43,7 +43,7 @@ func TestListProcedureTypesNeedsNoSession(t *testing.T) {
 		Description:   "Descripción",
 		Fields:        []domain.FieldRequirement{{Field: domain.Field{ID: "reason", Name: "Motivo"}, Required: true}},
 		Documents: []domain.DocumentRequirement{{
-			Document: domain.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024},
+			Document: domain.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024},
 		}},
 	}}})
 

@@ -7,10 +7,8 @@ import (
 	"net/http"
 )
 
-// InvalidRequestMessage answers a request that does not follow the contract.
 const InvalidRequestMessage = "El pedido no es válido."
 
-// AuthServer is the part of the contract that the auth module answers.
 type AuthServer interface {
 	BeginLogin(ctx context.Context, request BeginLoginRequestObject) (BeginLoginResponseObject, error)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
@@ -18,20 +16,16 @@ type AuthServer interface {
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
 }
 
-// CatalogServer is the part of the contract that the procedure module answers.
 type CatalogServer interface {
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
 }
 
-// AdministrationServer is the part of the contract that manages areas and
-// memberships, which the auth module answers.
 type AdministrationServer interface {
 	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
 	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
 }
 
-// Server joins what each module answers into the one interface the contract
-// generates. A test that only calls one module can leave the others nil.
+// A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer

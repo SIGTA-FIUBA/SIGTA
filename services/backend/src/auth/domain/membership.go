@@ -32,8 +32,7 @@ func (p Profile) Known() bool {
 	return p == ProfileStaffOperative || p == ProfileStaffApprover
 }
 
-// Covers tells whether someone with this profile can do what needs the other:
-// an approver also does the operative steps.
+// Covers lets an approver also do the operative steps.
 func (p Profile) Covers(needed Profile) bool {
 	switch p {
 	case ProfileStaffApprover:
@@ -44,9 +43,7 @@ func (p Profile) Covers(needed Profile) bool {
 	return false
 }
 
-// Membership makes a person staff of an area with a profile. Scope, when not
-// empty, restricts it to some procedure types. A zero Until means it holds
-// until it is ended.
+// A zero Until means the membership holds until it is ended.
 type Membership struct {
 	ID        string
 	UserID    string
@@ -101,8 +98,6 @@ func NewPermissions(userID string, administrator bool, memberships []Membership,
 	return Permissions{UserID: userID, Administrator: administrator, Memberships: active}
 }
 
-// Holds tells whether an active membership in the area covers the procedure
-// type with at least the profile.
 func (p Permissions) Holds(area string, procedureType int64, profile Profile) bool {
 	return slices.ContainsFunc(p.Memberships, func(m Membership) bool {
 		return m.Area == area && m.Covers(procedureType) && m.Profile.Covers(profile)

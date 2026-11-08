@@ -39,22 +39,15 @@ type Memberships interface {
 	Permissions(ctx context.Context, userID string) (domain.Permissions, error)
 }
 
-// AreaReach is an area where a person is staff today, and the procedure types
-// their membership covers there. An empty Scope covers every type.
+// An empty Scope covers every procedure type.
 type AreaReach struct {
 	Area  string
 	Scope []int64
 }
 
-// StaffAuthorizer answers what a person can do as staff (ADR-017). Other
-// modules ask it instead of reading memberships (ADR-018).
+// Other modules ask StaffAuthorizer instead of reading memberships (ADR-018).
 type StaffAuthorizer interface {
-	// IsStaff tells whether the person has an active membership. Staff cannot
-	// start procedures.
 	IsStaff(ctx context.Context, userID string) (bool, error)
-	// Holds tells whether the person has at least the profile in the area,
-	// for the procedure type, today.
 	Holds(ctx context.Context, userID, area string, procedureType int64, profile Profile) (bool, error)
-	// Reach lists the areas where the person is staff today.
 	Reach(ctx context.Context, userID string) ([]AreaReach, error)
 }

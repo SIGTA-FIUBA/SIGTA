@@ -9,42 +9,36 @@ import (
 	"backend/src/procedure/domain"
 )
 
-// authorizer asks auth what a person can do as staff (ADR-018).
-type authorizer struct {
-	staffAuthorizer authinput.StaffAuthorizer
-}
-
 func denied(userID, action string) error {
 	return fmt.Errorf("%s %s: %w", userID, action, domain.ErrAccessDenied)
 }
 
-// canSee gives the applicant their own procedures, and staff those that pass
-// through their areas within their scope.
-func canSee(userID string, reach []authinput.AreaReach, p domain.Procedure, c domain.Content) bool {
-	if len(reach) == 0 {
+// canSee takes the areas where the person has an active membership: without
+// any, they are an applicant (ADR-017).
+func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c domain.Content) bool {
+	isApplicant := len(memberOf) == 0
+	if isApplicant {
 		return p.Applicant == userID
 	}
-	return slices.ContainsFunc(reach, func(r authinput.AreaReach) bool {
-		return (len(r.Scope) == 0 || slices.Contains(r.Scope, p.ProcedureType)) && c.PassesThrough(r.Area)
+	return slices.ContainsFunc(memberOf, func(area authinput.AreaReach) bool {
+		coversType := len(area.Scope) == 0 || slices.Contains(area.Scope, p.ProcedureType)
+		return coversType && c.PassesThrough(area.Area)
 	})
 }
 
-// canAct gives an open step of the applicant to the applicant of the
-// procedure, and a staff step to whoever auth says holds its profile in its
-// area.
-func (a authorizer) canAct(ctx context.Context, userID string, staff bool, p domain.Procedure, c domain.Content, stepID string) (bool, error) {
+func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplicant bool, p domain.Procedure, c domain.Content, stepID string) (bool, error) {
 	if stepID != p.OpenStep {
 		return false, nil
 	}
-	i := slices.IndexFunc(c.Definition.Steps, func(s domain.Step) bool { return s.ID == stepID })
+	i := slices.IndexFunc(c.Definition.Steps, func(step domain.Step) bool { return step.ID == stepID })
 	if i < 0 {
 		return false, fmt.Errorf("procedure %s: open step %q is not in version %d", p.ID, stepID, p.Version)
 	}
 	step := c.Definition.Steps[i]
 	if step.Role == domain.RoleApplicant {
-		return !staff && p.Applicant == userID, nil
+		return isApplicant && p.Applicant == userID, nil
 	}
-	holds, err := a.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))
+	holds, err := s.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))
 	if err != nil {
 		return false, fmt.Errorf("profile of %s in %s: %w", userID, step.Area, err)
 	}

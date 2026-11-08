@@ -29,7 +29,7 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	if err := p.Authorship.Validate(); err != nil {
 		return domain.Version{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
 	}
-	areas, err := s.stepAreas(ctx)
+	areas, err := s.currentStaffAreas(ctx)
 	if err != nil {
 		return domain.Version{}, err
 	}
@@ -76,9 +76,7 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	return v, nil
 }
 
-// stepAreas lists the staff areas of auth, which a version copies as they are
-// now.
-func (s *ProcedureTypeService) stepAreas(ctx context.Context) ([]domain.Area, error) {
+func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]domain.Area, error) {
 	staff, err := s.areas.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list areas: %w", err)

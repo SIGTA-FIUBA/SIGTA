@@ -57,7 +57,7 @@ func formatTwoContent() Content {
 	content.Definition.Admissibility = []string{"Ser estudiante regular"}
 	for index := range content.Definition.Documents {
 		content.Definition.Documents[index].AcceptedTypes = []string{"application/pdf", "image/png"}
-		content.Definition.Documents[index].MaxSize = 10 << 20
+		content.Definition.Documents[index].MaxSizeBytes = 10 << 20
 	}
 	return content
 }

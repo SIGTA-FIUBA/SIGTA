@@ -11,6 +11,8 @@ var (
 	ErrInvalidAuthorship = errors.New("invalid authorship")
 	ErrAlteredContent    = errors.New("content does not match its digest")
 	ErrUnknownFormat     = errors.New("unknown content format")
+	ErrAccessDenied      = errors.New("access denied")
+	ErrProcedureNotFound = errors.New("procedure not found")
 )
 
 // InvalidError is what Validate returns: the cause of the failure, which

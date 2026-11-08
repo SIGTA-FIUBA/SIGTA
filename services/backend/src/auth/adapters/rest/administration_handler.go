@@ -12,9 +12,8 @@ import (
 
 var _ api.AdministrationServer = (*AdministrationHandler)(nil)
 
-// AdministrationHandler answers what an administrator manages: areas and
-// memberships (ADR-017). The use cases decide who is an administrator; this
-// handler only finds who is behind the session.
+// The use cases decide who is an administrator: this handler only finds who
+// is behind the session.
 type AdministrationHandler struct {
 	auth        ports.Authenticator
 	areas       ports.Areas

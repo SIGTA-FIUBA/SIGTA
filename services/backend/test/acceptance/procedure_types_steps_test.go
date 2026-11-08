@@ -119,8 +119,8 @@ func validDefinition(name string) domain.Definition {
 		Description: "Un trámite de prueba",
 		Fields:      []domain.Field{{ID: "full_name", Name: "Nombre completo", Type: domain.FieldText}},
 		Documents: []domain.Document{
-			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 		},
 		Steps: []domain.Step{
 			{ID: "request", Name: "Solicitud", Role: domain.RoleApplicant, Action: domain.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
