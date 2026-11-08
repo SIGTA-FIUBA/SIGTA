@@ -21,39 +21,17 @@ const (
 	RoleStaff     Role = "staff"
 )
 
-type Profile string
-
-const (
-	ProfileStaffOperative Profile = "staff_operative"
-	ProfileStaffApprover  Profile = "staff_approver"
-)
-
-func (p Profile) Known() bool {
-	return p == ProfileStaffOperative || p == ProfileStaffApprover
-}
-
-// Covers lets an approver also do the operative steps.
-func (p Profile) Covers(needed Profile) bool {
-	switch p {
-	case ProfileStaffApprover:
-		return needed == ProfileStaffApprover || needed == ProfileStaffOperative
-	case ProfileStaffOperative:
-		return needed == ProfileStaffOperative
-	}
-	return false
-}
-
 // A zero Until means the membership holds until it is ended.
 type Membership struct {
-	ID        string
-	UserID    string
-	Area      string
-	Profile   Profile
-	Scope     []int64
-	From      time.Time
-	Until     time.Time
-	GrantedBy string
-	EndedBy   string
+	ID          string
+	UserID      string
+	Area        string
+	Permissions []string
+	Scope       []int64
+	From        time.Time
+	Until       time.Time
+	GrantedBy   string
+	EndedBy     string
 }
 
 // Covers tells whether the scope includes the procedure type. An empty scope
@@ -68,7 +46,7 @@ func (m Membership) ActiveAt(at time.Time) bool {
 
 // Overlaps tells whether two memberships of the same person would hold at once
 // in the same area with the same scope. A different scope is allowed, so that
-// someone can have a higher profile on some procedure types.
+// someone can have more permissions on some procedure types.
 func (m Membership) Overlaps(other Membership) bool {
 	if m.UserID != other.UserID || m.Area != other.Area || !sameScope(m.Scope, other.Scope) {
 		return false
@@ -85,27 +63,35 @@ func sameScope(a, b []int64) bool {
 	return slices.Equal(slices.Compact(a), slices.Compact(b))
 }
 
-// Permissions is what a person may do at a given moment: only their active
+// Access is what a person may do at a given moment: only their active
 // memberships count. Being an administrator gives no access to procedures.
-type Permissions struct {
+type Access struct {
 	UserID        string
 	Administrator bool
 	Memberships   []Membership
 }
 
-func NewPermissions(userID string, administrator bool, memberships []Membership, at time.Time) Permissions {
+func NewAccess(userID string, administrator bool, memberships []Membership, at time.Time) Access {
 	active := slices.DeleteFunc(slices.Clone(memberships), func(m Membership) bool { return !m.ActiveAt(at) })
-	return Permissions{UserID: userID, Administrator: administrator, Memberships: active}
+	return Access{UserID: userID, Administrator: administrator, Memberships: active}
 }
 
-func (p Permissions) Holds(area string, procedureType int64, profile Profile) bool {
-	return slices.ContainsFunc(p.Memberships, func(m Membership) bool {
-		return m.Area == area && m.Covers(procedureType) && m.Profile.Covers(profile)
-	})
+// Holds tells whether the memberships in the area that cover the procedure
+// type give, together, every permission asked for.
+func (a Access) Holds(area string, procedureType int64, permissions []string) bool {
+	granted := map[string]bool{}
+	for _, m := range a.Memberships {
+		if m.Area == area && m.Covers(procedureType) {
+			for _, p := range m.Permissions {
+				granted[p] = true
+			}
+		}
+	}
+	return len(permissions) > 0 && !slices.ContainsFunc(permissions, func(p string) bool { return !granted[p] })
 }
 
-func (p Permissions) Role() Role {
-	if len(p.Memberships) > 0 {
+func (a Access) Role() Role {
+	if len(a.Memberships) > 0 {
 		return RoleStaff
 	}
 	return RoleApplicant

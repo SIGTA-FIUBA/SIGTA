@@ -20,19 +20,12 @@ const (
 	RoleStaff     Role = "staff"
 )
 
-type Profile string
-
-const (
-	ProfileStaffOperative Profile = "staff_operative"
-	ProfileStaffApprover  Profile = "staff_approver"
-)
-
 type Step struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
 	Role              Role      `json:"role,omitempty"`
 	Area              string    `json:"area,omitempty"`
-	Profile           Profile   `json:"profile,omitempty"`
+	Permissions       []string  `json:"permissions,omitempty"`
 	Action            Action    `json:"action"`
 	Fields            []string  `json:"fields,omitempty"`
 	OptionalFields    []string  `json:"optional_fields,omitempty"`
@@ -71,20 +64,31 @@ func (v stepValidator) owner(s Step) []ValidationProblem {
 		if s.Area != "" {
 			problems = append(problems, ValidationProblem{Code: CodeApplicantWithArea, Value: s.Area})
 		}
-		if s.Profile != "" {
-			problems = append(problems, ValidationProblem{Code: CodeApplicantWithProfile})
+		if len(s.Permissions) > 0 {
+			problems = append(problems, ValidationProblem{Code: CodeApplicantWithPermissions})
 		}
 		if s.Action != ActionEnterData && s.Action != ActionUploadDocument {
 			problems = append(problems, ValidationProblem{Code: CodeApplicantAction})
 		}
 		return problems
 	case RoleStaff:
-		var problems []ValidationProblem
-		if _, ok := v.areas[s.Area]; !ok {
-			problems = append(problems, ValidationProblem{Code: CodeUnknownArea, Value: s.Area})
+		area, ok := v.areas[s.Area]
+		if !ok {
+			return []ValidationProblem{{Code: CodeUnknownArea, Value: s.Area}}
 		}
-		if s.Profile != ProfileStaffOperative && s.Profile != ProfileStaffApprover {
-			problems = append(problems, ValidationProblem{Code: CodeInvalidProfile, Value: string(s.Profile)})
+		if len(s.Permissions) == 0 {
+			return []ValidationProblem{{Code: CodeNoPermissions}}
+		}
+		var problems []ValidationProblem
+		seen := map[string]bool{}
+		for _, id := range s.Permissions {
+			if !area.hasPermission(id) {
+				problems = append(problems, ValidationProblem{Code: CodeUnknownPermission, Value: id, Other: area.ID})
+			}
+			if seen[id] {
+				problems = append(problems, ValidationProblem{Code: CodeRepeatedPermission, Value: id})
+			}
+			seen[id] = true
 		}
 		return problems
 	}

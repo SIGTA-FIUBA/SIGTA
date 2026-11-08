@@ -40,36 +40,36 @@ func NewMembershipService(areas output.AreaRepository, administrators output.Adm
 	}
 }
 
-func (s *MembershipService) Permissions(ctx context.Context, userID string) (domain.Permissions, error) {
+func (s *MembershipService) Access(ctx context.Context, userID string) (domain.Access, error) {
 	administrator, err := s.administrators.IsAdministrator(ctx, userID)
 	if err != nil {
-		return domain.Permissions{}, fmt.Errorf("permissions of %s: %w", userID, err)
+		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
 	memberships, err := s.memberships.ListByUser(ctx, userID)
 	if err != nil {
-		return domain.Permissions{}, fmt.Errorf("permissions of %s: %w", userID, err)
+		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return domain.NewPermissions(userID, administrator, memberships, s.clock()), nil
+	return domain.NewAccess(userID, administrator, memberships, s.clock()), nil
 }
 
 func (s *MembershipService) IsStaff(ctx context.Context, userID string) (bool, error) {
-	p, err := s.Permissions(ctx, userID)
+	p, err := s.Access(ctx, userID)
 	if err != nil {
 		return false, err
 	}
 	return p.Role() == domain.RoleStaff, nil
 }
 
-func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, profile input.Profile) (bool, error) {
-	p, err := s.Permissions(ctx, userID)
+func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, permissions []string) (bool, error) {
+	p, err := s.Access(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return p.Holds(area, procedureType, profile), nil
+	return p.Holds(area, procedureType, permissions), nil
 }
 
 func (s *MembershipService) Reach(ctx context.Context, userID string) ([]input.AreaReach, error) {
-	p, err := s.Permissions(ctx, userID)
+	p, err := s.Access(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +85,14 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 		return domain.Membership{}, err
 	}
 	m := domain.Membership{
-		ID:        s.newID(),
-		UserID:    g.UserID,
-		Area:      g.Area,
-		Profile:   g.Profile,
-		Scope:     slices.Clone(g.Scope),
-		From:      g.From,
-		Until:     g.Until,
-		GrantedBy: administratorID,
+		ID:          s.newID(),
+		UserID:      g.UserID,
+		Area:        g.Area,
+		Permissions: slices.Clone(g.Permissions),
+		Scope:       slices.Clone(g.Scope),
+		From:        g.From,
+		Until:       g.Until,
+		GrantedBy:   administratorID,
 	}
 	if m.From.IsZero() {
 		m.From = s.clock().UTC()
@@ -138,8 +138,8 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
 	}
-	if !m.Profile.Known() {
-		return fmt.Errorf("unknown profile %q", m.Profile)
+	if len(m.Permissions) == 0 {
+		return errors.New("a membership needs at least one permission")
 	}
 	if !m.Until.IsZero() && !m.Until.After(m.From) {
 		return errors.New("a membership has to end after it starts")
@@ -148,8 +148,19 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	if err != nil {
 		return fmt.Errorf("list areas: %w", err)
 	}
-	if !slices.ContainsFunc(areas, func(a domain.Area) bool { return a.ID == m.Area }) {
+	i := slices.IndexFunc(areas, func(a domain.Area) bool { return a.ID == m.Area })
+	if i < 0 {
 		return fmt.Errorf("unknown area %q", m.Area)
+	}
+	seen := map[string]bool{}
+	for _, permission := range m.Permissions {
+		if !areas[i].HasActivePermission(permission) {
+			return fmt.Errorf("area %q has no permission %q", m.Area, permission)
+		}
+		if seen[permission] {
+			return fmt.Errorf("permission %q is listed twice", permission)
+		}
+		seen[permission] = true
 	}
 	existing, err := s.memberships.ListByUser(ctx, m.UserID)
 	if err != nil {

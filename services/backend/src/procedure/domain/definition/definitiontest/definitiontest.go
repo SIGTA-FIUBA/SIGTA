@@ -4,11 +4,17 @@ package definitiontest
 
 import "backend/src/procedure/domain/definition"
 
-// Areas returns two staff areas: the applicant has none.
+// Areas returns two staff areas with their permissions: the applicant has
+// none.
 func Areas() []definition.Area {
 	return []definition.Area{
-		{ID: "office", Name: "Dirección de Alumnos"},
-		{ID: "commission", Name: "Comisión Curricular"},
+		{ID: "office", Name: "Dirección de Alumnos", Permissions: []definition.Permission{
+			{ID: "review", Name: "Revisar"},
+			{ID: "approve", Name: "Aprobar"},
+		}},
+		{ID: "commission", Name: "Comisión Curricular", Permissions: []definition.Permission{
+			{ID: "evaluate", Name: "Evaluar"},
+		}},
 	}
 }
 
@@ -23,11 +29,11 @@ func Definition() definition.ProcedureTypeDefinition {
 		Steps: []definition.Step{
 			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
 			{ID: "letter", Name: "Carta", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
-			{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
+			{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
 				{ID: "complete", Name: "Completa", Next: "closed"},
 				{ID: "incomplete", Name: "Incompleta", Next: "letter"},
 			}},
-			{ID: "closed", Name: "Archivado", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
+			{ID: "closed", Name: "Archivado", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 		},
 	}
 }

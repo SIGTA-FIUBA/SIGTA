@@ -53,7 +53,7 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 		if err := decodeStrict(v.EncodedContent, &legacy); err != nil {
 			return Content{}, err
 		}
-		return legacy.convert()
+		return legacy.convert(), nil
 	}
 	var c Content
 	if err := decodeStrict(v.EncodedContent, &c); err != nil {

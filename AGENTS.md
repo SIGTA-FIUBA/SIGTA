@@ -34,7 +34,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
 | Secretario | staff | Rol del personal: quien tiene al menos una membresía vigente (ADR-020) | Titular: los roles se excluyen y el personal no inicia trámites |
-| Membresía | membership | Pertenencia de una persona a un área, con perfil `staff_operative` o `staff_approver`, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
+| Membresía | membership | Pertenencia de una persona a un área, con algunos permisos de esa área, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
 | Administrador | administrator | Marca sobre una persona que le permite dar de alta membresías | Un rol: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
@@ -60,7 +60,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 - **Historial de acciones** en una tabla que solo crece, escrita en la misma transacción que el estado. Sin event sourcing.
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
 - **Cada servicio es dueño de sus datos.** Comparten la instancia de PostgreSQL pero no los esquemas; ninguno lee las tablas del otro.
-- **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; roles, áreas y perfiles se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.
+- **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; áreas, permisos y membresías se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.
 - **Interfaz:** componentes de Mantine, con el aspecto definido solo en `web/src/theme/theme.ts` (ADR-015). Las reglas de diseño y su motivo están en [web/DESIGN.md](web/DESIGN.md), y el lint rechaza estilos, colores y medidas fuera del tema.
 - **No sumar componentes** (NATS, S3, gateway, observabilidad completa) sin que se cumpla su disparador, listado en la sección "Evolución" del README.
 

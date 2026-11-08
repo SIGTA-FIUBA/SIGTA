@@ -37,7 +37,7 @@ El trámite empieza en el primer paso. Cada paso tiene un rol (`role`), que dice
 | `confirm_external_fact` | Confirmar un hecho ocurrido fuera de SIGTA, como una carátula o una firma en el expediente electrónico | `fields` y `optional_fields`, si hace falta registrar algo, como el número de expediente |
 | `decide` | Elegir una salida | `outcomes`, al menos dos, cada una con su `next`; y, si hacen falta, los `fields` y `documents` que fundamentan la decisión, como el acta |
 
-- Un paso es del titular (`role: applicant`) o del personal (`role: staff`). Las áreas son solo del personal: un paso del titular no lleva `area` ni `profile`, y solo carga datos o documentos. Un paso del personal lleva `area`, una de las áreas creadas en SIGTA, y `profile`. Por convención, `staff_operative` es para una tarea y `staff_approver` para una aprobación; el código no lo valida, y lo que distingue una aprobación es el perfil, no la acción.
+- Un paso es del titular (`role: applicant`) o del personal (`role: staff`). Las áreas son solo del personal: un paso del titular no lleva `area` ni `permissions`, y solo carga datos o documentos. Un paso del personal lleva `area`, una de las áreas creadas en SIGTA, y `permissions`, los permisos de esa área que exige (al menos uno): para hacerlo hay que tenerlos todos. Los permisos los crea el administrador en cada área, con el nombre que quiera, y el código no les da significado: lo que distingue una aprobación es el permiso que exige, no la acción.
 - Un paso sin `next` ni `outcomes` cierra el trámite.
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
 - Un paso del personal tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
@@ -55,7 +55,7 @@ Se rechaza:
 
 - `id` vacío, repetido o fuera del formato: minúsculas ASCII, dígitos y guiones bajos, empezando por una letra. Así dos `id` que se ven iguales son el mismo.
 - Nombres vacíos o con espacios al principio o al final.
-- Tipos de dato o roles desconocidos, perfiles desconocidos, un paso del personal sin área o sin perfil, y un paso del titular con área o con perfil.
+- Tipos de dato o roles desconocidos, un paso del personal sin área, sin permisos o con un permiso que su área no tiene, y un paso del titular con área o con permisos.
 - Opciones fuera de un dato `option`, un dato `option` sin opciones, u opciones con `id` o nombre repetido.
 - Salidas de una decisión con `id` o nombre repetido.
 - Referencias a áreas, datos, documentos o pasos que no existen, o referencias repetidas en un paso.

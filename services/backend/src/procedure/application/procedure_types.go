@@ -85,7 +85,11 @@ func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definit
 	}
 	areas := make([]definition.Area, 0, len(staff))
 	for _, a := range staff {
-		areas = append(areas, definition.Area{ID: a.ID, Name: a.Name})
+		area := definition.Area{ID: a.ID, Name: a.Name}
+		for _, p := range a.Permissions {
+			area.Permissions = append(area.Permissions, definition.Permission{ID: p.ID, Name: p.Name})
+		}
+		areas = append(areas, area)
 	}
 	return areas, nil
 }

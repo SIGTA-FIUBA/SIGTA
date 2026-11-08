@@ -33,7 +33,7 @@ type catalogWorld struct {
 
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
-	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría"})
+	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "register", Name: "Registrar"}}})
 	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
 	world := &catalogWorld{
 		service: application.NewProcedureTypeService(versions, auth, time.Now),
@@ -98,8 +98,8 @@ func catalogDefinition(name, description string) definition.ProcedureTypeDefinit
 		Steps: []definition.Step{
 			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
-			{ID: "ruling", Name: "Dictamen", Role: definition.RoleStaff, Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
-			{ID: "record", Name: "Registro", Role: definition.RoleStaff, Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact, Fields: []string{"file_number"}},
+			{ID: "ruling", Name: "Dictamen", Role: definition.RoleStaff, Area: "secretaria", Permissions: []string{"register"}, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
+			{ID: "record", Name: "Registro", Role: definition.RoleStaff, Area: "secretaria", Permissions: []string{"register"}, Action: definition.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
 	}
 }

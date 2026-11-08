@@ -17,7 +17,16 @@ type AreaRepository struct {
 }
 
 func NewAreaRepository(areas ...domain.Area) *AreaRepository {
-	return &AreaRepository{areas: slices.Clone(areas)}
+	r := &AreaRepository{}
+	for _, a := range areas {
+		r.areas = append(r.areas, cloneArea(a))
+	}
+	return r
+}
+
+func cloneArea(a domain.Area) domain.Area {
+	a.Permissions = slices.Clone(a.Permissions)
+	return a
 }
 
 func (r *AreaRepository) List(context.Context) ([]domain.Area, error) {
@@ -26,7 +35,7 @@ func (r *AreaRepository) List(context.Context) ([]domain.Area, error) {
 	var active []domain.Area
 	for _, a := range r.areas {
 		if !a.Deleted() {
-			active = append(active, a)
+			active = append(active, cloneArea(a))
 		}
 	}
 	return active, nil
@@ -39,16 +48,16 @@ func (r *AreaRepository) Get(_ context.Context, id string) (domain.Area, error) 
 	if i < 0 {
 		return domain.Area{}, domain.ErrAreaNotFound
 	}
-	return r.areas[i], nil
+	return cloneArea(r.areas[i]), nil
 }
 
 func (r *AreaRepository) Save(_ context.Context, a domain.Area) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if i := slices.IndexFunc(r.areas, func(q domain.Area) bool { return q.ID == a.ID }); i >= 0 {
-		r.areas[i] = a
+		r.areas[i] = cloneArea(a)
 		return nil
 	}
-	r.areas = append(r.areas, a)
+	r.areas = append(r.areas, cloneArea(a))
 	return nil
 }

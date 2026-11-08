@@ -62,17 +62,20 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^the staff areas "([^"]*)" and "([^"]*)"$`, w.givenStaffAreas)
 	sc.Given(`^a published "([^"]*)" procedure type with these steps:$`, w.givenProcedureType)
 	sc.Given(`^"([^"]*)" is an administrator$`, w.givenAdministrator)
+	sc.Given(`^the area "([^"]*)" has the permissions? (.+)$`, w.givenAreaPermissions)
 	sc.Given(`^SIGTA has these memberships:$`, w.givenMemberships)
-	sc.Given(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the "([^"]*)" profile until "([^"]*)"$`, w.givenMembershipUntil)
+	sc.Given(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)" until "([^"]*)"$`, w.givenMembershipUntil)
 	sc.Given(`^a "([^"]*)" procedure whose open step is "([^"]*)"$`, w.givenProcedureOn)
 	sc.Given(`^a "([^"]*)" procedure$`, w.givenProcedure)
 	sc.Given(`^"([^"]*)" has a "([^"]*)" procedure$`, w.givenOwnProcedure)
 
-	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the "([^"]*)" profile(?: on "([^"]*)")?$`, w.grant)
+	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)"(?: on "([^"]*)")?$`, w.grant)
 	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
 	sc.When(`^it is "([^"]*)"$`, w.itIs)
 	sc.When(`^"([^"]*)" creates the area "([^"]*)" named "([^"]*)"$`, w.createArea)
 	sc.When(`^"([^"]*)" deletes the area "([^"]*)"$`, w.deleteArea)
+	sc.When(`^"([^"]*)" creates the permission "([^"]*)" named "([^"]*)" in "([^"]*)"$`, w.createPermission)
+	sc.When(`^"([^"]*)" deletes the permission "([^"]*)" of "([^"]*)"$`, w.deletePermission)
 	sc.When(`^"([^"]*)" starts a "([^"]*)" procedure$`, w.start)
 	sc.When(`^"([^"]*)" acts on that step$`, w.actOnOpenStep)
 	sc.When(`^"([^"]*)" sends the approval directly to the API$`, w.sendApproval)
@@ -84,8 +87,10 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the area is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^the area is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidArea))
 	sc.Then(`^the area "([^"]*)" records that "([^"]*)" deleted it$`, w.thenAreaDeletedBy)
-	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)"$`, w.thenCanGrant)
-	sc.Then(`^a procedure type with a step in "([^"]*)" can be published$`, w.thenPublishesWithArea)
+	sc.Then(`^the permission is denied$`, w.thenFails(authdomain.ErrAccessDenied))
+	sc.Then(`^the permission is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidPermission))
+	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)"$`, w.thenCanGrant)
+	sc.Then(`^a procedure type with a step in "([^"]*)" that asks for "([^"]*)" can be published$`, w.thenPublishesWithArea)
 	sc.Then(`^the procedure is started$`, w.thenStarted)
 	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
 	sc.Then(`^"([^"]*)" cannot start a "([^"]*)" procedure$`, w.thenCannotStart)
@@ -192,12 +197,12 @@ func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table)
 	for _, row := range table.Rows[1:] {
 		id := row.Cells[0].Value
 		w.steps[name] = append(w.steps[name], definition.Step{
-			ID:      id,
-			Name:    id,
-			Role:    definition.RoleStaff,
-			Area:    areaID(row.Cells[1].Value),
-			Profile: definition.Profile(row.Cells[2].Value),
-			Action:  definition.ActionConfirmExternalFact,
+			ID:          id,
+			Name:        id,
+			Role:        definition.RoleStaff,
+			Area:        areaID(row.Cells[1].Value),
+			Permissions: list(row.Cells[2].Value),
+			Action:      definition.ActionConfirmExternalFact,
 		})
 	}
 	return w.publish(name, "Descripción de "+name)
@@ -217,10 +222,10 @@ func (w *authorizationWorld) givenAdministrator(user string) error {
 func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		_, err := w.memberships.Grant(context.Background(), "admin@fi.uba.ar", authinput.MembershipGrant{
-			UserID:  row.Cells[0].Value,
-			Area:    areaID(row.Cells[1].Value),
-			Profile: authdomain.Profile(row.Cells[2].Value),
-			Scope:   w.scope(row.Cells[3].Value),
+			UserID:      row.Cells[0].Value,
+			Area:        areaID(row.Cells[1].Value),
+			Permissions: list(row.Cells[2].Value),
+			Scope:       w.scope(row.Cells[3].Value),
 		})
 		if err != nil {
 			return err
@@ -229,16 +234,16 @@ func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	return nil
 }
 
-func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, profile, until string) error {
+func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, permissions, until string) error {
 	end, err := time.Parse(time.DateOnly, until)
 	if err != nil {
 		return err
 	}
 	_, err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
-		UserID:  user,
-		Area:    areaID(area),
-		Profile: authdomain.Profile(profile),
-		Until:   end,
+		UserID:      user,
+		Area:        areaID(area),
+		Permissions: list(permissions),
+		Until:       end,
 	})
 	return err
 }
@@ -273,13 +278,13 @@ func (w *authorizationWorld) givenOwnProcedure(user, name string) error {
 	return nil
 }
 
-func (w *authorizationWorld) grant(administrator, user, area, profile, scope string) {
+func (w *authorizationWorld) grant(administrator, user, area, permissions, scope string) {
 	w.user = administrator
 	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
-		UserID:  user,
-		Area:    areaID(area),
-		Profile: authdomain.Profile(profile),
-		Scope:   w.scope(scope),
+		UserID:      user,
+		Area:        areaID(area),
+		Permissions: list(permissions),
+		Scope:       w.scope(scope),
 	})
 }
 
@@ -501,6 +506,37 @@ func (w *authorizationWorld) deleteArea(administrator, name string) {
 
 var quoted = regexp.MustCompile(`"([^"]*)"`)
 
+// list reads "a, b" as the permissions a and b, and "" as none.
+func list(cell string) []string {
+	var items []string
+	for _, item := range strings.Split(cell, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// givenAreaPermissions creates each quoted permission, named as its ID.
+func (w *authorizationWorld) givenAreaPermissions(area, permissions string) error {
+	for _, m := range quoted.FindAllStringSubmatch(permissions, -1) {
+		if _, err := w.areas.CreatePermission(context.Background(), "admin@fi.uba.ar", areaID(area), authdomain.Permission{ID: m[1], Name: m[1]}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *authorizationWorld) createPermission(administrator, id, name, area string) {
+	w.user = administrator
+	_, w.err = w.areas.CreatePermission(context.Background(), administrator, areaID(area), authdomain.Permission{ID: id, Name: name})
+}
+
+func (w *authorizationWorld) deletePermission(administrator, id, area string) {
+	w.user = administrator
+	w.err = w.areas.DeletePermission(context.Background(), administrator, areaID(area), id)
+}
+
 func (w *authorizationWorld) thenAreas(list string) error {
 	var want []string
 	for _, m := range quoted.FindAllStringSubmatch(list, -1) {
@@ -531,11 +567,11 @@ func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error
 	return nil
 }
 
-func (w *authorizationWorld) thenCanGrant(administrator, can, user, area string) error {
+func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, permissions string) error {
 	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
-		UserID:  user,
-		Area:    areaID(area),
-		Profile: authdomain.ProfileStaffOperative,
+		UserID:      user,
+		Area:        areaID(area),
+		Permissions: list(permissions),
 	})
 	if can == "can" {
 		return err
@@ -546,14 +582,14 @@ func (w *authorizationWorld) thenCanGrant(administrator, can, user, area string)
 	return nil
 }
 
-func (w *authorizationWorld) thenPublishesWithArea(area string) error {
+func (w *authorizationWorld) thenPublishesWithArea(area, permissions string) error {
 	w.steps["new procedure type"] = []definition.Step{{
-		ID:      "review",
-		Name:    "Revisión",
-		Role:    definition.RoleStaff,
-		Area:    areaID(area),
-		Profile: definition.ProfileStaffOperative,
-		Action:  definition.ActionConfirmExternalFact,
+		ID:          "review",
+		Name:        "Revisión",
+		Role:        definition.RoleStaff,
+		Area:        areaID(area),
+		Permissions: list(permissions),
+		Action:      definition.ActionConfirmExternalFact,
 	}}
 	return w.publish("new procedure type", "Descripción del trámite nuevo")
 }

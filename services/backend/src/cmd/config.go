@@ -134,9 +134,9 @@ type userEntry struct {
 }
 
 type membershipEntry struct {
-	Area    string  `json:"area"`
-	Profile string  `json:"profile"`
-	Scope   []int64 `json:"scope,omitempty"`
+	Area        string   `json:"area"`
+	Permissions []string `json:"permissions"`
+	Scope       []int64  `json:"scope,omitempty"`
 }
 
 // people is what SIGTA_USERS_FILE loads, until users and memberships are
@@ -162,9 +162,9 @@ func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) 
 		return people{}, fmt.Errorf("%s: %w", path, err)
 	}
 
-	known := map[string]bool{}
+	known := map[string]domain.Area{}
 	for _, a := range areas {
-		known[a.ID] = true
+		known[a.ID] = a
 	}
 	ids, emails := map[string]bool{}, map[string]bool{}
 	var problems []error
@@ -186,18 +186,21 @@ func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) 
 		}
 		for j, m := range e.Memberships {
 			membership := domain.Membership{
-				ID:        fmt.Sprintf("%s-%d", user.ID, j+1),
-				UserID:    user.ID,
-				Area:      m.Area,
-				Profile:   domain.Profile(m.Profile),
-				Scope:     m.Scope,
-				GrantedBy: "SIGTA_USERS_FILE",
+				ID:          fmt.Sprintf("%s-%d", user.ID, j+1),
+				UserID:      user.ID,
+				Area:        m.Area,
+				Permissions: m.Permissions,
+				Scope:       m.Scope,
+				GrantedBy:   "SIGTA_USERS_FILE",
 			}
+			area, knownArea := known[membership.Area]
 			switch {
-			case !known[membership.Area]:
+			case !knownArea:
 				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown area %q", i, j+1, m.Area))
-			case !membership.Profile.Known():
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown profile %q", i, j+1, m.Profile))
+			case len(m.Permissions) == 0:
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: no permissions", i, j+1))
+			case slices.ContainsFunc(m.Permissions, func(p string) bool { return !area.HasActivePermission(p) }):
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: area %q lacks one of the permissions %v", i, j+1, m.Area, m.Permissions))
 			case slices.ContainsFunc(loaded.memberships, membership.Overlaps):
 				problems = append(problems, fmt.Errorf("entry %d: membership %d: repeats area %q with the same scope", i, j+1, m.Area))
 			}

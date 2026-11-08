@@ -6,21 +6,23 @@ Feature: Profiles and authorization
 
   Background:
     Given the staff areas "student affairs" and "curricular commission"
+    And the area "student affairs" has the permissions "verify" and "approve"
+    And the area "curricular commission" has the permission "evaluate"
     And a published "subject equivalence" procedure type with these steps:
-      | step     | area                  | profile         |
-      | verify   | student affairs       | staff_operative |
-      | evaluate | curricular commission | staff_operative |
-      | approve  | student affairs       | staff_approver  |
+      | step     | area                  | permissions |
+      | verify   | student affairs       | verify      |
+      | evaluate | curricular commission | evaluate    |
+      | approve  | student affairs       | approve     |
     And a published "credit recognition" procedure type with these steps:
-      | step   | area            | profile         |
-      | verify | student affairs | staff_operative |
+      | step   | area            | permissions |
+      | verify | student affairs | verify      |
     And "admin@fi.uba.ar" is an administrator
     And SIGTA has these memberships:
-      | staff                | area                  | profile         | scope              |
-      | operative@fi.uba.ar  | student affairs       | staff_operative |                    |
-      | approver@fi.uba.ar   | student affairs       | staff_approver  |                    |
-      | commission@fi.uba.ar | curricular commission | staff_operative |                    |
-      | scoped@fi.uba.ar     | student affairs       | staff_operative | credit recognition |
+      | staff                | area                  | permissions     | scope              |
+      | operative@fi.uba.ar  | student affairs       | verify          |                    |
+      | approver@fi.uba.ar   | student affairs       | verify, approve |                    |
+      | commission@fi.uba.ar | curricular commission | evaluate        |                    |
+      | scoped@fi.uba.ar     | student affairs       | verify          | credit recognition |
 
   Scenario: anyone who signs in is an applicant by default
     When "new@fi.uba.ar" starts a "subject equivalence" procedure
@@ -31,31 +33,34 @@ Feature: Profiles and authorization
     Then the procedure is not started
 
   Scenario: a membership turns an applicant into staff
-    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the permission "verify"
     Then the membership is granted by "admin@fi.uba.ar" from now on
     And "new@fi.uba.ar" cannot start a "subject equivalence" procedure
 
   Scenario: only an administrator grants memberships
-    When "approver@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile
+    When "approver@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the permission "verify"
     Then the membership is denied
 
-  Scenario Outline: a membership needs a staff area and a known profile
-    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "<area>" with the "<profile>" profile on "<scope>"
+  Scenario Outline: a membership needs a staff area and permissions of that area
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "<area>" with the permissions "<permissions>" on "<scope>"
     Then the membership is not granted
 
     Examples:
-      | area            | profile         | scope              |
-      | unknown area    | staff_operative |                    |
-      | applicant       | staff_operative |                    |
-      | student affairs | supervisor      |                    |
+      | area            | permissions    | scope |
+      | unknown area    | verify         |       |
+      | applicant       | verify         |       |
+      | student affairs | supervise      |       |
+      | student affairs | evaluate       |       |
+      | student affairs |                |       |
+      | student affairs | verify, verify |       |
 
   Scenario: a person has one membership per area and scope
-    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the "staff_approver" profile
+    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the permission "approve"
     Then the membership is not granted
 
-  Scenario: a membership with a narrower scope raises the profile on those procedure types
+  Scenario: a membership with a narrower scope adds permissions on those procedure types
     Given a "subject equivalence" procedure whose open step is "approve"
-    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the "staff_approver" profile on "subject equivalence"
+    When "admin@fi.uba.ar" grants "operative@fi.uba.ar" a membership in "student affairs" with the permission "approve" on "subject equivalence"
     And "operative@fi.uba.ar" acts on that step
     Then the action is allowed
 
@@ -94,7 +99,7 @@ Feature: Profiles and authorization
     Then the procedure is started
 
   Scenario Outline: a membership with an end date holds until then
-    Given "admin@fi.uba.ar" grants "substitute@fi.uba.ar" a membership in "student affairs" with the "staff_operative" profile until "2026-11-10"
+    Given "admin@fi.uba.ar" grants "substitute@fi.uba.ar" a membership in "student affairs" with the permission "verify" until "2026-11-10"
     And a "subject equivalence" procedure whose open step is "verify"
     When it is "<date>"
     And "substitute@fi.uba.ar" acts on that step
@@ -119,7 +124,20 @@ Feature: Profiles and authorization
     Then they see 1 procedure
     And it is a "credit recognition" procedure
 
-  Scenario: an operative profile is not offered approval actions
+  Scenario Outline: a step that asks for several permissions needs all of them
+    Given a published "joint review" procedure type with these steps:
+      | step   | area            | permissions     |
+      | review | student affairs | verify, approve |
+    And a "joint review" procedure whose open step is "review"
+    When "<user>" acts on that step
+    Then the action is <result>
+
+    Examples:
+      | user                | result  |
+      | operative@fi.uba.ar | denied  |
+      | approver@fi.uba.ar  | allowed |
+
+  Scenario: staff without the permission of a step are not offered it
     Given a "subject equivalence" procedure whose open step is "approve"
     When "operative@fi.uba.ar" opens that procedure
     Then the procedure is shown

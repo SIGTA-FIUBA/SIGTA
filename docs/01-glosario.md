@@ -24,14 +24,14 @@ Instancia concreta de un tipo de trámite, iniciada por un titular. Tiene un tit
 Forma general que toma la secuencia de pasos de un tipo de trámite. **Ninguno de los cinco trámites se resuelve íntegramente dentro del área**: todos salen hacia al menos un evaluador externo y vuelven. Lo que diferencia un circuito de otro es cuántos evaluadores intervienen y cuántas idas y vueltas hay.
 
 **Paso**
-Unidad mínima de avance dentro de un trámite. Tiene un área responsable, un perfil salvo en los pasos del titular, una acción y lo que se registró al cumplirlo. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
+Unidad mínima de avance dentro de un trámite. Es del titular o del personal; los del personal tienen un área y los permisos de esa área que exigen. Tiene una acción y lo que se registró al cumplirlo. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
 
 **Acción de un paso**
 Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuitos:
 - *Cargar dato* (`enter_data`): alguien completa uno o más datos.
 - *Cargar documento* (`upload_document`): alguien adjunta uno o más archivos.
 - *Confirmar hecho externo* (`confirm_external_fact`): alguien declara que algo pasó fuera de la plataforma, como una carátula, una firma o una carga en SIU Guaraní. Queda registrada la declaración, no el hecho. **La plataforma no implementa firma digital con validez legal.**
-- *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso con perfil de aprobación: lo que la distingue es el perfil, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
+- *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso que exige un permiso de aprobación: lo que la distingue es el permiso, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
 
 **Salida** (`outcome`)
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
@@ -69,11 +69,11 @@ Persona de la Secretaría que ejecuta una acción en un sistema externo y la reg
 **Rol**
 Cada uno de los dos tipos de persona usuaria de la plataforma, que se excluyen entre sí: **titular del trámite** (`applicant`) y **personal** (`staff`, el Secretario del mapa de usuario). No se guardan: es personal quien tiene al menos una membresía vigente, y titular cualquier otra persona que ingresa (ADR-020). Solo el titular inicia trámites.
 
-**Perfil**
-Rango del personal dentro de un área, que da su membresía. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma, y cubre los pasos operativos. En el mapa de usuario son un solo rol; en permisos se distinguen.
+**Permiso**
+Habilitación que pertenece a un área del personal y que exigen los pasos de esa área, como "Verificar documentación" o "Aprobar dictamen". El administrador los crea a gusto en cada área y los asigna en las membresías; ningún permiso cubre a otro (ADR-020). Reemplaza a los perfiles fijos operativo y de aprobación.
 
 **Membresía**
-Pertenencia de una persona a un área, con un perfil. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-020).
+Pertenencia de una persona a un área, con algunos de los permisos de esa área. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-020).
 
 **Administrador**
 Marca sobre una persona que le permite otorgar y dar de baja membresías. No es un rol ni da acceso a los trámites: para actuar sobre ellos necesita una membresía.

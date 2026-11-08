@@ -50,15 +50,16 @@ Feature: Define and publish a procedure type
     And the problem is reported
 
     Examples:
-      | problem                                  |
-      | a step with an action outside the four   |
-      | a step in an unknown area                |
-      | a reference to an undeclared document    |
-      | a step unreachable from the first one    |
-      | a step that never reaches a closing step |
-      | a field no step uses                     |
-      | a staff step without a profile           |
-      | an applicant step in a staff area        |
+      | problem                                                  |
+      | a step with an action outside the four                   |
+      | a step in an unknown area                                |
+      | a reference to an undeclared document                    |
+      | a step unreachable from the first one                    |
+      | a step that never reaches a closing step                 |
+      | a field no step uses                                     |
+      | a staff step without permissions                         |
+      | a step that asks for a permission its area does not have |
+      | an applicant step in a staff area                        |
 
   Scenario: a procedure in progress keeps its version
     Given a procedure that started with version 1 of "subject equivalence"

@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	office      = authdomain.Area{ID: "office", Name: "Secretaría"}
+	office      = authdomain.Area{ID: "office", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}}}
 	publishedAt = time.Date(2026, 11, 1, 12, 0, 0, 123456789, time.UTC)
 	authors     = version.Authorship{ProposedBy: "ana", ApprovedBy: "beto"}
 	errStore    = errors.New("store unavailable")
@@ -176,7 +176,7 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	areas := authmem.NewAreaRepository(office)
 	reviewed := testDefinition()
 	reviewed.Steps[0].Next = "review"
-	reviewed.Steps = append(reviewed.Steps, definition.Step{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact})
+	reviewed.Steps = append(reviewed.Steps, definition.Step{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact})
 	if _, err := newServiceOn(versions, areas).Publish(ctx, publication(1, 0, reviewed)); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
@@ -197,7 +197,7 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeContent() = %v", err)
 	}
-	if want := []definition.Area{{ID: "office", Name: "Secretaría"}}; !reflect.DeepEqual(c.Areas, want) {
+	if want := []definition.Area{{ID: "office", Name: "Secretaría", Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}}}}; !reflect.DeepEqual(c.Areas, want) {
 		t.Errorf("version 1 areas = %v, want the previous name %v", c.Areas, want)
 	}
 }

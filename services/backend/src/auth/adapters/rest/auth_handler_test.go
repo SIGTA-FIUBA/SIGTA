@@ -40,9 +40,9 @@ func newServer(t *testing.T) *httptest.Server {
 		memory.NewSessionStore(),
 		time.Now,
 	)
-	areaRepository := memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría"})
+	areaRepository := memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}})
 	administrators := memory.NewAdministrators("u3")
-	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Profile: domain.ProfileStaffOperative})
+	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Permissions: []string{"review"}})
 	areas := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, func() string { return "m2" }, time.Now)
 	server := rest.NewAuthHandler(auth, memberships, srv.URL+"/me", srv.URL+"/login", false)

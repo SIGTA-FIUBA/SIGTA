@@ -118,7 +118,7 @@ func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUser
 	if err != nil {
 		return nil, err
 	}
-	permissions, err := h.memberships.Permissions(ctx, user.ID)
+	access, err := h.memberships.Access(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +126,8 @@ func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUser
 		Id:            user.ID,
 		Email:         openapi_types.Email(user.Email),
 		Name:          user.Name,
-		Role:          api.Role(permissions.Role()),
-		Administrator: permissions.Administrator,
+		Role:          api.Role(access.Role()),
+		Administrator: access.Administrator,
 	}, nil
 }
 

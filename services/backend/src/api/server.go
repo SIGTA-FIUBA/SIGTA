@@ -23,6 +23,7 @@ type CatalogServer interface {
 type AdministrationServer interface {
 	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
 	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
+	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
 }
 
 // A test that only calls one module can leave the others nil.

@@ -127,14 +127,14 @@ func validDefinition(name string) definition.ProcedureTypeDefinition {
 			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
 			{
-				ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide,
+				ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"review"}, Action: definition.ActionDecide,
 				Outcomes: []definition.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				},
 			},
-			{ID: "evaluation", Name: "Evaluación", Role: definition.RoleStaff, Area: "curricular_commission", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
-			{ID: "signature", Name: "Firma", Role: definition.RoleStaff, Area: "student_affairs", Profile: definition.ProfileStaffApprover, Action: definition.ActionConfirmExternalFact},
+			{ID: "evaluation", Name: "Evaluación", Role: definition.RoleStaff, Area: "curricular_commission", Permissions: []string{"evaluate"}, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
+			{ID: "signature", Name: "Firma", Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"sign"}, Action: definition.ActionConfirmExternalFact},
 		},
 	}
 }
@@ -164,15 +164,16 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 	}
 }
 
-// givenAreas stores the staff areas in auth. The applicant has no area.
+// givenAreas stores the staff areas in auth, the first one with permissions to
+// review and sign and the second one to evaluate. The applicant has no area.
 func (w *procedureTypeWorld) givenAreas(office, other string) error {
 	w.areas = authmem.NewAreaRepository(
-		authdomain.Area{ID: areaID(office), Name: office},
-		authdomain.Area{ID: areaID(other), Name: other},
+		authdomain.Area{ID: areaID(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		authdomain.Area{ID: areaID(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	)
 	w.stepAreas = []definition.Area{
-		{ID: areaID(office), Name: office},
-		{ID: areaID(other), Name: other},
+		{ID: areaID(office), Name: office, Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		{ID: areaID(other), Name: other, Permissions: []definition.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	}
 	return nil
 }
@@ -272,7 +273,7 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 		d.Steps[document].Documents = []string{"transcript", "undeclared"}
 		w.problem = definition.CodeUnknownDocument
 	case "a step unreachable from the first one":
-		d.Steps = append(d.Steps, definition.Step{ID: "orphan", Name: extraName, Role: definition.RoleStaff, Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact})
+		d.Steps = append(d.Steps, definition.Step{ID: "orphan", Name: extraName, Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact})
 		w.problem = definition.CodeUnreachableStep
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
@@ -280,9 +281,12 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	case "a field no step uses":
 		d.Fields = append(d.Fields, definition.Field{ID: "unused", Name: extraName, Type: definition.FieldText})
 		w.problem = definition.CodeUnusedField
-	case "a staff step without a profile":
-		d.Steps[decision].Profile = ""
-		w.problem = definition.CodeInvalidProfile
+	case "a staff step without permissions":
+		d.Steps[decision].Permissions = nil
+		w.problem = definition.CodeNoPermissions
+	case "a step that asks for a permission its area does not have":
+		d.Steps[decision].Permissions = []string{"evaluate"}
+		w.problem = definition.CodeUnknownPermission
 	case "an applicant step in a staff area":
 		d.Steps[0].Area = "student_affairs"
 		w.problem = definition.CodeApplicantWithArea

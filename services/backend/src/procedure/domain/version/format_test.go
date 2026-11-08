@@ -36,17 +36,17 @@ func formatOneContent() version.Content {
 			Steps: []definition.Step{
 				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name", "degree", "subjects"}, OptionalFields: []string{"reason"}, Next: "documents"},
 				{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"id_card"}, OptionalDocuments: []string{"transcript"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide, Fields: []string{"shift"}, Outcomes: []definition.Outcome{
+				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"staff_operative"}, Action: definition.ActionDecide, Fields: []string{"shift"}, Outcomes: []definition.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				}},
-				{ID: "evaluation", Name: "Evaluación", Role: definition.RoleStaff, Area: "commission", Profile: definition.ProfileStaffApprover, Action: definition.ActionUploadDocument, Documents: []string{"minutes"}, Next: "signature"},
-				{ID: "signature", Name: "Firma", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffApprover, Action: definition.ActionConfirmExternalFact, Fields: []string{"signed_on"}, OptionalFields: []string{"credits"}},
+				{ID: "evaluation", Name: "Evaluación", Role: definition.RoleStaff, Area: "commission", Permissions: []string{"staff_approver"}, Action: definition.ActionUploadDocument, Documents: []string{"minutes"}, Next: "signature"},
+				{ID: "signature", Name: "Firma", Role: definition.RoleStaff, Area: "office", Permissions: []string{"staff_approver"}, Action: definition.ActionConfirmExternalFact, Fields: []string{"signed_on"}, OptionalFields: []string{"credits"}},
 			},
 		},
 		Areas: []definition.Area{
-			{ID: "commission", Name: "Comisión Curricular"},
-			{ID: "office", Name: "Dirección de Alumnos"},
+			{ID: "commission", Name: "Comisión Curricular", Permissions: []definition.Permission{{ID: "staff_approver", Name: "Aprobación"}}},
+			{ID: "office", Name: "Dirección de Alumnos", Permissions: []definition.Permission{{ID: "staff_approver", Name: "Aprobación"}, {ID: "staff_operative", Name: "Operativo"}}},
 		},
 	}
 }
@@ -64,8 +64,9 @@ func formatTwoContent() version.Content {
 	return content
 }
 
-// formatThreeContent uses every key of format 3: the role of each step, and
-// areas only for staff.
+// formatThreeContent uses every key of format 3: the role of each step, areas
+// only for staff, and the permissions of the area that each staff step asks
+// for.
 func formatThreeContent() version.Content {
 	return formatTwoContent()
 }

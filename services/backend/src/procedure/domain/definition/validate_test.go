@@ -34,10 +34,11 @@ func TestValidDefinitions(t *testing.T) {
 			d.Fields[0].Type = definition.FieldOption
 			d.Fields[0].Options = []definition.Option{{ID: "yes", Name: "Sí"}, {ID: "no", Name: "No"}}
 		}},
-		{name: "external area with approver", change: func(d *definition.ProcedureTypeDefinition) {
+		{name: "step of another area with its permission", change: func(d *definition.ProcedureTypeDefinition) {
 			d.Steps[3].Area = "commission"
-			d.Steps[3].Profile = definition.ProfileStaffApprover
+			d.Steps[3].Permissions = []string{"evaluate"}
 		}},
+		{name: "step that asks for two permissions", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Permissions = []string{"review", "approve"} }},
 		{name: "confirmation with fields", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Fields = []string{"national_id"} }},
 		{name: "only optional fields", change: func(d *definition.ProcedureTypeDefinition) {
 			d.Steps[0].OptionalFields = d.Steps[0].Fields
@@ -94,13 +95,10 @@ func TestInvalidDefinitions(t *testing.T) {
 			`step "letter" is declared twice`,
 			`step "review": outcome "complete": unknown next step "closed"`,
 		}},
-		{name: "office step without profile", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Profile = "" }, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
-		{name: "external step without profile", change: func(d *definition.ProcedureTypeDefinition) {
-			d.Steps[3].Area = "commission"
-			d.Steps[3].Profile = ""
-		}, want: []string{`step "closed": profile "" must be staff_operative or staff_approver`}},
-		{name: "unknown profile", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Profile = "boss" }, want: []string{`step "closed": profile "boss" must be staff_operative or staff_approver`}},
-		{name: "applicant step with profile", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].Profile = definition.ProfileStaffApprover }, want: []string{`step "request": steps of the applicant have no profile`}},
+		{name: "staff step without permissions", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Permissions = nil }, want: []string{`step "closed": staff steps ask for at least one permission`}},
+		{name: "permission of another area", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Permissions = []string{"evaluate"} }, want: []string{`step "closed": area "office" has no permission "evaluate"`}},
+		{name: "repeated permission", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Permissions = []string{"review", "review"} }, want: []string{`step "closed": permission "review" is listed twice`}},
+		{name: "applicant step with permissions", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].Permissions = []string{"review"} }, want: []string{`step "request": steps of the applicant ask for no permissions`}},
 		{name: "applicant step with area", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].Area = "office" }, want: []string{`step "request": steps of the applicant have no area, found "office"`}},
 		{name: "staff step without area", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Area = "" }, want: []string{`step "closed": unknown area ""`}},
 		{name: "step without role", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].Role = "" }, want: []string{`step "request": role "" must be applicant or staff`}},
@@ -163,10 +161,10 @@ func TestInvalidDefinitions(t *testing.T) {
 		{name: "duplicated outcome", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[2].Outcomes[1].ID = "complete" }, want: []string{`step "review": outcome "complete" is declared twice`}},
 		{name: "duplicated field reference", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].OptionalFields = []string{"national_id"} }, want: []string{`step "request": field "national_id" is listed twice`}},
 		{name: "applicant decides", change: func(d *definition.ProcedureTypeDefinition) {
-			d.Steps[2].Role, d.Steps[2].Area, d.Steps[2].Profile = definition.RoleApplicant, "", ""
+			d.Steps[2].Role, d.Steps[2].Area, d.Steps[2].Permissions = definition.RoleApplicant, "", nil
 		}, want: []string{`step "review": the applicant only enters data or uploads documents`}},
 		{name: "applicant confirms", change: func(d *definition.ProcedureTypeDefinition) {
-			d.Steps[3].Role, d.Steps[3].Area, d.Steps[3].Profile = definition.RoleApplicant, "", ""
+			d.Steps[3].Role, d.Steps[3].Area, d.Steps[3].Permissions = definition.RoleApplicant, "", nil
 		}, want: []string{`step "closed": the applicant only enters data or uploads documents`}},
 		{name: "enter data with documents", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[0].Documents = []string{"letter"} }, want: []string{`step "request": enter_data takes no documents`}},
 		{name: "upload with fields", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[1].Fields = []string{"national_id"} }, want: []string{`step "letter": upload_document takes no fields`}},
@@ -236,6 +234,9 @@ func TestInvalidAreas(t *testing.T) {
 		{name: "area without id", change: func(a []definition.Area) { a[0].ID = "" }, want: "area has no id"},
 		{name: "area with an invalid id", change: func(a []definition.Area) { a[0].ID = "Office" }, want: `area id "Office" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
 		{name: "area without name", change: func(a []definition.Area) { a[0].Name = "" }, want: `area "office" has no name`},
+		{name: "duplicated permission", change: func(a []definition.Area) { a[0].Permissions[1].ID = "review" }, want: `area "office": permission "review" is declared twice`},
+		{name: "permission with an invalid id", change: func(a []definition.Area) { a[0].Permissions[0].ID = "Review" }, want: `area "office": permission id "Review" must be lowercase ASCII letters, digits and underscores, starting with a letter`},
+		{name: "duplicated permission name", change: func(a []definition.Area) { a[0].Permissions[1].Name = "Revisar" }, want: `area "office": permission name "Revisar" is listed twice`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

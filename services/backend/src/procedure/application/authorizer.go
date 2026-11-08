@@ -40,9 +40,9 @@ func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplican
 	if step.Role == definition.RoleApplicant {
 		return isApplicant && p.Applicant == userID, nil
 	}
-	holds, err := s.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, authinput.Profile(step.Profile))
+	holds, err := s.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, step.Permissions)
 	if err != nil {
-		return false, fmt.Errorf("profile of %s in %s: %w", userID, step.Area, err)
+		return false, fmt.Errorf("permissions of %s in %s: %w", userID, step.Area, err)
 	}
 	return holds, nil
 }

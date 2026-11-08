@@ -115,11 +115,11 @@ func usersFile(t *testing.T, content string) string {
 	return path
 }
 
-var testAreas = []domain.Area{{ID: "office", Name: "Secretaría"}}
+var testAreas = []domain.Area{{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}}}
 
 func TestLoadUsers(t *testing.T) {
 	path := usersFile(t, `[
-		{"id": "u1", "email": " Operativo@FI.UBA.AR ", "name": "Operativo de prueba", "memberships": [{"area": "office", "profile": "staff_operative", "scope": [2]}]},
+		{"id": "u1", "email": " Operativo@FI.UBA.AR ", "name": "Operativo de prueba", "memberships": [{"area": "office", "permissions": ["review"], "scope": [2]}]},
 		{"id": "u2", "email": "titular@fi.uba.ar", "name": "Titular de prueba"},
 		{"id": "u3", "email": "admin@fi.uba.ar", "name": "Administración de prueba", "administrator": true}
 	]`)
@@ -135,7 +135,7 @@ func TestLoadUsers(t *testing.T) {
 	if !slices.Equal(loaded.administrators, []string{"u3"}) {
 		t.Fatalf("administrators = %v, want [u3]", loaded.administrators)
 	}
-	wantMembership := domain.Membership{ID: "u1-1", UserID: "u1", Area: "office", Profile: domain.ProfileStaffOperative, Scope: []int64{2}, GrantedBy: "SIGTA_USERS_FILE"}
+	wantMembership := domain.Membership{ID: "u1-1", UserID: "u1", Area: "office", Permissions: []string{"review"}, Scope: []int64{2}, GrantedBy: "SIGTA_USERS_FILE"}
 	if len(loaded.memberships) != 1 || !reflect.DeepEqual(loaded.memberships[0], wantMembership) {
 		t.Fatalf("memberships = %+v, want only %+v", loaded.memberships, wantMembership)
 	}
@@ -149,9 +149,11 @@ func TestLoadUsersRejectsTheWholeFile(t *testing.T) {
 		"email outside":       `[{"id":"u1","email":"a@fi.uba.ar.evil.com","name":"A"}]`,
 		"empty name":          `[{"id":"u1","email":"a@fi.uba.ar","name":" "}]`,
 		"old role key":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","role":"staff_operative"}]`,
-		"unknown area":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"dean","profile":"staff_operative"}]}]`,
-		"unknown profile":     `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","profile":"boss"}]}]`,
-		"repeated membership": `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","profile":"staff_operative"},{"area":"office","profile":"staff_approver"}]}]`,
+		"unknown area":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"dean","permissions":["review"]}]}]`,
+		"unknown permission":  `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["sign"]}]}]`,
+		"no permissions":      `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":[]}]}]`,
+		"old profile key":     `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","profile":"staff_operative"}]}]`,
+		"repeated membership": `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["review"]},{"area":"office","permissions":["approve"]}]}]`,
 		"unknown key":         `[{"id":"u1","email":"a@fi.uba.ar","name":"A","password":"x"}]`,
 		"not a list of users": `{"id":"u1"}`,
 	}

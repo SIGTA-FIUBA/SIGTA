@@ -60,6 +60,18 @@ func TestDigest(t *testing.T) {
 		t.Errorf("renaming a used area kept the digest")
 	}
 
+	morePermissions := definitiontest.Areas()
+	morePermissions[0].Permissions = append(morePermissions[0].Permissions, definition.Permission{ID: "sign", Name: "Firmar"})
+	if got := version.Digest(encode(t, definitiontest.Definition(), morePermissions)); got != base {
+		t.Errorf("a permission no step asks for changed the digest")
+	}
+
+	renamedPermission := definitiontest.Areas()
+	renamedPermission[0].Permissions[0].Name = "Revisar documentación"
+	if got := version.Digest(encode(t, definitiontest.Definition(), renamedPermission)); got == base {
+		t.Errorf("renaming a permission a step asks for kept the digest")
+	}
+
 	d := definitiontest.Definition()
 	d.Documents[0].Name = "Carta al Decano"
 	if got := version.Digest(encode(t, d, definitiontest.Areas())); got == base {

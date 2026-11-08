@@ -130,9 +130,9 @@ paths:
       summary: Crea un área del personal
       description: >
         Solo para administradores (ADR-020). El identificador queda fijo: va en
-        minúsculas, empieza con una letra y no puede ser applicant ni el de un
-        área existente o dada de baja. El nombre no puede repetir el de otra
-        área.
+        minúsculas, empieza con una letra y no puede ser el de un área
+        existente o dada de baja. El nombre no puede repetir el de otra área.
+        El área empieza sin permisos.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -154,14 +154,49 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/permissions:
+    post:
+      operationId: createPermission
+      summary: Crea un permiso en un área del personal
+      description: >
+        Solo para administradores (ADR-020). Los permisos son de un área y los
+        exigen los pasos del personal de esa área. El identificador queda fijo
+        y no puede repetir el de otro permiso del área, aunque esté dado de
+        baja. El nombre no puede repetir el de otro permiso del área.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPermission"
+      responses:
+        "201":
+          description: Permiso creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Permission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /memberships:
     post:
       operationId: grantMembership
       summary: Otorga una membresía a una persona
       description: >
         Solo para administradores (ADR-020). La membresía pone a la persona en
-        un área con un perfil, opcionalmente solo para algunos tipos de trámite
-        (scope), y con una vigencia. No puede repetir el área y el alcance de
+        un área con algunos de los permisos de esa área, opcionalmente solo para
+        algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de
         otra membresía vigente de la misma persona.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
@@ -310,12 +345,16 @@ components:
           description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites
     Area:
       type: object
-      required: [id, name]
+      required: [id, name, permissions]
       properties:
         id:
           type: string
         name:
           type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
     NewArea:
       type: object
       required: [id, name]
@@ -325,22 +364,37 @@ components:
           description: Minúsculas, dígitos y guiones bajos, empezando con una letra
         name:
           type: string
-    Profile:
-      type: string
-      description: >
-        staff_approver cubre también los pasos de staff_operative.
-      enum: [staff_operative, staff_approver]
+    Permission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    NewPermission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
     NewMembership:
       type: object
-      required: [user_id, area, profile]
+      required: [user_id, area, permissions]
       properties:
         user_id:
           type: string
         area:
           type: string
           description: Identificador del área
-        profile:
-          $ref: "#/components/schemas/Profile"
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, al menos uno
+          items:
+            type: string
         scope:
           type: array
           description: >
@@ -359,7 +413,7 @@ components:
           description: Hasta cuándo vale. Ausente vale hasta que se la dé de baja
     Membership:
       type: object
-      required: [id, user_id, area, profile, scope, from, granted_by]
+      required: [id, user_id, area, permissions, scope, from, granted_by]
       properties:
         id:
           type: string
@@ -367,8 +421,10 @@ components:
           type: string
         area:
           type: string
-        profile:
-          $ref: "#/components/schemas/Profile"
+        permissions:
+          type: array
+          items:
+            type: string
         scope:
           type: array
           items:

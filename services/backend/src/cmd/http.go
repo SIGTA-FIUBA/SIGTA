@@ -115,8 +115,8 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 
 const devApplicantEmail = "titular@fi.uba.ar"
 
-// devPeople are synthetic accounts for local development: an applicant, one
-// member of each profile and an administrator.
+// devPeople are synthetic accounts for local development: an applicant, a
+// member who reviews, one who also approves, and an administrator.
 func devPeople() people {
 	return people{
 		users: []domain.User{
@@ -127,15 +127,18 @@ func devPeople() people {
 		},
 		administrators: []string{"dev-admin"},
 		memberships: []domain.Membership{
-			{ID: "dev-operative-1", UserID: "dev-operative", Area: "office", Profile: domain.ProfileStaffOperative, GrantedBy: "dev-admin"},
-			{ID: "dev-approver-1", UserID: "dev-approver", Area: "office", Profile: domain.ProfileStaffApprover, GrantedBy: "dev-admin"},
+			{ID: "dev-operative-1", UserID: "dev-operative", Area: "office", Permissions: []string{"review"}, GrantedBy: "dev-admin"},
+			{ID: "dev-approver-1", UserID: "dev-approver", Area: "office", Permissions: []string{"review", "approve"}, GrantedBy: "dev-admin"},
 		},
 	}
 }
 
 // devAreas are the areas of staff until they are stored in PostgreSQL.
 func devAreas() []domain.Area {
-	return []domain.Area{{ID: "office", Name: "Área de prueba"}}
+	return []domain.Area{{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
+		{ID: "review", Name: "Revisar"},
+		{ID: "approve", Name: "Aprobar"},
+	}}}
 }
 
 // devProcedureType is a made-up procedure type, so that the catalog has
@@ -159,7 +162,7 @@ func devProcedureType() input.Publication {
 			Steps: []definition.Step{
 				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
 				{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
+				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 			},
 		},
 	}
