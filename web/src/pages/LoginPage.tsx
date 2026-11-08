@@ -41,9 +41,9 @@ function messageFor(error: string | null): string | undefined {
 // platform's own components and an invented procedure.
 function TrackingPreview() {
   return (
-    <Paper shadow="md" p="lg" radius="md" aria-label="Ejemplo del seguimiento de un trámite">
+    <Paper shadow="md" p="lg" radius="md" c="black" aria-label="Ejemplo del seguimiento de un trámite">
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Group justify="space-between" align="flex-start" gap="xs">
           <Stack gap={0}>
             <Text fw={600}>Equivalencia entre asignaturas</Text>
             <Text size="sm" c="dimmed">

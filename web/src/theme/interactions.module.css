@@ -23,6 +23,13 @@
   box-shadow: none;
 }
 
+/* Mantine draws its focus ring only on its own controls; a panel turned into
+ * a button or a link needs the same ring for whoever moves with the keyboard. */
+.interactive:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
 /* A link of the side menu, on the logo's light blue: a white box with dark
  * text, that tints under the pointer. The current page is filled in dark blue
  * (theme.ts). */

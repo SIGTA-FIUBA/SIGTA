@@ -41,8 +41,8 @@ const profileNames: Record<string, string> = {
 }
 
 const sortOptions = [
-  { value: 'oldest', label: 'Antigüedad (mayor a menor)' },
-  { value: 'last_moved', label: 'Último movimiento (más reciente)' },
+  { value: 'oldest', label: 'Mayor antigüedad' },
+  { value: 'last_moved', label: 'Movimiento más reciente' },
 ]
 
 const stateOptions = (Object.keys(stateNames) as State[]).map((state) => ({ value: state, label: stateNames[state] }))
@@ -235,7 +235,7 @@ function ItemCards({ items, from, showAction }: { items: Item[]; from: string; s
       {items.map((item) => (
         <Paper key={item.id} component="article" withBorder p="md">
           <Stack gap="xs">
-            <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Group justify="space-between" align="flex-start" gap="xs">
               <Stack gap={0}>
                 <ItemLink item={item} from={from} />
                 <Text size="sm" c="dimmed">

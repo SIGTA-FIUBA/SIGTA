@@ -72,7 +72,7 @@ export function AppLayout() {
   return (
     <AppShell
       header={{ height: 64 }}
-      navbar={user === null ? undefined : { width: 240, breakpoint: 'sm', collapsed: { mobile: !menuOpen } }}
+      navbar={user === null ? undefined : { width: 272, breakpoint: 'sm', collapsed: { mobile: !menuOpen } }}
       padding="lg"
     >
       <AppShell.Header>
