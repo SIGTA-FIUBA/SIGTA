@@ -23,17 +23,25 @@ type CatalogServer interface {
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
 }
 
+// AdministrationServer is the part of the contract that manages areas and
+// memberships, which the auth module answers.
+type AdministrationServer interface {
+	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
+	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
+}
+
 // Server joins what each module answers into the one interface the contract
-// generates. A test that only calls one module can leave the other nil.
+// generates. A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
+	AdministrationServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration}
 }
 
 // Mount registers the API on mux. Errors raised outside the handlers answer

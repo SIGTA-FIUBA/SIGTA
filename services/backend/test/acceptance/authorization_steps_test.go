@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +27,8 @@ type authorizationWorld struct {
 	types             *application.ProcedureTypeService
 	service           *application.ProcedureService
 	memberships       *authapp.MembershipService
+	areas             *authapp.AreaService
+	storedAreas       *authmem.AreaRepository
 	administrators    *authmem.Administrators
 	storedMemberships *authmem.MembershipRepository
 	membershipDenials *authmem.DeniedAttemptLog
@@ -70,6 +74,8 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the "([^"]*)" profile(?: on "([^"]*)")?$`, w.grant)
 	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
 	sc.When(`^it is "([^"]*)"$`, w.itIs)
+	sc.When(`^"([^"]*)" creates the area "([^"]*)" named "([^"]*)"$`, w.createArea)
+	sc.When(`^"([^"]*)" deletes the area "([^"]*)"$`, w.deleteArea)
 	sc.When(`^"([^"]*)" starts a "([^"]*)" procedure$`, w.start)
 	sc.When(`^"([^"]*)" acts on that step$`, w.actOnOpenStep)
 	sc.When(`^"([^"]*)" sends the approval directly to the API$`, w.sendApproval)
@@ -77,6 +83,12 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.When(`^"([^"]*)" lists (?:their|the) procedures$`, w.list)
 	sc.When(`^a new version of "([^"]*)" is published$`, w.publishNewVersion)
 
+	sc.Then(`^the areas are (.+)$`, w.thenAreas)
+	sc.Then(`^the area is denied$`, w.thenFails(authdomain.ErrAccessDenied))
+	sc.Then(`^the area is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidArea))
+	sc.Then(`^the area "([^"]*)" records that "([^"]*)" deleted it$`, w.thenAreaDeletedBy)
+	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)"$`, w.thenCanGrant)
+	sc.Then(`^a procedure type with a step in "([^"]*)" can be published$`, w.thenPublishesWithArea)
 	sc.Then(`^the procedure is started$`, w.thenStarted)
 	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
 	sc.Then(`^"([^"]*)" cannot start a "([^"]*)" procedure$`, w.thenCannotStart)
@@ -109,9 +121,11 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 		authdomain.Area{ID: areaID(first), Name: first},
 		authdomain.Area{ID: areaID(second), Name: second},
 	)
+	w.storedAreas = areas
 	clock := func() time.Time { return w.now }
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.membershipDenials, w.newID, clock)
-	catalog := procedureauth.NewAreaCatalog(authapp.NewAreaService(areas), domain.Area{ID: "applicant", Name: "Titular", Kind: domain.AreaApplicant})
+	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, w.membershipDenials, clock)
+	catalog := procedureauth.NewAreaCatalog(w.areas, domain.Area{ID: authdomain.ApplicantAreaID, Name: "Titular", Kind: domain.AreaApplicant})
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), catalog, clock)
 	w.service = application.NewProcedureService(w.types, w.procedures, procedureauth.NewStaffDirectory(w.memberships), w.deniedAttempts, w.newID, clock)
 	return nil
@@ -513,4 +527,72 @@ func (w *authorizationWorld) thenNoDenied() error {
 		return fmt.Errorf("recorded %+v", got)
 	}
 	return nil
+}
+
+func (w *authorizationWorld) createArea(administrator, id, name string) {
+	w.user = administrator
+	_, w.err = w.areas.Create(context.Background(), administrator, authdomain.Area{ID: areaID(id), Name: name})
+}
+
+func (w *authorizationWorld) deleteArea(administrator, name string) {
+	w.user = administrator
+	w.err = w.areas.Delete(context.Background(), administrator, areaID(name))
+}
+
+var quoted = regexp.MustCompile(`"([^"]*)"`)
+
+func (w *authorizationWorld) thenAreas(list string) error {
+	var want []string
+	for _, m := range quoted.FindAllStringSubmatch(list, -1) {
+		want = append(want, m[1])
+	}
+	areas, err := w.areas.List(context.Background())
+	if err != nil {
+		return err
+	}
+	got := make([]string, 0, len(areas))
+	for _, a := range areas {
+		got = append(got, a.Name)
+	}
+	if !slices.Equal(got, want) {
+		return fmt.Errorf("the areas are %q, want %q", got, want)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error {
+	area, err := w.storedAreas.Get(context.Background(), areaID(name))
+	if err != nil {
+		return err
+	}
+	if area.DeletedBy != administrator || !area.DeletedAt.Equal(w.now) {
+		return fmt.Errorf("stored %+v, want deleted by %s at %s", area, administrator, w.now)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) thenCanGrant(administrator, can, user, area string) error {
+	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+		UserID:  user,
+		Area:    areaID(area),
+		Profile: authdomain.ProfileStaffOperative,
+	})
+	if can == "can" {
+		return err
+	}
+	if !errors.Is(err, authdomain.ErrInvalidMembership) {
+		return fmt.Errorf("got %v, want %v", err, authdomain.ErrInvalidMembership)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) thenPublishesWithArea(area string) error {
+	w.steps["new procedure type"] = []domain.Step{{
+		ID:      "review",
+		Name:    "Revisión",
+		Area:    areaID(area),
+		Profile: domain.ProfileStaffOperative,
+		Action:  domain.ActionConfirmExternalFact,
+	}}
+	return w.publish("new procedure type", "Descripción del trámite nuevo")
 }

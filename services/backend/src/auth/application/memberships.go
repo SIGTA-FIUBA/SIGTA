@@ -20,16 +20,19 @@ const (
 )
 
 type MembershipService struct {
-	areas          output.AreaRepository
-	administrators output.Administrators
-	memberships    output.MembershipRepository
-	deniedAttempts output.DeniedAttemptLog
-	newID          func() string
-	clock          func() time.Time
+	administratorGuard
+	areas       output.AreaRepository
+	memberships output.MembershipRepository
+	newID       func() string
 }
 
 func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, deniedAttempts output.DeniedAttemptLog, newID func() string, clock func() time.Time) *MembershipService {
-	return &MembershipService{areas: areas, administrators: administrators, memberships: memberships, deniedAttempts: deniedAttempts, newID: newID, clock: clock}
+	return &MembershipService{
+		administratorGuard: administratorGuard{administrators: administrators, deniedAttempts: deniedAttempts, clock: clock},
+		areas:              areas,
+		memberships:        memberships,
+		newID:              newID,
+	}
 }
 
 func (s *MembershipService) Permissions(ctx context.Context, userID string) (domain.Permissions, error) {
@@ -93,20 +96,6 @@ func (s *MembershipService) End(ctx context.Context, administratorID, membership
 		return fmt.Errorf("end membership %s: %w", membershipID, err)
 	}
 	return nil
-}
-
-func (s *MembershipService) requireAdministrator(ctx context.Context, userID, action string) error {
-	administrator, err := s.administrators.IsAdministrator(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("%s %s: %w", userID, action, err)
-	}
-	if administrator {
-		return nil
-	}
-	if err := s.deniedAttempts.Record(ctx, domain.DeniedAttempt{UserID: userID, Action: action, At: s.clock().UTC()}); err != nil {
-		return fmt.Errorf("record denied attempt: %w", err)
-	}
-	return fmt.Errorf("%s %s: %w", userID, action, domain.ErrAccessDenied)
 }
 
 // validate leaves the scope unchecked: a procedure type that does not exist

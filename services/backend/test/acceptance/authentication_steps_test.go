@@ -107,7 +107,7 @@ func (w *authenticationWorld) server() http.Handler {
 			func() time.Time { return w.now },
 		)
 		server := authrest.NewAuthHandler(auth, memberships, baseURL+"/", loginPage, false)
-		w.handler = api.Mount(http.NewServeMux(), api.NewServer(server, nil), slog.New(slog.DiscardHandler))
+		w.handler = api.Mount(http.NewServeMux(), api.NewServer(server, nil, nil), slog.New(slog.DiscardHandler))
 	}
 	return w.handler
 }

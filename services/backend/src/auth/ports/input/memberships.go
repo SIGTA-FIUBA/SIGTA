@@ -9,6 +9,8 @@ import (
 
 type Areas interface {
 	List(ctx context.Context) ([]domain.Area, error)
+	Create(ctx context.Context, administratorID string, a domain.Area) (domain.Area, error)
+	Delete(ctx context.Context, administratorID, areaID string) error
 }
 
 // MembershipGrant is what an administrator asks for. A zero From means now,

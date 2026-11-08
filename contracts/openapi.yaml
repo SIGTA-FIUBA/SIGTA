@@ -124,6 +124,66 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogEntry"
+  /areas:
+    post:
+      operationId: createArea
+      summary: Crea un área del personal
+      description: >
+        Solo para administradores (ADR-017). El identificador queda fijo: va en
+        minúsculas, empieza con una letra y no puede ser applicant ni el de un
+        área existente o dada de baja. El nombre no puede repetir el de otra
+        área.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewArea"
+      responses:
+        "201":
+          description: Área creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Area"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /memberships:
+    post:
+      operationId: grantMembership
+      summary: Otorga una membresía a una persona
+      description: >
+        Solo para administradores (ADR-017). La membresía pone a la persona en
+        un área con un perfil, opcionalmente solo para algunos tipos de trámite
+        (scope), y con una vigencia. No puede repetir el área y el alcance de
+        otra membresía vigente de la misma persona.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMembership"
+      responses:
+        "201":
+          description: Membresía otorgada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   parameters:
     SessionCookie:
@@ -141,6 +201,12 @@ components:
             $ref: "#/components/schemas/Error"
     Unauthorized:
       description: Sin sesión válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: La persona no tiene permiso para esta acción
       content:
         application/json:
           schema:
@@ -242,3 +308,77 @@ components:
         administrator:
           type: boolean
           description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+    Area:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    NewArea:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+    Profile:
+      type: string
+      description: >
+        staff_approver cubre también los pasos de staff_operative.
+      enum: [staff_operative, staff_approver]
+    NewMembership:
+      type: object
+      required: [user_id, area, profile]
+      properties:
+        user_id:
+          type: string
+        area:
+          type: string
+          description: Identificador del área
+        profile:
+          $ref: "#/components/schemas/Profile"
+        scope:
+          type: array
+          description: >
+            Tipos de trámite a los que se limita. Vacío o ausente vale para
+            todos, incluidos los que se publiquen después
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+          description: Desde cuándo vale. Ausente vale desde ahora
+        until:
+          type: string
+          format: date-time
+          description: Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+    Membership:
+      type: object
+      required: [id, user_id, area, profile, scope, from, granted_by]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        area:
+          type: string
+        profile:
+          $ref: "#/components/schemas/Profile"
+        scope:
+          type: array
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        granted_by:
+          type: string

@@ -59,15 +59,12 @@ func run(logger *slog.Logger) error {
 		time.Now,
 	)
 
-	areaService := application.NewAreaService(memory.NewAreaRepository(areas...))
-	memberships := application.NewMembershipService(
-		memory.NewAreaRepository(areas...),
-		memory.NewAdministrators(directory.administrators...),
-		memory.NewMembershipRepository(directory.memberships...),
-		memory.NewDeniedAttemptLog(),
-		newID,
-		time.Now,
-	)
+	areaRepository := memory.NewAreaRepository(areas...)
+	administrators := memory.NewAdministrators(directory.administrators...)
+	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
+	deniedAttempts := memory.NewDeniedAttemptLog()
+	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, deniedAttempts, time.Now)
+	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, deniedAttempts, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), procedureauth.NewAreaCatalog(areaService, applicantArea), time.Now)
@@ -76,7 +73,7 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
@@ -145,7 +142,7 @@ func devAreas() []domain.Area {
 }
 
 // applicantArea holds the steps of whoever started a procedure.
-var applicantArea = procedure.Area{ID: "applicant", Name: "Titular", Kind: procedure.AreaApplicant}
+var applicantArea = procedure.Area{ID: domain.ApplicantAreaID, Name: "Titular", Kind: procedure.AreaApplicant}
 
 // devProcedureType is a made-up procedure type, so that the catalog has
 // something to show in local development. It describes no real process.

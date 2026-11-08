@@ -56,6 +56,18 @@ func (r *MembershipRepository) ListByUser(_ context.Context, userID string) ([]d
 	return found, nil
 }
 
+func (r *MembershipRepository) ListByArea(_ context.Context, areaID string) ([]domain.Membership, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var found []domain.Membership
+	for _, m := range r.memberships {
+		if m.Area == areaID {
+			found = append(found, cloneMembership(m))
+		}
+	}
+	return found, nil
+}
+
 func (r *MembershipRepository) Get(_ context.Context, id string) (domain.Membership, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

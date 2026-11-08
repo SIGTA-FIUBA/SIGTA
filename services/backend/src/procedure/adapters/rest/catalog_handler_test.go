@@ -28,7 +28,7 @@ func (catalog fakeCatalog) Catalog(context.Context) ([]input.CatalogEntry, error
 
 func getCatalog(t *testing.T, catalog fakeCatalog) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, rest.NewCatalogHandler(catalog))
+	server := api.NewServer(nil, rest.NewCatalogHandler(catalog), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedure-types", http.NoBody))

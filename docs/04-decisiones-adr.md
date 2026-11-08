@@ -364,7 +364,8 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Las reglas que dependen del trámite (qué ve y en qué pasos actúa cada persona) quedan en `procedure`, que le pide a `auth` las áreas y las membresías vigentes a través de sus puertos (`AreaCatalog`, `StaffDirectory`), como pide ADR-014. `auth` no depende de `procedure`: por eso, al otorgar una membresía no se comprueba que los tipos de su alcance existan, y un tipo inexistente simplemente no coincide con ningún trámite.
 - Las versiones ya publicadas con áreas `external` se siguen leyendo, y esas áreas se tratan como del personal; las áreas nuevas ya no aceptan ese tipo.
 - `/me` informa el rol derivado (`applicant` o `staff`) y si la persona es administradora. `SIGTA_USERS_FILE` deja el campo `role` y declara `administrator` y `memberships`. Las membresías de cada persona se suman a `/me` cuando una pantalla las necesite.
-- Hacen falta historias para administrar áreas y membresías. Mientras no existan, se cargan desde la configuración del despliegue.
+- Un área se da de baja sin borrarse, como una membresía: deja de listarse y de aceptar membresías, sigue nombrada en el historial y su identificador no se reusa. No se puede dar de baja mientras tenga membresías sin terminar. `auth` no sabe qué tipos de trámite usan un área, así que dar de baja una que todavía usan deja sus pasos sin personal hasta publicar una versión que la reemplace.
+- La API permite crear áreas (`POST /areas`) y otorgar membresías (`POST /memberships`), solo a administradores. Dar de baja un área y terminar una membresía existen como casos de uso, pero todavía no tienen endpoints, y nada de esto tiene pantallas: hacen falta historias para la interfaz de administración. Mientras no existan, las membresías iniciales se cargan desde la configuración del despliegue y las áreas de prueba están en el código.
 
 ---
 
