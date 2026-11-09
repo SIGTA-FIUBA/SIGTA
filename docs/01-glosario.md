@@ -67,10 +67,13 @@ Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reinic
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).
 
 **Rol**
-Cada uno de los dos tipos de persona usuaria de la plataforma: **titular del trámite** y **Secretario**.
+Conjunto de permisos que se asigna a una persona usuaria. El **titular del trámite** es un rol fijo. Los roles del personal los define y asigna el administrador (ADR-017).
 
 **Perfil**
-Nivel de permisos dentro del rol Secretario. El **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. En el mapa de usuario son un solo rol; en permisos se distinguen.
+Cada uno de los dos roles iniciales del personal (ADR-017): el **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. El **administrador** los asigna y puede cambiarlos, y cada uno es un conjunto de **permisos**. En el mapa de usuario son una sola persona usuaria. Hasta que se implementen los roles configurables, el código los tiene fijos como `staff_operative` y `staff_approver`.
+
+**Permiso**
+Habilitación para ejecutar una acción del modelo de dominio, como avanzar un paso, derivar, aprobar o editar un tipo de trámite. El administrador agrupa permisos en roles y asigna esos roles al personal (ADR-017).
 
 **Titular del trámite**
 Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.
