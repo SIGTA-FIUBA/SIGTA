@@ -124,6 +124,58 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogEntry"
+  /procedures:
+    get:
+      operationId: listProcedures
+      summary: Bandeja y listado de trámites del personal
+      description: >
+        Solo para el personal. Con view=mine devuelve lo que el perfil de quien
+        mira puede hacer ahora; con view=all, todos los trámites en curso. Los
+        filtros se combinan. Las opciones de filtro salen de todos los trámites
+        de la vista, sin filtrar, para que elegir un filtro no haga desaparecer
+        los demás.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: view
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureListView"
+        - name: procedure_type
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureState"
+        - name: area
+          in: query
+          required: false
+          description: Área responsable del paso abierto
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureListSort"
+      responses:
+        "200":
+          description: Trámites y opciones de filtro
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   parameters:
     SessionCookie:
@@ -141,6 +193,12 @@ components:
             $ref: "#/components/schemas/Error"
     Unauthorized:
       description: Sin sesión válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: La sesión es válida, pero su rol no puede hacer esto
       content:
         application/json:
           schema:
@@ -223,6 +281,106 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentRequirement"
+    ProcedureListView:
+      type: string
+      description: >
+        mine: lo que el perfil de quien mira puede hacer ahora. all: todos los
+        trámites en curso.
+      enum: [mine, all]
+      default: mine
+    ProcedureListSort:
+      type: string
+      description: >
+        oldest: primero los que empezaron hace más tiempo. last_moved: primero
+        los que se movieron más recientemente.
+      enum: [oldest, last_moved]
+      default: oldest
+    ProcedureState:
+      type: string
+      description: >
+        Se deriva del área del paso abierto. with_applicant: espera al titular.
+        in_office: lo tiene el personal. referred: está derivado a un evaluador
+        externo. No es el resultado del trámite, que no se modela.
+      enum: [with_applicant, in_office, referred]
+    NamedOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    ProcedureListItem:
+      type: object
+      required:
+        - id
+        - procedure_type
+        - procedure_type_name
+        - applicant_name
+        - step_name
+        - area
+        - area_name
+        - state
+        - actionable
+        - started_at
+        - last_moved_at
+        - age_days
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        procedure_type_name:
+          type: string
+        applicant_name:
+          type: string
+        step_name:
+          type: string
+          description: Paso abierto, el que se espera ahora
+        area:
+          type: string
+          description: Área responsable del paso abierto
+        area_name:
+          type: string
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        actionable:
+          type: boolean
+          description: Si el perfil de quien mira puede hacer el paso abierto
+        started_at:
+          type: string
+          format: date-time
+        last_moved_at:
+          type: string
+          format: date-time
+          description: Cuándo el trámite llegó al paso abierto
+        age_days:
+          type: integer
+          description: Días desde que empezó el trámite
+        days_referred:
+          type: integer
+          description: >
+            Solo si está derivado: días que lleva en el evaluador externo sin
+            retorno
+    ProcedureList:
+      type: object
+      required: [items, procedure_types, areas]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcedureListItem"
+        procedure_types:
+          type: array
+          description: Tipos de trámite presentes en la vista, para filtrar
+          items:
+            $ref: "#/components/schemas/NamedOption"
+        areas:
+          type: array
+          description: Áreas responsables presentes en la vista, para filtrar
+          items:
+            $ref: "#/components/schemas/NamedOption"
     User:
       type: object
       required: [id, email, name, role]

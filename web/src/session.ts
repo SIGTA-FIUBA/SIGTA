@@ -14,6 +14,19 @@ export async function requireSession() {
   return data
 }
 
+// optionalSession is for the pages anyone can read, such as the catalog: it
+// returns the person with the session, or null for a visitor.
+export async function optionalSession() {
+  const { data, response } = await api.GET('/me')
+  if (response.status === 401) {
+    return null
+  }
+  if (!data) {
+    throw new Error(`GET /me answered ${response.status}`)
+  }
+  return data
+}
+
 // skipLoginWithSession sends whoever already has a session to the home page.
 export async function skipLoginWithSession() {
   const { response } = await api.GET('/me')

@@ -262,7 +262,7 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 
 | Variable | Valor | Si falta |
 | --- | --- | --- |
-| `SIGTA_ENV` | `development` o `production`. Solo `development` tiene los usuarios sintéticos, el adaptador de identidad de desarrollo y el correo que escribe los enlaces en el log | No arranca |
+| `SIGTA_ENV` | `development` o `production`. Solo `development` tiene los usuarios sintéticos, los trámites inventados de la bandeja, el adaptador de identidad de desarrollo y el correo que escribe los enlaces en el log | No arranca |
 | `SIGTA_IDENTITY_PROVIDER` | `dev` o `google`. `dev` ingresa como el correo de `/api/auth/login?login_hint=<correo>`, o como `titular@fi.uba.ar` sin él, y solo arranca con `SIGTA_ENV=development` | `dev` en desarrollo, `google` en producción |
 | `SIGTA_PUBLIC_URL` | La API como la ve el navegador, por ejemplo `https://<host>/api`. Con Google tiene que ser `https` (o `localhost`), y `<SIGTA_PUBLIC_URL>/auth/callback` tiene que estar registrada en el cliente de Google | `http://localhost:8080` en desarrollo; en producción no arranca |
 | `SIGTA_APP_URL` | El frontend, terminado en `/`. El ingreso fallido vuelve a `<SIGTA_APP_URL>login` | `http://localhost:5173/` en desarrollo; en producción no arranca |

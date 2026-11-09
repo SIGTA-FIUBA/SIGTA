@@ -1,4 +1,4 @@
-import { Alert, Container, List, Loader, Stack, Text, Title } from '@mantine/core'
+import { Alert, List, Loader, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
@@ -84,20 +84,21 @@ export function CatalogPage() {
 
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
-    <Container size="md" py="md">
-      <Stack gap="lg">
-        <Title order={1}>Trámites</Title>
-        {catalog.isPending && <Loader aria-label="Cargando los trámites" />}
-        {catalog.isError && (
-          <Alert color="red" role="alert">
-            No pudimos cargar los trámites. Volvé a intentarlo más tarde.
-          </Alert>
-        )}
-        {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
-        {entries.map((entry) => (
-          <Entry key={entry.id} entry={entry} />
-        ))}
+    <Stack gap="lg">
+      <Stack gap={0}>
+        <Title order={1}>Catálogo de trámites</Title>
+        <Text c="dimmed">Requisitos, plazos y documentación de cada trámite disponible.</Text>
       </Stack>
-    </Container>
+      {catalog.isPending && <Loader aria-label="Cargando los trámites" />}
+      {catalog.isError && (
+        <Alert color="red" role="alert">
+          No pudimos cargar los trámites. Volvé a intentarlo más tarde.
+        </Alert>
+      )}
+      {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
+      {entries.map((entry) => (
+        <Entry key={entry.id} entry={entry} />
+      ))}
+    </Stack>
   )
 }

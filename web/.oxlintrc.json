@@ -17,7 +17,7 @@
   },
   "overrides": [
     {
-      "files": ["src/main.tsx"],
+      "files": ["src/main.tsx", "src/theme/theme.ts"],
       "rules": { "no-restricted-imports": "off" }
     },
     {

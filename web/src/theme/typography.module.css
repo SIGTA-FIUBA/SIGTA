@@ -1,0 +1,12 @@
+/*
+ * Type that changes with the screen width, which the Styles API cannot write
+ * inline. Only theme.ts uses these classes.
+ */
+
+/* The headline of the landing page (Title variant="display"). */
+.display {
+  font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}

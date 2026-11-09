@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,8 +19,10 @@ import (
 	out "backend/src/auth/ports/output"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
+	"backend/src/procedure/adapters/roleaccess"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/inbox"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 )
@@ -64,7 +67,14 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
+	summaries := proceduremem.NewProcedureSummaries()
+	if cfg.development() {
+		for _, summary := range devProcedures(time.Now()) {
+			summaries.Add(summary)
+		}
+	}
+	inboxHandler := procedurerest.NewInboxHandler(procedureapp.NewInboxService(roleaccess.Permissions{}, summaries, time.Now), personOf(auth))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inboxHandler)
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
@@ -76,6 +86,21 @@ func run(logger *slog.Logger) error {
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
 	return server.ListenAndServe()
+}
+
+// personOf lets the procedure module ask who has a session, without
+// depending on the auth module.
+func personOf(auth *application.AuthService) procedurerest.Authenticate {
+	return func(ctx context.Context, sessionToken string) (inbox.Person, error) {
+		user, err := auth.Authenticate(ctx, sessionToken)
+		if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) || errors.Is(err, domain.ErrUnknownUser) {
+			return inbox.Person{}, procedurerest.ErrNoSession
+		}
+		if err != nil {
+			return inbox.Person{}, err
+		}
+		return inbox.Person{ID: user.ID, Role: string(user.Role)}, nil
+	}
 }
 
 func usersOf(cfg config) ([]domain.User, error) {
