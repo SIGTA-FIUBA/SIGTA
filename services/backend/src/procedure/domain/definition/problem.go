@@ -10,48 +10,50 @@ import (
 type ProblemCode string
 
 const (
-	CodeNoID                   ProblemCode = "no_id"
-	CodeInvalidID              ProblemCode = "invalid_id"
-	CodeNoName                 ProblemCode = "no_name"
-	CodeNameWithSpaces         ProblemCode = "name_with_spaces"
-	CodeDeclaredTwice          ProblemCode = "declared_twice"
-	CodeRepeatedName           ProblemCode = "repeated_name"
-	CodeNameInUse              ProblemCode = "name_in_use"
-	CodeNoSteps                ProblemCode = "no_steps"
-	CodeUnusedField            ProblemCode = "unused_field"
-	CodeUnusedDocument         ProblemCode = "unused_document"
-	CodeUnreachableStep        ProblemCode = "unreachable_step"
-	CodeStepNeverCloses        ProblemCode = "step_never_closes"
-	CodeUnknownArea            ProblemCode = "unknown_area"
-	CodeUnknownAreaKind        ProblemCode = "unknown_area_kind"
-	CodeApplicantAreas         ProblemCode = "applicant_areas"
-	CodeApplicantWithProfile   ProblemCode = "applicant_with_profile"
-	CodeApplicantAction        ProblemCode = "applicant_action"
-	CodeInvalidProfile         ProblemCode = "invalid_profile"
-	CodeUnknownAction          ProblemCode = "unknown_action"
-	CodeUnknownField           ProblemCode = "unknown_field"
-	CodeUnknownDocument        ProblemCode = "unknown_document"
-	CodeRepeatedField          ProblemCode = "repeated_field"
-	CodeRepeatedDocument       ProblemCode = "repeated_document"
-	CodeEnterDataNoFields      ProblemCode = "enter_data_no_fields"
-	CodeEnterDataWithDocuments ProblemCode = "enter_data_with_documents"
-	CodeUploadNoDocuments      ProblemCode = "upload_no_documents"
-	CodeUploadWithFields       ProblemCode = "upload_with_fields"
-	CodeConfirmWithDocuments   ProblemCode = "confirm_with_documents"
-	CodeDecideWithNext         ProblemCode = "decide_with_next"
-	CodeDecideFewOutcomes      ProblemCode = "decide_few_outcomes"
-	CodeOutcomesOutsideDecide  ProblemCode = "outcomes_outside_decide"
-	CodeUnknownNextStep        ProblemCode = "unknown_next_step"
-	CodeOutcomeLoops           ProblemCode = "outcome_loops"
-	CodeUnknownFieldType       ProblemCode = "unknown_field_type"
-	CodeOptionsOutsideOption   ProblemCode = "options_outside_option"
-	CodeOptionFieldNoOptions   ProblemCode = "option_field_no_options"
-	CodeNoDescription          ProblemCode = "no_description"
-	CodeBlankText              ProblemCode = "blank_text"
-	CodeNoAcceptedTypes        ProblemCode = "no_accepted_types"
-	CodeInvalidAcceptedType    ProblemCode = "invalid_accepted_type"
-	CodeRepeatedAcceptedType   ProblemCode = "repeated_accepted_type"
-	CodeNoMaxSize              ProblemCode = "no_max_size"
+	CodeNoID                     ProblemCode = "no_id"
+	CodeInvalidID                ProblemCode = "invalid_id"
+	CodeNoName                   ProblemCode = "no_name"
+	CodeNameWithSpaces           ProblemCode = "name_with_spaces"
+	CodeDeclaredTwice            ProblemCode = "declared_twice"
+	CodeRepeatedName             ProblemCode = "repeated_name"
+	CodeNameInUse                ProblemCode = "name_in_use"
+	CodeNoSteps                  ProblemCode = "no_steps"
+	CodeUnusedField              ProblemCode = "unused_field"
+	CodeUnusedDocument           ProblemCode = "unused_document"
+	CodeUnreachableStep          ProblemCode = "unreachable_step"
+	CodeStepNeverCloses          ProblemCode = "step_never_closes"
+	CodeUnknownArea              ProblemCode = "unknown_area"
+	CodeUnknownRole              ProblemCode = "unknown_role"
+	CodeApplicantWithArea        ProblemCode = "applicant_with_area"
+	CodeApplicantWithPermissions ProblemCode = "applicant_with_permissions"
+	CodeApplicantAction          ProblemCode = "applicant_action"
+	CodeNoPermissions            ProblemCode = "no_permissions"
+	CodeUnknownPermission        ProblemCode = "unknown_permission"
+	CodeRepeatedPermission       ProblemCode = "repeated_permission"
+	CodeUnknownAction            ProblemCode = "unknown_action"
+	CodeUnknownField             ProblemCode = "unknown_field"
+	CodeUnknownDocument          ProblemCode = "unknown_document"
+	CodeRepeatedField            ProblemCode = "repeated_field"
+	CodeRepeatedDocument         ProblemCode = "repeated_document"
+	CodeEnterDataNoFields        ProblemCode = "enter_data_no_fields"
+	CodeEnterDataWithDocuments   ProblemCode = "enter_data_with_documents"
+	CodeUploadNoDocuments        ProblemCode = "upload_no_documents"
+	CodeUploadWithFields         ProblemCode = "upload_with_fields"
+	CodeConfirmWithDocuments     ProblemCode = "confirm_with_documents"
+	CodeDecideWithNext           ProblemCode = "decide_with_next"
+	CodeDecideFewOutcomes        ProblemCode = "decide_few_outcomes"
+	CodeOutcomesOutsideDecide    ProblemCode = "outcomes_outside_decide"
+	CodeUnknownNextStep          ProblemCode = "unknown_next_step"
+	CodeOutcomeLoops             ProblemCode = "outcome_loops"
+	CodeUnknownFieldType         ProblemCode = "unknown_field_type"
+	CodeOptionsOutsideOption     ProblemCode = "options_outside_option"
+	CodeOptionFieldNoOptions     ProblemCode = "option_field_no_options"
+	CodeNoDescription            ProblemCode = "no_description"
+	CodeBlankText                ProblemCode = "blank_text"
+	CodeNoAcceptedTypes          ProblemCode = "no_accepted_types"
+	CodeInvalidAcceptedType      ProblemCode = "invalid_accepted_type"
+	CodeRepeatedAcceptedType     ProblemCode = "repeated_accepted_type"
+	CodeNoMaxSize                ProblemCode = "no_max_size"
 )
 
 type ElementKind string
@@ -59,6 +61,7 @@ type ElementKind string
 const (
 	KindDefinition    ElementKind = "definition"
 	KindArea          ElementKind = "area"
+	KindPermission    ElementKind = "permission"
 	KindField         ElementKind = "field"
 	KindOption        ElementKind = "option"
 	KindDocument      ElementKind = "document"
@@ -145,16 +148,20 @@ func (p ValidationProblem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("name %q is already used by area %q", p.Value, p.Other), false
 	case CodeUnknownArea:
 		return fmt.Sprintf("unknown area %q", p.Value), false
-	case CodeUnknownAreaKind:
-		return fmt.Sprintf("unknown kind %q", p.Value), false
-	case CodeApplicantAreas:
-		return fmt.Sprintf("areas must have one applicant area, found %s", p.Value), false
-	case CodeApplicantWithProfile:
-		return "steps of the applicant have no profile", false
+	case CodeUnknownRole:
+		return fmt.Sprintf("role %q must be applicant or staff", p.Value), false
+	case CodeApplicantWithArea:
+		return fmt.Sprintf("steps of the applicant have no area, found %q", p.Value), false
+	case CodeApplicantWithPermissions:
+		return "steps of the applicant ask for no permissions", false
 	case CodeApplicantAction:
 		return "the applicant only enters data or uploads documents", false
-	case CodeInvalidProfile:
-		return fmt.Sprintf("profile %q must be staff_operative or staff_approver", p.Value), false
+	case CodeNoPermissions:
+		return "staff steps ask for at least one permission", false
+	case CodeUnknownPermission:
+		return fmt.Sprintf("area %q has no permission %q", p.Other, p.Value), false
+	case CodeRepeatedPermission:
+		return fmt.Sprintf("permission %q is listed twice", p.Value), false
 	case CodeUnknownAction:
 		return fmt.Sprintf("unknown action %q", p.Value), false
 	case CodeUnknownField:

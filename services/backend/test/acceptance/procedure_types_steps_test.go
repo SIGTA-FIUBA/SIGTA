@@ -10,6 +10,9 @@ import (
 
 	"github.com/cucumber/godog"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
@@ -22,10 +25,12 @@ const procedureType int64 = 1
 
 // procedureTypeWorld is the state of one scenario of US08.
 type procedureTypeWorld struct {
-	areas    []definition.Area
-	versions *memory.ProcedureVersions
-	authors  version.Authorship
-	now      time.Time
+	// areas is what auth keeps, and stepAreas what a version copies of them.
+	areas     *authmem.AreaRepository
+	stepAreas []definition.Area
+	versions  *memory.ProcedureVersions
+	authors   version.Authorship
+	now       time.Time
 
 	definition definition.ProcedureTypeDefinition
 	revisions  int
@@ -47,7 +52,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 		now:      time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC),
 	}
 
-	sc.Given(`^the areas "([^"]*)", "([^"]*)" and "([^"]*)"$`, w.givenAreas)
+	sc.Given(`^the staff areas are "([^"]*)" and "([^"]*)"$`, w.givenAreas)
 	sc.Given(`^"([^"]*)" proposes and "([^"]*)" approves every publication$`, w.givenAuthors)
 	sc.Given(`^version (\d+) of "([^"]*)" is published$`, w.givenPublished)
 	sc.Given(`^version (\d+) of "([^"]*)" was proposed by "([^"]*)" and approved by "([^"]*)"$`, w.givenPublishedBy)
@@ -80,7 +85,8 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 }
 
 func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
-	return application.NewProcedureTypeService(w.versions, memory.NewAreaCatalog(w.areas...), func() time.Time { return w.now })
+	auth := authapp.NewAreaService(w.areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), func() time.Time { return w.now })
+	return application.NewProcedureTypeService(w.versions, auth, func() time.Time { return w.now })
 }
 
 func (w *procedureTypeWorld) latest() (int, error) {
@@ -114,21 +120,21 @@ func validDefinition(name string) definition.ProcedureTypeDefinition {
 		Description: "Un trámite de prueba",
 		Fields:      []definition.Field{{ID: "full_name", Name: "Nombre completo", Type: definition.FieldText}},
 		Documents: []definition.Document{
-			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 		},
 		Steps: []definition.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, Next: "review"},
 			{
-				ID: "review", Name: "Revisión", Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide,
+				ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"review"}, Action: definition.ActionDecide,
 				Outcomes: []definition.Outcome{
 					{ID: "complete", Name: "Completa", Next: "evaluation"},
 					{ID: "incomplete", Name: "Incompleta", Next: "documents"},
 				},
 			},
-			{ID: "evaluation", Name: "Evaluación", Area: "curricular_commission", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
-			{ID: "signature", Name: "Firma", Area: "student_affairs", Profile: definition.ProfileStaffApprover, Action: definition.ActionConfirmExternalFact},
+			{ID: "evaluation", Name: "Evaluación", Role: definition.RoleStaff, Area: "curricular_commission", Permissions: []string{"evaluate"}, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "signature"},
+			{ID: "signature", Name: "Firma", Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"sign"}, Action: definition.ActionConfirmExternalFact},
 		},
 	}
 }
@@ -158,11 +164,16 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 	}
 }
 
-func (w *procedureTypeWorld) givenAreas(applicant, office, external string) error {
-	w.areas = []definition.Area{
-		{ID: areaID(applicant), Name: applicant, Kind: definition.AreaApplicant},
-		{ID: areaID(office), Name: office, Kind: definition.AreaOffice},
-		{ID: areaID(external), Name: external, Kind: definition.AreaExternal},
+// givenAreas stores the staff areas in auth, the first one with permissions to
+// review and sign and the second one to evaluate. The applicant has no area.
+func (w *procedureTypeWorld) givenAreas(office, other string) error {
+	w.areas = authmem.NewAreaRepository(
+		authdomain.Area{ID: areaID(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		authdomain.Area{ID: areaID(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
+	)
+	w.stepAreas = []definition.Area{
+		{ID: areaID(office), Name: office, Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		{ID: areaID(other), Name: other, Permissions: []definition.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	}
 	return nil
 }
@@ -199,7 +210,7 @@ func (w *procedureTypeWorld) givenProcedure(number int, name string) error {
 // covers, as if someone had changed it directly in the store.
 func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 	w.definition = validDefinition("subject equivalence")
-	encoded, err := version.NewContent(w.definition, w.areas).Encode()
+	encoded, err := version.NewContent(w.definition, w.stepAreas).Encode()
 	if err != nil {
 		return err
 	}
@@ -262,7 +273,7 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 		d.Steps[document].Documents = []string{"transcript", "undeclared"}
 		w.problem = definition.CodeUnknownDocument
 	case "a step unreachable from the first one":
-		d.Steps = append(d.Steps, definition.Step{ID: "orphan", Name: extraName, Area: "student_affairs", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact})
+		d.Steps = append(d.Steps, definition.Step{ID: "orphan", Name: extraName, Role: definition.RoleStaff, Area: "student_affairs", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact})
 		w.problem = definition.CodeUnreachableStep
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
@@ -270,9 +281,15 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	case "a field no step uses":
 		d.Fields = append(d.Fields, definition.Field{ID: "unused", Name: extraName, Type: definition.FieldText})
 		w.problem = definition.CodeUnusedField
-	case "an office step without a profile":
-		d.Steps[decision].Profile = ""
-		w.problem = definition.CodeInvalidProfile
+	case "a staff step without permissions":
+		d.Steps[decision].Permissions = nil
+		w.problem = definition.CodeNoPermissions
+	case "a step that asks for a permission its area does not have":
+		d.Steps[decision].Permissions = []string{"evaluate"}
+		w.problem = definition.CodeUnknownPermission
+	case "an applicant step in a staff area":
+		d.Steps[0].Area = "student_affairs"
+		w.problem = definition.CodeApplicantWithArea
 	default:
 		return fmt.Errorf("unknown problem %q", problem)
 	}
@@ -280,14 +297,13 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 }
 
 func (w *procedureTypeWorld) renameArea(name string) error {
-	for i, a := range w.areas {
-		if a.Name == name {
-			w.previousName = a.Name
-			w.areas[i].Name = a.Name + " renamed"
-			return nil
-		}
+	a, err := w.areas.Get(context.Background(), areaID(name))
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("no area named %q", name)
+	w.previousName = a.Name
+	a.Name += " renamed"
+	return w.areas.Save(context.Background(), a)
 }
 
 func (w *procedureTypeWorld) askForVersion(number int) error {

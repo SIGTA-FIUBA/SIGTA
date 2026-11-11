@@ -276,7 +276,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ## ADR-014: El servicio de trámites se divide por módulo y, dentro de cada módulo, por componente
 
-**Estado:** propuesta, a acordar con el equipo
+**Estado:** propuesta, a acordar con el equipo. ADR-021 reemplaza la regla de cómo un módulo usa a otro.
 
 **Contexto.** ADR-011 eligió un monolito modular con puertos y adaptadores, pero el código se ordenó solo por componente: un `domain/`, un `application/`, un `ports/` y un `adapters/` para todo el servicio. Con dos módulos (ingreso y tipos de trámite) ya aparecían los problemas: los puertos de salida de usuarios, sesiones, enlaces de ingreso y correo compartían archivo; los adaptadores en memoria y REST de los dos módulos compartían paquete; y dos ramas que tocaban módulos distintos chocaban en los mismos archivos. Cada módulo nuevo (trámites iniciados, pasos, bandeja) iba a tocar las mismas carpetas.
 
@@ -382,6 +382,91 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
+## ADR-019: El personal tiene un perfil por tipo de trámite
+
+**Estado:** reemplazada por ADR-020
+
+**Contexto.** El modelo de US07 tenía tres perfiles fijos por persona: titular, Secretario operativo y Secretario de aprobación. Cada persona tenía uno solo, así que nadie podía ser operativo en un trámite y de aprobación en otro, y el supuesto S-07 (que los dos perfiles son personas distintas) condicionaba el modelo. En su respuesta al relevamiento, la Secretaría propuso un rol de administrador, usuarios internos para cada área que interviene, permisos otorgados por el administrador "por rol y eventualmente por tipo de trámite", y el registro de quién hizo cada acción en cada expediente.
+
+**Decisión.**
+- Hay tres tipos de usuario, que se excluyen entre sí: **titular**, **personal** y **administrador**. Solo el titular inicia trámites, y un titular no recibe permisos de personal.
+- Un **permiso** le da a una persona del personal un perfil (operativo o de aprobación) sobre un tipo de trámite. Una persona puede tener perfiles distintos en tipos distintos, y ninguno en otros.
+- El permiso referencia el tipo de trámite y no una versión: publicar una versión nueva no lo cambia.
+- El personal actúa sobre un paso de un área de la facultad (`office`) si tiene permiso sobre ese tipo de trámite y su perfil alcanza para el del paso. El de aprobación cubre también los pasos operativos. Los pasos del titular los hace solo el titular del trámite, y los de un evaluador externo no los hace nadie en SIGTA.
+- El personal ve los trámites de los tipos sobre los que tiene permiso; el titular, solo los propios. A quien no puede ver un trámite se le responde como si no existiera.
+- El administrador no actúa sobre trámites por ser administrador.
+- La autorización se aplica en el caso de uso del servidor, y cada negativa queda registrada con quién, qué, sobre qué trámite y cuándo.
+- El área no forma parte del permiso. Se suma si la Secretaría confirma que, en un mismo trámite, intervienen oficinas distintas con personas que no deben hacer los pasos de la otra (lo que era D-09, antes de que ese número pasara a la retención de documentos).
+
+**Consecuencias.**
+- S-07 deja de condicionar el modelo: una misma persona puede tener los dos perfiles, en el mismo tipo de trámite o en tipos distintos.
+- Hace falta una historia para que el administrador dé de alta al personal y le asigne permisos. Mientras no exista, los permisos se cargan desde la configuración del despliegue.
+- Durante la transición conviven dos modelos: el ingreso (`auth`) sigue con el rol único de cada usuario (`applicant`, `staff_operative` o `staff_approver`), que usan `/me` y `SIGTA_USERS_FILE`, y la autorización (`procedure`) usa los tipos de usuario y los permisos. Unificarlos cambia el contrato y la configuración, y se hace en un cambio aparte.
+
+---
+
+## ADR-020: El personal actúa según su membresía a un área y los permisos de esa área que se le asignan
+
+**Estado:** propuesta, a acordar con el equipo y la Secretaría. Reemplaza a ADR-019 y, si se acepta, a ADR-017.
+
+**Contexto.** ADR-017 resolvió la misma respuesta de la Secretaría con roles configurables: conjuntos de permisos que define el administrador, y pasos que declaran el permiso que exigen. Esta propuesta comparte que los permisos se configuran, pero no los agrupa en roles: cada permiso pertenece a un área y se asigna en la membresía. La diferencia se discute en el PR de SIG-14. Además, ADR-019 ataba el permiso al tipo de trámite y separaba tres tipos de usuario excluyentes. En su respuesta al relevamiento, la Secretaría pidió un administrador, "usuarios internos del sistema para cada área interviniente con diferentes permisos otorgados por el administrador", un esquema "por rol (y eventualmente por tipo de trámite)" y el registro de quién hizo cada acción en cada expediente. Además, hoy la Secretaría avanza los pasos, pero más adelante pueden hacerlo otras áreas. Con ADR-019 quedaban tres problemas: el área no formaba parte del permiso; los pasos de un evaluador externo no los podía registrar nadie; y como cada persona tiene una sola cuenta UBA (ADR-010), quien administra no podía ser también personal.
+
+**Decisión.**
+- **Roles: titular y personal.** La única distinción fija es entre dos roles, titular (`applicant`) y personal (`staff`). Ninguno se guarda como campo: los dos se derivan de una relación. Al ingresar no hay forma de saber si una persona es alumna o personal, así que toda persona que ingresa es titular por defecto: puede iniciar trámites y es titular de los que inicia. Tener al menos una membresía vigente la hace personal en lugar de titular. Los roles se excluyen: el personal no inicia trámites, y eso decide qué pantallas ve cada persona. Las áreas y sus permisos existen solo dentro del rol de personal. No hay otros roles.
+- **Áreas.** Dentro del personal no hay áreas fijas: el administrador crea las que hagan falta (Secretaría, Comisión Curricular X, etc.) como datos de SIGTA y no de cada versión de un tipo de trámite. Las áreas no tienen tipo. Cada paso de un tipo de trámite es del titular o de un área. Un paso que hoy resuelve alguien de afuera (por ejemplo, el dictamen de una comisión) se asigna al área de quien lo registra en SIGTA.
+- **Permisos.** Cada área tiene su propio grupo de permisos, que el administrador crea a gusto como datos de SIGTA (por ejemplo, "Verificar documentación", "Registrar expediente" o "Aprobar dictamen" en la Secretaría). Un permiso pertenece a un área y se identifica dentro de ella. No hay permisos fijos en el código ni uno que cubra a otro: el nombre de un permiso no le da ningún significado para el sistema.
+- **Membresía.** Une a una persona con un área y le asigna algunos de los permisos de esa área. Opcionalmente, la membresía tiene un **alcance**, una lista de tipos de trámite que restringe dónde ve y actúa la persona dentro del área. Sin alcance, vale para todos los tipos, incluidos los que se publiquen después. El alcance referencia el tipo y no una versión.
+- **Varias áreas.** Una persona puede tener membresías en varias áreas. En una misma área tiene una sola membresía vigente por alcance; si necesita permisos distintos según el tipo de trámite (por ejemplo, aprobar solo equivalencias), tiene dos membresías con alcances distintos, y en un trámite valen los permisos de todas las que lo cubren.
+- **Pasos.** Cada paso de un tipo de trámite es del titular o del personal. Un paso del personal declara su área y los permisos de esa área que exige para hacerlo, al menos uno. Al publicar se valida que el área y los permisos existan.
+- **Vigencia.** La membresía tiene una fecha desde y una fecha hasta opcional, y registra quién la otorgó. Sin fecha hasta, vale hasta que se la da de baja. También se puede otorgar con una fecha hasta, por ejemplo para una suplencia. Cambiar los permisos de una membresía la cierra y abre otra. Una baja cierra la vigencia sin borrar nada. Las acciones ya hechas quedan en el historial del trámite con su autor.
+- **Actuar en un paso.** Se puede actuar en el paso abierto si la persona tiene membresías vigentes en el área del paso que cubren el tipo de trámite y que, juntas, le dan todos los permisos que el paso exige. Los pasos del titular los hace solo el titular de ese trámite. Se controla en el momento de cada acción: el trámite no se asigna a personas.
+- **Ver trámites.** El personal ve los trámites que pasan por sus áreas, recortados por el alcance. El titular ve solo los suyos. A quien no puede ver un trámite se le responde como si no existiera.
+- **Administrador.** Es una marca sobre la persona y no un tipo de usuario ni una membresía. Da de alta las áreas, sus permisos y las membresías. No le da acceso a los trámites: para actuar sobre ellos necesita una membresía.
+- **Registro.** Cada cambio de membresía queda registrado con quién, qué y cuándo. La autorización se aplica en el caso de uso del servidor. Registrar los intentos sin permiso no es parte de esta decisión: queda para una historia de auditoría, junto con los cambios de áreas y membresías y los ingresos.
+
+**Consecuencias.**
+- Queda resuelto si en un mismo trámite intervienen oficinas distintas con personas que no deben hacer los pasos de la otra: el área forma parte del permiso.
+- S-07 sigue sin condicionar el modelo: una persona puede tener cualquier combinación de permisos en cualquier área.
+- Desaparecen los perfiles fijos `staff_operative` y `staff_approver`, y la regla de que uno cubre al otro. Las versiones publicadas antes se siguen leyendo: el perfil de cada paso se lee como un permiso con el mismo identificador en el área del paso, que tiene que existir para que alguien pueda hacerlo.
+- Sumar un área o un permiso no requiere código. Exigir un permiso nuevo en un paso requiere publicar una versión del tipo de trámite.
+- Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
+- Las áreas son entidades globales del módulo `auth`, junto con las membresías y la marca de administrador, porque describen a las personas y a la organización y no a un trámite. Cada versión de un tipo de trámite sigue guardando una copia de las áreas y los permisos que usa (`content.Areas`), para leerse igual si cambian de nombre. Desaparece el tipo de área `external`.
+- La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área. Hay que ajustar el glosario y `AGENTS.md`.
+- Las reglas que dependen del trámite (qué ve y en qué pasos actúa cada persona) quedan en `procedure`, que le pide a `auth` las áreas y las membresías vigentes a través de sus puertos (`AreaCatalog`, `StaffDirectory`), como pide ADR-014. `auth` no depende de `procedure`: por eso, al otorgar una membresía no se comprueba que los tipos de su alcance existan, y un tipo inexistente simplemente no coincide con ningún trámite.
+- Las versiones ya publicadas con áreas `external` se siguen leyendo, y esas áreas se tratan como del personal; las áreas nuevas ya no aceptan ese tipo. Con ADR-021, las áreas pierden el tipo: el titular deja de ser un área y cada paso declara su rol.
+- `/me` informa el rol derivado (`applicant` o `staff`) y si la persona es administradora. `SIGTA_USERS_FILE` deja el campo `role` y declara `administrator` y `memberships`. Las membresías de cada persona se suman a `/me` cuando una pantalla las necesite.
+- Un área o un permiso se da de baja sin borrarse, como una membresía. Un permiso no se puede dar de baja mientras una membresía vigente lo tenga, y un paso que lo exige queda sin quién lo haga hasta publicar una versión que lo reemplace. Un área deja de listarse y de aceptar membresías, sigue nombrada en el historial y su identificador no se reusa. No se puede dar de baja mientras tenga membresías sin terminar. `auth` no sabe qué tipos de trámite usan un área, así que dar de baja una que todavía usan deja sus pasos sin personal hasta publicar una versión que la reemplace.
+- La API permite crear áreas (`POST /areas`) y sus permisos, y otorgar membresías (`POST /memberships`), solo a administradores. Dar de baja un área y terminar una membresía existen como casos de uso, pero todavía no tienen endpoints, y nada de esto tiene pantallas: hacen falta historias para la interfaz de administración. Mientras no existan, las membresías iniciales se cargan desde la configuración del despliegue y las áreas de prueba están en el código.
+
+---
+
+## ADR-021: Un módulo llama a otro por su API pública, sin puertos entre módulos
+
+**Estado:** propuesta, a acordar con el equipo. Reemplaza la regla de ADR-014 sobre cómo un módulo usa a otro.
+
+**Contexto.** ADR-014 pide que un módulo use a otro a través de un puerto. Con ADR-020, `procedure` necesita de `auth` las áreas y las membresías, y eso llevó a definir los puertos `AreaCatalog` y `StaffDirectory` en `procedure`, dos adaptadores que los implementan (uno sobre `auth`, otro en memoria para los tests) y copias en `procedure` de conceptos de `auth`: el perfil, la membresía (`StaffMembership`) y la jerarquía de rangos (`Covers`). Cada concepto tiene dos definiciones que hay que mantener iguales, y la decisión de si una persona alcanza para un paso queda en `procedure` aunque los rangos, la vigencia y el alcance son de `auth`. Los puertos sirven para reemplazar una dependencia o simularla en las pruebas. Un módulo del mismo binario no se reemplaza, y simularlo no ahorra nada: sus adaptadores en memoria ya son baratos.
+
+**Decisión.**
+- Cada módulo expone una **API pública** en `ports/input/`: las interfaces de sus casos de uso y los tipos que reciben y devuelven.
+- Otro módulo importa solo esa API y la recibe por constructor, sin definir un puerto propio ni un adaptador. Nunca importa `domain/`, `application/` ni `adapters/` de otro módulo.
+- Los tipos de la API pública se usan tal cual en el módulo que la llama; no se copian ni se traducen.
+- Cada regla vive en el módulo dueño de sus datos. `auth` responde si una persona tiene un rango en un área para un tipo de trámite (vigencia, alcance y jerarquía de rangos) y qué áreas y alcances alcanza. `procedure` decide qué exige cada paso, quién es el titular de un trámite y qué trámites se muestran, y le pregunta a `auth` lo que es de `auth`.
+- Las dependencias entre módulos van en un solo sentido: `procedure` usa `auth`, nunca al revés.
+- Los puertos de salida (`ports/output/`) quedan para lo que está fuera del módulo y puede cambiar o hay que simular: la base de datos, el proveedor de identidad, el correo y los modelos de IA.
+- Las pruebas de un módulo usan el otro módulo real, armado con sus adaptadores en memoria.
+
+**Consecuencias.**
+- Desaparecen `procedure/adapters/auth/`, los puertos `AreaCatalog` y `StaffDirectory`, el catálogo de áreas en memoria de `procedure`, `Actor`, `StaffMembership` y `Profile.Covers`. Cada área y membresía se define una sola vez, en `auth`, que expone `StaffAuthorizer` (`IsStaff`, `Holds`, `Reach`).
+- Cada versión de un tipo de trámite sigue guardando su copia de las áreas que usa (ADR-012, ADR-020). No es una traducción entre módulos: es lo que permite leer una versión publicada igual que el día en que se publicó.
+- Los permisos que exige un paso forman parte del contenido versionado de `procedure`, que guarda una copia de su nombre, y se validan al publicar contra los de `auth`. Para autorizar, `procedure` le pasa a `auth` los identificadores y `auth` decide.
+- Las áreas son solo del personal: cada paso dice su rol (`applicant` o `staff`) y solo los del personal tienen área. Desaparecen el área del titular y el identificador que `auth` reservaba para ella. El contenido de las versiones pasa al formato 3, y los formatos 1 y 2, que modelaban al titular como un área de tipo `applicant`, se convierten al leerlos.
+- Un cambio en la API pública de `auth` obliga a tocar a quien la usa. Hoy el cambio quedaba en el adaptador.
+- Los ciclos entre módulos los rechaza el compilador de Go. Que nadie importe el interior de otro módulo lo controla una regla de `depguard` en `golangci-lint`.
+- Si un módulo se separa algún día en un servicio aparte, el puerto vuelve a hacer falta, con un adaptador sobre la red. Hasta entonces no se agrega.
+- ADR-020 decía que `procedure` lee a `auth` a través de sus puertos; con esta decisión lo hace por la API pública de `auth`. El README y `AGENTS.md` se actualizan junto con la implementación.
+
+---
+
 ## Decisiones pendientes
 
 | ID | Decisión pendiente | Necesaria antes de | Responsable |
@@ -389,3 +474,6 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
 | D-08 | Quién puede proponer y quién aprobar una versión de un tipo de trámite: el equipo, la Secretaría o ambos | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
 | D-09 | Cuánto tiempo se conservan los documentos de un trámite cerrado | La estimación de almacenamiento para TICs | Secretaría |
+| D-10 | Qué ve el personal: todos los trámites que pasan por su área o solo los que tienen abierto un paso suyo (ADR-020) | La bandeja del personal | Canal con la Secretaría |
+| D-11 | Si hay un administrador global o un responsable por área que da de alta a su propio personal (ADR-020) | La gestión de membresías | Canal con la Secretaría |
+| D-12 | Si hace falta agrupar permisos para no asignarlos uno por uno a cada persona, y si el alcance por tipo de trámite se usa o alcanza con áreas más finas (ADR-020) | La gestión de membresías | Canal con la Secretaría |

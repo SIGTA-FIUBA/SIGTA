@@ -9,6 +9,9 @@ import (
 
 	"github.com/cucumber/godog"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain/catalog"
@@ -30,12 +33,10 @@ type catalogWorld struct {
 
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
-	areas := memory.NewAreaCatalog(
-		definition.Area{ID: "titular", Name: "Titular", Kind: definition.AreaApplicant},
-		definition.Area{ID: "secretaria", Name: "Secretaría", Kind: definition.AreaOffice},
-	)
+	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "register", Name: "Registrar"}}})
+	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
 	world := &catalogWorld{
-		service: application.NewProcedureTypeService(versions, areas, time.Now),
+		service: application.NewProcedureTypeService(versions, auth, time.Now),
 		types:   map[string]int64{},
 		latest:  map[string]definition.ProcedureTypeDefinition{},
 	}
@@ -90,15 +91,15 @@ func catalogDefinition(name, description string) definition.ProcedureTypeDefinit
 			{ID: "file_number", Name: "Número de expediente", Type: definition.FieldText},
 		},
 		Documents: []definition.Document{
-			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
-			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSize: 10 << 20},
+			{ID: "transcript", Name: "Certificado analítico", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "program", Name: "Programa", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
+			{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20},
 		},
 		Steps: []definition.Step{
-			{ID: "request", Name: "Solicitud", Area: "titular", Action: definition.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
-			{ID: "documents", Name: "Documentación", Area: "titular", Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
-			{ID: "ruling", Name: "Dictamen", Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
-			{ID: "record", Name: "Registro", Area: "secretaria", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact, Fields: []string{"file_number"}},
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"full_name"}, OptionalFields: []string{"reason"}, Next: "documents"},
+			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}, OptionalDocuments: []string{"program"}, Next: "ruling"},
+			{ID: "ruling", Name: "Dictamen", Role: definition.RoleStaff, Area: "secretaria", Permissions: []string{"register"}, Action: definition.ActionUploadDocument, Documents: []string{"ruling"}, Next: "record"},
+			{ID: "record", Name: "Registro", Role: definition.RoleStaff, Area: "secretaria", Permissions: []string{"register"}, Action: definition.ActionConfirmExternalFact, Fields: []string{"file_number"}},
 		},
 	}
 }
@@ -157,7 +158,7 @@ func (w *catalogWorld) givenMandatoryLater(field string) error {
 		d.Steps = slices.Clone(d.Steps)
 		d.Steps[0].Next = "more"
 		d.Steps = slices.Insert(d.Steps, 1, definition.Step{
-			ID: "more", Name: "Ampliación", Area: "titular", Action: definition.ActionEnterData, Fields: []string{field}, Next: "documents",
+			ID: "more", Name: "Ampliación", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{field}, Next: "documents",
 		})
 		if err := w.publishDefinition(name, d); err != nil {
 			return err
@@ -184,7 +185,7 @@ func (w *catalogWorld) publishBroken(problem string) error {
 	case "a document with a wrong format":
 		d.Documents[0].AcceptedTypes = []string{"pdf"}
 	case "a document without a size limit":
-		d.Documents[0].MaxSize = 0
+		d.Documents[0].MaxSizeBytes = 0
 	case "a blank deadline":
 		d.Deadlines = []string{" "}
 	default:
@@ -302,7 +303,7 @@ func (w *catalogWorld) thenAccepts(id, mediaType string, size int64) error {
 			if requirement.Document.ID != id {
 				continue
 			}
-			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSize != size {
+			if !slices.Contains(requirement.Document.AcceptedTypes, mediaType) || requirement.Document.MaxSizeBytes != size {
 				return fmt.Errorf("document %q = %+v", id, requirement.Document)
 			}
 			return nil

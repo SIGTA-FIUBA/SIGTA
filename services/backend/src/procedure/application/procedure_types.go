@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -17,11 +19,11 @@ var _ input.ProcedureTypes = (*ProcedureTypeService)(nil)
 
 type ProcedureTypeService struct {
 	versions output.ProcedureVersions
-	areas    output.AreaCatalog
+	areas    authinput.Areas
 	now      func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureVersions, areas output.AreaCatalog, now func() time.Time) *ProcedureTypeService {
+func NewProcedureTypeService(versions output.ProcedureVersions, areas authinput.Areas, now func() time.Time) *ProcedureTypeService {
 	return &ProcedureTypeService{versions: versions, areas: areas, now: now}
 }
 
@@ -29,9 +31,9 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	if err := p.Authorship.Validate(); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
 	}
-	areas, err := s.areas.List(ctx)
+	areas, err := s.currentStaffAreas(ctx)
 	if err != nil {
-		return version.ProcedureTypeVersion{}, fmt.Errorf("list areas: %w", err)
+		return version.ProcedureTypeVersion{}, err
 	}
 	if err := p.Definition.Validate(areas); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
@@ -74,6 +76,22 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 		return version.ProcedureTypeVersion{}, fmt.Errorf("publish procedure type %d version %d: %w", p.ProcedureType, v.Number, err)
 	}
 	return v, nil
+}
+
+func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definition.Area, error) {
+	staff, err := s.areas.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list areas: %w", err)
+	}
+	areas := make([]definition.Area, 0, len(staff))
+	for _, a := range staff {
+		area := definition.Area{ID: a.ID, Name: a.Name}
+		for _, p := range a.Permissions {
+			area.Permissions = append(area.Permissions, definition.Permission{ID: p.ID, Name: p.Name})
+		}
+		areas = append(areas, area)
+	}
+	return areas, nil
 }
 
 func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {

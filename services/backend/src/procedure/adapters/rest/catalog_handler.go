@@ -39,7 +39,7 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 			Name:          document.Document.Name,
 			Required:      document.Required,
 			AcceptedTypes: orEmpty(document.Document.AcceptedTypes),
-			MaxSize:       document.Document.MaxSize,
+			MaxSize:       document.Document.MaxSizeBytes,
 		})
 	}
 	return api.CatalogEntry{

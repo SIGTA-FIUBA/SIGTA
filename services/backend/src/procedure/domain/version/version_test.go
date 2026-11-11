@@ -52,7 +52,7 @@ func TestDecodeContentRejectsUnknownKeys(t *testing.T) {
 
 func TestDecodeContentRejectsAnotherFormat(t *testing.T) {
 	for _, encoded := range []string{
-		`{"format":3,"definition":{"name":"Trámite"}}`,
+		`{"format":4,"definition":{"name":"Trámite"}}`,
 		`{"definition":{"name":"Trámite"}}`,
 	} {
 		v := version.ProcedureTypeVersion{Number: 1, Digest: version.Digest([]byte(encoded)), EncodedContent: []byte(encoded)}

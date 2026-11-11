@@ -94,6 +94,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crea un área del personal
+         * @description Solo para administradores (ADR-020). El identificador queda fijo: va en minúsculas, empieza con una letra y no puede ser el de un área existente o dada de baja. El nombre no puede repetir el de otra área. El área empieza sin permisos.
+         */
+        post: operations["createArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crea un permiso en un área del personal
+         * @description Solo para administradores (ADR-020). Los permisos son de un área y los exigen los pasos del personal de esa área. El identificador queda fijo y no puede repetir el de otro permiso del área, aunque esté dado de baja. El nombre no puede repetir el de otro permiso del área.
+         */
+        post: operations["createPermission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Otorga una membresía a una persona
+         * @description Solo para administradores (ADR-020). La membresía pone a la persona en un área con algunos de los permisos de esa área, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
+         */
+        post: operations["grantMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -106,8 +166,11 @@ export interface components {
          * @enum {string}
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
-        /** @enum {string} */
-        Role: "applicant" | "staff_operative" | "staff_approver";
+        /**
+         * @description Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+         * @enum {string}
+         */
+        Role: "applicant" | "staff";
         FieldRequirement: {
             id: string;
             name: string;
@@ -143,6 +206,58 @@ export interface components {
             email: string;
             name: string;
             role: components["schemas"]["Role"];
+            /** @description Si puede otorgar y dar de baja membresías. No da acceso a los trámites */
+            administrator: boolean;
+        };
+        Area: {
+            id: string;
+            name: string;
+            permissions: components["schemas"]["Permission"][];
+        };
+        NewArea: {
+            /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
+            id: string;
+            name: string;
+        };
+        Permission: {
+            id: string;
+            name: string;
+        };
+        NewPermission: {
+            /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
+            id: string;
+            name: string;
+        };
+        NewMembership: {
+            user_id: string;
+            /** @description Identificador del área */
+            area: string;
+            /** @description Identificadores de permisos del área, al menos uno */
+            permissions: string[];
+            /** @description Tipos de trámite a los que se limita. Vacío o ausente vale para todos, incluidos los que se publiquen después */
+            scope?: number[];
+            /**
+             * Format: date-time
+             * @description Desde cuándo vale. Ausente vale desde ahora
+             */
+            from?: string;
+            /**
+             * Format: date-time
+             * @description Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+             */
+            until?: string;
+        };
+        Membership: {
+            id: string;
+            user_id: string;
+            area: string;
+            permissions: string[];
+            scope: number[];
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            until?: string;
+            granted_by: string;
         };
     };
     responses: {
@@ -157,6 +272,15 @@ export interface components {
         };
         /** @description Sin sesión válida */
         Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description La persona no tiene permiso para esta acción */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -291,6 +415,95 @@ export interface operations {
                     "application/json": components["schemas"]["CatalogEntry"][];
                 };
             };
+        };
+    };
+    createArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewArea"];
+            };
+        };
+        responses: {
+            /** @description Área creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPermission"];
+            };
+        };
+        responses: {
+            /** @description Permiso creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Permission"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    grantMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMembership"];
+            };
+        };
+        responses: {
+            /** @description Membresía otorgada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

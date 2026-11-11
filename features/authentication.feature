@@ -7,18 +7,18 @@ Feature: Sign in through an abstracted identity provider
   Background:
     Given only accounts from the "fi.uba.ar" domain are allowed
     And SIGTA has "applicant@fi.uba.ar" registered as an applicant
-    And SIGTA has "operative@fi.uba.ar" registered as staff with the "staff_operative" profile
+    And SIGTA has "operative@fi.uba.ar" registered as staff of the "student affairs" area
 
-  Scenario: the profile comes from SIGTA, not from the provider
+  Scenario: the role comes from SIGTA, not from the provider
     When "operative@fi.uba.ar" signs in through the identity provider
     Then a session is opened
-    And their profile is "staff_operative"
+    And their role is "staff"
 
   @SIG-61
   Scenario: an institutional identity new to SIGTA is registered as an applicant
     When "newcomer@fi.uba.ar" signs in through the identity provider
     Then a session is opened
-    And their profile is "applicant"
+    And their role is "applicant"
 
   Scenario: a sign-in the provider rejects does not blame the account
     When the identity provider rejects a sign-in

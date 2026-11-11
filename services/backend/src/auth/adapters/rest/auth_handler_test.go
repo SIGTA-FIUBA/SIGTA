@@ -33,14 +33,21 @@ func newServer(t *testing.T) *httptest.Server {
 		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
 		dev.NewIdentityProvider(srv.URL+"/auth/callback", ""),
 		memory.NewUserRepository(
-			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant},
-			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative},
+			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"},
+			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
+			domain.User{ID: "u3", Email: "admin@fi.uba.ar", Name: "Administración"},
 		),
 		memory.NewSessionStore(),
 		time.Now,
 	)
-	server := rest.NewAuthHandler(auth, srv.URL+"/me", srv.URL+"/login", false)
-	api.Mount(mux, api.NewServer(server, nil), slog.Default())
+	areaRepository := memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}})
+	administrators := memory.NewAdministrators("u3")
+	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Permissions: []string{"review"}})
+	areas := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
+	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, func() string { return "m2" }, time.Now)
+	server := rest.NewAuthHandler(auth, memberships, srv.URL+"/me", srv.URL+"/login", false)
+	administration := rest.NewAdministrationHandler(auth, areas, memberships)
+	api.Mount(mux, api.NewServer(server, nil, administration), slog.Default())
 	return srv
 }
 
@@ -264,7 +271,7 @@ type brokenAuth struct{ ports.Authenticator }
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 
 func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
-	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, "", "", false), nil), slog.New(slog.DiscardHandler))
+	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, nil, "", "", false), nil, nil), slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 

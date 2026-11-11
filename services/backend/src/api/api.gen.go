@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -40,9 +41,8 @@ func (e LoginError) Valid() bool {
 
 // Defines values for Role.
 const (
-	Applicant      Role = "applicant"
-	StaffApprover  Role = "staff_approver"
-	StaffOperative Role = "staff_operative"
+	Applicant Role = "applicant"
+	Staff     Role = "staff"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
@@ -50,13 +50,18 @@ func (e Role) Valid() bool {
 	switch e {
 	case Applicant:
 		return true
-	case StaffApprover:
-		return true
-	case StaffOperative:
+	case Staff:
 		return true
 	default:
 		return false
 	}
+}
+
+// Area defines model for Area.
+type Area struct {
+	Id          string       `json:"id"`
+	Name        string       `json:"name"`
+	Permissions []Permission `json:"permissions"`
 }
 
 // CatalogEntry defines model for CatalogEntry.
@@ -99,15 +104,70 @@ type FieldRequirement struct {
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
 
-// Role defines model for Role.
+// Membership defines model for Membership.
+type Membership struct {
+	Area        string     `json:"area"`
+	From        time.Time  `json:"from"`
+	GrantedBy   string     `json:"granted_by"`
+	Id          string     `json:"id"`
+	Permissions []string   `json:"permissions"`
+	Scope       []int64    `json:"scope"`
+	Until       *time.Time `json:"until,omitempty"`
+	UserId      string     `json:"user_id"`
+}
+
+// NewArea defines model for NewArea.
+type NewArea struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// NewMembership defines model for NewMembership.
+type NewMembership struct {
+	// Area Identificador del área
+	Area string `json:"area"`
+
+	// From Desde cuándo vale. Ausente vale desde ahora
+	From *time.Time `json:"from,omitempty"`
+
+	// Permissions Identificadores de permisos del área, al menos uno
+	Permissions []string `json:"permissions"`
+
+	// Scope Tipos de trámite a los que se limita. Vacío o ausente vale para todos, incluidos los que se publiquen después
+	Scope *[]int64 `json:"scope,omitempty"`
+
+	// Until Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+	Until  *time.Time `json:"until,omitempty"`
+	UserId string     `json:"user_id"`
+}
+
+// NewPermission defines model for NewPermission.
+type NewPermission struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Permission defines model for Permission.
+type Permission struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
 type Role string
 
 // User defines model for User.
 type User struct {
-	Email openapi_types.Email `json:"email"`
-	Id    string              `json:"id"`
-	Name  string              `json:"name"`
-	Role  Role                `json:"role"`
+	// Administrator Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+	Administrator bool                `json:"administrator"`
+	Email         openapi_types.Email `json:"email"`
+	Id            string              `json:"id"`
+	Name          string              `json:"name"`
+
+	// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
+	Role Role `json:"role"`
 }
 
 // SessionCookie defines model for SessionCookie.
@@ -116,8 +176,21 @@ type SessionCookie = string
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// CreateAreaParams defines parameters for CreateArea.
+type CreateAreaParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreatePermissionParams defines parameters for CreatePermission.
+type CreatePermissionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
 
 // CompleteLoginParams defines parameters for CompleteLogin.
 type CompleteLoginParams struct {
@@ -146,8 +219,28 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// GrantMembershipParams defines parameters for GrantMembership.
+type GrantMembershipParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
+type CreateAreaJSONRequestBody = NewArea
+
+// CreatePermissionJSONRequestBody defines body for CreatePermission for application/json ContentType.
+type CreatePermissionJSONRequestBody = NewPermission
+
+// GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
+type GrantMembershipJSONRequestBody = NewMembership
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CreateArea Crea un área del personal
+	// (POST /areas)
+	CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams)
+	// CreatePermission Crea un permiso en un área del personal
+	// (POST /areas/{areaId}/permissions)
+	CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
@@ -160,6 +253,9 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
+	// GrantMembership Otorga una membresía a una persona
+	// (POST /memberships)
+	GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams)
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
@@ -173,6 +269,85 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CreateArea operation middleware
+func (siw *ServerInterfaceWrapper) CreateArea(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateAreaParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateArea(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePermission operation middleware
+func (siw *ServerInterfaceWrapper) CreatePermission(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePermissionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePermission(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CompleteLogin operation middleware
 func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.Request) {
@@ -351,6 +526,41 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GrantMembership operation middleware
+func (siw *ServerInterfaceWrapper) GrantMembership(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GrantMembershipParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantMembership(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProcedureTypes operation middleware
 func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *http.Request) {
 
@@ -490,13 +700,149 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas", wrapper.CreateArea)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/permissions", wrapper.CreatePermission)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
 
 	return m
 }
 
 type BadRequestJSONResponse Error
 
+type ForbiddenJSONResponse Error
+
 type UnauthorizedJSONResponse Error
+
+type CreateAreaRequestObject struct {
+	Params CreateAreaParams
+	Body   *CreateAreaJSONRequestBody
+}
+
+type CreateAreaResponseObject interface {
+	VisitCreateAreaResponse(w http.ResponseWriter) error
+}
+
+type CreateArea201JSONResponse Area
+
+func (response CreateArea201JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateArea400JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateArea401JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateArea403JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermissionRequestObject struct {
+	AreaId string `json:"areaId"`
+	Params CreatePermissionParams
+	Body   *CreatePermissionJSONRequestBody
+}
+
+type CreatePermissionResponseObject interface {
+	VisitCreatePermissionResponse(w http.ResponseWriter) error
+}
+
+type CreatePermission201JSONResponse Permission
+
+func (response CreatePermission201JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreatePermission400JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreatePermission401JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreatePermission403JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type CompleteLoginRequestObject struct {
 	Params CompleteLoginParams
@@ -628,6 +974,71 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
+type GrantMembershipRequestObject struct {
+	Params GrantMembershipParams
+	Body   *GrantMembershipJSONRequestBody
+}
+
+type GrantMembershipResponseObject interface {
+	VisitGrantMembershipResponse(w http.ResponseWriter) error
+}
+
+type GrantMembership201JSONResponse Membership
+
+func (response GrantMembership201JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GrantMembership400JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GrantMembership401JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GrantMembership403JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListProcedureTypesRequestObject struct {
 }
 
@@ -651,6 +1062,12 @@ func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesRespons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// CreateArea Crea un área del personal
+	// (POST /areas)
+	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
+	// CreatePermission Crea un permiso en un área del personal
+	// (POST /areas/{areaId}/permissions)
+	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
@@ -663,6 +1080,9 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// GrantMembership Otorga una membresía a una persona
+	// (POST /memberships)
+	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
@@ -705,6 +1125,73 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// CreateArea operation middleware
+func (sh *strictHandler) CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams) {
+	var request CreateAreaRequestObject
+
+	request.Params = params
+
+	var body CreateAreaJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateArea(ctx, request.(CreateAreaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateArea")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAreaResponseObject); ok {
+		if err := validResponse.VisitCreateAreaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePermission operation middleware
+func (sh *strictHandler) CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams) {
+	var request CreatePermissionRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	var body CreatePermissionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePermission(ctx, request.(CreatePermissionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePermission")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePermissionResponseObject); ok {
+		if err := validResponse.VisitCreatePermissionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // CompleteLogin operation middleware
@@ -804,6 +1291,39 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantMembership operation middleware
+func (sh *strictHandler) GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams) {
+	var request GrantMembershipRequestObject
+
+	request.Params = params
+
+	var body GrantMembershipJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantMembership(ctx, request.(GrantMembershipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantMembership")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantMembershipResponseObject); ok {
+		if err := validResponse.VisitGrantMembershipResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

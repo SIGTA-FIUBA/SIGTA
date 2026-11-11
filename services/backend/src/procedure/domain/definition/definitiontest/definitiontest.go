@@ -4,12 +4,17 @@ package definitiontest
 
 import "backend/src/procedure/domain/definition"
 
-// Areas returns one area of each kind.
+// Areas returns two staff areas with their permissions: the applicant has
+// none.
 func Areas() []definition.Area {
 	return []definition.Area{
-		{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant},
-		{ID: "office", Name: "Dirección de Alumnos", Kind: definition.AreaOffice},
-		{ID: "commission", Name: "Comisión Curricular", Kind: definition.AreaExternal},
+		{ID: "office", Name: "Dirección de Alumnos", Permissions: []definition.Permission{
+			{ID: "review", Name: "Revisar"},
+			{ID: "approve", Name: "Aprobar"},
+		}},
+		{ID: "commission", Name: "Comisión Curricular", Permissions: []definition.Permission{
+			{ID: "evaluate", Name: "Evaluar"},
+		}},
 	}
 }
 
@@ -20,15 +25,15 @@ func Definition() definition.ProcedureTypeDefinition {
 		Name:        "Trámite de prueba",
 		Description: "Un trámite para las pruebas",
 		Fields:      []definition.Field{{ID: "national_id", Name: "DNI", Type: definition.FieldText}},
-		Documents:   []definition.Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024}},
+		Documents:   []definition.Document{{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024}},
 		Steps: []definition.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
-			{ID: "letter", Name: "Carta", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
-			{ID: "review", Name: "Revisión", Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"national_id"}, Next: "letter"},
+			{ID: "letter", Name: "Carta", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"letter"}, Next: "review"},
+			{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
 				{ID: "complete", Name: "Completa", Next: "closed"},
 				{ID: "incomplete", Name: "Incompleta", Next: "letter"},
 			}},
-			{ID: "closed", Name: "Archivado", Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
+			{ID: "closed", Name: "Archivado", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 		},
 	}
 }

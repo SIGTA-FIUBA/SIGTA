@@ -33,10 +33,12 @@ const (
 // authenticationWorld is the state of one scenario of US06. Each scenario goes
 // through the REST adapter, which it calls in process.
 type authenticationWorld struct {
-	domain  string
-	users   *memory.UserRepository
-	now     time.Time
-	handler http.Handler
+	domain      string
+	users       *memory.UserRepository
+	memberships *memory.MembershipRepository
+	areas       []domain.Area
+	now         time.Time
+	handler     http.Handler
 
 	client *http.Client
 
@@ -51,13 +53,14 @@ type authenticationWorld struct {
 
 func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	w := &authenticationWorld{
-		users: memory.NewUserRepository(),
-		now:   time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC),
+		users:       memory.NewUserRepository(),
+		memberships: memory.NewMembershipRepository(),
+		now:         time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC),
 	}
 
 	sc.Given(`^only accounts from the "([^"]*)" domain are allowed$`, w.givenDomain)
 	sc.Given(`^SIGTA has "([^"]*)" registered as an applicant$`, w.givenApplicant)
-	sc.Given(`^SIGTA has "([^"]*)" registered as staff with the "([^"]*)" profile$`, w.givenStaff)
+	sc.Given(`^SIGTA has "([^"]*)" registered as staff of the "([^"]*)" area$`, w.givenStaff)
 	sc.Given(`^"([^"]*)" completed a sign-in$`, w.givenSignedIn)
 	sc.Given(`^"([^"]*)" has an open session$`, w.givenSignedIn)
 
@@ -70,7 +73,7 @@ func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	sc.When(`^they make a request every (\d+) minutes$`, w.keepActive)
 
 	sc.Then(`^a session is opened$`, w.thenSessionOpened)
-	sc.Then(`^their profile is "([^"]*)"$`, w.thenProfile)
+	sc.Then(`^their role is "([^"]*)"$`, w.thenRole)
 	sc.Then(`^no session is opened$`, w.thenNoSession)
 	sc.Then(`^they are asked to try again$`, w.thenSentBack(api.Rejected))
 	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenSentBack(api.DomainNotAllowed))
@@ -95,8 +98,15 @@ func (w *authenticationWorld) server() http.Handler {
 			memory.NewSessionStore(),
 			func() time.Time { return w.now },
 		)
-		server := authrest.NewAuthHandler(auth, baseURL+"/", loginPage, false)
-		w.handler = api.Mount(http.NewServeMux(), api.NewServer(server, nil), slog.New(slog.DiscardHandler))
+		memberships := application.NewMembershipService(
+			memory.NewAreaRepository(w.areas...),
+			memory.NewAdministrators(),
+			w.memberships,
+			func() string { return "M-new" },
+			func() time.Time { return w.now },
+		)
+		server := authrest.NewAuthHandler(auth, memberships, baseURL+"/", loginPage, false)
+		w.handler = api.Mount(http.NewServeMux(), api.NewServer(server, nil, nil), slog.New(slog.DiscardHandler))
 	}
 	return w.handler
 }
@@ -160,8 +170,8 @@ func (w *authenticationWorld) expectStatus(want int) error {
 	return nil
 }
 
-func (w *authenticationWorld) add(email string, role domain.Role) {
-	w.users.Add(domain.User{ID: email, Email: email, Name: "Persona de prueba", Role: role})
+func (w *authenticationWorld) add(email string) {
+	w.users.Add(domain.User{ID: email, Email: email, Name: "Persona de prueba"})
 }
 
 func (w *authenticationWorld) givenDomain(allowed string) error {
@@ -170,13 +180,19 @@ func (w *authenticationWorld) givenDomain(allowed string) error {
 }
 
 func (w *authenticationWorld) givenApplicant(email string) error {
-	w.add(email, domain.RoleApplicant)
+	w.add(email)
 	return nil
 }
 
-func (w *authenticationWorld) givenStaff(email, profile string) error {
-	w.add(email, domain.Role(profile))
-	return nil
+func (w *authenticationWorld) givenStaff(email, area string) error {
+	w.add(email)
+	w.areas = append(w.areas, domain.Area{ID: areaID(area), Name: area, Permissions: []domain.Permission{{ID: "verify", Name: "Verificar"}}})
+	return w.memberships.Save(context.Background(), domain.Membership{
+		ID:          "M-" + email,
+		UserID:      email,
+		Area:        areaID(area),
+		Permissions: []string{"verify"},
+	})
 }
 
 func (w *authenticationWorld) givenSignedIn(email string) error {
@@ -295,13 +311,13 @@ func (w *authenticationWorld) thenSessionOpen() error {
 	return w.expectStatus(http.StatusOK)
 }
 
-func (w *authenticationWorld) thenProfile(want string) error {
+func (w *authenticationWorld) thenRole(want string) error {
 	var user api.User
 	if err := json.Unmarshal([]byte(w.body), &user); err != nil {
 		return fmt.Errorf("%q: %w", w.body, err)
 	}
 	if string(user.Role) != want {
-		return fmt.Errorf("the profile is %q, want %q", user.Role, want)
+		return fmt.Errorf("the role is %q, want %q", user.Role, want)
 	}
 	return nil
 }

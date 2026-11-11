@@ -29,7 +29,7 @@ func (catalog fakeCatalog) Catalog(context.Context) ([]input.CatalogEntry, error
 
 func getCatalog(t *testing.T, catalog fakeCatalog) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, rest.NewCatalogHandler(catalog))
+	server := api.NewServer(nil, rest.NewCatalogHandler(catalog), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedure-types", http.NoBody))
@@ -44,7 +44,7 @@ func TestListProcedureTypesNeedsNoSession(t *testing.T) {
 		Description:   "Descripción",
 		Fields:        []catalog.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: true}},
 		Documents: []catalog.DocumentRequirement{{
-			Document: definition.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSize: 1024},
+			Document: definition.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024},
 		}},
 	}}})
 

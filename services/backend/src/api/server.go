@@ -7,10 +7,8 @@ import (
 	"net/http"
 )
 
-// InvalidRequestMessage answers a request that does not follow the contract.
 const InvalidRequestMessage = "El pedido no es válido."
 
-// AuthServer is the part of the contract that the auth module answers.
 type AuthServer interface {
 	BeginLogin(ctx context.Context, request BeginLoginRequestObject) (BeginLoginResponseObject, error)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
@@ -18,22 +16,27 @@ type AuthServer interface {
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
 }
 
-// CatalogServer is the part of the contract that the procedure module answers.
 type CatalogServer interface {
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
 }
 
-// Server joins what each module answers into the one interface the contract
-// generates. A test that only calls one module can leave the other nil.
+type AdministrationServer interface {
+	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
+	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
+	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
+}
+
+// A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
+	AdministrationServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration}
 }
 
 // Mount registers the API on mux. Errors raised outside the handlers answer

@@ -20,14 +20,10 @@ type DocumentRequirement struct {
 // mandatory in any applicant step is mandatory, even if another makes it
 // optional.
 func ApplicantRequirements(c version.Content) ([]FieldRequirement, []DocumentRequirement) {
-	applicantAreas := map[string]bool{}
-	for _, area := range c.Areas {
-		applicantAreas[area.ID] = area.Kind == definition.AreaApplicant
-	}
 	// Fields and documents keep separate ids, so they are tracked apart.
-	fields, documents := requirementSet{}, requirementSet{}
+	fields, documents := mandatoryByID{}, mandatoryByID{}
 	for _, step := range c.Definition.Steps {
-		if applicantAreas[step.Area] {
+		if step.Role == definition.RoleApplicant {
 			fields.add(step.Fields, step.OptionalFields)
 			documents.add(step.Documents, step.OptionalDocuments)
 		}
@@ -48,10 +44,9 @@ func ApplicantRequirements(c version.Content) ([]FieldRequirement, []DocumentReq
 	return fieldRequirements, documentRequirements
 }
 
-// requirementSet tells, for each id asked for, whether it is mandatory.
-type requirementSet map[string]bool
+type mandatoryByID map[string]bool
 
-func (requirements requirementSet) add(mandatory, optional []string) {
+func (requirements mandatoryByID) add(mandatory, optional []string) {
 	for _, id := range optional {
 		if _, asked := requirements[id]; !asked {
 			requirements[id] = false

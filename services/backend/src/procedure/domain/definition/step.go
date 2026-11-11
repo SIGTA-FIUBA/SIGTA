@@ -11,18 +11,21 @@ const (
 	ActionDecide              Action = "decide"
 )
 
-type Profile string
+// Role says who does a step: the applicant of the procedure, or staff of
+// the area of the step (ADR-020).
+type Role string
 
 const (
-	ProfileStaffOperative Profile = "staff_operative"
-	ProfileStaffApprover  Profile = "staff_approver"
+	RoleApplicant Role = "applicant"
+	RoleStaff     Role = "staff"
 )
 
 type Step struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
-	Area              string    `json:"area"`
-	Profile           Profile   `json:"profile,omitempty"`
+	Role              Role      `json:"role,omitempty"`
+	Area              string    `json:"area,omitempty"`
+	Permissions       []string  `json:"permissions,omitempty"`
 	Action            Action    `json:"action"`
 	Fields            []string  `json:"fields,omitempty"`
 	OptionalFields    []string  `json:"optional_fields,omitempty"`
@@ -55,18 +58,41 @@ func (v stepValidator) validate(s Step) []ValidationProblem {
 }
 
 func (v stepValidator) owner(s Step) []ValidationProblem {
-	area, ok := v.areas[s.Area]
-	switch {
-	case !ok:
-		return []ValidationProblem{{Code: CodeUnknownArea, Value: s.Area}}
-	case area.Kind == AreaApplicant && s.Profile != "":
-		return []ValidationProblem{{Code: CodeApplicantWithProfile}}
-	case area.Kind == AreaApplicant && s.Action != ActionEnterData && s.Action != ActionUploadDocument:
-		return []ValidationProblem{{Code: CodeApplicantAction}}
-	case area.Kind != AreaApplicant && s.Profile != ProfileStaffOperative && s.Profile != ProfileStaffApprover:
-		return []ValidationProblem{{Code: CodeInvalidProfile, Value: string(s.Profile)}}
+	switch s.Role {
+	case RoleApplicant:
+		var problems []ValidationProblem
+		if s.Area != "" {
+			problems = append(problems, ValidationProblem{Code: CodeApplicantWithArea, Value: s.Area})
+		}
+		if len(s.Permissions) > 0 {
+			problems = append(problems, ValidationProblem{Code: CodeApplicantWithPermissions})
+		}
+		if s.Action != ActionEnterData && s.Action != ActionUploadDocument {
+			problems = append(problems, ValidationProblem{Code: CodeApplicantAction})
+		}
+		return problems
+	case RoleStaff:
+		area, ok := v.areas[s.Area]
+		if !ok {
+			return []ValidationProblem{{Code: CodeUnknownArea, Value: s.Area}}
+		}
+		if len(s.Permissions) == 0 {
+			return []ValidationProblem{{Code: CodeNoPermissions}}
+		}
+		var problems []ValidationProblem
+		seen := map[string]bool{}
+		for _, id := range s.Permissions {
+			if !area.hasPermission(id) {
+				problems = append(problems, ValidationProblem{Code: CodeUnknownPermission, Value: id, Other: area.ID})
+			}
+			if seen[id] {
+				problems = append(problems, ValidationProblem{Code: CodeRepeatedPermission, Value: id})
+			}
+			seen[id] = true
+		}
+		return problems
 	}
-	return nil
+	return []ValidationProblem{{Code: CodeUnknownRole, Value: string(s.Role)}}
 }
 
 func (v stepValidator) contents(s Step) []ValidationProblem {

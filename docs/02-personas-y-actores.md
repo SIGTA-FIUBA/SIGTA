@@ -7,14 +7,18 @@ Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en
 
 ## 1. Roles de la plataforma
 
-La plataforma distingue al **titular del trámite**, que es un rol fijo, y al **personal**, que tiene los roles que le asigna el administrador (ADR-017). Operativo y de aprobación son los roles iniciales. Son los mismos dos tipos de persona que ordenan el User Story Mapping, y las personas P2 y P3 se mantienen como arquetipos.
+La plataforma tiene **dos roles**, que se excluyen entre sí y son los mismos que ordenan el User Story Mapping (ADR-020). Ninguno se guarda: se derivan de las membresías.
 
 | Persona usuaria | Roles iniciales | Qué hace |
 |---|---|---|
-| **Titular del trámite** | Titular, fijo | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
-| **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el rol de aprobación además aprueba y firma |
+| **Titular del trámite** | Uno | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente. Es titular toda persona que ingresa sin una membresía vigente |
+| **Secretario** (personal) | Los permisos de cada área que le asignan sus membresías | Recibe, verifica, deriva, registra retornos, aprueba y firma, según sus permisos. Es personal quien tiene al menos una membresía vigente, y no inicia trámites |
 
-**Por qué dos roles iniciales para el personal.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como una sola persona usuaria. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen el rol operativo del de aprobación.
+**Por qué un solo rol para el personal.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como un solo rol. Pero no cualquiera puede aprobar o firmar: lo distinguen los permisos que cada persona tiene en cada área. Las personas P2 y P3 son arquetipos de dos combinaciones de permisos.
+
+**Áreas y membresías.** El personal se organiza en áreas (Secretaría, Comisión Curricular X, etc.) que se crean como datos, sin una lista fija. Cada área tiene su grupo de permisos, que crea el administrador. Una membresía pone a una persona en un área con algunos de esos permisos, opcionalmente solo para algunos tipos de trámite (alcance), y con una vigencia. Una persona puede estar en varias áreas.
+
+**Administrador.** Es una marca sobre una persona y no un rol: otorga y da de baja membresías, y no le da acceso a los trámites.
 
 ## 2. Actores que no son roles de la plataforma
 
@@ -96,11 +100,11 @@ La plataforma distingue al **titular del trámite**, que es un rol fijo, y al **
 
 ## 4. Permisos
 
-| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Edita configuración |
-|---|---|---|---|---|---|
-| Titular | Solo los propios | No | No | No | No |
-| Secretario operativo | Todos los de su ámbito | Sí | Sí | No | A confirmar (D-08) |
-| Secretario de aprobación | Todos | Sí | Sí | Sí | A confirmar (D-08) |
-| Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
+| Quién | Ve trámites | Actúa en pasos | Crea áreas, permisos y membresías | Edita configuración |
+|---|---|---|---|---|
+| Titular | Solo los propios | Solo los suyos, del titular | No | No |
+| Personal de un área | Los que pasan por su área, dentro de su alcance | Los de su área para los que tiene todos los permisos que exigen | No | A confirmar (D-08) |
+| Administrador (marca) | Solo por sus membresías | Solo por sus membresías | Sí | A confirmar (D-08) |
+| Equipo de proyecto | No aplica | No aplica | No aplica | A confirmar (D-08) |
 
-> La tabla es la hipótesis mínima. Con ADR-017, cada fila del personal pasa a ser un rol inicial que el administrador puede cambiar. El reparto por área se completa en la reunión con las áreas de la Secretaría (US64).
+> La tabla sigue el modelo de ADR-020. Falta confirmar con la Secretaría qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si hace falta agrupar permisos o usar el alcance (D-12).

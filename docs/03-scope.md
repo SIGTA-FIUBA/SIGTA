@@ -87,7 +87,7 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 
 ### 2.5 Configuración
 
-- Definición de tipos de trámite (datos, documentos, pasos, y el área de cada paso con su perfil, salvo en los del titular), que se va a editar desde la interfaz de SIGTA. A confirmar con los directores, porque contradice el anteproyecto, y todavía sin historia en el backlog (ADR-013). Cada publicación es una versión nueva que no se modifica, propuesta por una persona y aprobada por otra (ADR-012, ADR-013).
+- Definición de tipos de trámite (datos, documentos, pasos, y el área de cada paso con los permisos que exige, salvo en los del titular), que se va a editar desde la interfaz de SIGTA. A confirmar con los directores, porque contradice el anteproyecto, y todavía sin historia en el backlog (ADR-013). Cada publicación es una versión nueva que no se modifica, propuesta por una persona y aprobada por otra (ADR-012, ADR-013).
 - Incorporar un trámite nuevo consiste en agregar configuración, sin tocar el código.
 - Áreas comunes a todos los trámites de la familia; los datos y documentos son de cada tipo de trámite.
 
@@ -136,7 +136,7 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 | S-04 | La Secretaría dispone de una instancia de validación por fase | Se acumula deuda de validación, con riesgo al cierre |
 | S-05 | Hay infraestructura de despliegue disponible o financiable | Despliegue de costo cero, con impacto en la demo |
 | S-06 | Los pasos se reducen a un conjunto chico de acciones abstractas | La configuración se vuelve específica por trámite y se pierde el bajo costo marginal |
-| S-07 | Los perfiles operativo y de aprobación del Secretario corresponden a personas distintas | Reemplazado el 4/11: la Secretaría pidió roles configurables por un administrador (ADR-017) |
+| S-07 | Los perfiles operativo y de aprobación del Secretario corresponden a personas distintas | Ya no condiciona el modelo: con ADR-020, una persona puede tener cualquier combinación de permisos en cualquier área |
 | S-08 | Los actores externos aceptan seguir trabajando fuera de la plataforma | Habría que negociar acceso externo, que hoy está fuera del alcance |
 
 ---
