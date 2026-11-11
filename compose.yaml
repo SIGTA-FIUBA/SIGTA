@@ -31,6 +31,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       SIGTA_BACKEND_DB_PASSWORD: backend
+      SIGTA_BACKEND_MIGRATIONS_DB_PASSWORD: backend_migrations
       SIGTA_AI_DB_PASSWORD: ai
     volumes:
       - ./deploy/postgres:/docker-entrypoint-initdb.d:ro
@@ -38,7 +39,9 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d sigta"]
+      # Over TCP: while init.sh runs, the temporary server only listens on the
+      # socket, so this is not ready until the roles exist.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d sigta"]
       interval: 5s
       timeout: 3s
       retries: 10
