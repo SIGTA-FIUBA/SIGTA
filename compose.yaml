@@ -21,6 +21,17 @@ services:
       SIGTA_PUBLIC_URL: http://localhost:${SIGTA_PORT:-8000}/api
       SIGTA_APP_URL: http://localhost:${SIGTA_PORT:-8000}/
     depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Applies the migrations and exits. It runs apart from the backend so that
+  # the server never has the credential of the role that owns the tables.
+  migrate:
+    build: ./services/backend
+    command: ["migrate"]
+    environment:
+      SIGTA_MIGRATIONS_DATABASE_URL: postgres://backend_migrations:backend_migrations@db:5432/sigta?sslmode=disable
+    depends_on:
       db:
         condition: service_healthy
 

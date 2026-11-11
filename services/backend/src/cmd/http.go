@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,16 +19,23 @@ import (
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
-	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := migrateCommand(os.Getenv, logger); err != nil {
+			logger.Error("migrations failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(logger); err != nil {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
@@ -74,9 +82,18 @@ func run(logger *slog.Logger) error {
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, memberships, time.Now)
+	// Bounds the start against the database, so one that does not answer
+	// stops it.
+	startup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	versions, closeVersions, err := openProcedureVersions(startup, cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer closeVersions()
+	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
 	if cfg.development() {
-		if _, err := procedureTypes.Publish(ctx, devProcedureType()); err != nil {
+		if err := publishDevProcedureType(startup, versions, procedureTypes); err != nil {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
@@ -151,6 +168,23 @@ func devAreas() []domain.Area {
 		{ID: "review", Name: "Revisar"},
 		{ID: "approve", Name: "Aprobar"},
 	}}}
+}
+
+// publishDevProcedureType publishes the example only once, so that it does not
+// pile up a version on every start against a database. If another start
+// publishes it first, publishing again finds the same content and returns the
+// stored version; another content is an error.
+func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes) error {
+	publication := devProcedureType()
+	_, err := versions.Latest(ctx, publication.ProcedureType)
+	if !errors.Is(err, output.ErrNoVersion) {
+		return err
+	}
+	_, err = procedureTypes.Publish(ctx, publication)
+	if _, lost := errors.AsType[*input.OutdatedBaseError](err); lost {
+		_, err = procedureTypes.Publish(ctx, publication)
+	}
+	return err
 }
 
 // devProcedureType is a made-up procedure type, so that the catalog has
