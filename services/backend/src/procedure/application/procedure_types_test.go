@@ -292,6 +292,46 @@ func TestVersionFromAnotherRow(t *testing.T) {
 	}
 }
 
+// TestPinnedVersionPublishedAgain loses the stored versions and publishes
+// version 1 again with other content, which a procedure that started with the
+// first one must not follow.
+func TestPinnedVersionPublishedAgain(t *testing.T) {
+	ctx := context.Background()
+	first, err := newService(memory.NewProcedureVersions()).Publish(ctx, publication(1, 0, testDefinition()))
+	if err != nil {
+		t.Fatalf("Publish() = %v", err)
+	}
+	service := newService(memory.NewProcedureVersions())
+	if _, err := service.Pinned(ctx, first.Pin()); !errors.Is(err, output.ErrNoVersion) {
+		t.Errorf("Pinned() of a lost version = %v, want ErrNoVersion", err)
+	}
+	other := testDefinition()
+	other.Name = "Otro trámite"
+	again, err := service.Publish(ctx, publication(1, 0, other))
+	if err != nil {
+		t.Fatalf("Publish() = %v", err)
+	}
+	if _, err := service.Pinned(ctx, first.Pin()); !errors.Is(err, version.ErrNotPinnedVersion) {
+		t.Errorf("Pinned() of a version published again = %v, want ErrNotPinnedVersion", err)
+	}
+	if got, err := service.Pinned(ctx, again.Pin()); err != nil || got.Digest != again.Digest {
+		t.Errorf("Pinned() of the stored version = %s, %v, want %s", got.Digest, err, again.Digest)
+	}
+}
+
+func TestPinnedVersionAltered(t *testing.T) {
+	ctx := context.Background()
+	versions := memory.NewProcedureVersions()
+	tamper(t, versions)
+	stored, err := versions.Get(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
+	if _, err := newService(versions).Pinned(ctx, stored.Pin()); !errors.Is(err, version.ErrAlteredContent) {
+		t.Errorf("Pinned() of an altered version = %v, want ErrAlteredContent", err)
+	}
+}
+
 // A stale Latest misses the last version, as if another publication had added
 // it right after this one read the latest. Losing the race is rejected even
 // with the same content: publishing again returns the stored version.
