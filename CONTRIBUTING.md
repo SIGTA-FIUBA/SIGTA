@@ -80,8 +80,51 @@ La versión no se escribe: la asigna el servicio al publicar (ADR-012).
 - Cualquier cambio que se vea en el trámite genera una versión, incluso corregir un nombre.
 - Un trámite en curso termina con la versión con la que empezó; los nuevos toman la última. No se migra un trámite en curso a otra versión.
 - Previsto: un tipo de trámite se da de baja marcándolo inactivo; no se inician trámites nuevos y los que están en curso terminan con su versión.
+- Un trámite guarda el número de su versión y también su hash, y los compara al leerla (`version.Pin` y `Pinned`): si la versión se perdió y se publicó otra con el mismo número, por ejemplo al restaurar un respaldo, el trámite no la toma. `Pinned` todavía no tiene quien la llame en producción: la va a usar la historia que inicia un trámite.
 
-Hoy las versiones y las áreas solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar. La persistencia en PostgreSQL y el almacenamiento de documentos son de otro ticket.
+Las versiones se guardan en PostgreSQL (ver "Base de datos"); sin `SIGTA_DATABASE_URL`, en desarrollo, quedan en memoria. Las áreas, que lee de auth (ADR-021), todavía solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar, solo si ese tipo de trámite todavía no tiene versiones. Todavía no hay un endpoint para publicar: hoy solo publica ese arranque en desarrollo (`publishDevProcedureType`, en `cmd/http.go`).
+
+## Base de datos
+
+Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.
+
+- Una migración aplicada no se edita: un cambio es un archivo nuevo, con el número siguiente. Si se edita una ya aplicada, el servidor no arranca.
+- Cada tabla nueva otorga a `backend` solo lo que la aplicación necesita. Hoy solo puede leer y agregar filas: ninguna tabla le da `UPDATE`, `DELETE` ni `TRUNCATE`. Si un cambio necesita actualizar una tabla, la migración otorga `UPDATE` solo sobre las columnas que cambian, nunca sobre `procedure_type_versions`, `procedure_events` ni la versión de un trámite. Ninguna clave foránea borra ni cambia filas por su cuenta (`ON DELETE CASCADE` y similares).
+- Las tablas que solo crecen están en `migrations/schema.go`, junto con `CheckApplicationRole`, el control que hace el servidor al arrancar. `TestOwnerAndPrivilegesOfEachRelation`, en `migrations/schema_test.go`, exige que cada tabla esté en esa lista o en su mapa `granted`, con sus permisos y las columnas que la aplicación puede actualizar (`updatable`): una migración que otorga `UPDATE` sobre una columna suma esa columna ahí.
+- Solo se usa lo que existe en PostgreSQL 11, la versión que ofrece la facultad (ver [requisitos de infraestructura](docs/12-requisitos-infraestructura-fiuba.md)).
+- `procedure_type_versions` guarda el contenido en `bytea`, tal como se hasheó: `jsonb` reordena las claves. El hash se puede recalcular en la base con `'sha256:' || encode(sha256(content), 'hex')`. La fila de `procedure_types` se crea al publicar la versión 1. Que los números de versión no tengan huecos lo garantiza el adaptador, no la base.
+- Un trámite (`procedures`) referencia su versión por tipo, número y hash, con una clave foránea. Sus eventos (`procedure_events`) solo se agregan: lo que pasa después es un evento nuevo. Por ahora las dos tablas tienen solo sus claves y la versión; el resto de sus columnas llega con las historias que inician y hacen avanzar un trámite.
+- El servidor no migra: se conecta como `backend` y, si falta aplicar alguna migración o si su rol puede modificar o borrar las versiones o los eventos, no arranca. Las aplica el comando `migrate` del mismo binario, con `SIGTA_MIGRATIONS_DATABASE_URL`; en Docker Compose lo corre el servicio `migrate` antes del backend.
+
+`deploy/postgres/sql/roles.sql` crea los roles y esquemas de cada servicio solo al crear el volumen de la base. Si el volumen es anterior a la persistencia de los tipos de trámite, le falta el rol de migraciones: se recrea con `docker compose down --volumes`.
+
+### Pruebas contra PostgreSQL
+
+Los adaptadores de PostgreSQL y las migraciones se prueban contra una base real. Las pruebas toman la base de `SIGTA_TEST_DATABASE_URL`, con un usuario administrador, crean un esquema propio por prueba y consultan con los permisos de `backend` o de `backend_migrations`. Con Docker Compose:
+
+```sh
+docker compose up --detach --wait db
+cd services/backend
+SIGTA_TEST_DATABASE_URL='postgres://postgres:postgres@localhost:5432/sigta?sslmode=disable' go test -race ./...
+```
+
+`-race` es opcional y necesita un compilador de C; sin él, las pruebas corren igual sin esa opción.
+
+Sin Docker sirve cualquier PostgreSQL local. Con los binarios de PostgreSQL en el `PATH`, desde la raíz del repositorio:
+
+```sh
+initdb -D /tmp/sigta-pg -U postgres --auth=trust
+pg_ctl -D /tmp/sigta-pg -o '-p 5433 -k /tmp' -l /tmp/sigta-pg.log start
+createdb -h /tmp -p 5433 -U postgres sigta
+cd services/backend
+SIGTA_TEST_DATABASE_URL='postgres://postgres@localhost:5433/sigta?host=/tmp' go test ./...
+```
+
+Si los roles no existen, las pruebas los crean sin permiso para iniciar sesión. `TestRolesOfTheDatabase`, que revisa lo que deja `roles.sql`, solo corre si la base tiene el esquema `backend`.
+
+Sin la variable, esas pruebas se saltean; en la integración continua, donde está definida `CI`, fallan.
+
+El contrato de un puerto de salida puede estar en `ports/output/outputtest`, como una suite que recibe una función que arma el adaptador, por ejemplo `outputtest.TestProcedureVersions`. Cada adaptador del puerto, en memoria o contra una base, la corre en su propio test.
 
 ## Commits
 

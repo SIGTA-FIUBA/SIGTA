@@ -125,7 +125,7 @@ flowchart LR
 | Frontend | Interfaz del titular y bandeja de la Secretaría, con un cliente tipado generado desde OpenAPI | React, TypeScript, Vite |
 | Servicio de trámites | Dominio, motor de pasos, permisos, historial, cola de trabajos y avisos por correo; única API pública | Go |
 | Servicio de inteligencia artificial | Asistente, validación asistida y borradores de actas, con su base de conocimiento y sus evaluaciones | Python |
-| Base de datos | Estado e historial de los trámites, cola de trabajos, búsqueda de texto completo y vectores | PostgreSQL con pgvector |
+| Base de datos | Versiones de los tipos de trámite, estado e historial de los trámites, cola de trabajos, búsqueda de texto completo y vectores. El esquema de cada servicio se crea con sus migraciones | PostgreSQL con pgvector |
 | Almacenamiento de documentos | Documentos de los trámites, que se descargan siempre a través del servicio de trámites | Sistema de archivos detrás de un puerto |
 | Modelos | Clasificación y generación de texto | Reglas en código, Laya, Claude u otro modelo, detrás de puertos |
 
@@ -182,6 +182,8 @@ flowchart LR
 
 - **Historial de acciones.** Cada acción sobre un trámite se guarda en una tabla que solo crece, en la misma transacción que actualiza su estado. El historial alcanza para auditar sin reconstruir el estado a partir de eventos.
 - **Cola de trabajos en PostgreSQL.** El trabajo asincrónico (validaciones, avisos por correo, recordatorios) se encola en la misma transacción que el cambio que lo origina, así ningún trabajo se pierde ni se encola sin que el cambio haya ocurrido. Un worker del servicio de trámites toma cada trabajo con `FOR UPDATE SKIP LOCKED`. Un trabajo puede ejecutarse más de una vez, así que cada uno es idempotente.
+- **Tablas de un rol de migraciones.** Las tablas del servicio de trámites son del rol `backend_migrations`, que solo usa el comando de migraciones. El servidor se conecta con otro rol, que solo tiene los permisos que le otorga cada migración: hoy solo leer y agregar filas, sin modificar ni borrar ninguna. Si su rol puede modificar las versiones de los tipos de trámite o los eventos de los trámites, el servidor no arranca. Las migraciones son archivos `.sql` dentro del binario, que corren en orden y una sola vez (ADR-022).
+- **Documentos por su hash.** Cada documento se guarda en disco con el nombre de su hash SHA-256, que calcula el servidor. Primero se escribe en un archivo temporal, se fuerza a disco y se renombra; recién después se va a guardar el evento que lo referencia, así ningún evento apunta a un archivo que no existe. Hoy ningún evento referencia documentos: a confirmar cuando se conecte.
 - **Cada servicio es dueño de sus datos.** Los dos servicios comparten la instancia de PostgreSQL, no los esquemas: el de trámites es dueño de los trámites, el historial y la cola; el de inteligencia artificial, de la base de conocimiento y sus vectores. Ninguno lee las tablas del otro.
 - **Contrato primero.** La API pública y la API interna del servicio de inteligencia artificial se describen con OpenAPI, y el código de los dos lados se genera desde esa especificación.
 
@@ -228,10 +230,10 @@ flowchart LR
 
 | Puerto de salida | Adaptadores | Estado |
 | --- | --- | --- |
-| Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012); hoy solo existen en los tests, con un adaptador en memoria | Elegido |
+| Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012) y que el rol de la aplicación solo puede leer y agregar (ADR-022); en desarrollo sin base, un adaptador en memoria | Elegido |
 | Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
-| Documentos | Sistema de archivos; almacenamiento compatible con S3 si la infraestructura lo ofrece | Elegido |
+| Documentos | Sistema de archivos, con cada documento nombrado por el hash SHA-256 que calcula el servidor; almacenamiento compatible con S3 si la infraestructura lo ofrece. El adaptador de disco existe, pero nada lo usa todavía: el volumen y su configuración llegan con la carga de documentos | Elegido |
 | Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
 | Identidad | Cuenta de Google de la UBA; un adaptador falso en desarrollo y pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |
@@ -268,7 +270,11 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 | `SIGTA_APP_URL` | El frontend, terminado en `/`. El ingreso fallido vuelve a `<SIGTA_APP_URL>login` | `http://localhost:5173/` en desarrollo; en producción no arranca |
 | `SIGTA_ALLOWED_DOMAIN` | Dominio de los correos y del claim `hd` | `fi.uba.ar` en desarrollo; en producción no arranca |
 | `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` | Credenciales del cliente OAuth de tipo "aplicación web". Son secretos del despliegue: nunca van al repositorio | Con Google no arranca |
+| `SIGTA_DATABASE_URL` | Conexión a PostgreSQL con el rol de la aplicación (`backend`). El servidor no arranca si falta aplicar alguna migración | En desarrollo, los tipos de trámite quedan en memoria y se pierden al reiniciar; en producción no arranca |
+| `SIGTA_MIGRATIONS_DATABASE_URL` | Solo para el comando `migrate`: conexión con el rol dueño de las tablas (`backend_migrations`). Es un secreto del despliegue y el servidor no la usa | `migrate` no corre |
 | `SIGTA_USERS_FILE` | Archivo JSON con las personas que SIGTA ya conoce, como el personal: una lista de objetos con `id`, `email`, `name` y, si corresponde, `administrator` (`true`) y `memberships`, una lista de `{"area", "roles", "permissions", "scope"}` con al menos un rol o un permiso del área y `scope` opcional, con los identificadores de los tipos de trámite. El área `secretariat` existe siempre, con los permisos `edit_procedure_types` y `publish_procedure_types`. Quien no tiene membresías no es personal. Tiene datos personales, así que se guarda con los secretos del despliegue y nunca en el repositorio. Una entrada inválida impide arrancar | En desarrollo, los usuarios sintéticos; en producción no arranca |
+
+Las migraciones de la base (ADR-022) se aplican con el mismo binario, `backend migrate`, antes de arrancar el servidor. Cómo se aplican y qué roles crea `deploy/postgres/sql/roles.sql` está en "Base de datos" en [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Para probar Google en local se arranca con `SIGTA_IDENTITY_PROVIDER=google`, las credenciales de un cliente que tenga registrada `http://localhost:8000/api/auth/callback`, por ejemplo en un `compose.override.yaml` que no se versiona.
 
@@ -373,11 +379,11 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Tema | Qué falta definir | Depende de |
 | --- | --- | --- |
 | Modelo | Qué proveedor por API cumple las condiciones de ADR-018 (que no entrene con los datos y que su retención sea nula o acotada), y si conviene un modelo propio según el flujo de cada trámite y los costos de cada opción | Equipo y Subsecretaría de TICs |
-| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento (D-09) y cómo se ejercen la rectificación y la supresión (Ley 25.326) | Secretaría y área legal de la facultad |
+| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento (D-09) y cómo se ejercen la rectificación y la supresión (Ley 25.326). A confirmar cómo se suprimen datos de los eventos de un trámite, que el rol de la aplicación no puede modificar ni borrar (ADR-022) | Secretaría y área legal de la facultad |
 | Etiquetado de la evaluación | Quién ajeno al equipo etiqueta las respuestas esperadas, cuántos casos y cómo se mide el acuerdo entre etiquetadores | Equipo y Secretaría |
 | Extracción de texto | Cómo se extrae el texto de un documento escaneado antes de clasificarlo | Pruebas con documentos de ejemplo |
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
-| Integridad del historial | Si alcanzan los permisos de la base o hace falta encadenar hashes para que una modificación quede en evidencia | Equipo |
+| Integridad del historial | Si alcanzan los permisos de la base, que ya impiden a la aplicación modificar versiones y eventos (ADR-022), o hace falta encadenar hashes para que una modificación del dueño de las tablas quede en evidencia | Equipo |
 | Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
 | Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
 | Alcance del personal | Qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si se usa el alcance por tipo de trámite (D-12) | Secretaría |
