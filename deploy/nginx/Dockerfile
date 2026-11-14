@@ -5,7 +5,8 @@ WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 COPY web ./
-RUN npm run build
+# The app, then the design catalog at dist/design (served at /design/).
+RUN npm run build && npm run catalog:build
 
 FROM nginx:1.30-alpine
 COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
