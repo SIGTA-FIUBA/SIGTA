@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
@@ -72,23 +74,11 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	auth := application.NewAuthService(
-		application.AuthConfig{
-			IdleTimeout:   30 * time.Minute,
-			AllowedDomain: cfg.allowedDomain,
-		},
-		identity,
-		memory.NewUserRepository(directory.users...),
-		memory.NewSessionStore(),
-		time.Now,
-	)
-
 	administrators := memory.NewAdministrators(directory.administrators...)
 	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
 	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
 
-	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	// Bounds the start against the database, so one that does not answer
 	// stops it.
 	startup, cancel := context.WithTimeout(stop, 30*time.Second)
@@ -99,18 +89,34 @@ func run(logger *slog.Logger) error {
 	}
 	defer closeVersions()
 	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
+	// The procedures and what is recorded about their documents stay in
+	// memory until they are stored in PostgreSQL.
+	procedureRepository := proceduremem.NewProcedureRepository()
+	users := out.UserRepository(memory.NewUserRepository(directory.users...))
 	if cfg.development() {
-		if err := publishDevProcedureType(startup, versions, procedureTypes); err != nil {
-			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
+		users, err = addDevExample(startup, cfg, versions, procedureTypes, procedureRepository, users)
+		if err != nil {
+			return stoppedDuringStartup(stop, err)
 		}
 	}
+
+	auth := application.NewAuthService(
+		application.AuthConfig{
+			IdleTimeout:   30 * time.Minute,
+			AllowedDomain: cfg.allowedDomain,
+		},
+		identity,
+		users,
+		memory.NewSessionStore(),
+		time.Now,
+	)
+
+	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	files, err := openFiles(cfg, logger)
 	if err != nil {
 		return err
 	}
-	// The procedures and what is recorded about their documents stay in
-	// memory until they are stored in PostgreSQL.
-	procedures := procedureapp.NewProcedureService(procedureTypes, proceduremem.NewProcedureRepository(), memberships, newID)
+	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, memberships, newID)
 	documents := procedureapp.NewDocumentService(procedures, proceduremem.NewDocumentRepository(), files, newID, time.Now)
 	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(startup)
@@ -200,7 +206,10 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 	}, logger)
 }
 
-const devApplicantEmail = "titular@fi.uba.ar"
+const (
+	devApplicantID    = "dev-applicant"
+	devApplicantEmail = "titular@fi.uba.ar"
+)
 
 // devPeople are synthetic accounts for local development: an applicant, a
 // member who reviews and edits procedure types, one who also approves and
@@ -208,7 +217,7 @@ const devApplicantEmail = "titular@fi.uba.ar"
 func devPeople() people {
 	return people{
 		users: []domain.User{
-			{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba"},
+			{ID: devApplicantID, Email: devApplicantEmail, Name: "Titular de prueba"},
 			{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba"},
 			{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba"},
 			{ID: "dev-admin", Email: "admin@fi.uba.ar", Name: "Administración de prueba"},
@@ -250,6 +259,76 @@ func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersi
 	return err
 }
 
+// addDevExample publishes the example procedure type and leaves a procedure of
+// it for an applicant. With the identity of development the procedure is of
+// the test applicant. With Google nobody signs in as that applicant, so it is
+// of the first account that registers, which the returned users hand it to.
+func addDevExample(ctx context.Context, cfg config, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
+	if err := publishDevProcedureType(ctx, versions, procedureTypes); err != nil {
+		return nil, fmt.Errorf("publish the example procedure type: %w", err)
+	}
+	if cfg.identityProvider != identityDev {
+		return &exampleForFirstSignUp{UserRepository: users, give: func(ctx context.Context, applicant string) error {
+			return addDevProcedure(ctx, versions, procedures, applicant)
+		}}, nil
+	}
+	if err := addDevProcedure(ctx, versions, procedures, devApplicantID); err != nil {
+		return nil, fmt.Errorf("add the example procedure: %w", err)
+	}
+	return users, nil
+}
+
+// exampleForFirstSignUp gives the example procedure to the first account that
+// registers. A failed attempt leaves it for the next one.
+type exampleForFirstSignUp struct {
+	out.UserRepository
+	give func(ctx context.Context, applicant string) error
+
+	mu    sync.Mutex
+	given bool
+}
+
+func (r *exampleForFirstSignUp) Register(ctx context.Context, user domain.User) (domain.User, error) {
+	registered, err := r.UserRepository.Register(ctx, user)
+	if err != nil || registered.ID != user.ID {
+		return registered, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.given {
+		return registered, nil
+	}
+	if err := r.give(ctx, registered.ID); err != nil {
+		return domain.User{}, fmt.Errorf("give the example procedure: %w", err)
+	}
+	r.given = true
+	return registered, nil
+}
+
+// devProcedureID names the example procedure, so that its detail is always
+// at the same address in local development. It waits on devDocumentsStep.
+const (
+	devProcedureID   = "dev-example"
+	devDocumentsStep = "documents"
+)
+
+// addDevProcedure leaves a procedure of the example type waiting on the
+// documents of the applicant, so that its detail has something to show until
+// procedures can be started and moved from the interface.
+func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, procedures output.ProcedureRepository, applicant string) error {
+	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
+	if err != nil {
+		return err
+	}
+	return procedures.Add(ctx, proceduredomain.Procedure{
+		ID:            devProcedureID,
+		ProcedureType: latest.ProcedureTypeID,
+		Version:       latest.Number,
+		Applicant:     applicant,
+		OpenStep:      devDocumentsStep,
+	})
+}
+
 // devProcedureType is a made-up procedure type, so that the catalog has
 // something to show in local development. It describes no real process.
 func devProcedureType() input.Publication {
@@ -269,8 +348,8 @@ func devProcedureType() input.Publication {
 				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSizeBytes: 10 << 20},
 			},
 			Steps: []definition.Step{
-				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
-				{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: devDocumentsStep},
+				{ID: devDocumentsStep, Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
 				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 			},
 		},
