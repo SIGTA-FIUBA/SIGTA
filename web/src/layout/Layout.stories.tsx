@@ -1,4 +1,4 @@
-import { Button } from '@mantine/core'
+import { AppShell, Button } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -92,16 +92,29 @@ export const AppLayoutVisitor: StoryObj = {
 
 export const AppHeaderStory: StoryObj = {
   name: 'AppHeader',
+  // AppHeader fills the height of its bar, so it goes inside an AppShell header
+  // with the height AppLayout gives it.
   render: () => (
-    <Page user={null}>
-      <AppHeader
-        end={
-          <Button component={Link} to="/" variant="subtle">
-            Una acción
-          </Button>
-        }
-      />
-    </Page>
+    <RouterProvider
+      router={createMemoryRouter([
+        {
+          path: '/',
+          element: (
+            <AppShell header={{ height: 64 }} mode="static">
+              <AppShell.Header>
+                <AppHeader
+                  end={
+                    <Button component={Link} to="/" variant="subtle">
+                      Una acción
+                    </Button>
+                  }
+                />
+              </AppShell.Header>
+            </AppShell>
+          ),
+        },
+      ])}
+    />
   ),
 }
 
