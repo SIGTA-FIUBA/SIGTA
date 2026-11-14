@@ -215,6 +215,16 @@ func (w *authorizationWorld) latestVersion(name string) int {
 	return 0
 }
 
+// latestDigest is the digest of the latest version, which a procedure keeps
+// along with its number.
+func (w *authorizationWorld) latestDigest(name string) string {
+	v, err := w.types.Version(context.Background(), w.typeID(name), w.latestVersion(name))
+	if err != nil {
+		return ""
+	}
+	return v.Digest
+}
+
 func (w *authorizationWorld) typeID(name string) int64 {
 	if id, ok := w.typeIDs[name]; ok {
 		return id
@@ -293,6 +303,7 @@ func (w *authorizationWorld) givenOwnProcedureOn(applicant, name, step string) e
 		ID:            w.newID(),
 		ProcedureType: w.typeID(name),
 		Version:       w.latestVersion(name),
+		VersionDigest: w.latestDigest(name),
 		Applicant:     applicant,
 		OpenStep:      step,
 	}

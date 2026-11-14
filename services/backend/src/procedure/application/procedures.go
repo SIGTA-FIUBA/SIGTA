@@ -45,6 +45,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 		ID:            s.newID(),
 		ProcedureType: procedureType,
 		Version:       latest.Number,
+		VersionDigest: latest.Digest,
 		Applicant:     userID,
 		OpenStep:      content.Definition.Steps[0].ID,
 	}
@@ -79,14 +80,10 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 	if err != nil {
 		return nil, fmt.Errorf("list procedures: %w", err)
 	}
-	type versionKey struct {
-		procedureType int64
-		number        int
-	}
-	contents := map[versionKey]version.Content{}
+	contents := map[version.Pin]version.Content{}
 	var seen []domain.Procedure
 	for _, p := range all {
-		key := versionKey{p.ProcedureType, p.Version}
+		key := p.Pin()
 		content, ok := contents[key]
 		if !ok {
 			if content, err = s.content(ctx, p); err != nil {
@@ -146,7 +143,7 @@ func (s *ProcedureService) visible(ctx context.Context, userID, procedureID stri
 }
 
 func (s *ProcedureService) content(ctx context.Context, p domain.Procedure) (version.Content, error) {
-	stored, err := s.procedureTypes.Version(ctx, p.ProcedureType, p.Version)
+	stored, err := s.procedureTypes.Pinned(ctx, p.Pin())
 	if err != nil {
 		return version.Content{}, err
 	}
