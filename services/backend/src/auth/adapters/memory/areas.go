@@ -26,6 +26,13 @@ func NewAreaRepository(areas ...domain.Area) *AreaRepository {
 
 func cloneArea(a domain.Area) domain.Area {
 	a.Permissions = slices.Clone(a.Permissions)
+	a.Roles = slices.Clone(a.Roles)
+	for i, role := range a.Roles {
+		a.Roles[i].Revisions = slices.Clone(role.Revisions)
+		for j, revision := range role.Revisions {
+			a.Roles[i].Revisions[j].Permissions = slices.Clone(revision.Permissions)
+		}
+	}
 	return a
 }
 

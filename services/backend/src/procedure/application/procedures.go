@@ -14,10 +14,7 @@ import (
 
 var _ input.Procedures = (*ProcedureService)(nil)
 
-const (
-	actionStart = "start"
-	actionAct   = "act"
-)
+const actionAct = "act"
 
 type ProcedureService struct {
 	staffAuthorizer authinput.StaffAuthorizer
@@ -36,13 +33,6 @@ func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.
 }
 
 func (s *ProcedureService) Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error) {
-	staff, err := s.staffAuthorizer.IsStaff(ctx, userID)
-	if err != nil {
-		return domain.Procedure{}, fmt.Errorf("role of %s: %w", userID, err)
-	}
-	if staff {
-		return domain.Procedure{}, denied(userID, actionStart)
-	}
 	latest, err := s.latest(ctx, procedureType)
 	if err != nil {
 		return domain.Procedure{}, err
@@ -65,12 +55,12 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 }
 
 func (s *ProcedureService) Open(ctx context.Context, userID, procedureID string) (input.ProcedureView, error) {
-	memberOf, p, content, err := s.visible(ctx, userID, procedureID)
+	p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
 	view := input.ProcedureView{Procedure: p}
-	allowed, err := s.canAct(ctx, userID, len(memberOf) == 0, p, content, p.OpenStep)
+	allowed, err := s.canAct(ctx, userID, p, content, p.OpenStep)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
@@ -112,11 +102,11 @@ func (s *ProcedureService) List(ctx context.Context, userID string) ([]domain.Pr
 }
 
 func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID string) error {
-	memberOf, p, content, err := s.visible(ctx, userID, procedureID)
+	p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
 		return err
 	}
-	allowed, err := s.canAct(ctx, userID, len(memberOf) == 0, p, content, stepID)
+	allowed, err := s.canAct(ctx, userID, p, content, stepID)
 	if err != nil {
 		return err
 	}
@@ -136,23 +126,23 @@ func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authi
 
 // visible returns the procedure if the person can see it, and answers as if
 // it did not exist otherwise.
-func (s *ProcedureService) visible(ctx context.Context, userID, procedureID string) ([]authinput.AreaReach, domain.Procedure, version.Content, error) {
+func (s *ProcedureService) visible(ctx context.Context, userID, procedureID string) (domain.Procedure, version.Content, error) {
 	memberOf, err := s.memberOf(ctx, userID)
 	if err != nil {
-		return nil, domain.Procedure{}, version.Content{}, err
+		return domain.Procedure{}, version.Content{}, err
 	}
 	p, err := s.procedures.Get(ctx, procedureID)
 	if err != nil {
-		return nil, domain.Procedure{}, version.Content{}, fmt.Errorf("procedure %s: %w", procedureID, err)
+		return domain.Procedure{}, version.Content{}, fmt.Errorf("procedure %s: %w", procedureID, err)
 	}
 	content, err := s.content(ctx, p)
 	if err != nil {
-		return nil, domain.Procedure{}, version.Content{}, err
+		return domain.Procedure{}, version.Content{}, err
 	}
 	if !canSee(userID, memberOf, p, content) {
-		return nil, domain.Procedure{}, version.Content{}, fmt.Errorf("procedure %s: %w", procedureID, domain.ErrProcedureNotFound)
+		return domain.Procedure{}, version.Content{}, fmt.Errorf("procedure %s: %w", procedureID, domain.ErrProcedureNotFound)
 	}
-	return memberOf, p, content, nil
+	return p, content, nil
 }
 
 func (s *ProcedureService) content(ctx context.Context, p domain.Procedure) (version.Content, error) {

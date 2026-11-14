@@ -12,20 +12,13 @@ var (
 	ErrAccessDenied       = errors.New("access denied")
 )
 
-// Role is derived, never stored: a person with an active membership is staff,
-// and anyone else is an applicant (ADR-020).
-type Role string
-
-const (
-	RoleApplicant Role = "applicant"
-	RoleStaff     Role = "staff"
-)
-
-// A zero Until means the membership holds until it is ended.
+// Membership puts a person in an area with some of its roles and loose
+// permissions. A zero Until means it holds until it is ended.
 type Membership struct {
 	ID          string
 	UserID      string
 	Area        string
+	Roles       []string
 	Permissions []string
 	Scope       []int64
 	From        time.Time
@@ -64,25 +57,35 @@ func sameScope(a, b []int64) bool {
 }
 
 // Access is what a person may do at a given moment: only their active
-// memberships count. Being an administrator gives no access to procedures.
+// memberships count, with the permissions that their roles and loose
+// permissions give. Being an administrator gives no access to procedures.
 type Access struct {
 	UserID        string
 	Administrator bool
 	Memberships   []Membership
+	granted       [][]string
 }
 
-func NewAccess(userID string, administrator bool, memberships []Membership, at time.Time) Access {
+// NewAccess takes the areas to resolve the roles of each membership: a role
+// counts with the permissions it has now.
+func NewAccess(userID string, administrator bool, memberships []Membership, areas []Area, at time.Time) Access {
 	active := slices.DeleteFunc(slices.Clone(memberships), func(m Membership) bool { return !m.ActiveAt(at) })
-	return Access{UserID: userID, Administrator: administrator, Memberships: active}
+	granted := make([][]string, len(active))
+	for i, m := range active {
+		if j := slices.IndexFunc(areas, func(a Area) bool { return a.ID == m.Area }); j >= 0 {
+			granted[i] = areas[j].GrantedBy(m.Roles, m.Permissions)
+		}
+	}
+	return Access{UserID: userID, Administrator: administrator, Memberships: active, granted: granted}
 }
 
 // Holds tells whether the memberships in the area that cover the procedure
 // type give, together, every permission asked for.
 func (a Access) Holds(area string, procedureType int64, permissions []string) bool {
 	granted := map[string]bool{}
-	for _, m := range a.Memberships {
+	for i, m := range a.Memberships {
 		if m.Area == area && m.Covers(procedureType) {
-			for _, p := range m.Permissions {
+			for _, p := range a.granted[i] {
 				granted[p] = true
 			}
 		}
@@ -90,9 +93,8 @@ func (a Access) Holds(area string, procedureType int64, permissions []string) bo
 	return len(permissions) > 0 && !slices.ContainsFunc(permissions, func(p string) bool { return !granted[p] })
 }
 
-func (a Access) Role() Role {
-	if len(a.Memberships) > 0 {
-		return RoleStaff
-	}
-	return RoleApplicant
+// IsStaff tells whether the person has an active membership. Staff can also
+// start procedures, and are the applicants of those (ADR-020).
+func (a Access) IsStaff() bool {
+	return len(a.Memberships) > 0
 }

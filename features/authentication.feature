@@ -9,16 +9,16 @@ Feature: Sign in through an abstracted identity provider
     And SIGTA has "applicant@fi.uba.ar" registered as an applicant
     And SIGTA has "operative@fi.uba.ar" registered as staff of the "student affairs" area
 
-  Scenario: the role comes from SIGTA, not from the provider
+  Scenario: being staff comes from SIGTA, not from the provider
     When "operative@fi.uba.ar" signs in through the identity provider
     Then a session is opened
-    And their role is "staff"
+    And they are staff
 
   @SIG-61
   Scenario: an institutional identity new to SIGTA is registered as an applicant
     When "newcomer@fi.uba.ar" signs in through the identity provider
     Then a session is opened
-    And their role is "applicant"
+    And they are not staff
 
   Scenario: a sign-in the provider rejects does not blame the account
     When the identity provider rejects a sign-in

@@ -49,32 +49,28 @@ func (s *MembershipService) Access(ctx context.Context, userID string) (domain.A
 	if err != nil {
 		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return domain.NewAccess(userID, administrator, memberships, s.clock()), nil
-}
-
-func (s *MembershipService) IsStaff(ctx context.Context, userID string) (bool, error) {
-	p, err := s.Access(ctx, userID)
+	areas, err := s.areas.List(ctx)
 	if err != nil {
-		return false, err
+		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return p.Role() == domain.RoleStaff, nil
+	return domain.NewAccess(userID, administrator, memberships, areas, s.clock()), nil
 }
 
 func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, permissions []string) (bool, error) {
-	p, err := s.Access(ctx, userID)
+	access, err := s.Access(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return p.Holds(area, procedureType, permissions), nil
+	return access.Holds(area, procedureType, permissions), nil
 }
 
 func (s *MembershipService) Reach(ctx context.Context, userID string) ([]input.AreaReach, error) {
-	p, err := s.Access(ctx, userID)
+	access, err := s.Access(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	reach := make([]input.AreaReach, 0, len(p.Memberships))
-	for _, m := range p.Memberships {
+	reach := make([]input.AreaReach, 0, len(access.Memberships))
+	for _, m := range access.Memberships {
 		reach = append(reach, input.AreaReach{Area: m.Area, Scope: slices.Clone(m.Scope)})
 	}
 	return reach, nil
@@ -88,6 +84,7 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 		ID:          s.newID(),
 		UserID:      g.UserID,
 		Area:        g.Area,
+		Roles:       slices.Clone(g.Roles),
 		Permissions: slices.Clone(g.Permissions),
 		Scope:       slices.Clone(g.Scope),
 		From:        g.From,
@@ -138,8 +135,8 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
 	}
-	if len(m.Permissions) == 0 {
-		return errors.New("a membership needs at least one permission")
+	if len(m.Roles) == 0 && len(m.Permissions) == 0 {
+		return errors.New("a membership needs at least one role or permission")
 	}
 	if !m.Until.IsZero() && !m.Until.After(m.From) {
 		return errors.New("a membership has to end after it starts")
@@ -152,15 +149,11 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	if i < 0 {
 		return fmt.Errorf("unknown area %q", m.Area)
 	}
-	seen := map[string]bool{}
-	for _, permission := range m.Permissions {
-		if !areas[i].HasActivePermission(permission) {
-			return fmt.Errorf("area %q has no permission %q", m.Area, permission)
-		}
-		if seen[permission] {
-			return fmt.Errorf("permission %q is listed twice", permission)
-		}
-		seen[permission] = true
+	if err := checkListed("permission", m.Permissions, m.Area, areas[i].HasActivePermission); err != nil {
+		return err
+	}
+	if err := checkListed("role", m.Roles, m.Area, areas[i].HasActiveRole); err != nil {
+		return err
 	}
 	existing, err := s.memberships.ListByUser(ctx, m.UserID)
 	if err != nil {
@@ -168,6 +161,21 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	}
 	if slices.ContainsFunc(existing, m.Overlaps) {
 		return fmt.Errorf("%s already has a membership in area %q with the same scope", m.UserID, m.Area)
+	}
+	return nil
+}
+
+// checkListed checks that each ID exists in the area and appears only once.
+func checkListed(kind string, ids []string, area string, exists func(string) bool) error {
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if !exists(id) {
+			return fmt.Errorf("area %q has no %s %q", area, kind, id)
+		}
+		if seen[id] {
+			return fmt.Errorf("%s %q is listed twice", kind, id)
+		}
+		seen[id] = true
 	}
 	return nil
 }

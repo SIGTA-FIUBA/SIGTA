@@ -73,7 +73,7 @@ func registerAuthenticationSteps(sc *godog.ScenarioContext) {
 	sc.When(`^they make a request every (\d+) minutes$`, w.keepActive)
 
 	sc.Then(`^a session is opened$`, w.thenSessionOpened)
-	sc.Then(`^their role is "([^"]*)"$`, w.thenRole)
+	sc.Then(`^they are (staff|not staff)$`, w.thenStaff)
 	sc.Then(`^no session is opened$`, w.thenNoSession)
 	sc.Then(`^they are asked to try again$`, w.thenSentBack(api.Rejected))
 	sc.Then(`^they are asked to sign in with their institutional account$`, w.thenSentBack(api.DomainNotAllowed))
@@ -311,13 +311,13 @@ func (w *authenticationWorld) thenSessionOpen() error {
 	return w.expectStatus(http.StatusOK)
 }
 
-func (w *authenticationWorld) thenRole(want string) error {
+func (w *authenticationWorld) thenStaff(want string) error {
 	var user api.User
 	if err := json.Unmarshal([]byte(w.body), &user); err != nil {
 		return fmt.Errorf("%q: %w", w.body, err)
 	}
-	if string(user.Role) != want {
-		return fmt.Errorf("the role is %q, want %q", user.Role, want)
+	if user.Staff != (want == "staff") {
+		return fmt.Errorf("staff is %t, want %s", user.Staff, want)
 	}
 	return nil
 }

@@ -41,6 +41,9 @@ func newServer(t *testing.T) *httptest.Server {
 		time.Now,
 	)
 	areaRepository := memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}})
+	if err := application.EnsureSecretariat(t.Context(), areaRepository); err != nil {
+		t.Fatal(err)
+	}
 	administrators := memory.NewAdministrators("u3")
 	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Permissions: []string{"review"}})
 	areas := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)

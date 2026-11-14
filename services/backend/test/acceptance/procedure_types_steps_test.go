@@ -11,7 +11,6 @@ import (
 	"github.com/cucumber/godog"
 
 	authmem "backend/src/auth/adapters/memory"
-	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
@@ -85,8 +84,12 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 }
 
 func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
-	auth := authapp.NewAreaService(w.areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), func() time.Time { return w.now })
-	return application.NewProcedureTypeService(w.versions, auth, func() time.Time { return w.now })
+	clock := func() time.Time { return w.now }
+	auth, staff, err := withSecretariat(w.areas, clock)
+	if err != nil {
+		panic(err)
+	}
+	return application.NewProcedureTypeService(w.versions, auth, staff, clock)
 }
 
 func (w *procedureTypeWorld) latest() (int, error) {

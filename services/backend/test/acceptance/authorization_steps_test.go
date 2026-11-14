@@ -68,8 +68,15 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^a "([^"]*)" procedure whose open step is "([^"]*)"$`, w.givenProcedureOn)
 	sc.Given(`^a "([^"]*)" procedure$`, w.givenProcedure)
 	sc.Given(`^"([^"]*)" has a "([^"]*)" procedure$`, w.givenOwnProcedure)
+	sc.Given(`^"([^"]*)" has a "([^"]*)" procedure whose open step is "([^"]*)"$`, w.givenOwnProcedureOn)
+	sc.Given(`^the area "([^"]*)" has the role "([^"]*)" with the permissions? "([^"]*)"$`, w.givenRole)
 
 	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)"(?: on "([^"]*)")?$`, w.grant)
+	sc.Step(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the role "([^"]*)"(?: and the permissions? "([^"]*)")?$`, w.grantRole)
+	sc.When(`^"([^"]*)" changes the permissions of the role "([^"]*)" of "([^"]*)" to "([^"]*)"$`, w.changeRole)
+	sc.Step(`^"([^"]*)" creates the role "([^"]*)" named "([^"]*)" with "([^"]*)" in "([^"]*)"$`, w.createRole)
+	sc.When(`^"([^"]*)" deletes the role "([^"]*)" of "([^"]*)"$`, w.deleteRole)
+	sc.When(`^"([^"]*)" proposes and "([^"]*)" approves a version of "([^"]*)"$`, w.proposeAndApprove)
 	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
 	sc.When(`^it is "([^"]*)"$`, w.itIs)
 	sc.When(`^"([^"]*)" creates the area "([^"]*)" named "([^"]*)"$`, w.createArea)
@@ -83,17 +90,22 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.When(`^"([^"]*)" lists (?:their|the) procedures$`, w.list)
 	sc.When(`^a new version of "([^"]*)" is published$`, w.publishNewVersion)
 
-	sc.Then(`^the areas are (.+)$`, w.thenAreas)
+	sc.Then(`^the areas besides the Secretariat are (.+)$`, w.thenAreas)
+	sc.Then(`^the area "([^"]*)" exists without anyone creating it$`, w.thenSystemArea)
+	sc.Then(`^the role is denied$`, w.thenFails(authdomain.ErrAccessDenied))
+	sc.Then(`^the role is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidRole))
+	sc.Then(`^the role "([^"]*)" of "([^"]*)" records that "([^"]*)" changed it$`, w.thenRoleChangedBy)
+	sc.Then(`^the version is (published|denied)$`, w.thenVersion)
 	sc.Then(`^the area is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^the area is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidArea))
 	sc.Then(`^the area "([^"]*)" records that "([^"]*)" deleted it$`, w.thenAreaDeletedBy)
 	sc.Then(`^the permission is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^the permission is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidPermission))
-	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)"$`, w.thenCanGrant)
-	sc.Then(`^a procedure type with a step in "([^"]*)" that asks for "([^"]*)" can be published$`, w.thenPublishesWithArea)
+	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)" with the (permissions?|role) "([^"]*)"$`, w.thenCanGrant)
+	sc.Then(`^a procedure type with a step in "([^"]*)" that asks for "([^"]*)" (can|cannot) be published$`, w.thenPublishesWithArea)
 	sc.Then(`^the procedure is started$`, w.thenStarted)
 	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
-	sc.Then(`^"([^"]*)" cannot start a "([^"]*)" procedure$`, w.thenCannotStart)
+	sc.Then(`^"([^"]*)" (can|cannot) start a "([^"]*)" procedure$`, w.thenCanStart)
 	sc.Then(`^the membership is granted by "([^"]*)" from now on$`, w.thenGranted)
 	sc.Then(`^the membership is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^the membership is not granted$`, w.thenFails(authdomain.ErrInvalidMembership))
@@ -116,23 +128,39 @@ func (w *authorizationWorld) newID() string {
 
 // givenStaffAreas wires both modules as the server does: auth keeps the areas
 // and memberships, and procedure asks auth through its public API (ADR-021).
+// Besides the two areas there is the Secretariat, where the default authors
+// can edit and publish procedure types.
 func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	areas := authmem.NewAreaRepository(
 		authdomain.Area{ID: areaID(first), Name: first},
 		authdomain.Area{ID: areaID(second), Name: second},
 	)
+	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
+		return err
+	}
 	w.storedAreas = areas
+	for _, author := range []authdomain.Membership{
+		{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
+		{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
+	} {
+		if err := w.storedMemberships.Save(context.Background(), author); err != nil {
+			return err
+		}
+	}
 	clock := func() time.Time { return w.now }
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, clock)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, clock)
 	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
 	return nil
 }
 
 func (w *authorizationWorld) definition(name, description string) definition.ProcedureTypeDefinition {
 	staff := w.steps[name]
-	steps := []definition.Step{{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, Next: staff[0].ID}}
+	steps := []definition.Step{{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}}}
+	if len(staff) > 0 {
+		steps[0].Next = staff[0].ID
+	}
 	for i, s := range staff {
 		if i+1 < len(staff) {
 			s.Next = staff[i+1].ID
@@ -147,7 +175,15 @@ func (w *authorizationWorld) definition(name, description string) definition.Pro
 	}
 }
 
+var defaultAuthors = version.Authorship{ProposedBy: "proponente", ApprovedBy: "aprobador"}
+
 func (w *authorizationWorld) publish(name, description string) error {
+	return w.publishBy(name, description, defaultAuthors)
+}
+
+// publishBy gives the procedure type an ID the first time it is published,
+// even if publishing fails.
+func (w *authorizationWorld) publishBy(name, description string, authors version.Authorship) error {
 	typeID, known := w.typeIDs[name]
 	if !known {
 		typeID = int64(len(w.typeIDs) + 1)
@@ -161,7 +197,7 @@ func (w *authorizationWorld) publish(name, description string) error {
 		ProcedureType: typeID,
 		Base:          base,
 		Definition:    w.definition(name, description),
-		Authorship:    version.Authorship{ProposedBy: "proponente", ApprovedBy: "aprobador"},
+		Authorship:    authors,
 	})
 	return err
 }
@@ -249,11 +285,15 @@ func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, per
 }
 
 func (w *authorizationWorld) givenProcedureOn(name, step string) error {
+	return w.givenOwnProcedureOn("applicant@fi.uba.ar", name, step)
+}
+
+func (w *authorizationWorld) givenOwnProcedureOn(applicant, name, step string) error {
 	p := domain.Procedure{
 		ID:            w.newID(),
 		ProcedureType: w.typeID(name),
 		Version:       w.latestVersion(name),
-		Applicant:     "applicant@fi.uba.ar",
+		Applicant:     applicant,
 		OpenStep:      step,
 	}
 	if err := w.procedures.Add(context.Background(), p); err != nil {
@@ -377,8 +417,11 @@ func (w *authorizationWorld) thenStarted() error {
 	return fmt.Errorf("%s started no procedure", w.user)
 }
 
-func (w *authorizationWorld) thenCannotStart(user, name string) error {
+func (w *authorizationWorld) thenCanStart(user, can, name string) error {
 	w.start(user, name)
+	if can == "can" {
+		return w.thenStarted()
+	}
 	return w.thenNotStarted()
 }
 
@@ -548,7 +591,9 @@ func (w *authorizationWorld) thenAreas(list string) error {
 	}
 	got := make([]string, 0, len(areas))
 	for _, a := range areas {
-		got = append(got, a.Name)
+		if !a.System {
+			got = append(got, a.Name)
+		}
 	}
 	if !slices.Equal(got, want) {
 		return fmt.Errorf("the areas are %q, want %q", got, want)
@@ -567,12 +612,14 @@ func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error
 	return nil
 }
 
-func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, permissions string) error {
-	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
-		UserID:      user,
-		Area:        areaID(area),
-		Permissions: list(permissions),
-	})
+func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, kind, ids string) error {
+	g := authinput.MembershipGrant{UserID: user, Area: areaID(area)}
+	if kind == "role" {
+		g.Roles = list(ids)
+	} else {
+		g.Permissions = list(ids)
+	}
+	_, err := w.memberships.Grant(context.Background(), administrator, g)
 	if can == "can" {
 		return err
 	}
@@ -585,7 +632,7 @@ func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, permis
 	return nil
 }
 
-func (w *authorizationWorld) thenPublishesWithArea(area, permissions string) error {
+func (w *authorizationWorld) thenPublishesWithArea(area, permissions, can string) error {
 	w.steps["new procedure type"] = []definition.Step{{
 		ID:          "review",
 		Name:        "Revisión",
@@ -594,5 +641,83 @@ func (w *authorizationWorld) thenPublishesWithArea(area, permissions string) err
 		Permissions: list(permissions),
 		Action:      definition.ActionConfirmExternalFact,
 	}}
-	return w.publish("new procedure type", "Descripción del trámite nuevo")
+	err := w.publish("new procedure type", "Descripción del trámite nuevo")
+	if can == "can" {
+		return err
+	}
+	if !errors.Is(err, definition.ErrInvalidDefinition) {
+		return fmt.Errorf("got %w, want %w", err, definition.ErrInvalidDefinition)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) givenRole(area, role, permissions string) error {
+	_, err := w.areas.CreateRole(context.Background(), "admin@fi.uba.ar", areaID(area), authinput.NewRole{ID: role, Name: role, Permissions: list(permissions)})
+	return err
+}
+
+func (w *authorizationWorld) grantRole(administrator, user, area, role, permissions string) {
+	w.user = administrator
+	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+		UserID:      user,
+		Area:        areaID(area),
+		Roles:       []string{role},
+		Permissions: list(permissions),
+	})
+}
+
+func (w *authorizationWorld) changeRole(administrator, role, area, permissions string) error {
+	_, err := w.areas.UpdateRolePermissions(context.Background(), administrator, areaID(area), role, list(permissions))
+	return err
+}
+
+func (w *authorizationWorld) createRole(administrator, id, name, permissions, area string) {
+	w.user = administrator
+	_, w.err = w.areas.CreateRole(context.Background(), administrator, areaID(area), authinput.NewRole{ID: id, Name: name, Permissions: list(permissions)})
+}
+
+func (w *authorizationWorld) deleteRole(administrator, role, area string) {
+	w.user = administrator
+	w.err = w.areas.DeleteRole(context.Background(), administrator, areaID(area), role)
+}
+
+// proposeAndApprove publishes a version that changes the description, so that
+// it is a new version whenever the authors are allowed.
+func (w *authorizationWorld) proposeAndApprove(proposer, approver, name string) {
+	w.err = w.publishBy(name, "Versión de "+name+" propuesta por "+proposer, version.Authorship{ProposedBy: proposer, ApprovedBy: approver})
+}
+
+func (w *authorizationWorld) thenVersion(result string) error {
+	if result == "published" {
+		return w.err
+	}
+	return w.thenFails(domain.ErrAccessDenied)()
+}
+
+func (w *authorizationWorld) thenSystemArea(area string) error {
+	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
+	if err != nil {
+		return err
+	}
+	if !stored.System || stored.Deleted() {
+		return fmt.Errorf("stored %+v, want a system area", stored)
+	}
+	return nil
+}
+
+func (w *authorizationWorld) thenRoleChangedBy(role, area, administrator string) error {
+	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(stored.Roles, func(r authdomain.Role) bool { return r.ID == role })
+	if i < 0 {
+		return fmt.Errorf("area %s has no role %s", area, role)
+	}
+	revisions := stored.Roles[i].Revisions
+	last := revisions[len(revisions)-1]
+	if len(revisions) < 2 || last.By != administrator || !last.At.Equal(w.now) {
+		return fmt.Errorf("revisions %+v, want the last one by %s at %s", revisions, administrator, w.now)
+	}
+	return nil
 }

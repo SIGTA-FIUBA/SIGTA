@@ -33,12 +33,14 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Tipo de trámite | procedure type | Definición configurada de un trámite | — |
 | Trámite | procedure | Instancia de un tipo de trámite, iniciada por un titular | "Request", que se reserva para HTTP |
 | Titular | applicant | Quien inicia el trámite y a cuyo nombre corre | "Estudiante": no todo titular lo es |
-| Secretario | staff | Rol del personal: quien tiene al menos una membresía vigente (ADR-020) | Titular: los roles se excluyen y el personal no inicia trámites |
-| Membresía | membership | Pertenencia de una persona a un área, con algunos permisos de esa área, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
-| Administrador | administrator | Marca sobre una persona que le permite dar de alta membresías | Un rol: no da acceso a los trámites |
+| Secretario | staff | Personal: quien tiene al menos una membresía vigente (ADR-020) | Titular, que es una relación con un trámite: el personal también inicia trámites, pero no avanza los suyos |
+| Membresía | membership | Pertenencia de una persona a un área, con algunos roles y permisos de esa área, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
+| Rol | role (de un área) | Grupo de permisos de un área que se asigna en una membresía; si cambia, cambia para todos los que lo tienen | El `role` de un paso (`applicant` o `staff`), que dice quién lo hace |
+| Secretaría | secretariat | La única área fija: la trae SIGTA, con los permisos de plataforma `edit_procedure_types` y `publish_procedure_types` | Un área creada por el administrador |
+| Administrador | administrator | Marca sobre una persona que le permite crear áreas, permisos y roles, y dar de alta membresías | Personal: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
-| Área | area | Parte de la organización a la que pertenece el personal, creada como dato; un paso del personal es de un área | Rol: el titular no tiene área, y cada paso dice su rol (`applicant` o `staff`) |
+| Área | area | Parte de la organización a la que pertenece el personal, creada como dato salvo la Secretaría; un paso del personal es de un área | Rol, que agrupa permisos de un área: el titular no tiene área, y cada paso dice quién lo hace (`applicant` o `staff`) |
 | Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
 | Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
 | Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |

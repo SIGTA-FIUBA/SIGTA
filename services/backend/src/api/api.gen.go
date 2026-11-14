@@ -39,29 +39,12 @@ func (e LoginError) Valid() bool {
 	}
 }
 
-// Defines values for Role.
-const (
-	Applicant Role = "applicant"
-	Staff     Role = "staff"
-)
-
-// Valid indicates whether the value is a known member of the Role enum.
-func (e Role) Valid() bool {
-	switch e {
-	case Applicant:
-		return true
-	case Staff:
-		return true
-	default:
-		return false
-	}
-}
-
 // Area defines model for Area.
 type Area struct {
 	Id          string       `json:"id"`
 	Name        string       `json:"name"`
 	Permissions []Permission `json:"permissions"`
+	Roles       []Role       `json:"roles"`
 }
 
 // CatalogEntry defines model for CatalogEntry.
@@ -111,6 +94,7 @@ type Membership struct {
 	GrantedBy   string     `json:"granted_by"`
 	Id          string     `json:"id"`
 	Permissions []string   `json:"permissions"`
+	Roles       []string   `json:"roles"`
 	Scope       []int64    `json:"scope"`
 	Until       *time.Time `json:"until,omitempty"`
 	UserId      string     `json:"user_id"`
@@ -123,7 +107,7 @@ type NewArea struct {
 	Name string `json:"name"`
 }
 
-// NewMembership defines model for NewMembership.
+// NewMembership Necesita al menos un rol o un permiso del área
 type NewMembership struct {
 	// Area Identificador del área
 	Area string `json:"area"`
@@ -131,8 +115,11 @@ type NewMembership struct {
 	// From Desde cuándo vale. Ausente vale desde ahora
 	From *time.Time `json:"from,omitempty"`
 
-	// Permissions Identificadores de permisos del área, al menos uno
-	Permissions []string `json:"permissions"`
+	// Permissions Identificadores de permisos del área, sueltos
+	Permissions *[]string `json:"permissions,omitempty"`
+
+	// Roles Identificadores de roles del área
+	Roles *[]string `json:"roles,omitempty"`
 
 	// Scope Tipos de trámite a los que se limita. Vacío o ausente vale para todos, incluidos los que se publiquen después
 	Scope *[]int64 `json:"scope,omitempty"`
@@ -149,14 +136,36 @@ type NewPermission struct {
 	Name string `json:"name"`
 }
 
+// NewRole defines model for NewRole.
+type NewRole struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Permissions Identificadores de permisos del área, al menos uno
+	Permissions []string `json:"permissions"`
+}
+
 // Permission defines model for Permission.
 type Permission struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
-type Role string
+// Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
+type Role struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Permissions Identificadores de permisos del área
+	Permissions []string `json:"permissions"`
+}
+
+// RolePermissions defines model for RolePermissions.
+type RolePermissions struct {
+	// Permissions Identificadores de permisos del área, al menos uno
+	Permissions []string `json:"permissions"`
+}
 
 // User defines model for User.
 type User struct {
@@ -166,8 +175,8 @@ type User struct {
 	Id            string              `json:"id"`
 	Name          string              `json:"name"`
 
-	// Role Se deriva de las membresías (ADR-020). staff: tiene al menos una membresía vigente en un área. applicant: cualquier otra persona.
-	Role Role `json:"role"`
+	// Staff Si tiene al menos una membresía vigente (ADR-020). Cualquiera puede iniciar trámites, sea o no del personal; el personal no actúa en los pasos del personal de sus propios trámites
+	Staff bool `json:"staff"`
 }
 
 // SessionCookie defines model for SessionCookie.
@@ -189,6 +198,16 @@ type CreateAreaParams struct {
 
 // CreatePermissionParams defines parameters for CreatePermission.
 type CreatePermissionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreateRoleParams defines parameters for CreateRole.
+type CreateRoleParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// UpdateRolePermissionsParams defines parameters for UpdateRolePermissions.
+type UpdateRolePermissionsParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -230,6 +249,12 @@ type CreateAreaJSONRequestBody = NewArea
 // CreatePermissionJSONRequestBody defines body for CreatePermission for application/json ContentType.
 type CreatePermissionJSONRequestBody = NewPermission
 
+// CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
+type CreateRoleJSONRequestBody = NewRole
+
+// UpdateRolePermissionsJSONRequestBody defines body for UpdateRolePermissions for application/json ContentType.
+type UpdateRolePermissionsJSONRequestBody = RolePermissions
+
 // GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
 type GrantMembershipJSONRequestBody = NewMembership
 
@@ -241,6 +266,12 @@ type ServerInterface interface {
 	// CreatePermission Crea un permiso en un área del personal
 	// (POST /areas/{areaId}/permissions)
 	CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams)
+	// CreateRole Crea un rol en un área del personal
+	// (POST /areas/{areaId}/roles)
+	CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams)
+	// UpdateRolePermissions Reemplaza los permisos de un rol
+	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
+	UpdateRolePermissions(w http.ResponseWriter, r *http.Request, areaId string, roleId string, params UpdateRolePermissionsParams)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
@@ -340,6 +371,103 @@ func (siw *ServerInterfaceWrapper) CreatePermission(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreatePermission(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRoleParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRole(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRolePermissions operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRolePermissions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "roleId" -------------
+	var roleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roleId", r.PathValue("roleId"), &roleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateRolePermissionsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRolePermissions(w, r, areaId, roleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -702,6 +830,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas", wrapper.CreateArea)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/permissions", wrapper.CreatePermission)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/roles", wrapper.CreateRole)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}/permissions", wrapper.UpdateRolePermissions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
 
 	return m
@@ -840,6 +970,153 @@ func (response CreatePermission403JSONResponse) VisitCreatePermissionResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRoleRequestObject struct {
+	AreaId string `json:"areaId"`
+	Params CreateRoleParams
+	Body   *CreateRoleJSONRequestBody
+}
+
+type CreateRoleResponseObject interface {
+	VisitCreateRoleResponse(w http.ResponseWriter) error
+}
+
+type CreateRole201JSONResponse Role
+
+func (response CreateRole201JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateRole400JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRole401JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateRole403JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissionsRequestObject struct {
+	AreaId string `json:"areaId"`
+	RoleId string `json:"roleId"`
+	Params UpdateRolePermissionsParams
+	Body   *UpdateRolePermissionsJSONRequestBody
+}
+
+type UpdateRolePermissionsResponseObject interface {
+	VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error
+}
+
+type UpdateRolePermissions200JSONResponse Role
+
+func (response UpdateRolePermissions200JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateRolePermissions400JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateRolePermissions401JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateRolePermissions403JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions404JSONResponse Error
+
+func (response UpdateRolePermissions404JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1068,6 +1345,12 @@ type StrictServerInterface interface {
 	// CreatePermission Crea un permiso en un área del personal
 	// (POST /areas/{areaId}/permissions)
 	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
+	// CreateRole Crea un rol en un área del personal
+	// (POST /areas/{areaId}/roles)
+	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
+	// UpdateRolePermissions Reemplaza los permisos de un rol
+	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
+	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
@@ -1187,6 +1470,75 @@ func (sh *strictHandler) CreatePermission(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreatePermissionResponseObject); ok {
 		if err := validResponse.VisitCreatePermissionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRole operation middleware
+func (sh *strictHandler) CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams) {
+	var request CreateRoleRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	var body CreateRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRole(ctx, request.(CreateRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRoleResponseObject); ok {
+		if err := validResponse.VisitCreateRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateRolePermissions operation middleware
+func (sh *strictHandler) UpdateRolePermissions(w http.ResponseWriter, r *http.Request, areaId string, roleId string, params UpdateRolePermissionsParams) {
+	var request UpdateRolePermissionsRequestObject
+
+	request.AreaId = areaId
+	request.RoleId = roleId
+	request.Params = params
+
+	var body UpdateRolePermissionsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRolePermissions(ctx, request.(UpdateRolePermissionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRolePermissions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateRolePermissionsResponseObject); ok {
+		if err := validResponse.VisitUpdateRolePermissionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

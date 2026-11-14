@@ -101,7 +101,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
-| DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | Se espera; con roles configurables se puede resolver como dos permisos | Se espera, con la Secretaría, antes de la interfaz de edición |
+| DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 
 ---
 

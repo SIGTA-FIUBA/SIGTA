@@ -10,7 +10,6 @@ import (
 	"github.com/cucumber/godog"
 
 	authmem "backend/src/auth/adapters/memory"
-	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
@@ -34,9 +33,12 @@ type catalogWorld struct {
 func registerCatalogSteps(sc *godog.ScenarioContext) {
 	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
 	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "register", Name: "Registrar"}}})
-	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
+	auth, staff, err := withSecretariat(areas, time.Now)
+	if err != nil {
+		panic(err)
+	}
 	world := &catalogWorld{
-		service: application.NewProcedureTypeService(versions, auth, time.Now),
+		service: application.NewProcedureTypeService(versions, auth, staff, time.Now),
 		types:   map[string]int64{},
 		latest:  map[string]definition.ProcedureTypeDefinition{},
 	}

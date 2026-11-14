@@ -135,7 +135,8 @@ type userEntry struct {
 
 type membershipEntry struct {
 	Area        string   `json:"area"`
-	Permissions []string `json:"permissions"`
+	Roles       []string `json:"roles,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 	Scope       []int64  `json:"scope,omitempty"`
 }
 
@@ -189,6 +190,7 @@ func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) 
 				ID:          fmt.Sprintf("%s-%d", user.ID, j+1),
 				UserID:      user.ID,
 				Area:        m.Area,
+				Roles:       m.Roles,
 				Permissions: m.Permissions,
 				Scope:       m.Scope,
 				GrantedBy:   "SIGTA_USERS_FILE",
@@ -197,10 +199,12 @@ func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) 
 			switch {
 			case !knownArea:
 				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown area %q", i, j+1, m.Area))
-			case len(m.Permissions) == 0:
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: no permissions", i, j+1))
+			case len(m.Roles) == 0 && len(m.Permissions) == 0:
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: no roles nor permissions", i, j+1))
 			case slices.ContainsFunc(m.Permissions, func(p string) bool { return !area.HasActivePermission(p) }):
 				problems = append(problems, fmt.Errorf("entry %d: membership %d: area %q lacks one of the permissions %v", i, j+1, m.Area, m.Permissions))
+			case slices.ContainsFunc(m.Roles, func(r string) bool { return !area.HasActiveRole(r) }):
+				problems = append(problems, fmt.Errorf("entry %d: membership %d: area %q lacks one of the roles %v", i, j+1, m.Area, m.Roles))
 			case slices.ContainsFunc(loaded.memberships, membership.Overlaps):
 				problems = append(problems, fmt.Errorf("entry %d: membership %d: repeats area %q with the same scope", i, j+1, m.Area))
 			}

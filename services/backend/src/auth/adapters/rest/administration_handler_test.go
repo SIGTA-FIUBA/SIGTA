@@ -71,7 +71,7 @@ func TestAnAdministratorCreatesAnAreaAndGrantsAMembershipInIt(t *testing.T) {
 	res, err = get(t, signedIn(t, srv.URL, "titular@fi.uba.ar"), srv.URL+"/me")
 	var user api.User
 	decode(t, res, err, http.StatusOK, &user)
-	if user.Role != "staff" || user.Administrator {
+	if !user.Staff || user.Administrator {
 		t.Fatalf("user = %+v, want staff and not an administrator", user)
 	}
 }
@@ -107,6 +107,7 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 
 	for name, body := range map[string]string{
 		"used id":          `{"id": "office", "name": "Otra"}`,
+		"reserved id":      `{"id": "secretariat", "name": "Otra"}`,
 		"uppercase id":     `{"id": "Office", "name": "Otra"}`,
 		"used name":        `{"id": "other", "name": "Secretaría"}`,
 		"empty name":       `{"id": "other", "name": " "}`,
@@ -127,13 +128,17 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 			expectError(t, res, err, http.StatusBadRequest)
 		})
 	}
-	res, err := post(t, admin, srv.URL+"/areas/dean/permissions", strings.NewReader(`{"id": "sign", "name": "Firmar"}`))
+	res, err := post(t, admin, srv.URL+"/areas/secretariat/permissions", strings.NewReader(`{"id": "publish_procedure_types", "name": "Otro"}`))
+	expectError(t, res, err, http.StatusBadRequest)
+	res, err = post(t, admin, srv.URL+"/areas/dean/permissions", strings.NewReader(`{"id": "sign", "name": "Firmar"}`))
 	expectError(t, res, err, http.StatusBadRequest)
 
 	for name, body := range map[string]string{
 		"unknown area":        `{"user_id": "u1", "area": "dean", "permissions": ["review"]}`,
 		"unknown permission":  `{"user_id": "u1", "area": "office", "permissions": ["sign"]}`,
 		"no permissions":      `{"user_id": "u1", "area": "office", "permissions": []}`,
+		"no roles nor perms":  `{"user_id": "u1", "area": "office"}`,
+		"unknown role":        `{"user_id": "u1", "area": "office", "roles": ["clerk"]}`,
 		"repeated membership": `{"user_id": "u2", "area": "office", "permissions": ["approve"]}`,
 		"end before start":    `{"user_id": "u1", "area": "office", "permissions": ["review"], "from": "2030-01-02T00:00:00Z", "until": "2030-01-01T00:00:00Z"}`,
 	} {
@@ -142,4 +147,62 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 			expectError(t, res, err, http.StatusBadRequest)
 		})
 	}
+}
+
+func put(t *testing.T, client *http.Client, url string, body io.Reader) (*http.Response, error) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, url, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return client.Do(req)
+}
+
+func TestAnAdministratorGroupsPermissionsInARole(t *testing.T) {
+	srv := newServer(t)
+	admin := signedIn(t, srv.URL, "admin@fi.uba.ar")
+
+	res, err := post(t, admin, srv.URL+"/areas/office/roles", strings.NewReader(`{"id": "clerk", "name": "Mesa", "permissions": ["review"]}`))
+	var role api.Role
+	decode(t, res, err, http.StatusCreated, &role)
+	if role.Id != "clerk" || role.Name != "Mesa" || !slices.Equal(role.Permissions, []string{"review"}) {
+		t.Fatalf("role = %+v", role)
+	}
+
+	res, err = post(t, admin, srv.URL+"/memberships", strings.NewReader(`{"user_id": "u1", "area": "office", "roles": ["clerk"]}`))
+	var membership api.Membership
+	decode(t, res, err, http.StatusCreated, &membership)
+	if !slices.Equal(membership.Roles, []string{"clerk"}) || len(membership.Permissions) != 0 {
+		t.Fatalf("membership = %+v", membership)
+	}
+
+	res, err = put(t, admin, srv.URL+"/areas/office/roles/clerk/permissions", strings.NewReader(`{"permissions": ["review", "approve"]}`))
+	decode(t, res, err, http.StatusOK, &role)
+	if !slices.Equal(role.Permissions, []string{"review", "approve"}) {
+		t.Fatalf("role = %+v", role)
+	}
+}
+
+func TestInvalidRolesAreRejected(t *testing.T) {
+	srv := newServer(t)
+	admin := signedIn(t, srv.URL, "admin@fi.uba.ar")
+	operative := signedIn(t, srv.URL, "operativo@fi.uba.ar")
+
+	res, err := post(t, operative, srv.URL+"/areas/office/roles", strings.NewReader(`{"id": "clerk", "name": "Mesa", "permissions": ["review"]}`))
+	expectError(t, res, err, http.StatusForbidden)
+
+	for name, body := range map[string]string{
+		"no permissions":     `{"id": "clerk", "name": "Mesa", "permissions": []}`,
+		"unknown permission": `{"id": "clerk", "name": "Mesa", "permissions": ["sign"]}`,
+		"uppercase id":       `{"id": "Clerk", "name": "Mesa", "permissions": ["review"]}`,
+	} {
+		t.Run("role with "+name, func(t *testing.T) {
+			res, err := post(t, admin, srv.URL+"/areas/office/roles", strings.NewReader(body))
+			expectError(t, res, err, http.StatusBadRequest)
+		})
+	}
+
+	res, err = put(t, admin, srv.URL+"/areas/office/roles/clerk/permissions", strings.NewReader(`{"permissions": ["review"]}`))
+	expectError(t, res, err, http.StatusNotFound)
 }

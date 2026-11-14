@@ -18,18 +18,22 @@ import (
 var _ input.ProcedureTypes = (*ProcedureTypeService)(nil)
 
 type ProcedureTypeService struct {
-	versions output.ProcedureVersions
-	areas    authinput.Areas
-	now      func() time.Time
+	versions        output.ProcedureVersions
+	areas           authinput.Areas
+	staffAuthorizer authinput.StaffAuthorizer
+	now             func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureVersions, areas authinput.Areas, now func() time.Time) *ProcedureTypeService {
-	return &ProcedureTypeService{versions: versions, areas: areas, now: now}
+func NewProcedureTypeService(versions output.ProcedureVersions, areas authinput.Areas, staff authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
+	return &ProcedureTypeService{versions: versions, areas: areas, staffAuthorizer: staff, now: now}
 }
 
 func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication) (version.ProcedureTypeVersion, error) {
 	if err := p.Authorship.Validate(); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
+	}
+	if err := s.authorize(ctx, p); err != nil {
+		return version.ProcedureTypeVersion{}, err
 	}
 	areas, err := s.currentStaffAreas(ctx)
 	if err != nil {
@@ -78,6 +82,9 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	return v, nil
 }
 
+// currentStaffAreas leaves out the system permissions: they enable a function
+// of SIGTA, so a step that asks for one asks for a permission that does not
+// exist.
 func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definition.Area, error) {
 	staff, err := s.areas.List(ctx)
 	if err != nil {
@@ -87,6 +94,9 @@ func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definit
 	for _, a := range staff {
 		area := definition.Area{ID: a.ID, Name: a.Name}
 		for _, p := range a.Permissions {
+			if p.System {
+				continue
+			}
 			area.Permissions = append(area.Permissions, definition.Permission{ID: p.ID, Name: p.Name})
 		}
 		areas = append(areas, area)
@@ -176,4 +186,29 @@ func sameContent(v version.ProcedureTypeVersion, encoded []byte) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(again, encoded), nil
+}
+
+// authorize asks that whoever proposed the version can edit procedure types,
+// and whoever approved it can publish them, in the Secretariat (ADR-020). The
+// scope of their memberships counts: someone limited to some procedure types
+// cannot create a new one, whose ID no scope lists.
+func (s *ProcedureTypeService) authorize(ctx context.Context, p input.Publication) error {
+	authors := []struct {
+		userID     string
+		permission string
+		action     string
+	}{
+		{p.Authorship.ProposedBy, authinput.EditProcedureTypes, "propose"},
+		{p.Authorship.ApprovedBy, authinput.PublishProcedureTypes, "approve"},
+	}
+	for _, author := range authors {
+		holds, err := s.staffAuthorizer.Holds(ctx, author.userID, authinput.SecretariatArea, p.ProcedureType, []string{author.permission})
+		if err != nil {
+			return fmt.Errorf("permissions of %s in %s: %w", author.userID, authinput.SecretariatArea, err)
+		}
+		if !holds {
+			return fmt.Errorf("procedure type %d: %w", p.ProcedureType, denied(author.userID, author.action+" a version"))
+		}
+	}
+	return nil
 }

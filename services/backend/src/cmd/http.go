@@ -16,6 +16,7 @@ import (
 	authrest "backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
@@ -38,7 +39,15 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	areas := devAreas()
+	ctx := context.Background()
+	areaRepository := memory.NewAreaRepository(devAreas()...)
+	if err := application.EnsureSecretariat(ctx, areaRepository); err != nil {
+		return err
+	}
+	areas, err := areaRepository.List(ctx)
+	if err != nil {
+		return err
+	}
 	directory, err := peopleOf(cfg, areas)
 	if err != nil {
 		return err
@@ -59,16 +68,15 @@ func run(logger *slog.Logger) error {
 		time.Now,
 	)
 
-	areaRepository := memory.NewAreaRepository(areas...)
 	administrators := memory.NewAdministrators(directory.administrators...)
 	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
 	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, time.Now)
+	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, memberships, time.Now)
 	if cfg.development() {
-		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
+		if _, err := procedureTypes.Publish(ctx, devProcedureType()); err != nil {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
@@ -116,7 +124,8 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 const devApplicantEmail = "titular@fi.uba.ar"
 
 // devPeople are synthetic accounts for local development: an applicant, a
-// member who reviews, one who also approves, and an administrator.
+// member who reviews and edits procedure types, one who also approves and
+// publishes them, and an administrator.
 func devPeople() people {
 	return people{
 		users: []domain.User{
@@ -129,11 +138,14 @@ func devPeople() people {
 		memberships: []domain.Membership{
 			{ID: "dev-operative-1", UserID: "dev-operative", Area: "office", Permissions: []string{"review"}, GrantedBy: "dev-admin"},
 			{ID: "dev-approver-1", UserID: "dev-approver", Area: "office", Permissions: []string{"review", "approve"}, GrantedBy: "dev-admin"},
+			{ID: "dev-operative-2", UserID: "dev-operative", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}, GrantedBy: "dev-admin"},
+			{ID: "dev-approver-2", UserID: "dev-approver", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}, GrantedBy: "dev-admin"},
 		},
 	}
 }
 
-// devAreas are the areas of staff until they are stored in PostgreSQL.
+// devAreas are the areas of staff until they are stored in PostgreSQL, besides
+// the Secretariat, which EnsureSecretariat adds.
 func devAreas() []domain.Area {
 	return []domain.Area{{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
 		{ID: "review", Name: "Revisar"},

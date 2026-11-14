@@ -152,6 +152,7 @@ func TestLoadUsersRejectsTheWholeFile(t *testing.T) {
 		"unknown area":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"dean","permissions":["review"]}]}]`,
 		"unknown permission":  `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["sign"]}]}]`,
 		"no permissions":      `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":[]}]}]`,
+		"unknown role":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","roles":["clerk"]}]}]`,
 		"old profile key":     `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","profile":"staff_operative"}]}]`,
 		"repeated membership": `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["review"]},{"area":"office","permissions":["approve"]}]}]`,
 		"unknown key":         `[{"id":"u1","email":"a@fi.uba.ar","name":"A","password":"x"}]`,

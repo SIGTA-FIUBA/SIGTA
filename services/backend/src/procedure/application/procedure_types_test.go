@@ -12,6 +12,7 @@ import (
 	authdomain "backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
+	procdomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
@@ -45,9 +46,22 @@ func newService(versions output.ProcedureVersions, areas ...authdomain.Area) *Pr
 	return newServiceOn(versions, authmem.NewAreaRepository(areas...))
 }
 
+// newServiceOn lets ana and carla propose, and beto and dario approve, in the
+// Secretariat.
 func newServiceOn(versions output.ProcedureVersions, areas *authmem.AreaRepository) *ProcedureTypeService {
-	auth := authapp.NewAreaService(areas, authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
-	return NewProcedureTypeService(versions, auth, func() time.Time { return publishedAt })
+	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
+		panic(err)
+	}
+	memberships := authmem.NewMembershipRepository(
+		authdomain.Membership{ID: "m1", UserID: authors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
+		authdomain.Membership{ID: "m2", UserID: authors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
+		authdomain.Membership{ID: "m3", UserID: "carla", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
+		authdomain.Membership{ID: "m4", UserID: "dario", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
+	)
+	administrators := authmem.NewAdministrators()
+	auth := authapp.NewAreaService(areas, administrators, memberships, time.Now)
+	staff := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
+	return NewProcedureTypeService(versions, auth, staff, func() time.Time { return publishedAt })
 }
 
 // fakeVersions wraps the memory adapter so that a test can make it fail or
@@ -83,6 +97,13 @@ func (f *fakeVersions) Add(ctx context.Context, v version.ProcedureTypeVersion) 
 		return f.addErr
 	}
 	return f.ProcedureVersions.Add(ctx, v)
+}
+
+// everyoneHolds lets anyone publish, for tests about something else.
+type everyoneHolds struct{ authinput.StaffAuthorizer }
+
+func (everyoneHolds) Holds(context.Context, string, string, int64, []string) (bool, error) {
+	return true, nil
 }
 
 type failingAreas struct{ authinput.Areas }
@@ -216,7 +237,7 @@ func TestPublishRejects(t *testing.T) {
 		{name: "same proposer and approver", service: newService(memory.NewProcedureVersions()), p: input.Publication{
 			ProcedureType: 1, Definition: testDefinition(), Authorship: version.Authorship{ProposedBy: "ana", ApprovedBy: "ana"},
 		}, want: version.ErrInvalidAuthorship},
-		{name: "area catalog fails", service: NewProcedureTypeService(memory.NewProcedureVersions(), failingAreas{}, time.Now), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "area catalog fails", service: NewProcedureTypeService(memory.NewProcedureVersions(), failingAreas{}, everyoneHolds{}, time.Now), p: publication(1, 0, testDefinition()), want: errStore},
 		{name: "latest fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), latestErr: errStore}), p: publication(1, 0, testDefinition()), want: errStore},
 		{name: "add fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), addErr: errStore}), p: publication(1, 0, testDefinition()), want: errStore},
 	}
@@ -335,5 +356,77 @@ func TestCatalogWithUnreadableContent(t *testing.T) {
 	}
 	if entries, err := newService(versions).Catalog(context.Background()); err == nil {
 		t.Errorf("Catalog() = %+v, want an error", entries)
+	}
+}
+
+func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
+	ctx := context.Background()
+	membership := func(id, userID string, scope []int64, permissions ...string) authdomain.Membership {
+		return authdomain.Membership{ID: id, UserID: userID, Area: authinput.SecretariatArea, Permissions: permissions, Scope: scope}
+	}
+	sameIDElsewhere := authdomain.Area{ID: "office", Name: "Oficina", Permissions: []authdomain.Permission{
+		{ID: authinput.EditProcedureTypes, Name: "Editar"},
+		{ID: authinput.PublishProcedureTypes, Name: "Publicar"},
+	}}
+	tests := []struct {
+		name          string
+		memberships   []authdomain.Membership
+		procedureType int64
+		want          error
+	}{
+		{name: "proposer edits and approver publishes", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.EditProcedureTypes),
+			membership("m2", "beto", nil, authinput.PublishProcedureTypes),
+		}, procedureType: 1},
+		{name: "proposer cannot edit", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.PublishProcedureTypes),
+			membership("m2", "beto", nil, authinput.PublishProcedureTypes),
+		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		{name: "approver cannot publish", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.EditProcedureTypes),
+			membership("m2", "beto", nil, authinput.EditProcedureTypes),
+		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		{name: "the same permissions in another area are not enough", memberships: []authdomain.Membership{
+			{ID: "m1", UserID: "ana", Area: "office", Permissions: []string{authinput.EditProcedureTypes}},
+			{ID: "m2", UserID: "beto", Area: "office", Permissions: []string{authinput.PublishProcedureTypes}},
+		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		{name: "a scope covers its procedure types", memberships: []authdomain.Membership{
+			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
+			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
+		}, procedureType: 1},
+		{name: "a scope does not cover a new procedure type", memberships: []authdomain.Membership{
+			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
+			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
+		}, procedureType: 2, want: procdomain.ErrAccessDenied},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			areas := authmem.NewAreaRepository(sameIDElsewhere)
+			if err := authapp.EnsureSecretariat(ctx, areas); err != nil {
+				t.Fatalf("EnsureSecretariat() = %v", err)
+			}
+			memberships := authmem.NewMembershipRepository(tt.memberships...)
+			administrators := authmem.NewAdministrators()
+			service := NewProcedureTypeService(memory.NewProcedureVersions(),
+				authapp.NewAreaService(areas, administrators, memberships, time.Now),
+				authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now),
+				time.Now)
+			if _, err := service.Publish(ctx, publication(tt.procedureType, 0, testDefinition())); !errors.Is(err, tt.want) {
+				t.Errorf("Publish() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAStepCannotAskForASystemPermission(t *testing.T) {
+	d := testDefinition()
+	d.Steps[0].Next = "edit"
+	d.Steps = append(d.Steps, definition.Step{
+		ID: "edit", Name: "Edición", Role: definition.RoleStaff, Area: authinput.SecretariatArea,
+		Permissions: []string{authinput.EditProcedureTypes}, Action: definition.ActionConfirmExternalFact,
+	})
+	_, err := newService(memory.NewProcedureVersions()).Publish(context.Background(), publication(1, 0, d))
+	if !errors.Is(err, definition.ErrInvalidDefinition) {
+		t.Fatalf("Publish() = %v, want %v", err, definition.ErrInvalidDefinition)
 	}
 }

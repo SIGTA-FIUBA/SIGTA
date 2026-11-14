@@ -28,14 +28,17 @@ Feature: Profiles and authorization
     When "new@fi.uba.ar" starts a "subject equivalence" procedure
     Then the procedure is started
 
-  Scenario: staff cannot start a procedure
+  Scenario: staff can also start a procedure, as its applicant
     When "operative@fi.uba.ar" starts a "subject equivalence" procedure
-    Then the procedure is not started
+    Then the procedure is started
 
-  Scenario: a membership turns an applicant into staff
+  Scenario: a membership makes a person staff, who can still start procedures
+    Given a "subject equivalence" procedure whose open step is "verify"
     When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the permission "verify"
-    Then the membership is granted by "admin@fi.uba.ar" from now on
-    And "new@fi.uba.ar" cannot start a "subject equivalence" procedure
+    And "new@fi.uba.ar" acts on that step
+    Then the action is allowed
+    And the membership is granted by "admin@fi.uba.ar" from now on
+    And "new@fi.uba.ar" can start a "subject equivalence" procedure
 
   Scenario: only an administrator grants memberships
     When "approver@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the permission "verify"
@@ -93,11 +96,6 @@ Feature: Profiles and authorization
     Then the action is denied
     And the membership records that "admin@fi.uba.ar" ended it
 
-  Scenario: a person whose memberships ended is an applicant again
-    When "admin@fi.uba.ar" ends the membership of "operative@fi.uba.ar" in "student affairs"
-    And "operative@fi.uba.ar" starts a "subject equivalence" procedure
-    Then the procedure is started
-
   Scenario Outline: a membership with an end date holds until then
     Given "admin@fi.uba.ar" grants "substitute@fi.uba.ar" a membership in "student affairs" with the permission "verify" until "2026-11-10"
     And a "subject equivalence" procedure whose open step is "verify"
@@ -110,12 +108,41 @@ Feature: Profiles and authorization
       | 2026-11-09 | allowed |
       | 2026-11-10 | denied  |
 
+  Scenario Outline: staff do not move their own procedure forward
+    Given "<user>" has a "subject equivalence" procedure whose open step is "<step>"
+    When "<user>" acts on that step
+    Then the action is <result>
+
+    Examples:
+      | user                 | step     | result  |
+      | approver@fi.uba.ar   | request  | allowed |
+      | approver@fi.uba.ar   | verify   | denied  |
+      | approver@fi.uba.ar   | approve  | denied  |
+      | commission@fi.uba.ar | evaluate | denied  |
+
+  Scenario: another member moves forward the procedure of a member
+    Given "approver@fi.uba.ar" has a "subject equivalence" procedure whose open step is "verify"
+    When "operative@fi.uba.ar" acts on that step
+    Then the action is allowed
+
+  Scenario: staff are not offered the steps of their own procedure
+    Given "approver@fi.uba.ar" has a "subject equivalence" procedure whose open step is "approve"
+    When "approver@fi.uba.ar" opens that procedure
+    Then the procedure is shown
+    And no action is offered on the "approve" step
+
   Scenario: staff see the procedures that go through their areas
     Given a "subject equivalence" procedure
     And a "credit recognition" procedure
     When "commission@fi.uba.ar" lists the procedures
     Then they see 1 procedure
     And it is a "subject equivalence" procedure
+
+  Scenario: staff see their own procedures besides those of their areas
+    Given "commission@fi.uba.ar" has a "credit recognition" procedure
+    And a "subject equivalence" procedure
+    When "commission@fi.uba.ar" lists the procedures
+    Then they see 2 procedures
 
   Scenario: the scope narrows the procedures staff see
     Given a "subject equivalence" procedure
@@ -177,3 +204,53 @@ Feature: Profiles and authorization
     When a new version of "subject equivalence" is published
     And "operative@fi.uba.ar" acts on that step
     Then the action is allowed
+
+  Scenario: a membership with a role holds the permissions of the role
+    Given the area "student affairs" has the role "reviewer" with the permissions "verify, approve"
+    And a "subject equivalence" procedure whose open step is "approve"
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the role "reviewer"
+    And "new@fi.uba.ar" acts on that step
+    Then the action is allowed
+
+  Scenario: changing the permissions of a role changes what its members can do
+    Given the area "student affairs" has the role "clerk" with the permission "verify"
+    And "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the role "clerk"
+    And a "subject equivalence" procedure whose open step is "approve"
+    When "admin@fi.uba.ar" changes the permissions of the role "clerk" of "student affairs" to "verify, approve"
+    And "new@fi.uba.ar" acts on that step
+    Then the action is allowed
+    And the role "clerk" of "student affairs" records that "admin@fi.uba.ar" changed it
+
+  Scenario: the permissions of a role and the loose ones add up
+    Given the area "student affairs" has the role "clerk" with the permission "verify"
+    And a published "joint review" procedure type with these steps:
+      | step   | area            | permissions     |
+      | review | student affairs | verify, approve |
+    And a "joint review" procedure whose open step is "review"
+    When "admin@fi.uba.ar" grants "new@fi.uba.ar" a membership in "student affairs" with the role "clerk" and the permission "approve"
+    And "new@fi.uba.ar" acts on that step
+    Then the action is allowed
+
+  Scenario Outline: only the Secretariat edits and publishes procedure types
+    Given SIGTA has these memberships:
+      | staff                | area        | permissions             | scope              |
+      | editor@fi.uba.ar     | secretariat | edit_procedure_types    |                    |
+      | publisher@fi.uba.ar  | secretariat | publish_procedure_types |                    |
+      | scoped-ed@fi.uba.ar  | secretariat | edit_procedure_types    | credit recognition |
+      | scoped-pub@fi.uba.ar | secretariat | publish_procedure_types | credit recognition |
+    When "<proposer>" proposes and "<approver>" approves a version of "<procedure type>"
+    Then the version is <result>
+
+    Examples:
+      | proposer            | approver             | procedure type      | result    |
+      | editor@fi.uba.ar    | publisher@fi.uba.ar  | subject equivalence | published |
+      | editor@fi.uba.ar    | publisher@fi.uba.ar  | degree change       | published |
+      | publisher@fi.uba.ar | editor@fi.uba.ar     | subject equivalence | denied    |
+      | operative@fi.uba.ar | publisher@fi.uba.ar  | subject equivalence | denied    |
+      | editor@fi.uba.ar    | approver@fi.uba.ar   | subject equivalence | denied    |
+      | scoped-ed@fi.uba.ar | scoped-pub@fi.uba.ar | credit recognition  | published |
+      | scoped-ed@fi.uba.ar | scoped-pub@fi.uba.ar | subject equivalence | denied    |
+      | scoped-ed@fi.uba.ar | scoped-pub@fi.uba.ar | degree change       | denied    |
+
+  Scenario: a step cannot ask for a permission that edits procedure types
+    Then a procedure type with a step in "secretariat" that asks for "edit_procedure_types" cannot be published

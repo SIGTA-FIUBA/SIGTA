@@ -15,12 +15,12 @@ func denied(userID, action string) error {
 	return fmt.Errorf("%s %s: %w", userID, action, domain.ErrAccessDenied)
 }
 
-// canSee takes the areas where the person has an active membership: without
-// any, they are an applicant (ADR-020).
+// canSee lets anyone see the procedures they started, and staff also those
+// that go through their areas, within the scope of their memberships
+// (ADR-020).
 func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c version.Content) bool {
-	isApplicant := len(memberOf) == 0
-	if isApplicant {
-		return p.Applicant == userID
+	if p.Applicant == userID {
+		return true
 	}
 	return slices.ContainsFunc(memberOf, func(area authinput.AreaReach) bool {
 		coversType := len(area.Scope) == 0 || slices.Contains(area.Scope, p.ProcedureType)
@@ -28,7 +28,10 @@ func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c
 	})
 }
 
-func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplicant bool, p domain.Procedure, c version.Content, stepID string) (bool, error) {
+// canAct leaves the steps of the applicant to the applicant, and the steps of
+// staff to whoever holds their permissions, except the applicant: nobody
+// moves their own procedure forward as staff.
+func (s *ProcedureService) canAct(ctx context.Context, userID string, p domain.Procedure, c version.Content, stepID string) (bool, error) {
 	if stepID != p.OpenStep {
 		return false, nil
 	}
@@ -37,8 +40,9 @@ func (s *ProcedureService) canAct(ctx context.Context, userID string, isApplican
 		return false, fmt.Errorf("procedure %s: open step %q is not in version %d", p.ID, stepID, p.Version)
 	}
 	step := c.Definition.Steps[i]
-	if step.Role == definition.RoleApplicant {
-		return isApplicant && p.Applicant == userID, nil
+	isApplicant := p.Applicant == userID
+	if step.Role == definition.RoleApplicant || isApplicant {
+		return step.Role == definition.RoleApplicant && isApplicant, nil
 	}
 	holds, err := s.staffAuthorizer.Holds(ctx, userID, step.Area, p.ProcedureType, step.Permissions)
 	if err != nil {

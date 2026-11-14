@@ -90,6 +90,8 @@ func (r *MembershipRepository) Save(_ context.Context, m domain.Membership) erro
 }
 
 func cloneMembership(m domain.Membership) domain.Membership {
+	m.Roles = slices.Clone(m.Roles)
+	m.Permissions = slices.Clone(m.Permissions)
 	m.Scope = slices.Clone(m.Scope)
 	return m
 }

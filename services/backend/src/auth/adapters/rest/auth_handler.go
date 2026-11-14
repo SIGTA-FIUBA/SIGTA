@@ -126,7 +126,7 @@ func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUser
 		Id:            user.ID,
 		Email:         openapi_types.Email(user.Email),
 		Name:          user.Name,
-		Role:          api.Role(access.Role()),
+		Staff:         access.IsStaff(),
 		Administrator: access.Administrator,
 	}, nil
 }
