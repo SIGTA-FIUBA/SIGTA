@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -22,9 +24,10 @@ import (
 )
 
 const (
-	applicant  = "titular@fi.uba.ar"
-	reviewer   = "revisora@fi.uba.ar"
-	maxSize    = 1024
+	applicant = "titular@fi.uba.ar"
+	reviewer  = "revisora@fi.uba.ar"
+	maxSize   = 1024
+	// documentID is the identifier of the first document attached.
 	documentID = "D-1"
 )
 
@@ -96,7 +99,12 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 		files:      &memoryFiles{files: map[string][]byte{}},
 	}
 	procedures := NewProcedureService(types, f.procedures, memberships, func() string { return "P-new" })
-	f.service = NewDocumentService(procedures, f.documents, f.files, func() string { return documentID }, func() time.Time { return attachedAt })
+	attached := 0
+	newID := func() string {
+		attached++
+		return fmt.Sprintf("D-%d", attached)
+	}
+	f.service = NewDocumentService(procedures, f.documents, f.files, newID, func() time.Time { return attachedAt })
 	f.on(t, "P-1", "documents")
 	return f
 }
@@ -241,6 +249,56 @@ func TestOpenFindsTheDocumentOnlyInItsProcedure(t *testing.T) {
 	}
 }
 
+func TestListMarksTheCurrentDocuments(t *testing.T) {
+	f := newDocumentsFixture(t)
+	for _, name := range []string{"primera.pdf", "segunda.pdf"} {
+		if _, err := f.service.Attach(t.Context(), applicant, upload("statement", name, pdf(100))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.service.Attach(t.Context(), applicant, upload("annex", "anexo.pdf", pdf(100))); err != nil {
+		t.Fatal(err)
+	}
+	for _, user := range []string{applicant, reviewer} {
+		attached, err := f.service.List(t.Context(), user, "P-1")
+		if err != nil {
+			t.Fatalf("%s: %v", user, err)
+		}
+		var got []string
+		for _, d := range attached {
+			got = append(got, fmt.Sprintf("%s %t", d.FileName, d.Current))
+		}
+		want := []string{"primera.pdf false", "segunda.pdf true", "anexo.pdf true"}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: List = %v, want %v", user, got, want)
+		}
+	}
+}
+
+func TestListAnswersNotFoundToWhoCannotSeeTheProcedure(t *testing.T) {
+	f := newDocumentsFixture(t)
+	for _, procedureID := range []string{"P-1", "P-missing"} {
+		if _, err := f.service.List(t.Context(), "otra@fi.uba.ar", procedureID); !errors.Is(err, domain.ErrProcedureNotFound) {
+			t.Errorf("%s: err = %v, want ErrProcedureNotFound", procedureID, err)
+		}
+	}
+}
+
+func TestWithExtension(t *testing.T) {
+	tests := []struct{ name, mediaType, want string }{
+		{"constancia.pdf", "application/pdf", "constancia.pdf"},
+		{"CONSTANCIA.PDF", "application/pdf", "CONSTANCIA.PDF"},
+		{"constancia.html", "application/pdf", "constancia.html.pdf"},
+		{"constancia", "image/png", "constancia.png"},
+		{"datos.bin", "application/x-unknown-to-mime", "datos.bin"},
+	}
+	for _, tt := range tests {
+		if got := withExtension(tt.name, tt.mediaType); got != tt.want {
+			t.Errorf("withExtension(%q, %q) = %q, want %q", tt.name, tt.mediaType, got, tt.want)
+		}
+	}
+}
+
 func TestCleanFileName(t *testing.T) {
 	long := strings.Repeat("a", 300) + ".pdf"
 	tests := []struct{ name, want string }{
@@ -249,6 +307,7 @@ func TestCleanFileName(t *testing.T) {
 		{`C:\Users\ana\historia académica.pdf`, "historia académica.pdf"},
 		{"con\r\nsalto.pdf", "consalto.pdf"},
 		{"inválido\xff.pdf", "inválido.pdf"},
+		{"constancia\u202efdp.exe", "constanciafdp.exe"},
 		{"", defaultFileName},
 		{"..", defaultFileName},
 		{"  ", defaultFileName},

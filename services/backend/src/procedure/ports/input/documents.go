@@ -15,6 +15,13 @@ type Upload struct {
 	Content     io.Reader
 }
 
+// AttachedDocument is Current when no later document of its procedure covers
+// the same requirement.
+type AttachedDocument struct {
+	domain.Document
+	Current bool
+}
+
 // Documents answers domain.ErrProcedureNotFound to whoever cannot see the
 // procedure, so that the answer does not reveal whether it exists.
 type Documents interface {
@@ -23,7 +30,9 @@ type Documents interface {
 	// domain.ErrDocumentNotRequested, domain.ErrDocumentType,
 	// domain.ErrDocumentTooLarge or domain.ErrEmptyDocument.
 	Attach(ctx context.Context, userID string, u Upload) (domain.Document, error)
-	List(ctx context.Context, userID, procedureID string) ([]domain.Document, error)
+	// List returns the documents in the order they were attached, including
+	// the ones that a later file replaced.
+	List(ctx context.Context, userID, procedureID string) ([]AttachedDocument, error)
 	// Open fails with domain.ErrDocumentNotFound if the procedure has no
 	// document with that identifier. The caller closes the content.
 	Open(ctx context.Context, userID, procedureID, documentID string) (domain.Document, io.ReadCloser, error)

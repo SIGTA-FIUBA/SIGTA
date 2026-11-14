@@ -22,7 +22,9 @@ type Document struct {
 	// Requirement is the document of the procedure type that the file covers.
 	Requirement string
 	Step        string
-	FileName    string
+	// FileName is what the browser sent, cleaned of paths and invisible
+	// characters but still chosen by whoever uploaded the file.
+	FileName string
 	// MediaType is read from the content, never from the file name or what
 	// the browser declares.
 	MediaType  string

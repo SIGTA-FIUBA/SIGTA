@@ -37,6 +37,7 @@ func (fakeAuth) Authenticate(_ context.Context, token string) (authdomain.User, 
 // upload it receives.
 type fakeDocuments struct {
 	attached []domain.Document
+	listed   []input.AttachedDocument
 	err      error
 
 	upload  input.Upload
@@ -56,8 +57,8 @@ func (f *fakeDocuments) Attach(_ context.Context, _ string, u input.Upload) (dom
 	return domain.Document{ID: "D-1", Requirement: u.Requirement, FileName: u.FileName, MediaType: "application/pdf", Size: int64(len(content))}, nil
 }
 
-func (f *fakeDocuments) List(context.Context, string, string) ([]domain.Document, error) {
-	return f.attached, f.err
+func (f *fakeDocuments) List(context.Context, string, string) ([]input.AttachedDocument, error) {
+	return f.listed, f.err
 }
 
 func (f *fakeDocuments) Open(context.Context, string, string, string) (domain.Document, io.ReadCloser, error) {
@@ -222,11 +223,11 @@ func TestDocumentsNeedASession(t *testing.T) {
 	}
 }
 
-func TestListMarksTheCurrentDocuments(t *testing.T) {
+func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 	uploaded := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
-	documents := &fakeDocuments{attached: []domain.Document{
-		{ID: "D-1", Requirement: "transcript", UploadedAt: uploaded},
-		{ID: "D-2", Requirement: "transcript", UploadedAt: uploaded},
+	documents := &fakeDocuments{listed: []input.AttachedDocument{
+		{Document: domain.Document{ID: "D-1", Requirement: "transcript", UploadedAt: uploaded}},
+		{Document: domain.Document{ID: "D-2", Requirement: "transcript", UploadedAt: uploaded}, Current: true},
 	}}
 	recorder := serve(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
 

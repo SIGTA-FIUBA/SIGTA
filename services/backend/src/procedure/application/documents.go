@@ -76,18 +76,18 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	if !slices.Contains(requirement.AcceptedTypes, mediaType) {
 		return domain.Document{}, fmt.Errorf("%s for %s: %w", mediaType, requirement.ID, domain.ErrDocumentType)
 	}
-	// If recording the document fails after this, the stored file is left
-	// unnamed: it is harmless, and a retry with the same content reuses it.
+	// If recording the document fails after this, no record names the stored
+	// file: it is harmless, and a retry with the same content reuses it.
 	digest, size, err := s.files.Put(ctx, &sizeLimit{reader: file, left: requirement.MaxSizeBytes})
 	if err != nil {
-		return domain.Document{}, err
+		return domain.Document{}, fmt.Errorf("store the file: %w", err)
 	}
 	d := domain.Document{
 		ID:          s.newID(),
 		Procedure:   p.ID,
 		Requirement: requirement.ID,
 		Step:        p.OpenStep,
-		FileName:    cleanFileName(u.FileName),
+		FileName:    withExtension(cleanFileName(u.FileName), mediaType),
 		MediaType:   mediaType,
 		Size:        size,
 		Digest:      digest,
@@ -100,7 +100,7 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	return d, nil
 }
 
-func (s *DocumentService) List(ctx context.Context, userID, procedureID string) ([]domain.Document, error) {
+func (s *DocumentService) List(ctx context.Context, userID, procedureID string) ([]input.AttachedDocument, error) {
 	if _, _, err := s.procedures.visible(ctx, userID, procedureID); err != nil {
 		return nil, err
 	}
@@ -108,7 +108,15 @@ func (s *DocumentService) List(ctx context.Context, userID, procedureID string) 
 	if err != nil {
 		return nil, fmt.Errorf("documents of %s: %w", procedureID, err)
 	}
-	return documents, nil
+	current := map[string]bool{}
+	for _, d := range domain.Current(documents) {
+		current[d.ID] = true
+	}
+	attached := make([]input.AttachedDocument, 0, len(documents))
+	for _, d := range documents {
+		attached = append(attached, input.AttachedDocument{Document: d, Current: current[d.ID]})
+	}
+	return attached, nil
 }
 
 func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documentID string) (domain.Document, io.ReadCloser, error) {
@@ -156,11 +164,13 @@ func detectType(head []byte) string {
 }
 
 // cleanFileName keeps only the base name the browser sent, without control
-// characters, since it is shown and sent back in the download header.
+// or format characters, since it is shown and sent back in the download
+// header. A format character such as U+202E reverses the text, so that a name
+// ending in "fdp.exe" reads as one ending in "exe.pdf".
 func cleanFileName(name string) string {
 	name = path.Base(strings.ReplaceAll(name, `\`, "/"))
 	name = strings.Map(func(r rune) rune {
-		if r == utf8.RuneError || unicode.IsControl(r) {
+		if r == utf8.RuneError || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return -1
 		}
 		return r
@@ -173,6 +183,16 @@ func cleanFileName(name string) string {
 		name = string(runes[len(runes)-maxFileName:])
 	}
 	return name
+}
+
+// withExtension makes the name end in an extension of the detected type, so
+// that the downloaded file opens as what it is and not as what its name says.
+func withExtension(name, mediaType string) string {
+	extensions, err := mime.ExtensionsByType(mediaType)
+	if err != nil || len(extensions) == 0 || slices.Contains(extensions, strings.ToLower(path.Ext(name))) {
+		return name
+	}
+	return name + extensions[0]
 }
 
 // sizeLimit fails the upload as soon as it goes past the maximum size, so the

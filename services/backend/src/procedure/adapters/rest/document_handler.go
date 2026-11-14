@@ -66,13 +66,9 @@ func (h *DocumentHandler) ListProcedureDocuments(ctx context.Context, req api.Li
 	if err != nil {
 		return nil, err
 	}
-	current := map[string]bool{}
-	for _, d := range domain.Current(attached) {
-		current[d.ID] = true
-	}
 	response := make(api.ListProcedureDocuments200JSONResponse, 0, len(attached))
 	for _, d := range attached {
-		response = append(response, procedureDocument(d, current[d.ID]))
+		response = append(response, procedureDocument(d.Document, d.Current))
 	}
 	return response, nil
 }
