@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"backend/src/api"
+	"backend/src/procedure/domain/catalog"
 	ports "backend/src/procedure/ports/input"
 )
 
@@ -34,13 +35,7 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 	}
 	documents := make([]api.DocumentRequirement, 0, len(entry.Documents))
 	for _, document := range entry.Documents {
-		documents = append(documents, api.DocumentRequirement{
-			Id:            document.Document.ID,
-			Name:          document.Document.Name,
-			Required:      document.Required,
-			AcceptedTypes: orEmpty(document.Document.AcceptedTypes),
-			MaxSize:       document.Document.MaxSizeBytes,
-		})
+		documents = append(documents, documentRequirement(document))
 	}
 	return api.CatalogEntry{
 		Id:            entry.ProcedureType,
@@ -51,6 +46,16 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 		Admissibility: orEmpty(entry.Admissibility),
 		Fields:        fields,
 		Documents:     documents,
+	}
+}
+
+func documentRequirement(r catalog.DocumentRequirement) api.DocumentRequirement {
+	return api.DocumentRequirement{
+		Id:            r.Document.ID,
+		Name:          r.Document.Name,
+		Required:      r.Required,
+		AcceptedTypes: orEmpty(r.Document.AcceptedTypes),
+		MaxSize:       r.Document.MaxSizeBytes,
 	}
 }
 

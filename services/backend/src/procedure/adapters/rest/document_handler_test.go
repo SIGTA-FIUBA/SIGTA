@@ -70,7 +70,7 @@ func (f *fakeDocuments) Open(context.Context, string, string, string) (domain.Do
 
 func serve(t *testing.T, documents *fakeDocuments, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, documents))
+	server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, documents), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r.Header.Set("Cookie", "sigta_session="+session)
 	recorder := httptest.NewRecorder()
@@ -214,7 +214,7 @@ func TestDocumentsNeedASession(t *testing.T) {
 	}
 	for name, r := range requests {
 		t.Run(name, func(t *testing.T) {
-			server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, &fakeDocuments{}))
+			server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, &fakeDocuments{}), nil)
 			recorder := httptest.NewRecorder()
 			api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler)).ServeHTTP(recorder, r)
 			if recorder.Code != http.StatusUnauthorized {

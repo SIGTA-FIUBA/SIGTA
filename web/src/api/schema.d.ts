@@ -194,6 +194,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detalle de un trámite
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra los pasos de la versión con la que se inició, en el orden en que los declara, con quién hace cada uno y los documentos que pide, y cuál es el paso abierto. Para quien no lo ve, el trámite no existe.
+         */
+        get: operations["getProcedure"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}/documents": {
         parameters: {
             query?: never;
@@ -255,6 +275,11 @@ export interface components {
          * @enum {string}
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
+        /**
+         * @description Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
+         * @enum {string}
+         */
+        StepRole: "applicant" | "staff";
         FieldRequirement: {
             id: string;
             name: string;
@@ -366,6 +391,34 @@ export interface components {
             /** Format: date-time */
             until?: string;
             granted_by: string;
+        };
+        ProcedureDetail: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            /** @description Versión del tipo de trámite con la que se inició */
+            version: number;
+            /** @description Nombre del tipo de trámite */
+            name: string;
+            /** @description Identificador del paso que espera ahora */
+            open_step: string;
+            /** @description Si quien mira puede hacer el paso abierto */
+            can_act: boolean;
+            steps: components["schemas"]["ProcedureStep"][];
+        };
+        ProcedureStep: {
+            id: string;
+            name: string;
+            /**
+             * @description Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
+             * @enum {string}
+             */
+            action: "enter_data" | "upload_document" | "confirm_external_fact" | "decide";
+            role: components["schemas"]["StepRole"];
+            /** @description Área del personal que hace el paso; vacío si lo hace el titular */
+            area_name: string;
+            /** @description Documentos que pide el paso, en el orden en que los declara el tipo de trámite */
+            documents: components["schemas"]["DocumentRequirement"][];
         };
         ProcedureDocument: {
             id: string;
@@ -714,6 +767,32 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getProcedure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El trámite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listProcedureDocuments: {

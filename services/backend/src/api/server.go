@@ -35,18 +35,23 @@ type DocumentServer interface {
 	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
 }
 
+type ProcedureServer interface {
+	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
+}
+
 // A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
 	AdministrationServer
 	DocumentServer
+	ProcedureServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer, procedures ProcedureServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents, ProcedureServer: procedures}
 }
 
 // MaxRequestBytes bounds the body of every request, so an upload is cut there

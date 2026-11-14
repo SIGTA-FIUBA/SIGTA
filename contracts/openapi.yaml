@@ -302,6 +302,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /procedures/{procedureId}:
+    get:
+      operationId: getProcedure
+      summary: Detalle de un trámite
+      description: >
+        Para quien puede ver el trámite: su titular y el personal de las áreas
+        por las que pasa. Muestra los pasos de la versión con la que se inició,
+        en el orden en que los declara, con quién hace cada uno y los
+        documentos que pide, y cuál es el paso abierto. Para quien no lo ve,
+        el trámite no existe.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "200":
+          description: El trámite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /procedures/{procedureId}/documents:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"
@@ -474,6 +498,12 @@ components:
         lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
         del dominio institucional.
       enum: [state_mismatch, rejected, domain_not_allowed]
+    StepRole:
+      type: string
+      description: >
+        Quién hace el paso. applicant: el titular. staff: el personal del
+        área del paso.
+      enum: [applicant, staff]
     FieldRequirement:
       type: object
       required: [id, name, required]
@@ -702,6 +732,57 @@ components:
           format: date-time
         granted_by:
           type: string
+    ProcedureDetail:
+      type: object
+      required: [id, procedure_type, version, name, open_step, can_act, steps]
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          description: Versión del tipo de trámite con la que se inició
+        name:
+          type: string
+          description: Nombre del tipo de trámite
+        open_step:
+          type: string
+          description: Identificador del paso que espera ahora
+        can_act:
+          type: boolean
+          description: Si quien mira puede hacer el paso abierto
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcedureStep"
+    ProcedureStep:
+      type: object
+      required: [id, name, action, role, area_name, documents]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        action:
+          type: string
+          description: >
+            Qué se hace en el paso. enter_data: completar datos.
+            upload_document: adjuntar documentos. confirm_external_fact:
+            confirmar algo que pasó fuera de SIGTA. decide: elegir una de
+            sus salidas.
+          enum: [enter_data, upload_document, confirm_external_fact, decide]
+        role:
+          $ref: "#/components/schemas/StepRole"
+        area_name:
+          type: string
+          description: Área del personal que hace el paso; vacío si lo hace el titular
+        documents:
+          type: array
+          description: Documentos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
     ProcedureDocument:
       type: object
       required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]
