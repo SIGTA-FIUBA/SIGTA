@@ -63,29 +63,27 @@ func TestConcurrentApply(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			results := make(chan error, 2)
+			type result struct {
+				applied int
+				err     error
+			}
+			results := make(chan result, 2)
 			for range 2 {
 				go func() {
-					_, err := migrations.Apply(context.WithoutCancel(ctx), owner)
-					results <- err
+					applied, err := migrations.Apply(context.WithoutCancel(ctx), owner)
+					results <- result{applied, err}
 				}()
 			}
 			schema.WaitForLocks(t, 2)
 			if err := holder.Rollback(ctx); err != nil {
 				t.Fatal(err)
 			}
-			for range 2 {
-				if err := <-results; err != nil {
-					t.Errorf("Apply() = %v", err)
-				}
+			first, second := <-results, <-results
+			if first.err != nil || second.err != nil {
+				t.Fatalf("Apply() = %v and %v", first.err, second.err)
 			}
-
-			var applied int
-			if err := owner.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&applied); err != nil {
-				t.Fatal(err)
-			}
-			if want := embedded(t); applied != want {
-				t.Errorf("schema_migrations has %d rows, want %d", applied, want)
+			if total, want := first.applied+second.applied, embedded(t); total != want || min(first.applied, second.applied) != 0 {
+				t.Errorf("the runs applied %d and %d migrations, want %d and 0", first.applied, second.applied, want)
 			}
 		})
 	}
@@ -124,26 +122,62 @@ func TestCheckRefusesAnotherSchema(t *testing.T) {
 	}
 }
 
-func TestMigrationsThatControlTheTransaction(t *testing.T) {
+func TestMigrationsThatEndTheTransaction(t *testing.T) {
 	for _, tc := range []struct {
 		name, sql string
-		valid     bool
+		want      error
 	}{
-		{"a commit", "CREATE TABLE a (id integer);\nCOMMIT;\nCREATE TABLE b (id integer);", false},
-		{"a begin in lower case", "begin;\nCREATE TABLE a (id integer);", false},
-		{"a rollback", "ROLLBACK;", false},
-		{"a start transaction", "START  TRANSACTION;", false},
-		{"an index built concurrently", "CREATE INDEX CONCURRENTLY a_id ON a (id);", false},
-		{"the words in comments and strings", "-- no COMMIT here\n/* nor a ROLLBACK */\nCOMMENT ON TABLE a IS 'begin, commit';\nCREATE TABLE \"commit\" (id integer);", true},
-		{"the body of a function", "CREATE FUNCTION f() RETURNS trigger AS $body$ BEGIN RETURN NEW; END $body$ LANGUAGE plpgsql;\nSELECT $$commit$$;", true},
+		{"a commit", "CREATE TABLE a (id integer);\nCOMMIT;\nCREATE TABLE b (id integer);", migrations.ErrTransactionControl},
+		{"a commit that opens another transaction", "CREATE TABLE a (id integer);\nCOMMIT;\nBEGIN;", migrations.ErrTransactionControl},
+		{"a rollback", "ROLLBACK;", migrations.ErrTransactionControl},
+		{"the words in comments, strings and a function", "-- no COMMIT here\nCREATE TABLE \"commit\" (id integer);\nCOMMENT ON TABLE \"commit\" IS 'begin, rollback';\n" +
+			"CREATE FUNCTION f() RETURNS trigger AS $body$ BEGIN RETURN NEW; END $body$ LANGUAGE plpgsql;", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := migrations.Load(fstest.MapFS{"0001_a.sql": {Data: []byte(tc.sql)}})
+			owner := dbtest.NewEmptySchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+			_, err := migrations.ApplyFrom(t.Context(), owner, fstest.MapFS{"0001_a.sql": {Data: []byte(tc.sql)}})
+			if !errors.Is(err, tc.want) {
+				t.Errorf("Apply() = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestMigrationOutOfOrder(t *testing.T) {
+	ctx := t.Context()
+	owner := dbtest.NewEmptySchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+	if _, err := migrations.ApplyFrom(ctx, owner, fstest.MapFS{"0002_b.sql": {}}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := migrations.ApplyFrom(ctx, owner, fstest.MapFS{"0001_a.sql": {}, "0002_b.sql": {}})
+	if !errors.Is(err, migrations.ErrOutOfOrder) {
+		t.Errorf("Apply() of a migration numbered before an applied one = %v, want ErrOutOfOrder", err)
+	}
+}
+
+func TestMigrationNames(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files []string
+		valid bool
+	}{
+		{"numbered and described", []string{"0001_procedures.sql", "0002_add_areas_2.sql"}, true},
+		{"without a description", []string{"0001.sql"}, false},
+		{"with three digits", []string{"001_procedures.sql"}, false},
+		{"with upper case", []string{"0001_Procedures.sql"}, false},
+		{"two with the same number", []string{"0002_areas.sql", "0002_documents.sql"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fsys := fstest.MapFS{}
+			for _, file := range tc.files {
+				fsys[file] = &fstest.MapFile{}
+			}
+			_, err := migrations.Load(fsys)
 			if tc.valid && err != nil {
 				t.Errorf("Load() = %v, want nil", err)
 			}
-			if !tc.valid && !errors.Is(err, migrations.ErrTransactionControl) {
-				t.Errorf("Load() = %v, want ErrTransactionControl", err)
+			if !tc.valid && !errors.Is(err, migrations.ErrInvalidName) {
+				t.Errorf("Load() = %v, want ErrInvalidName", err)
 			}
 		})
 	}

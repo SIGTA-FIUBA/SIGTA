@@ -2,8 +2,10 @@ package migrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,30 +14,47 @@ import (
 // volume of the database is created.
 const OldDatabaseHint = "if the database was created before the migrations role existed, recreate it with docker compose down --volumes"
 
-// appendOnlyTables are the tables whose rows the application role must never
-// change or delete. No migration grants it UPDATE, DELETE or TRUNCATE on them.
-var appendOnlyTables = []string{"procedure_type_versions", "procedure_events"}
+// ErrPrivileged means the role of the server can change what the schema
+// promises to keep: a published version, an event or the version a procedure
+// follows.
+var ErrPrivileged = errors.New("the role can change rows that must not change")
 
-// CheckApplicationRole fails if the role of pool can change or delete the
-// rows of an append-only table: if it owns the table, as the migrations role
-// or a superuser does, or has UPDATE on any of its columns, DELETE or
-// TRUNCATE.
+// immutable lists the tables, and their columns, whose stored values the
+// application role must never change. A table without columns is append-only:
+// none of its columns. No migration grants UPDATE on them, nor DELETE or
+// TRUNCATE on the table.
+var immutable = []struct {
+	table   string
+	columns []string
+}{
+	{table: "procedure_type_versions"},
+	{table: "procedure_events"},
+	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest"}},
+}
+
+// CheckApplicationRole fails with ErrPrivileged if the role of pool, or a
+// role it can become, can change an immutable value: if it is a superuser,
+// can create roles, owns the table or its schema, or has UPDATE on one of the
+// columns, DELETE or TRUNCATE.
 func CheckApplicationRole(ctx context.Context, pool *pgxpool.Pool) error {
-	for _, table := range appendOnlyTables {
+	for _, t := range immutable {
 		var role string
-		var canChange bool
-		err := pool.QueryRow(ctx, `SELECT current_user,
-			pg_has_role(current_user, relowner, 'USAGE')
-			OR has_any_column_privilege(current_user, oid, 'UPDATE')
-			OR has_table_privilege(current_user, oid, 'DELETE')
-			OR has_table_privilege(current_user, oid, 'TRUNCATE')
-			FROM pg_class WHERE oid = $1::regclass`, table).Scan(&role, &canChange)
-		if err != nil {
-			return fmt.Errorf("check the privileges on %s: %w", table, err)
+		err := pool.QueryRow(ctx, `SELECT m.rolname
+			FROM pg_roles m, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE c.oid = $1::regclass AND pg_has_role(current_user, m.oid, 'MEMBER') AND (
+				m.rolsuper OR m.rolcreaterole OR m.oid IN (c.relowner, n.nspowner)
+				OR has_table_privilege(m.oid, c.oid, 'DELETE')
+				OR has_table_privilege(m.oid, c.oid, 'TRUNCATE')
+				OR coalesce(cardinality($2::text[]), 0) = 0 AND has_any_column_privilege(m.oid, c.oid, 'UPDATE')
+				OR EXISTS (SELECT FROM unnest($2::text[]) col WHERE has_column_privilege(m.oid, c.oid, col, 'UPDATE')))
+			ORDER BY m.rolname LIMIT 1`, t.table, t.columns).Scan(&role)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			continue
+		case err != nil:
+			return fmt.Errorf("check the privileges on %s: %w", t.table, err)
 		}
-		if canChange {
-			return fmt.Errorf("SIGTA_DATABASE_URL connects as %s, which can change or delete the rows of %s: the server connects as the application role (backend) and only the migrate command uses the role that owns the tables (backend_migrations)", role, table)
-		}
+		return fmt.Errorf("%w: %s can change or delete the rows of %s", ErrPrivileged, role, t.table)
 	}
 	return nil
 }

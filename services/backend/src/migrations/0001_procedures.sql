@@ -3,15 +3,14 @@
 -- application role only gets the privileges it needs, and none to change a
 -- published version, the version a procedure follows or an event. Nothing
 -- updates these tables yet, so the application role cannot update any of
--- them: deactivating a procedure type will grant UPDATE on its column alone.
+-- them.
 -- Only what PostgreSQL 11 has is used, since the faculty runs that version.
 
 GRANT SELECT ON schema_migrations TO backend;
 
 -- The row is created along with version 1 of the procedure type.
 CREATE TABLE procedure_types (
-    id     bigint PRIMARY KEY,
-    active boolean NOT NULL DEFAULT true
+    id bigint PRIMARY KEY
 );
 
 -- content is bytea and not jsonb: jsonb reorders keys and would change the

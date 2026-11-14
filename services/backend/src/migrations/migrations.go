@@ -12,9 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,11 +38,17 @@ var (
 	// ErrUnknown means the schema has a migration that the binary does not,
 	// so the binary is older than the schema.
 	ErrUnknown = errors.New("migration applied but unknown to this binary")
-	// ErrTransactionControl means a migration ends or opens a transaction, or
-	// does something that cannot run inside one. Every migration runs in the
-	// transaction of Apply, and a COMMIT inside it would leave the schema half
-	// migrated.
-	ErrTransactionControl = errors.New("migration controls its own transaction")
+	// ErrOutOfOrder means a migration that was not applied sorts before one
+	// that was, as when two branches add a migration with the same number.
+	ErrOutOfOrder = errors.New("migration sorts before an applied one")
+	// ErrInvalidName means a file is not named like 0001_description.sql or
+	// shares its number with another.
+	ErrInvalidName = errors.New("invalid migration name")
+	// ErrTransactionControl means a migration ended the transaction of Apply,
+	// for example with a COMMIT. What it ran up to there stays applied, so the
+	// schema has to be fixed by hand. A fresh database in the continuous
+	// integration finds it before it reaches a shared one.
+	ErrTransactionControl = errors.New("migration ended the transaction of the migrations")
 )
 
 type querier interface {
@@ -62,13 +68,17 @@ type migration struct {
 // snapshot would be taken before the lock, and a run that waited would not
 // see what the first one applied.
 func Apply(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	all, err := load(files)
+	return apply(ctx, pool, files)
+}
+
+func apply(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) (int, error) {
+	all, err := load(fsys)
 	if err != nil {
 		return 0, err
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("begin the migrations: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", lockKey); err != nil {
@@ -92,18 +102,35 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	started, err := transactionID(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
 	for _, m := range pending {
 		if _, err := tx.Exec(ctx, m.sql); err != nil {
 			return 0, fmt.Errorf("migration %s: %w", m.name, err)
+		}
+		if current, err := transactionID(ctx, tx); err != nil || current != started {
+			return 0, errors.Join(fmt.Errorf("%w: %s", ErrTransactionControl, m.name), err)
 		}
 		if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)", m.name, m.checksum); err != nil {
 			return 0, fmt.Errorf("record migration %s: %w", m.name, err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("commit the migrations: %w", err)
 	}
 	return len(pending), nil
+}
+
+// transactionID changes if a migration ends the transaction, even if it opens
+// another one afterwards.
+func transactionID(ctx context.Context, tx pgx.Tx) (int64, error) {
+	var id int64
+	if err := tx.QueryRow(ctx, "SELECT txid_current()").Scan(&id); err != nil {
+		return 0, fmt.Errorf("read the transaction id: %w", err)
+	}
+	return id, nil
 }
 
 // Check fails with ErrPending if a migration of the binary was not applied,
@@ -128,7 +155,8 @@ func Check(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 // pendingOf also fails if an applied migration was edited or is not in the
-// binary, which means the binary is older than the schema.
+// binary, which means the binary is older than the schema, or if a pending
+// one sorts before an applied one.
 func pendingOf(ctx context.Context, db querier, all []migration) ([]migration, error) {
 	rows, err := db.Query(ctx, "SELECT name, checksum FROM schema_migrations ORDER BY name")
 	if err != nil {
@@ -151,31 +179,36 @@ func pendingOf(ctx context.Context, db querier, all []migration) ([]migration, e
 			pending = append(pending, m)
 		case checksum != m.checksum:
 			return nil, fmt.Errorf("%w: %s", ErrChanged, m.name)
+		case len(pending) > 0:
+			return nil, fmt.Errorf("%w: %s was not applied and %s was", ErrOutOfOrder, pending[0].name, m.name)
 		}
 		delete(applied, m.name)
 	}
-	for name := range applied {
-		return nil, fmt.Errorf("%w: %s", ErrUnknown, name)
+	if unknown := slices.Sorted(maps.Keys(applied)); len(unknown) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrUnknown, unknown[0])
 	}
 	return pending, nil
 }
 
-// load reads the migrations of fsys in order and refuses one that controls
-// its own transaction.
+// load reads the migrations of fsys in order. Each name is four digits, an
+// underscore and a description, and no two share a number.
 func load(fsys fs.FS) ([]migration, error) {
 	names, err := fs.Glob(fsys, "*.sql")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list the migrations: %w", err)
 	}
 	slices.Sort(names)
 	all := make([]migration, 0, len(names))
-	for _, name := range names {
+	for i, name := range names {
+		if !validName.MatchString(name) {
+			return nil, fmt.Errorf("%w: %s", ErrInvalidName, name)
+		}
+		if i > 0 && name[:4] == names[i-1][:4] {
+			return nil, fmt.Errorf("%w: %s and %s share a number", ErrInvalidName, names[i-1], name)
+		}
 		content, err := fs.ReadFile(fsys, name)
 		if err != nil {
-			return nil, err
-		}
-		if found := transactionControl.FindString(withoutQuotes(string(content))); found != "" {
-			return nil, fmt.Errorf("%w: %s has %s", ErrTransactionControl, name, strings.ToUpper(found))
+			return nil, fmt.Errorf("read migration %s: %w", name, err)
 		}
 		sum := sha256.Sum256(content)
 		all = append(all, migration{name: name, sql: string(content), checksum: hex.EncodeToString(sum[:])})
@@ -183,53 +216,4 @@ func load(fsys fs.FS) ([]migration, error) {
 	return all, nil
 }
 
-// transactionControl finds the statements that would end the transaction of
-// Apply, and CONCURRENTLY, which cannot run inside one. It may refuse a
-// migration that only names them, which is the safe side.
-var transactionControl = regexp.MustCompile(`(?i)\b(begin|commit|rollback|start\s+transaction|concurrently)\b`)
-
-// withoutQuotes blanks comments, strings, quoted identifiers and dollar
-// quoted bodies, such as the body of a function, where those words do not
-// control the transaction of Apply.
-func withoutQuotes(sql string) string {
-	var out strings.Builder
-	for i := 0; i < len(sql); {
-		var end int
-		switch {
-		case strings.HasPrefix(sql[i:], "--"):
-			end = closing(sql, i+2, "\n")
-		case strings.HasPrefix(sql[i:], "/*"):
-			end = closing(sql, i+2, "*/")
-		case sql[i] == '\'' || sql[i] == '"':
-			end = closing(sql, i+1, sql[i:i+1])
-		case sql[i] == '$':
-			tag := dollarTag.FindString(sql[i:])
-			if tag == "" {
-				out.WriteByte(sql[i])
-				i++
-				continue
-			}
-			end = closing(sql, i+len(tag), tag)
-		default:
-			out.WriteByte(sql[i])
-			i++
-			continue
-		}
-		out.WriteByte(' ')
-		i = end
-	}
-	return out.String()
-}
-
-var dollarTag = regexp.MustCompile(`^\$([A-Za-z_][A-Za-z0-9_]*)?\$`)
-
-// closing returns the index right after the first delimiter at or after
-// start, or the end of sql if there is none. A doubled quote inside a string
-// reads as the end of one string and the start of another, which blanks the
-// same text.
-func closing(sql string, start int, delimiter string) int {
-	if j := strings.Index(sql[start:], delimiter); j >= 0 {
-		return start + j + len(delimiter)
-	}
-	return len(sql)
-}
+var validName = regexp.MustCompile(`^[0-9]{4}_[a-z0-9_]+\.sql$`)

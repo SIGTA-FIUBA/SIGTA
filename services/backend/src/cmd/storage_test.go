@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -30,8 +31,8 @@ func TestCheckDatabase(t *testing.T) {
 	if err := checkDatabase(ctx, app); err != nil {
 		t.Fatalf("checkDatabase() as %s = %v, want nil", dbtest.AppRole, err)
 	}
-	if err := checkDatabase(ctx, owner); err == nil || !strings.Contains(err.Error(), "application role") {
-		t.Errorf("checkDatabase() as %s = %v, want an error that names the role of the server", dbtest.MigrationsRole, err)
+	if err := checkDatabase(ctx, owner); !errors.Is(err, migrations.ErrPrivileged) || !strings.Contains(err.Error(), "migrate command") {
+		t.Errorf("checkDatabase() as %s = %v, want ErrPrivileged and the role of the migrate command", dbtest.MigrationsRole, err)
 	}
 }
 
@@ -77,14 +78,15 @@ func TestMigrateHintsAnOldDatabase(t *testing.T) {
 		}
 		u.User = url.User("sigta_missing_role")
 		err = migrateCommand(env(map[string]string{"SIGTA_MIGRATIONS_DATABASE_URL": u.String()}), slog.New(slog.DiscardHandler))
-		assertOldDatabaseHint(t, err, invalidAuthorization)
+		// Without the role, PostgreSQL answers 28P01 when it asks for a password.
+		assertOldDatabaseHint(t, err, invalidAuthorization, invalidPassword)
 	})
 }
 
-func assertOldDatabaseHint(t *testing.T, err error, code string) {
+func assertOldDatabaseHint(t *testing.T, err error, codes ...string) {
 	t.Helper()
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != code {
-		t.Errorf("migrate = %v, want SQLSTATE %s", err, code)
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || !slices.Contains(codes, pgErr.Code) {
+		t.Errorf("migrate = %v, want SQLSTATE %s", err, strings.Join(codes, " or "))
 	}
 	if err == nil || !strings.Contains(err.Error(), migrations.OldDatabaseHint) {
 		t.Errorf("migrate = %v, want the hint to recreate the database", err)

@@ -47,7 +47,11 @@ func checkDatabase(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("check the migrations: %w", err)
 	}
-	return migrations.CheckApplicationRole(ctx, pool)
+	err = migrations.CheckApplicationRole(ctx, pool)
+	if errors.Is(err, migrations.ErrPrivileged) {
+		return fmt.Errorf("SIGTA_DATABASE_URL: %w; the server connects as the application role (backend) and only the migrate command uses the role that owns the tables (backend_migrations)", err)
+	}
+	return err
 }
 
 // migrateCommand applies the migrations as the role that owns the tables. It

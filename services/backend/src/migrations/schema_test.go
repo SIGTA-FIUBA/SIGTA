@@ -1,9 +1,10 @@
 package migrations_test
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -44,7 +45,7 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"current_procedure_type_versions": {table: []string{"SELECT"}},
 		"procedures":                      {table: []string{"SELECT", "INSERT"}},
 	}
-	for _, table := range migrations.AppendOnlyTables {
+	for _, table := range migrations.AppendOnlyTables() {
 		if _, ok := granted[table]; ok {
 			t.Errorf("%s is append-only and also in granted: list it in one place", table)
 		}
@@ -212,6 +213,7 @@ func TestCheckApplicationRole(t *testing.T) {
 		{"UPDATE on a single column", "GRANT UPDATE (approved_by) ON procedure_type_versions TO " + dbtest.AppRole, dbtest.AppRole},
 		{"DELETE", "GRANT DELETE ON procedure_events TO " + dbtest.AppRole, dbtest.AppRole},
 		{"TRUNCATE", "GRANT TRUNCATE ON procedure_type_versions TO " + dbtest.AppRole, dbtest.AppRole},
+		{"UPDATE on the version of a procedure", "GRANT UPDATE (version_number) ON procedures TO " + dbtest.AppRole, dbtest.AppRole},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := dbtest.NewSchema(t)
@@ -224,11 +226,36 @@ func TestCheckApplicationRole(t *testing.T) {
 				}
 			}
 			err := migrations.CheckApplicationRole(ctx, schema.Pool(t, tc.role, dbtest.ReadCommitted))
-			if err == nil || !strings.Contains(err.Error(), "application role") || !strings.Contains(err.Error(), "migrate command") {
-				t.Errorf("CheckApplicationRole() = %v, want an error that names the role of the server and the one of migrate", err)
+			if !errors.Is(err, migrations.ErrPrivileged) {
+				t.Errorf("CheckApplicationRole() = %v, want ErrPrivileged", err)
 			}
 		})
 	}
+
+	// A role that does not inherit the privileges of the owner can still
+	// become it with SET ROLE.
+	t.Run("a member of the owner", func(t *testing.T) {
+		schema := dbtest.NewSchema(t)
+		admin := schema.Admin(t)
+		member := schema.Name + "_member"
+		for _, statement := range []string{
+			fmt.Sprintf("CREATE ROLE %s NOLOGIN NOINHERIT IN ROLE %s", member, dbtest.MigrationsRole),
+			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", schema.Name, member),
+		} {
+			if _, err := admin.Exec(ctx, statement); err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Cleanup(func() {
+			if _, err := admin.Exec(context.WithoutCancel(ctx), fmt.Sprintf("DROP OWNED BY %[1]s; DROP ROLE %[1]s", member)); err != nil {
+				t.Errorf("drop role %s: %v", member, err)
+			}
+		})
+		err := migrations.CheckApplicationRole(ctx, schema.Pool(t, member, dbtest.ReadCommitted))
+		if !errors.Is(err, migrations.ErrPrivileged) {
+			t.Errorf("CheckApplicationRole() = %v, want ErrPrivileged", err)
+		}
+	})
 }
 
 func TestNoForeignKeyCascades(t *testing.T) {
