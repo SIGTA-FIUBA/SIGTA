@@ -88,9 +88,9 @@ Las versiones se guardan en PostgreSQL (ver "Base de datos"); sin `SIGTA_DATABAS
 
 Cada documento que pide un paso declara sus tipos aceptados y su tamaño máximo (`accepted_types` y `max_size`). Quien actúa sobre el paso abierto adjunta el archivo con `POST /procedures/{procedureId}/documents`, un formulario multipart con dos partes, en este orden: `document`, el identificador del documento, y `file`, el archivo.
 
-- El tipo sale del contenido, no del nombre ni del tipo que manda el navegador (`http.DetectContentType`). El tamaño se controla mientras se lee: un archivo que pasa del máximo se corta sin terminar de leerlo.
-- El archivo se guarda en disco, en `SIGTA_DOCUMENTS_DIR`, con el nombre del hash SHA-256 de su contenido; el registro del documento guarda el hash, el tamaño, el tipo, el nombre original (limpio de rutas y caracteres de control), el paso y quién lo subió. Un archivo nuevo para el mismo documento no borra el anterior: el actual es el último (`domain.Current`).
-- Lista y descarga los documentos solo quien ve el trámite. La descarga va como adjunto y con `X-Content-Type-Options: nosniff`, para que el navegador no ejecute lo que se subió.
+- El tipo sale del contenido, no del nombre ni del tipo que manda el navegador (`http.DetectContentType`). El tamaño se controla mientras se lee: un archivo que pasa del máximo se corta sin terminar de leerlo. Además, ningún pedido pasa de 25 MB (`api.MaxRequestBytes`), aunque el documento permita más.
+- El archivo se guarda en disco, en `SIGTA_DOCUMENTS_DIR`, con el nombre del hash SHA-256 de su contenido; el registro del documento guarda el hash, el tamaño, el tipo, el nombre original (limpio de rutas y de caracteres invisibles, y terminado en una extensión del tipo detectado), el paso y quién lo subió. Un archivo nuevo para el mismo documento no borra el anterior: el actual es el último (`domain.Current`).
+- Lista y descarga los documentos solo quien ve el trámite. La descarga le pide al navegador que guarde el archivo (`Content-Disposition: attachment`), que use el tipo detectado (`X-Content-Type-Options: nosniff`), que no ejecute nada si igual lo abre (`Content-Security-Policy: sandbox`) y que no lo guarde en caché (`Cache-Control: no-store`).
 - Los trámites y el registro de los documentos todavía están en memoria: se pierden al reiniciar, aunque los archivos queden en la carpeta.
 
 ## Base de datos
