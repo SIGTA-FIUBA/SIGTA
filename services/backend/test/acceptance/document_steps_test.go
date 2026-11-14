@@ -40,7 +40,7 @@ type documentWorld struct {
 	areas       *authapp.AreaService
 	memberships *authapp.MembershipService
 	types       *application.ProcedureTypeService
-	procedures  *memory.ProcedureRepository
+	procedures  movableProcedures
 	documents   *memory.DocumentRepository
 	service     *application.DocumentService
 	dir         string
@@ -111,7 +111,7 @@ func (w *documentWorld) setUp() error {
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
-	w.procedures = memory.NewProcedureRepository()
+	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	w.documents = memory.NewDocumentRepository()
 	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
 	w.service = application.NewDocumentService(procedures, w.documents, files, w.newID, time.Now)
@@ -206,11 +206,24 @@ func (w *documentWorld) givenProcedure(applicant, step string) error {
 	return w.procedures.Add(context.Background(), w.procedure)
 }
 
-// givenMovedOn stands in for the advance of the procedure, which is another
-// story.
 func (w *documentWorld) givenMovedOn(step string) error {
-	w.procedure.OpenStep = step
-	return w.procedures.Add(context.Background(), w.procedure)
+	w.procedures.openStep[w.procedure.ID] = step
+	return nil
+}
+
+// movableProcedures moves a procedure to another step without its advance,
+// which is another story.
+type movableProcedures struct {
+	*memory.ProcedureRepository
+	openStep map[string]string
+}
+
+func (m movableProcedures) Get(ctx context.Context, id string) (domain.Procedure, error) {
+	p, err := m.ProcedureRepository.Get(ctx, id)
+	if step, ok := m.openStep[id]; ok && err == nil {
+		p.OpenStep = step
+	}
+	return p, err
 }
 
 func (w *documentWorld) givenAttached(user, file, name, requirement string) error {
