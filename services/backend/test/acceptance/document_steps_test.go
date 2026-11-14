@@ -202,7 +202,11 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 }
 
 func (w *documentWorld) givenProcedure(applicant, step string) error {
-	w.procedure = domain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: applicant, OpenStep: step}
+	published, err := w.types.Version(context.Background(), 1, 1)
+	if err != nil {
+		return err
+	}
+	w.procedure = domain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, VersionDigest: published.Digest, Applicant: applicant, OpenStep: step}
 	return w.procedures.Add(context.Background(), w.procedure)
 }
 

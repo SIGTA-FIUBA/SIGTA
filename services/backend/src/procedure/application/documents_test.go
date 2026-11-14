@@ -77,6 +77,8 @@ type documentsFixture struct {
 	procedures *memory.ProcedureRepository
 	documents  *memory.DocumentRepository
 	files      *memoryFiles
+	// digest is the one of the version that the procedures follow.
+	digest string
 }
 
 func newDocumentsFixture(t *testing.T) documentsFixture {
@@ -90,10 +92,12 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 		t.Fatal(err)
 	}
 	types := newService(memory.NewProcedureVersions(), office)
-	if _, err := types.Publish(ctx, publication(1, 0, documentsDefinition())); err != nil {
+	published, err := types.Publish(ctx, publication(1, 0, documentsDefinition()))
+	if err != nil {
 		t.Fatal(err)
 	}
 	f := documentsFixture{
+		digest:     published.Digest,
 		procedures: memory.NewProcedureRepository(),
 		documents:  memory.NewDocumentRepository(),
 		files:      &memoryFiles{files: map[string][]byte{}},
@@ -111,7 +115,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 
 func (f documentsFixture) on(t *testing.T, procedureID, step string) {
 	t.Helper()
-	p := domain.Procedure{ID: procedureID, ProcedureType: 1, Version: 1, Applicant: applicant, OpenStep: step}
+	p := domain.Procedure{ID: procedureID, ProcedureType: 1, Version: 1, VersionDigest: f.digest, Applicant: applicant, OpenStep: step}
 	if err := f.procedures.Add(t.Context(), p); err != nil {
 		t.Fatal(err)
 	}
