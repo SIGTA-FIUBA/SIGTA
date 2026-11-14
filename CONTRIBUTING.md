@@ -94,6 +94,12 @@ Cada documento que pide un paso declara sus tipos aceptados y su tamaño máximo
 - Adjuntar todavía no deja un evento en el historial de acciones (`procedure_events`), aunque es una acción sobre el trámite: hoy nada escribe eventos, porque los trámites están en memoria. Cuando el registro de documentos pase a PostgreSQL ("Persistencia de personas, áreas, trámites y documentos", SIG-75), cada documento adjuntado escribe su evento en la misma transacción que su registro.
 - Los trámites y el registro de los documentos todavía están en memoria: se pierden al reiniciar. Al arrancar, el servidor borra los archivos que ningún documento registrado nombra y que tienen más de una hora, así que hasta que el registro se guarde en PostgreSQL borra los de la ejecución anterior. La hora deja fuera una subida que guardó el archivo y todavía no lo registró. Por ahora el servidor supone que es la única instancia: con dos réplicas, o con un despliegue que levanta la nueva antes de bajar la vieja, una borraría los archivos de los documentos que la otra tiene en memoria.
 
+### Detalle de un trámite
+
+`GET /procedures/{procedureId}` muestra un trámite a quien lo ve: su titular y el personal de las áreas por las que pasa. Para cualquier otra persona el trámite no existe. Trae los pasos de la versión con la que se inició, en el orden en que los declara (`domain/detail/`), con quién hace cada uno (el titular o el nombre del área) y los documentos que pide; un documento que el paso pide como obligatorio y como opcional es obligatorio. También dice cuál es el paso abierto y si quien mira puede hacerlo (`can_act`).
+
+En desarrollo el servidor deja además un trámite de ejemplo, `dev-example`, esperando los documentos de su titular (`addDevExample`, en `cmd/http.go`), para que el detalle tenga qué mostrar hasta que los trámites se puedan iniciar. Con la identidad de desarrollo el titular es el de prueba; con Google es la primera cuenta que entra después de arrancar, porque nadie entra como el titular de prueba.
+
 ## Base de datos
 
 Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.
