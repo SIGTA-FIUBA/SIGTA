@@ -50,7 +50,7 @@ func newServer(t *testing.T) *httptest.Server {
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, func() string { return "m2" }, time.Now)
 	server := rest.NewAuthHandler(auth, memberships, srv.URL+"/me", srv.URL+"/login", false)
 	administration := rest.NewAdministrationHandler(auth, areas, memberships)
-	api.Mount(mux, api.NewServer(server, nil, administration, nil, nil, nil), slog.Default())
+	api.Mount(mux, api.NewServer(server, nil, administration, nil, nil, nil, nil), slog.Default())
 	return srv
 }
 
@@ -274,7 +274,7 @@ type brokenAuth struct{ input.Authenticator }
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 
 func TestInternalErrorsDoNotExposeTheirMessage(t *testing.T) {
-	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, nil, "", "", false), nil, nil, nil, nil, nil), slog.New(slog.DiscardHandler))
+	handler := api.Mount(http.NewServeMux(), api.NewServer(rest.NewAuthHandler(brokenAuth{}, nil, "", "", false), nil, nil, nil, nil, nil, nil), slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 

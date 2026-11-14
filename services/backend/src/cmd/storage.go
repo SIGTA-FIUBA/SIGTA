@@ -19,24 +19,30 @@ import (
 	"backend/src/procedure/ports/output"
 )
 
-// openProcedureTypeVersions returns where the published versions are kept and a
-// function that closes it.
-func openProcedureTypeVersions(ctx context.Context, cfg config, logger *slog.Logger) (output.ProcedureTypeVersionRepository, func(), error) {
+// procedureStores are where the published versions and the drafts of the
+// procedure types are kept.
+type procedureStores struct {
+	versions output.ProcedureTypeVersionRepository
+	drafts   output.ProcedureTypeDraftRepository
+}
+
+// openProcedureStores returns the stores and a function that closes them.
+func openProcedureStores(ctx context.Context, cfg config, logger *slog.Logger) (procedureStores, func(), error) {
 	if cfg.databaseURL == "" {
 		// loadConfig asks for a database everywhere but development.
 		logger.Warn("SIGTA_DATABASE_URL is not set: the procedure types are lost when the server stops")
-		return proceduremem.NewProcedureTypeVersionRepository(), func() {}, nil
+		return procedureStores{versions: proceduremem.NewProcedureTypeVersionRepository(), drafts: proceduremem.NewProcedureTypeDraftRepository()}, func() {}, nil
 	}
 	// The pool outlives ctx, which only bounds the checks.
 	pool, err := connect(context.WithoutCancel(ctx), cfg.databaseURL, appRole)
 	if err != nil {
-		return nil, nil, fmt.Errorf("SIGTA_DATABASE_URL: %w", err)
+		return procedureStores{}, nil, fmt.Errorf("SIGTA_DATABASE_URL: %w", err)
 	}
 	if err := checkDatabase(ctx, pool); err != nil {
 		pool.Close()
-		return nil, nil, err
+		return procedureStores{}, nil, err
 	}
-	return postgres.NewProcedureTypeVersionRepository(pool), pool.Close, nil
+	return procedureStores{versions: postgres.NewProcedureTypeVersionRepository(pool), drafts: postgres.NewProcedureTypeDraftRepository(pool)}, pool.Close, nil
 }
 
 // openFiles returns where the files of the procedures are kept.

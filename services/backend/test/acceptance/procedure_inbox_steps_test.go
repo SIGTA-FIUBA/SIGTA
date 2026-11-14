@@ -134,7 +134,7 @@ func (w *inboxWorld) setUp() error {
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	procedures := application.NewProcedureService(w.types, w.procedures, memory.NewDocumentRepository(), w.memberships, w.newID, clock)
 	inbox := rest.NewInboxHandler(sessionIsUser{}, namesFromEmails{}, application.NewInboxService(procedures))
-	w.handler = api.Mount(http.NewServeMux(), api.NewServer(nil, nil, nil, nil, nil, inbox), slog.New(slog.DiscardHandler))
+	w.handler = api.Mount(http.NewServeMux(), api.NewServer(nil, nil, nil, nil, nil, inbox, nil), slog.New(slog.DiscardHandler))
 	return nil
 }
 

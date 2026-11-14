@@ -35,7 +35,7 @@ func (f *fakeSteps) Confirm(_ context.Context, userID, _ string, c input.StepCon
 
 func confirmStep(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, fakeProcedures{}, nil, steps), nil)
+	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, fakeProcedures{}, nil, steps), nil, nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/procedures/P-1/steps/check/confirmation", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")

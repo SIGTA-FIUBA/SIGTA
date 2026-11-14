@@ -107,7 +107,131 @@ export interface paths {
          */
         get: operations["listProcedureTypes"];
         put?: never;
+        /**
+         * Crea el borrador de un tipo de trámite nuevo
+         * @description Para quien tiene el permiso de proponer en el área de diseño de trámites, sin alcance limitado a algunos tipos (ADR-013). El tipo de trámite recibe un número que no tiene otro tipo ni otro borrador, y no aparece en el catálogo hasta que se aprueba su primera versión. El borrador puede estar incompleto: problems dice qué le falta.
+         */
+        post: operations["createProcedureType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-type-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Borradores de tipos de trámite
+         * @description Los que la persona puede proponer o aprobar, por número de tipo de trámite.
+         */
+        get: operations["listProcedureTypeDrafts"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Borrador de un tipo de trámite
+         * @description Para quien puede proponerlo o aprobarlo.
+         */
+        get: operations["getProcedureTypeDraft"];
+        /**
+         * Reemplaza la definición del borrador
+         * @description Para quien puede proponer en ese tipo de trámite, mientras el borrador no está propuesto. revision es la del borrador que se editó: si cambió desde entonces, no se guarda.
+         */
+        put: operations["editProcedureTypeDraft"];
+        /**
+         * Abre el borrador de una versión nueva
+         * @description Para quien puede proponer en ese tipo de trámite. Empieza con la definición de la última versión publicada. Un tipo de trámite tiene a lo sumo un borrador.
+         */
+        post: operations["openProcedureTypeDraft"];
+        /**
+         * Descarta el borrador
+         * @description Para quien puede proponer en ese tipo de trámite, mientras el borrador no está propuesto.
+         */
+        delete: operations["discardProcedureTypeDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propone el borrador para que otra persona lo apruebe
+         * @description Para quien puede proponer en ese tipo de trámite. La definición tiene que ser válida con las áreas actuales: si no, responde 422 con los problemas. Mientras está propuesto, el borrador no se edita.
+         */
+        post: operations["proposeProcedureTypeDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rechaza la propuesta y la devuelve a edición
+         * @description Para quien puede aprobar en ese tipo de trámite y no la propuso. El motivo queda en el borrador hasta que se vuelve a proponer.
+         */
+        post: operations["rejectProcedureTypeDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aprueba la propuesta y la publica como versión nueva
+         * @description Para quien puede aprobar en ese tipo de trámite y no la propuso. Valida la definición con las áreas actuales y la publica con quién la propuso, quién la aprobó y la fecha; el borrador se borra. Una versión publicada no cambia, y los trámites en curso siguen con la suya. Si otra versión se publicó desde que se abrió el borrador, responde 409. Si la definición es igual a la última versión, no publica nada y devuelve esa versión.
+         */
+        post: operations["approveProcedureTypeDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -472,6 +596,123 @@ export interface components {
             /** @description Áreas responsables presentes en la vista, para filtrar */
             areas: components["schemas"]["NamedOption"][];
         };
+        /** @description Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra. */
+        ProcedureTypeDefinition: {
+            name: string;
+            description?: string;
+            deadlines?: string[];
+            admissibility?: string[];
+            fields?: components["schemas"]["DefinitionField"][];
+            documents?: components["schemas"]["DefinitionDocument"][];
+            steps: components["schemas"]["DefinitionStep"][];
+        };
+        DefinitionField: {
+            id: string;
+            name: string;
+            /** @description text, long_text, number, date, option, degree o subject_list */
+            type: string;
+            options?: components["schemas"]["FieldOption"][];
+        };
+        FieldOption: {
+            id: string;
+            name: string;
+        };
+        DefinitionDocument: {
+            id: string;
+            name: string;
+            accepted_types?: string[];
+            /** Format: int64 */
+            max_size?: number;
+        };
+        DefinitionStep: {
+            id: string;
+            name: string;
+            /** @description applicant o staff */
+            role?: string;
+            area?: string;
+            permissions?: string[];
+            /** @description enter_data, upload_document, confirm_external_fact o decide */
+            action: string;
+            fields?: string[];
+            optional_fields?: string[];
+            documents?: string[];
+            optional_documents?: string[];
+            outcomes?: components["schemas"]["StepOutcome"][];
+            next?: string;
+        };
+        /** @description Algo que falla en una definición. code es estable: la pantalla arma su propio texto con él y ubica el problema con path, del elemento más externo al más interno. text está en inglés, para registros. */
+        DefinitionProblem: {
+            code: string;
+            path: components["schemas"]["ProblemElement"][];
+            value?: string;
+            other?: string;
+            text: string;
+        };
+        ProblemElement: {
+            /** @description definition, area, permission, field, option, document, step, outcome, deadline o admissibility */
+            kind: string;
+            id?: string;
+            /** @description Para plazos y condiciones, que no tienen id. Empieza en 1 */
+            position?: number;
+        };
+        InvalidDefinition: {
+            message: string;
+            problems: components["schemas"]["DefinitionProblem"][];
+        };
+        /**
+         * @description editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+         * @enum {string}
+         */
+        DraftStatus: "editing" | "proposed";
+        DraftRejection: {
+            by: string;
+            /** Format: date-time */
+            at: string;
+            reason: string;
+        };
+        ProcedureTypeDraft: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            /** @description La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna */
+            base: number;
+            /** @description Crece con cada cambio. Cada cambio dice sobre cuál se hizo */
+            revision: number;
+            status: components["schemas"]["DraftStatus"];
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+            edited_by: string;
+            /** Format: date-time */
+            edited_at: string;
+            proposed_by?: string;
+            /** Format: date-time */
+            proposed_at?: string;
+            rejection?: components["schemas"]["DraftRejection"];
+            /** @description Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer */
+            problems: components["schemas"]["DefinitionProblem"][];
+        };
+        NewProcedureType: {
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+        };
+        DraftEdit: {
+            revision: number;
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+        };
+        DraftRevision: {
+            revision: number;
+        };
+        DraftRejectionRequest: {
+            revision: number;
+            reason: string;
+        };
+        PublishedVersion: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            number: number;
+            digest: string;
+            proposed_by: string;
+            approved_by: string;
+            /** Format: date-time */
+            published_at: string;
+        };
         User: {
             id: string;
             /** Format: email */
@@ -739,7 +980,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description El trámite cambió mientras tanto, por ejemplo porque otra persona ya confirmó el paso */
+        /** @description El estado cambió o no admite la acción: por ejemplo, otra persona ya confirmó el paso, el borrador cambió desde que se leyó o se publicó otra versión */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -748,11 +989,21 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description La definición no es válida */
+        InvalidDefinition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["InvalidDefinition"];
+            };
+        };
     };
     parameters: {
         SessionCookie: string;
         ProcedureId: string;
         StepId: string;
+        ProcedureTypeId: number;
     };
     requestBodies: never;
     headers: never;
@@ -900,6 +1151,271 @@ export interface operations {
                     "application/json": components["schemas"]["CatalogEntry"][];
                 };
             };
+        };
+    };
+    createProcedureType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProcedureType"];
+            };
+        };
+        responses: {
+            /** @description Borrador creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listProcedureTypeDrafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borradores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El borrador */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    editProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftEdit"];
+            };
+        };
+        responses: {
+            /** @description Borrador editado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    openProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borrador abierto */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    discardProcedureTypeDraft: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borrador descartado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    proposeProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRevision"];
+            };
+        };
+        responses: {
+            /** @description Borrador propuesto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidDefinition"];
+        };
+    };
+    rejectProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRejectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Propuesta rechazada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    approveProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRevision"];
+            };
+        };
+        responses: {
+            /** @description Versión publicada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidDefinition"];
         };
     };
     createArea: {
