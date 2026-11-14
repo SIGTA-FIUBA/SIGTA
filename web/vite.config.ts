@@ -17,5 +17,8 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['tests/**/*.test.tsx'],
     setupFiles: ['./tests/setup.ts'],
+    // The module cache keeps import.meta.glob results, so the catalog test
+    // would miss a new story file until the cache is cleared.
+    fsModuleCache: false,
   },
 })
