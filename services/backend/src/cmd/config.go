@@ -33,6 +33,9 @@ type config struct {
 	// databaseURL connects as the application role. Without it, development
 	// keeps the procedure types in memory.
 	databaseURL string
+	// documentsDir keeps the files of the procedures. Without it, development
+	// uses a directory under the system's temporary one.
+	documentsDir string
 }
 
 func (c config) development() bool { return c.env == envDevelopment }
@@ -54,6 +57,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 		allowedDomain:    getenv("SIGTA_ALLOWED_DOMAIN"),
 		usersFile:        getenv("SIGTA_USERS_FILE"),
 		databaseURL:      getenv("SIGTA_DATABASE_URL"),
+		documentsDir:     getenv("SIGTA_DOCUMENTS_DIR"),
 	}
 	c.googleClient.id = getenv("SIGTA_GOOGLE_CLIENT_ID")
 	c.googleClient.secret = getenv("SIGTA_GOOGLE_CLIENT_SECRET")
@@ -84,6 +88,9 @@ func loadConfig(getenv func(string) string) (config, error) {
 	}
 	if !c.development() && c.databaseURL == "" {
 		missing = append(missing, "SIGTA_DATABASE_URL")
+	}
+	if !c.development() && c.documentsDir == "" {
+		missing = append(missing, "SIGTA_DOCUMENTS_DIR")
 	}
 
 	switch c.identityProvider {

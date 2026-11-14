@@ -302,6 +302,108 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /procedures/{procedureId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureId"
+    get:
+      operationId: listProcedureDocuments
+      summary: Documentos adjuntos a un trámite
+      description: >
+        Para quien puede ver el trámite: su titular y el personal de las áreas
+        por las que pasa. Están en el orden en que se adjuntaron, incluidos los
+        que otro documento reemplazó.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Documentos del trámite
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcedureDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: attachProcedureDocument
+      summary: Adjunta un documento a un trámite
+      description: >
+        Adjunta un archivo para un documento que pide el paso abierto, y solo
+        quien puede hacer ese paso. El servidor reconoce el tipo por el
+        contenido del archivo, no por su nombre, y lo compara con los tipos y
+        el tamaño máximo del documento. Adjuntar otro archivo para el mismo
+        documento reemplaza al anterior, que queda registrado.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [document, file]
+              properties:
+                document:
+                  type: string
+                  description: Identificador del documento que pide el paso. Va antes que file
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Documento adjunto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}/documents/{documentId}/content:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureId"
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadProcedureDocument
+      summary: Descarga el archivo de un documento adjunto
+      description: Para quien puede ver el trámite. Se descarga siempre como adjunto.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: El archivo, con el tipo que reconoció el servidor
+          headers:
+            Content-Disposition:
+              required: true
+              description: Siempre attachment, con el nombre del archivo
+              schema:
+                type: string
+            X-Content-Type-Options:
+              required: true
+              description: Siempre nosniff, para que el navegador no reinterprete el archivo
+              schema:
+                type: string
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     SessionCookie:
@@ -310,7 +412,21 @@ components:
       required: false
       schema:
         type: string
+    ProcedureId:
+      name: procedureId
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
+    NotFound:
+      description: >
+        No existe, o la persona no lo puede ver: la respuesta es la misma, para
+        no revelar si existe
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     BadRequest:
       description: Pedido inválido
       content:
@@ -572,3 +688,32 @@ components:
           format: date-time
         granted_by:
           type: string
+    ProcedureDocument:
+      type: object
+      required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]
+      properties:
+        id:
+          type: string
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        step:
+          type: string
+          description: Paso en el que se adjuntó
+        file_name:
+          type: string
+        media_type:
+          type: string
+          description: Tipo que reconoció el servidor por el contenido
+        size:
+          type: integer
+          format: int64
+          description: Tamaño en bytes
+        uploaded_by:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+          description: Si es el último que se adjuntó para ese documento; los anteriores quedan registrados

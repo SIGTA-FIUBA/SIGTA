@@ -28,17 +28,24 @@ type AdministrationServer interface {
 	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
 }
 
+type DocumentServer interface {
+	ListProcedureDocuments(ctx context.Context, request ListProcedureDocumentsRequestObject) (ListProcedureDocumentsResponseObject, error)
+	AttachProcedureDocument(ctx context.Context, request AttachProcedureDocumentRequestObject) (AttachProcedureDocumentResponseObject, error)
+	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
+}
+
 // A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
 	AdministrationServer
+	DocumentServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents}
 }
 
 // Mount registers the API on mux. Errors raised outside the handlers answer

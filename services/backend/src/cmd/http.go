@@ -21,6 +21,7 @@ import (
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
+	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
@@ -103,7 +104,20 @@ func run(logger *slog.Logger) error {
 			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
+	files, err := openDocuments(cfg, logger)
+	if err != nil {
+		return err
+	}
+	// The procedures and what is recorded about their documents stay in
+	// memory until they are stored in PostgreSQL.
+	procedures := procedureapp.NewProcedureService(procedureTypes, proceduremem.NewProcedureRepository(), memberships, newID)
+	documents := procedureapp.NewDocumentService(procedures, proceduremem.NewDocumentRepository(), files, newID, time.Now)
+	app := api.NewServer(
+		authHandler,
+		procedurerest.NewCatalogHandler(procedureTypes),
+		authrest.NewAdministrationHandler(auth, areaService, memberships),
+		procedurerest.NewDocumentHandler(auth, documents),
+	)
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
