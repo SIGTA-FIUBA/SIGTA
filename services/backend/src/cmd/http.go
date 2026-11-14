@@ -324,6 +324,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 		ID:            devProcedureID,
 		ProcedureType: latest.ProcedureTypeID,
 		Version:       latest.Number,
+		VersionDigest: latest.Digest,
 		Applicant:     applicant,
 		OpenStep:      devDocumentsStep,
 	})
