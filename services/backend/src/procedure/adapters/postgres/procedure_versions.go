@@ -3,6 +3,7 @@
 package postgres
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -48,7 +49,8 @@ func NewProcedureVersions(pool *pgxpool.Pool) *ProcedureVersions {
 const versionColumns = "procedure_type_id, number, digest, content, proposed_by, approved_by, published_at"
 
 func (s *ProcedureVersions) Latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
-	return s.one(ctx, "SELECT "+versionColumns+" FROM procedure_type_versions WHERE procedure_type_id = $1 ORDER BY number DESC LIMIT 1", procedureType)
+	return s.one(ctx, fmt.Sprintf("latest version of procedure type %d", procedureType),
+		"SELECT "+versionColumns+" FROM current_procedure_type_versions WHERE procedure_type_id = $1", procedureType)
 }
 
 func (s *ProcedureVersions) LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error) {
@@ -64,7 +66,8 @@ func (s *ProcedureVersions) LatestOfEach(ctx context.Context) ([]version.Procedu
 }
 
 func (s *ProcedureVersions) Get(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
-	return s.one(ctx, "SELECT "+versionColumns+" FROM procedure_type_versions WHERE procedure_type_id = $1 AND number = $2", procedureType, number)
+	return s.one(ctx, fmt.Sprintf("version %d of procedure type %d", number, procedureType),
+		"SELECT "+versionColumns+" FROM procedure_type_versions WHERE procedure_type_id = $1 AND number = $2", procedureType, number)
 }
 
 // Add inserts the version only if the previous number is the latest one, so
@@ -82,35 +85,53 @@ func (s *ProcedureVersions) Add(ctx context.Context, v version.ProcedureTypeVers
 	for attempt := 1; ; attempt++ {
 		inserted, err := s.insert(ctx, v)
 		switch {
-		case err == nil && inserted:
+		case inserted:
 			return nil
-		case violatesCheck(err, approverIsNotProposer):
-			// Authorship.Validate compares with strings.EqualFold, so this
-			// is a name that the locale of the database folds otherwise.
-			return fmt.Errorf("%w: the database takes approver %q for proposer %q: %w", version.ErrInvalidAuthorship, v.Authorship.ApprovedBy, v.Authorship.ProposedBy, err)
-		case hasCode(err, uniqueViolation):
-			return fmt.Errorf("%w: version %d of procedure type %d: %w", output.ErrVersionExists, v.Number, v.ProcedureTypeID, err)
 		case err != nil && !hasCode(err, serializationFailure):
-			return fmt.Errorf("add version %d of procedure type %d: %w", v.Number, v.ProcedureTypeID, err)
+			return insertError(v, err)
 		}
 
-		// No row was inserted, or the transaction failed with 40001.
 		latest, readErr := s.Latest(ctx, v.ProcedureTypeID)
-		switch {
-		case readErr != nil && !errors.Is(readErr, output.ErrNoVersion):
+		if readErr != nil && !errors.Is(readErr, output.ErrNoVersion) {
 			return fmt.Errorf("add version %d of procedure type %d: %w", v.Number, v.ProcedureTypeID, errors.Join(err, readErr))
-		case v.Number >= 1 && v.Number <= latest.Number && err != nil:
-			return fmt.Errorf("%w: version %d of procedure type %d: %w", output.ErrVersionExists, v.Number, v.ProcedureTypeID, err)
-		case v.Number >= 1 && v.Number <= latest.Number:
-			return fmt.Errorf("%w: version %d of procedure type %d", output.ErrVersionExists, v.Number, v.ProcedureTypeID)
-		case err != nil && v.Number == latest.Number+1 && attempt < attempts:
-			// Another procedure type caused the failure.
-			continue
-		case err != nil:
-			return fmt.Errorf("add version %d of procedure type %d, attempt %d of %d: %w", v.Number, v.ProcedureTypeID, attempt, attempts, err)
 		}
-		return fmt.Errorf("version %d of procedure type %d is not the next one, %d", v.Number, v.ProcedureTypeID, latest.Number+1)
+		next := latest.Number + 1
+		switch {
+		case v.Number >= 1 && v.Number < next:
+			return versionError(output.ErrVersionExists, v, err)
+		case v.Number != next:
+			return versionError(output.ErrVersionGap, v, err)
+		case attempt < attempts:
+			continue
+		}
+		return fmt.Errorf("add version %d of procedure type %d, after %d attempts: %w", v.Number, v.ProcedureTypeID, attempts, cmp.Or(err, errNotInserted))
 	}
+}
+
+// errNotInserted is the cause of a failed Add when no attempt inserted the
+// version and none failed.
+var errNotInserted = errors.New("the version was not inserted")
+
+// insertError explains an insert that failed other than by serialization.
+func insertError(v version.ProcedureTypeVersion, err error) error {
+	switch {
+	case violatesCheck(err, approverIsNotProposer):
+		// Authorship.Validate compares with strings.EqualFold, so this is a
+		// name that the locale of the database folds otherwise.
+		return fmt.Errorf("%w: the database takes approver %q for proposer %q: %w", version.ErrInvalidAuthorship, v.Authorship.ApprovedBy, v.Authorship.ProposedBy, err)
+	case hasCode(err, uniqueViolation):
+		return versionError(output.ErrVersionExists, v, err)
+	}
+	return fmt.Errorf("add version %d of procedure type %d: %w", v.Number, v.ProcedureTypeID, err)
+}
+
+// versionError wraps sentinel and, if there is one, the cause.
+func versionError(sentinel error, v version.ProcedureTypeVersion, cause error) error {
+	err := fmt.Errorf("%w: version %d of procedure type %d", sentinel, v.Number, v.ProcedureTypeID)
+	if cause == nil {
+		return err
+	}
+	return fmt.Errorf("%w: %w", err, cause)
 }
 
 // insert also registers the procedure type with its first version, since
@@ -118,7 +139,7 @@ func (s *ProcedureVersions) Add(ctx context.Context, v version.ProcedureTypeVers
 func (s *ProcedureVersions) insert(ctx context.Context, v version.ProcedureTypeVersion) (bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if v.Number == 1 {
@@ -139,7 +160,10 @@ func (s *ProcedureVersions) insert(ctx context.Context, v version.ProcedureTypeV
 	if s.beforeCommit != nil {
 		s.beforeCommit(ctx)
 	}
-	return true, tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit: %w", err)
+	}
+	return true, nil
 }
 
 func hasCode(err error, code string) bool {
@@ -152,16 +176,20 @@ func violatesCheck(err error, constraint string) bool {
 	return ok && pgErr.Code == checkViolation && pgErr.ConstraintName == constraint
 }
 
-func (s *ProcedureVersions) one(ctx context.Context, sql string, args ...any) (version.ProcedureTypeVersion, error) {
+// one reads the version that sql selects, described by what.
+func (s *ProcedureVersions) one(ctx context.Context, what, sql string, args ...any) (version.ProcedureTypeVersion, error) {
 	rows, err := s.pool.Query(ctx, sql, args...)
 	if err != nil {
-		return version.ProcedureTypeVersion{}, err
+		return version.ProcedureTypeVersion{}, fmt.Errorf("read %s: %w", what, err)
 	}
 	v, err := pgx.CollectExactlyOneRow(rows, scanVersion)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return version.ProcedureTypeVersion{}, output.ErrNoVersion
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return version.ProcedureTypeVersion{}, fmt.Errorf("%w: %s", output.ErrNoVersion, what)
+	case err != nil:
+		return version.ProcedureTypeVersion{}, fmt.Errorf("read %s: %w", what, err)
 	}
-	return v, err
+	return v, nil
 }
 
 func scanVersion(row pgx.CollectableRow) (version.ProcedureTypeVersion, error) {

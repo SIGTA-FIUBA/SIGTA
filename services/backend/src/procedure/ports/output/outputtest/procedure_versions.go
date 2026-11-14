@@ -4,6 +4,7 @@ package outputtest
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -29,7 +30,10 @@ func TestProcedureVersions(t *testing.T, newStore func(t *testing.T) output.Proc
 
 // Version builds a version of a made-up content whose digest matches it.
 func Version(procedureType int64, number int, name string) version.ProcedureTypeVersion {
-	encoded := []byte(`{"format":1,"definition":{"name":"` + name + `"}}`)
+	encoded, err := json.Marshal(map[string]any{"format": 1, "definition": map[string]string{"name": name}})
+	if err != nil {
+		panic(err)
+	}
 	return version.ProcedureTypeVersion{
 		ProcedureTypeID: procedureType,
 		Number:          number,
@@ -47,29 +51,18 @@ func numbersWithoutGaps(t *testing.T, s output.ProcedureVersions) {
 	}
 	for _, add := range []struct {
 		number int
-		want   string
+		want   error
 	}{
-		{0, "an error"},
-		{1, "nil"},
-		{1, "ErrVersionExists"},
-		{3, "an error for skipping version 2"},
-		{2, "nil"},
-		{1, "ErrVersionExists"},
+		{0, output.ErrVersionGap},
+		{1, nil},
+		{1, output.ErrVersionExists},
+		{3, output.ErrVersionGap},
+		{2, nil},
+		{1, output.ErrVersionExists},
 	} {
 		err := s.Add(ctx, Version(1, add.number, fmt.Sprintf("Versión %d", add.number)))
-		switch add.want {
-		case "nil":
-			if err != nil {
-				t.Fatalf("Add(%d) = %v, want nil", add.number, err)
-			}
-		case "ErrVersionExists":
-			if !errors.Is(err, output.ErrVersionExists) {
-				t.Errorf("Add(%d) again = %v, want ErrVersionExists", add.number, err)
-			}
-		default:
-			if err == nil || errors.Is(err, output.ErrVersionExists) {
-				t.Errorf("Add(%d) = %v, want %s other than ErrVersionExists", add.number, err, add.want)
-			}
+		if !errors.Is(err, add.want) {
+			t.Fatalf("Add(%d) = %v, want %v", add.number, err, add.want)
 		}
 	}
 

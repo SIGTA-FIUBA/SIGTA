@@ -66,7 +66,7 @@ func (s *ProcedureVersions) Add(_ context.Context, v version.ProcedureTypeVersio
 	case v.Number >= 1 && v.Number < next:
 		return output.ErrVersionExists
 	case v.Number != next:
-		return fmt.Errorf("version %d is not the next one, %d", v.Number, next)
+		return fmt.Errorf("%w: version %d, the next one is %d", output.ErrVersionGap, v.Number, next)
 	}
 	s.versions[v.ProcedureTypeID] = append(stored, clone(v))
 	return nil

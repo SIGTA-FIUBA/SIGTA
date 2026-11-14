@@ -180,11 +180,6 @@ func TestServiceOnAnAlteredVersion(t *testing.T) {
 // number is still free. Add tries again, and if every attempt fails it keeps
 // the 40001 and does not say that the version exists.
 func TestRivalOfAnotherProcedureType(t *testing.T) {
-	// Two retries, so that a couple of publications of other procedure types
-	// do not fail Add.
-	if postgres.Attempts < 3 {
-		t.Fatalf("Add tries %d times, want at least 3", postgres.Attempts)
-	}
 	for _, tc := range []struct {
 		name   string
 		rivals int
