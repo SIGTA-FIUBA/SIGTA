@@ -3,45 +3,37 @@ import {
   type CSSVariablesResolver,
   createTheme,
   Input,
-  type MantineColorsTuple,
   NavLink,
   Paper,
+  rem,
   SegmentedControl,
   Title,
 } from '@mantine/core'
 import classes from './interactions.module.css'
+import { tokens } from './tokens'
 import typography from './typography.module.css'
 
 // The only place where the interface gets its look. Screens use Mantine
 // components with theme values (sizes such as "md", colors such as "dimmed"),
-// never raw colors or measures; the lint rules in lint/ enforce it.
-
-// The FIUBA light blue (#009fe2, index 5) is the color of the logo. On white
-// it does not reach the contrast text needs (2.98:1), so buttons and links use
-// index 7 (#0074a6, 5.19:1) and hovers index 8 (#005f88, 7.02:1).
-const fiuba: MantineColorsTuple = [
-  '#e5f6fd',
-  '#cdebfa',
-  '#9bd6f4',
-  '#64c0ee',
-  '#38ade8',
-  '#009fe2',
-  '#0089c4',
-  '#0074a6',
-  '#005f88',
-  '#004a6b',
-]
+// never raw colors or measures; the lint rules in lint/ enforce it. The values
+// come from tokens.json, so a design decision is changed there and nowhere else.
 
 export const theme = createTheme({
-  colors: { fiuba },
-  primaryColor: 'fiuba',
-  primaryShade: 7,
-  // The near black of the logo, for the text.
-  black: '#121516',
-  defaultRadius: 'sm',
+  colors: { fiuba: tokens.color.fiuba },
+  primaryColor: tokens.primaryColor,
+  primaryShade: tokens.primaryShade,
+  black: tokens.color.text,
+  white: tokens.color.white,
+  defaultRadius: tokens.defaultRadius,
+  radius: tokens.radius,
+  spacing: tokens.spacing,
+  fontSizes: tokens.font.sizes,
+  lineHeights: tokens.font.lineHeights,
+  breakpoints: tokens.breakpoints,
   cursorType: 'pointer',
-  fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  headings: { fontWeight: '600' },
+  fontFamily: tokens.font.sans,
+  fontFamilyMonospace: tokens.font.mono,
+  headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.headingWeight, sizes: tokens.headings },
   components: {
     // The side menu (variant="menu") sits on the logo's light blue: each link
     // is a white box with dark text, and the current page is filled in dark
@@ -65,10 +57,17 @@ export const theme = createTheme({
     // A panel that is itself a control, such as a summary that filters the
     // list, uses variant="interactive" and answers the pointer.
     Paper: Paper.extend({
+      defaultProps: { radius: tokens.component.paper.radius },
       classNames: (_theme, props) => ({ root: props.variant === 'interactive' ? classes.interactive : '' }),
     }),
-    Input: Input.extend({ classNames: { input: classes.touch } }),
-    Button: Button.extend({ classNames: { root: classes.touch } }),
+    Input: Input.extend({
+      defaultProps: { radius: tokens.component.input.radius },
+      classNames: { input: classes.touch },
+    }),
+    Button: Button.extend({
+      defaultProps: { radius: tokens.component.button.radius },
+      classNames: { root: classes.touch },
+    }),
     SegmentedControl: SegmentedControl.extend({ classNames: { control: classes.touch } }),
     // The headline of the landing page grows with the screen.
     Title: Title.extend({
@@ -78,9 +77,13 @@ export const theme = createTheme({
 })
 
 // Mantine's dimmed text (gray 6) reads at 3.3:1 on white, below the 4.5:1 that
-// text needs; gray 7 reaches 8.2:1.
+// text needs; tokens.json sets gray 7, which reaches 8.2:1. The other variables
+// carry tokens to the CSS modules of this folder.
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
-  variables: {},
-  light: { '--mantine-color-dimmed': 'var(--mantine-color-gray-7)' },
+  variables: {
+    '--sigta-menu-link-radius': `var(--mantine-radius-${tokens.component.menuLink.radius})`,
+    '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),
+  },
+  light: { '--mantine-color-dimmed': `var(--mantine-color-gray-${tokens.dimmedShade})` },
   dark: {},
 })

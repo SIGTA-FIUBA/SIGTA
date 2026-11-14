@@ -34,7 +34,7 @@
  * text, that tints under the pointer. The current page is filled in dark blue
  * (theme.ts). */
 .menuLink {
-  border-radius: var(--mantine-radius-md);
+  border-radius: var(--sigta-menu-link-radius);
   box-shadow: var(--mantine-shadow-xs);
 }
 
@@ -47,10 +47,12 @@
   background-color: var(--mantine-color-fiuba-0);
 }
 
-/* On a phone every control is at least 44px tall, so a finger hits it. */
+/* On a phone every control is at least 44px tall (component.touchTarget in
+ * tokens.json), so a finger hits it. A media query cannot read a variable, so
+ * 48em repeats breakpoint.sm. */
 @media (max-width: 48em) {
   .touch {
-    min-height: 44px;
+    min-height: var(--sigta-touch-target);
   }
 }
 
