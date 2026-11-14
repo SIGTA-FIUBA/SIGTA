@@ -14,14 +14,22 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"backend/src/procedure/ports/output"
 )
 
-const digestPrefix = "sha256:"
+const (
+	digestPrefix = "sha256:"
+	tempPrefix   = ".tmp-"
+
+	// staleTemp is how old a temporary file has to be for NewDocuments to
+	// take it for what a crash left, and not for an upload in progress.
+	staleTemp = time.Hour
+)
 
 // validDigest also keeps a digest from naming a path outside the directory.
-var validDigest = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+var validDigest = regexp.MustCompile("^" + regexp.QuoteMeta(digestPrefix) + "[0-9a-f]{64}$")
 
 var _ output.Documents = (*Documents)(nil)
 
@@ -33,20 +41,39 @@ type Documents struct {
 }
 
 // NewDocuments fails if dir is not a directory the server can write to, so a
-// missing volume is noticed at startup and not on the first upload.
+// missing volume is noticed at startup and not on the first upload. It also
+// removes the temporary files that a crash left.
 func NewDocuments(dir string) (*Documents, error) {
 	probe, err := os.CreateTemp(dir, ".probe-")
 	if err != nil {
 		return nil, fmt.Errorf("documents directory %s: %w", dir, err)
 	}
-	if err := errors.Join(probe.Close(), os.Remove(probe.Name())); err != nil {
+	if err := errors.Join(probe.Close(), os.Remove(probe.Name()), removeStaleTemps(dir)); err != nil {
 		return nil, fmt.Errorf("documents directory %s: %w", dir, err)
 	}
 	return &Documents{dir: dir}, nil
 }
 
+func removeStaleTemps(dir string) error {
+	temps, err := filepath.Glob(filepath.Join(dir, tempPrefix+"*"))
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, temp := range temps {
+		info, err := os.Stat(temp)
+		if err == nil && time.Since(info.ModTime()) > staleTemp {
+			err = os.Remove(temp)
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (d *Documents) Put(ctx context.Context, content io.Reader) (digest string, size int64, err error) {
-	tmp, err := os.CreateTemp(d.dir, ".tmp-")
+	tmp, err := os.CreateTemp(d.dir, tempPrefix)
 	if err != nil {
 		return "", 0, fmt.Errorf("put document: %w", err)
 	}
@@ -59,11 +86,8 @@ func (d *Documents) Put(ctx context.Context, content io.Reader) (digest string, 
 	}()
 
 	hash := sha256.New()
-	size, err = io.Copy(io.MultiWriter(tmp, hash), content)
+	size, err = io.Copy(io.MultiWriter(tmp, hash), contextReader{ctx, content})
 	if err != nil {
-		return "", 0, fmt.Errorf("put document: %w", err)
-	}
-	if err := ctx.Err(); err != nil {
 		return "", 0, fmt.Errorf("put document: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
@@ -97,6 +121,20 @@ func (d *Documents) Open(_ context.Context, digest string) (io.ReadCloser, error
 		return nil, fmt.Errorf("open document %s: %w", digest, err)
 	}
 	return file, nil
+}
+
+// contextReader stops reading once ctx is done, so a canceled request does
+// not keep writing its upload.
+type contextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.r.Read(p)
 }
 
 func syncDir(dir string) error {

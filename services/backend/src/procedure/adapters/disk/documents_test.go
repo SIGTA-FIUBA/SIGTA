@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"backend/src/procedure/adapters/disk"
 	"backend/src/procedure/ports/output"
@@ -77,6 +78,56 @@ func (r *failingReader) Read(p []byte) (int, error) {
 	}
 	r.read = true
 	return copy(p, "the first half"), nil
+}
+
+// endlessReader cancels its request on the first read and counts the reads.
+type endlessReader struct {
+	cancel context.CancelFunc
+	reads  int
+}
+
+func (r *endlessReader) Read(p []byte) (int, error) {
+	r.cancel()
+	r.reads++
+	if r.reads > 100 {
+		return 0, io.EOF
+	}
+	return copy(p, "más contenido"), nil
+}
+
+func TestPutStopsReadingWhenTheRequestIsCanceled(t *testing.T) {
+	documents, dir := newDocuments(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	content := &endlessReader{cancel: cancel}
+	if _, _, err := documents.Put(ctx, content); !errors.Is(err, context.Canceled) {
+		t.Errorf("Put() = %v, want context.Canceled", err)
+	}
+	if content.reads != 1 {
+		t.Errorf("Put() read %d times, want 1", content.reads)
+	}
+	if got := filesIn(t, dir); len(got) != 0 {
+		t.Errorf("files = %v, want none", got)
+	}
+}
+
+func TestNewDocumentsRemovesStaleTemps(t *testing.T) {
+	dir := t.TempDir()
+	for name, age := range map[string]time.Duration{".tmp-crashed": 2 * time.Hour, ".tmp-uploading": time.Minute} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte("parcial"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		modified := time.Now().Add(-age)
+		if err := os.Chtimes(path, modified, modified); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := disk.NewDocuments(dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := filesIn(t, dir); len(got) != 1 || got[0] != ".tmp-uploading" {
+		t.Errorf("files = %v, want only the upload in progress", got)
+	}
 }
 
 func TestPutLeavesNothingWhenItFails(t *testing.T) {
