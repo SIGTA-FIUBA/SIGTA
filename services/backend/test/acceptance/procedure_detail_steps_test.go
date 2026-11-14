@@ -3,10 +3,12 @@ package acceptance
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/cucumber/godog"
 
+	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 )
@@ -26,7 +28,7 @@ func registerDetailSteps(sc *godog.ScenarioContext, w *documentWorld) {
 
 func (w *documentWorld) open(user string) {
 	w.viewer = user
-	w.view, w.err = w.opener.Open(context.Background(), user, w.procedure.ID)
+	w.view, w.err = w.service.Detail(context.Background(), user, w.procedure.ID)
 }
 
 func doneBy(s detail.Step) string {
@@ -84,24 +86,30 @@ func (w *documentWorld) thenTurn(want bool) error {
 	return nil
 }
 
-// thenShowsFile looks at the documents as whoever opened the procedure sees
-// them, which is what the detail puts next to each requirement.
+// thenShowsFile looks for the file next to the requirement in every step of
+// the detail that asks for it.
 func (w *documentWorld) thenShowsFile(requirement, name string) error {
 	if w.err != nil {
 		return w.err
 	}
-	attached, err := w.service.List(context.Background(), w.viewer, w.procedure.ID)
-	if err != nil {
-		return err
-	}
-	var got string
-	for _, d := range attached {
-		if d.Current && d.Requirement == requirement {
-			got = d.FileName
+	asked := false
+	for _, s := range w.view.Steps {
+		if !slices.ContainsFunc(s.Documents, func(r catalog.DocumentRequirement) bool { return r.Document.ID == requirement }) {
+			continue
+		}
+		asked = true
+		var got string
+		for _, d := range s.Files {
+			if d.Requirement == requirement {
+				got = d.FileName
+			}
+		}
+		if got != name {
+			return fmt.Errorf("the %s of %s shows %q, want %q", requirement, s.Step.ID, got, name)
 		}
 	}
-	if got != name {
-		return fmt.Errorf("the %s shows %q, want %q", requirement, got, name)
+	if !asked {
+		return fmt.Errorf("no step of the detail asks for the %s", requirement)
 	}
 	return nil
 }

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/domain/version"
@@ -49,5 +51,42 @@ func TestSteps(t *testing.T) {
 	// A version keeps the areas its steps use, so this only guards the display.
 	if steps[2].AreaName != "missing" {
 		t.Errorf("an area the version does not keep shows as %q, want its id", steps[2].AreaName)
+	}
+}
+
+func TestWithFiles(t *testing.T) {
+	asks := func(ids ...string) []catalog.DocumentRequirement {
+		var r []catalog.DocumentRequirement
+		for _, id := range ids {
+			r = append(r, catalog.DocumentRequirement{Document: definition.Document{ID: id}})
+		}
+		return r
+	}
+	steps := []detail.Step{
+		{Step: definition.Step{ID: "documents"}, Documents: asks("annex", "transcript")},
+		{Step: definition.Step{ID: "review"}},
+		{Step: definition.Step{ID: "fix"}, Documents: asks("transcript", "ruling")},
+	}
+	attached := []domain.Document{
+		{ID: "D-1", Requirement: "transcript"},
+		{ID: "D-2", Requirement: "annex"},
+		{ID: "D-3", Requirement: "transcript"},
+	}
+
+	steps = detail.WithFiles(steps, attached)
+
+	got := make([]string, 0, len(steps))
+	for _, s := range steps {
+		var files []string
+		for _, d := range s.Files {
+			files = append(files, d.Requirement+" "+d.ID)
+		}
+		got = append(got, fmt.Sprintf("%s %v", s.Step.ID, files))
+	}
+	// A document that two steps ask for shows its current file in both, and a
+	// document with no file shows none.
+	want := []string{"documents [annex D-2 transcript D-3]", "review []", "fix [transcript D-3]"}
+	if !slices.Equal(got, want) {
+		t.Errorf("files = %v, want %v", got, want)
 	}
 }

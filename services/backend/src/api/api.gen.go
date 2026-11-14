@@ -246,8 +246,11 @@ type ProcedureStep struct {
 
 	// Documents Documentos que pide el paso, en el orden en que los declara el tipo de trámite
 	Documents []DocumentRequirement `json:"documents"`
-	Id        string                `json:"id"`
-	Name      string                `json:"name"`
+
+	// Files Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece.
+	Files []ProcedureDocument `json:"files"`
+	Id    string              `json:"id"`
+	Name  string              `json:"name"`
 
 	// Role Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
 	Role StepRole `json:"role"`

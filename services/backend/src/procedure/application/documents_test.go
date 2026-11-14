@@ -315,6 +315,34 @@ func TestListMarksTheCurrentDocuments(t *testing.T) {
 	}
 }
 
+func TestDetailPutsTheCurrentFileNextToEachDocument(t *testing.T) {
+	f := newDocumentsFixture(t)
+	for _, u := range []input.Upload{upload("annex", "anexo.pdf", pdf(100)), upload("statement", "primera.pdf", pdf(100)), upload("statement", "segunda.pdf", pdf(100))} {
+		if _, err := f.service.Attach(t.Context(), applicant, u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, user := range []string{applicant, reviewer} {
+		view, err := f.service.Detail(t.Context(), user, "P-1")
+		if err != nil {
+			t.Fatalf("%s: %v", user, err)
+		}
+		var got []string
+		for _, s := range view.Steps {
+			for _, d := range s.Files {
+				got = append(got, s.Step.ID+" "+d.Requirement+" "+d.FileName)
+			}
+		}
+		want := []string{"documents statement segunda.pdf", "documents annex anexo.pdf"}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: files = %v, want %v", user, got, want)
+		}
+	}
+	if _, err := f.service.Detail(t.Context(), "otra@fi.uba.ar", "P-1"); !errors.Is(err, domain.ErrProcedureNotFound) {
+		t.Errorf("someone who cannot see the procedure: err = %v, want ErrProcedureNotFound", err)
+	}
+}
+
 func TestListAnswersNotFoundToWhoCannotSeeTheProcedure(t *testing.T) {
 	f := newDocumentsFixture(t)
 	for _, procedureID := range []string{"P-1", "P-missing"} {

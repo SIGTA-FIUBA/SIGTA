@@ -19,12 +19,11 @@ import (
 
 // fakeProcedures opens view, or answers err.
 type fakeProcedures struct {
-	input.Procedures
 	view input.ProcedureView
 	err  error
 }
 
-func (f fakeProcedures) Open(context.Context, string, string) (input.ProcedureView, error) {
+func (f fakeProcedures) Detail(context.Context, string, string) (input.ProcedureView, error) {
 	return f.view, f.err
 }
 
@@ -36,6 +35,7 @@ func openedView(actions ...string) input.ProcedureView {
 			{
 				Step:      definition.Step{ID: "documents", Name: "Adjuntar documentos", Action: definition.ActionUploadDocument, Role: definition.RoleApplicant, Next: "review"},
 				Documents: []catalog.DocumentRequirement{{Document: definition.Document{ID: "transcript", Name: "Historia académica"}, Required: true}},
+				Files:     []domain.Document{{ID: "D-1", Requirement: "transcript", Step: "documents", FileName: "historia.pdf", MediaType: "application/pdf", Size: 3, UploadedBy: "ana"}},
 			},
 			{
 				Step:     definition.Step{ID: "review", Name: "Revisar", Action: definition.ActionConfirmExternalFact, Role: definition.RoleStaff, Area: "office"},
@@ -80,6 +80,9 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	if len(first.Documents) != 1 || first.Documents[0].Id != "transcript" || !first.Documents[0].Required {
 		t.Errorf("documents of the first step = %+v", first.Documents)
 	}
+	if len(first.Files) != 1 || first.Files[0].Id != "D-1" || first.Files[0].Document != "transcript" || first.Files[0].FileName != "historia.pdf" || !first.Files[0].Current {
+		t.Errorf("files of the first step = %+v", first.Files)
+	}
 	if second.Role != api.Staff || second.AreaName != "Dirección de Alumnos" {
 		t.Errorf("second step = %+v", second)
 	}
@@ -92,6 +95,7 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 		CanAct bool `json:"can_act"`
 		Steps  []struct {
 			Documents json.RawMessage `json:"documents"`
+			Files     json.RawMessage `json:"files"`
 		} `json:"steps"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
@@ -102,6 +106,9 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	}
 	if string(got.Steps[1].Documents) != "[]" {
 		t.Errorf("documents of a step that asks none = %s, want []", got.Steps[1].Documents)
+	}
+	if string(got.Steps[1].Files) != "[]" {
+		t.Errorf("files of a step that asks no document = %s, want []", got.Steps[1].Files)
 	}
 }
 

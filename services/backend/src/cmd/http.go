@@ -131,7 +131,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, documents),
-		procedurerest.NewProcedureHandler(auth, procedures),
+		procedurerest.NewProcedureHandler(auth, documents),
 	)
 
 	server := &http.Server{

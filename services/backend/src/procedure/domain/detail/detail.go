@@ -1,18 +1,22 @@
 package detail
 
 import (
+	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 )
 
-// Step is a step of a procedure as its detail shows it: who does it and what
-// documents it asks for.
+// Step is a step of a procedure as its detail shows it: who does it, what
+// documents it asks for and the files that cover them.
 type Step struct {
 	Step definition.Step
 	// AreaName is empty on the steps of the applicant.
 	AreaName  string
 	Documents []catalog.DocumentRequirement
+	// Files holds the current file of each document that has one, in the
+	// order of Documents.
+	Files []domain.Document
 }
 
 // Steps returns the steps of a version in the order it declares them. Each
@@ -45,6 +49,24 @@ func Steps(c version.Content) []Step {
 			}
 		}
 		steps = append(steps, step)
+	}
+	return steps
+}
+
+// WithFiles puts next to each document of the steps the file that covers it
+// now, out of the documents of the procedure in the order they were attached.
+func WithFiles(steps []Step, attached []domain.Document) []Step {
+	current := map[string]domain.Document{}
+	for _, d := range domain.Current(attached) {
+		current[d.Requirement] = d
+	}
+	for i := range steps {
+		steps[i].Files = nil
+		for _, r := range steps[i].Documents {
+			if d, ok := current[r.Document.ID]; ok {
+				steps[i].Files = append(steps[i].Files, d)
+			}
+		}
 	}
 	return steps
 }

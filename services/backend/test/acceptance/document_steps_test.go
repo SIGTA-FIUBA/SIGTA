@@ -43,7 +43,6 @@ type documentWorld struct {
 	procedures  movableProcedures
 	documents   *memory.DocumentRepository
 	service     *application.DocumentService
-	opener      *application.ProcedureService
 	dir         string
 
 	known     map[string]bool
@@ -118,8 +117,8 @@ func (w *documentWorld) setUp() error {
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	w.documents = memory.NewDocumentRepository()
-	w.opener = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
-	w.service = application.NewDocumentService(w.opener, w.documents, files, w.newID, time.Now)
+	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+	w.service = application.NewDocumentService(procedures, w.documents, files, w.newID, time.Now)
 	return nil
 }
 

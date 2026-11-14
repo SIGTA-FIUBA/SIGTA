@@ -759,7 +759,7 @@ components:
             $ref: "#/components/schemas/ProcedureStep"
     ProcedureStep:
       type: object
-      required: [id, name, action, role, area_name, documents]
+      required: [id, name, action, role, area_name, documents, files]
       properties:
         id:
           type: string
@@ -783,6 +783,13 @@ components:
           description: Documentos que pide el paso, en el orden en que los declara el tipo de trámite
           items:
             $ref: "#/components/schemas/DocumentRequirement"
+        files:
+          type: array
+          description: >
+            Archivo vigente de cada documento del paso que ya tiene uno, en el
+            mismo orden que documents. Un documento sin archivo no aparece.
+          items:
+            $ref: "#/components/schemas/ProcedureDocument"
     ProcedureDocument:
       type: object
       required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]

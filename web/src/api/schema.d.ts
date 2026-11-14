@@ -419,6 +419,8 @@ export interface components {
             area_name: string;
             /** @description Documentos que pide el paso, en el orden en que los declara el tipo de trámite */
             documents: components["schemas"]["DocumentRequirement"][];
+            /** @description Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece. */
+            files: components["schemas"]["ProcedureDocument"][];
         };
         ProcedureDocument: {
             id: string;

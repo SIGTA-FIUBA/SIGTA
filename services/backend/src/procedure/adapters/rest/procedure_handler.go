@@ -16,10 +16,10 @@ var _ api.ProcedureServer = (*ProcedureHandler)(nil)
 // behind the session.
 type ProcedureHandler struct {
 	auth       authinput.Authenticator
-	procedures ports.Procedures
+	procedures ports.ProcedureDetails
 }
 
-func NewProcedureHandler(auth authinput.Authenticator, procedures ports.Procedures) *ProcedureHandler {
+func NewProcedureHandler(auth authinput.Authenticator, procedures ports.ProcedureDetails) *ProcedureHandler {
 	return &ProcedureHandler{auth: auth, procedures: procedures}
 }
 
@@ -31,7 +31,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	if err != nil {
 		return nil, err
 	}
-	view, err := h.procedures.Open(ctx, user.ID, req.ProcedureId)
+	view, err := h.procedures.Detail(ctx, user.ID, req.ProcedureId)
 	if errors.Is(err, domain.ErrProcedureNotFound) {
 		return api.GetProcedure404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: messageNoProcedure}}, nil
 	}
@@ -53,6 +53,10 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		for _, d := range s.Documents {
 			documents = append(documents, documentRequirement(d))
 		}
+		files := make([]api.ProcedureDocument, 0, len(s.Files))
+		for _, d := range s.Files {
+			files = append(files, procedureDocument(d, true))
+		}
 		response.Steps = append(response.Steps, api.ProcedureStep{
 			Id:        s.Step.ID,
 			Name:      s.Step.Name,
@@ -60,6 +64,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 			Role:      api.StepRole(s.Step.Role),
 			AreaName:  s.AreaName,
 			Documents: documents,
+			Files:     files,
 		})
 	}
 	return response, nil

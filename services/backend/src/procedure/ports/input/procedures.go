@@ -22,6 +22,12 @@ func (v ProcedureView) CanAct() bool {
 	return slices.Contains(v.Actions, v.Procedure.OpenStep)
 }
 
+// ProcedureDetails opens a procedure as Procedures does, with the file that
+// covers each document its steps ask for.
+type ProcedureDetails interface {
+	Detail(ctx context.Context, userID, procedureID string) (ProcedureView, error)
+}
+
 type Procedures interface {
 	Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error)
 	Open(ctx context.Context, userID, procedureID string) (ProcedureView, error)
