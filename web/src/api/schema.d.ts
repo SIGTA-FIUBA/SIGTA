@@ -232,7 +232,7 @@ export interface paths {
         };
         /**
          * Descarga el archivo de un documento adjunto
-         * @description Para quien puede ver el trámite. Se descarga siempre como adjunto.
+         * @description Para quien puede ver el trámite. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
          */
         get: operations["downloadProcedureDocument"];
         put?: never;
@@ -798,8 +798,12 @@ export interface operations {
                 headers: {
                     /** @description Siempre attachment, con el nombre del archivo */
                     "Content-Disposition": string;
-                    /** @description Siempre nosniff, para que el navegador no reinterprete el archivo */
+                    /** @description Siempre nosniff, para que el navegador use el tipo que reconoció el servidor en vez de deducirlo del contenido */
                     "X-Content-Type-Options": string;
+                    /** @description Siempre sandbox, para que un archivo abierto en el navegador no ejecute código con la sesión */
+                    "Content-Security-Policy": string;
+                    /** @description Siempre no-store, para que el archivo no quede guardado en cachés compartidas ni del navegador */
+                    "Cache-Control": string;
                     [name: string]: unknown;
                 };
                 content: {

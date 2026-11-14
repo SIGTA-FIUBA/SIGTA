@@ -119,12 +119,9 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewDocumentHandler(auth, documents),
 	)
 
-	router := http.NewServeMux()
-	api.Mount(router, app, logger)
-
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           router,
+		Handler:           api.Mount(http.NewServeMux(), app, logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))

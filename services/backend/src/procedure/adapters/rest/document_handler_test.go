@@ -158,6 +158,28 @@ func TestAttachNeedsTheDocumentBeforeTheFile(t *testing.T) {
 	}
 }
 
+func TestAttachAnswersABrokenUploadAsABadRequest(t *testing.T) {
+	r := attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", "%PDF-1.7 contenido"})
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body[:len(body)-20]))
+
+	recorder := serve(t, &fakeDocuments{}, r)
+	if recorder.Code != http.StatusBadRequest || message(t, recorder) != api.InvalidRequestMessage {
+		t.Errorf("status = %d, body %s; want 400 with the invalid request message", recorder.Code, recorder.Body)
+	}
+}
+
+func TestAttachStopsAtTheRequestLimit(t *testing.T) {
+	file := strings.Repeat("a", api.MaxRequestBytes)
+	recorder := serve(t, &fakeDocuments{}, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", file}))
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(message(t, recorder), "tamaño máximo") {
+		t.Errorf("status = %d, body %s; want 400 saying it is too large", recorder.Code, recorder.Body)
+	}
+}
+
 func TestAttachAnswersEachRejection(t *testing.T) {
 	tests := []struct {
 		err    error
@@ -232,8 +254,17 @@ func TestDownloadIsAnAttachmentWithTheDetectedType(t *testing.T) {
 		t.Fatalf("status = %d, body %q", recorder.Code, recorder.Body)
 	}
 	headers := recorder.Header()
-	if headers.Get("Content-Type") != "application/pdf" || headers.Get("X-Content-Type-Options") != "nosniff" || headers.Get("Content-Length") != "8" {
-		t.Errorf("headers = %v", headers)
+	want := map[string]string{
+		"Content-Type":            "application/pdf",
+		"Content-Length":          "8",
+		"X-Content-Type-Options":  "nosniff",
+		"Content-Security-Policy": "sandbox",
+		"Cache-Control":           "no-store",
+	}
+	for name, value := range want {
+		if got := headers.Get(name); got != value {
+			t.Errorf("%s = %q, want %q", name, got, value)
+		}
 	}
 	if got := headers.Get("Content-Disposition"); got != "attachment; filename*=utf-8''historia%20acad%C3%A9mica.pdf" {
 		t.Errorf("Content-Disposition = %s", got)

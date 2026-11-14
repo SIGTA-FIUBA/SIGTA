@@ -1689,8 +1689,10 @@ type DownloadProcedureDocumentResponseObject interface {
 }
 
 type DownloadProcedureDocument200ResponseHeaders struct {
-	ContentDisposition  string
-	XContentTypeOptions string
+	CacheControl          string
+	ContentDisposition    string
+	ContentSecurityPolicy string
+	XContentTypeOptions   string
 }
 
 type DownloadProcedureDocument200AsteriskResponse struct {
@@ -1706,7 +1708,9 @@ func (response DownloadProcedureDocument200AsteriskResponse) VisitDownloadProced
 	if response.ContentLength != 0 {
 		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
 	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.Header().Set("Content-Security-Policy", fmt.Sprint(response.Headers.ContentSecurityPolicy))
 	w.Header().Set("X-Content-Type-Options", fmt.Sprint(response.Headers.XContentTypeOptions))
 	w.WriteHeader(200)
 

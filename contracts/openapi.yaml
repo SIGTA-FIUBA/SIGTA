@@ -378,7 +378,10 @@ paths:
     get:
       operationId: downloadProcedureDocument
       summary: Descarga el archivo de un documento adjunto
-      description: Para quien puede ver el trámite. Se descarga siempre como adjunto.
+      description: >
+        Para quien puede ver el trámite. Las cabeceras piden al navegador que
+        guarde el archivo en vez de mostrarlo, y que no lo interprete si igual
+        lo abre.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -392,7 +395,17 @@ paths:
                 type: string
             X-Content-Type-Options:
               required: true
-              description: Siempre nosniff, para que el navegador no reinterprete el archivo
+              description: Siempre nosniff, para que el navegador use el tipo que reconoció el servidor en vez de deducirlo del contenido
+              schema:
+                type: string
+            Content-Security-Policy:
+              required: true
+              description: Siempre sandbox, para que un archivo abierto en el navegador no ejecute código con la sesión
+              schema:
+                type: string
+            Cache-Control:
+              required: true
+              description: Siempre no-store, para que el archivo no quede guardado en cachés compartidas ni del navegador
               schema:
                 type: string
           content:

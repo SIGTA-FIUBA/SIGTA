@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -32,6 +33,9 @@ const (
 	formFile              = "file"
 	maxDocumentIDLength   = 256
 	dispositionAttachment = "attachment"
+	noSniff               = "nosniff"
+	sandbox               = "sandbox"
+	noStore               = "no-store"
 )
 
 var errMalformedUpload = errors.New("the upload must have the document and then the file")
@@ -83,14 +87,15 @@ func (h *DocumentHandler) AttachProcedureDocument(ctx context.Context, req api.A
 	}
 	requirement, file, err := uploadParts(req.Body)
 	if err != nil {
-		return api.AttachProcedureDocument400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
+		// uploadParts only fails on what the request sent.
+		message, _ := rejection(err)
+		return api.AttachProcedureDocument400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: message}}, nil
 	}
-	defer func() { _ = file.Close() }()
 	d, err := h.documents.Attach(ctx, user.ID, ports.Upload{
 		ProcedureID: req.ProcedureId,
 		Requirement: requirement,
 		FileName:    file.FileName(),
-		Content:     file,
+		Content:     partReader{file},
 	})
 	if message, ok := rejection(err); ok {
 		return api.AttachProcedureDocument400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: message}}, nil
@@ -129,14 +134,17 @@ func (h *DocumentHandler) DownloadProcedureDocument(ctx context.Context, req api
 		ContentType:   d.MediaType,
 		ContentLength: d.Size,
 		Headers: api.DownloadProcedureDocument200ResponseHeaders{
-			ContentDisposition:  contentDisposition(d.FileName),
-			XContentTypeOptions: "nosniff",
+			ContentDisposition:    mime.FormatMediaType(dispositionAttachment, map[string]string{"filename": d.FileName}),
+			XContentTypeOptions:   noSniff,
+			ContentSecurityPolicy: sandbox,
+			CacheControl:          noStore,
 		},
 	}, nil
 }
 
 // uploadParts reads the document first and leaves the file unread, so that
-// the use case streams it to the store and stops at the maximum size.
+// the use case streams it to the store and stops at the maximum size. No part
+// is closed: closing one reads the rest of the request.
 func uploadParts(body *multipart.Reader) (string, *multipart.Part, error) {
 	part, err := body.NextPart()
 	if err != nil {
@@ -157,32 +165,40 @@ func uploadParts(body *multipart.Reader) (string, *multipart.Part, error) {
 		return "", nil, fmt.Errorf("%w: %w", errMalformedUpload, err)
 	}
 	if file.FormName() != formFile {
-		_ = file.Close()
 		return "", nil, errMalformedUpload
 	}
 	return string(value), file, nil
 }
 
+// partReader marks the errors of reading the request, so that a broken or
+// oversized upload is answered as such and not as a failure of the server.
+type partReader struct {
+	part *multipart.Part
+}
+
+func (r partReader) Read(p []byte) (int, error) {
+	n, err := r.part.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return n, fmt.Errorf("%w: %w", errMalformedUpload, err)
+	}
+	return n, err
+}
+
 func rejection(err error) (string, bool) {
+	var requestTooLarge *http.MaxBytesError
 	switch {
+	case errors.Is(err, domain.ErrDocumentTooLarge), errors.As(err, &requestTooLarge):
+		return messageTooLarge, true
+	case errors.Is(err, errMalformedUpload):
+		return api.InvalidRequestMessage, true
 	case errors.Is(err, domain.ErrDocumentNotRequested):
 		return messageNotRequested, true
 	case errors.Is(err, domain.ErrDocumentType):
 		return messageType, true
-	case errors.Is(err, domain.ErrDocumentTooLarge):
-		return messageTooLarge, true
 	case errors.Is(err, domain.ErrEmptyDocument):
 		return messageEmpty, true
 	}
 	return "", false
-}
-
-// contentDisposition encodes a name that is not ASCII as RFC 6266 asks.
-func contentDisposition(fileName string) string {
-	if value := mime.FormatMediaType(dispositionAttachment, map[string]string{"filename": fileName}); value != "" {
-		return value
-	}
-	return dispositionAttachment
 }
 
 func procedureDocument(d domain.Document, current bool) api.ProcedureDocument {

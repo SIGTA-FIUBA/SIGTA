@@ -48,6 +48,10 @@ func NewServer(auth AuthServer, catalog CatalogServer, administration Administra
 	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents}
 }
 
+// MaxRequestBytes bounds the body of every request, so an upload is cut there
+// even if its document allows a larger file.
+const MaxRequestBytes = 25 << 20
+
 // Mount registers the API on mux. Errors raised outside the handlers answer
 // with the contract's Error too, without exposing their internal message.
 func Mount(mux *http.ServeMux, server StrictServerInterface, logger *slog.Logger) http.Handler {
@@ -62,7 +66,7 @@ func Mount(mux *http.ServeMux, server StrictServerInterface, logger *slog.Logger
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError,
 	})
-	return HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})
+	return http.MaxBytesHandler(HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest}), MaxRequestBytes)
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
