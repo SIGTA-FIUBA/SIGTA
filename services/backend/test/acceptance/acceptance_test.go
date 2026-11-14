@@ -30,6 +30,7 @@ func TestScenarios(t *testing.T) {
 			registerDetailSteps(sc, registerDocumentSteps(sc))
 			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)
+			registerProcedureTypeDraftSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",
