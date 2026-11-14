@@ -59,7 +59,7 @@ La Subsecretaría de TICs ofrece MariaDB 10.1.45 o PostgreSQL 11.9, como mínimo
 
 | Requisito | Estado | En SIGTA |
 | --- | --- | --- |
-| Estimación por tipo de archivo: formato, tamaño promedio y máximo, cantidad por año y retención | A confirmar | Cada tipo de trámite declara los formatos y el tamaño máximo de sus documentos. Falta estimar cantidades y definir la retención con la Secretaría (D-09) |
+| Estimación por tipo de archivo: formato, tamaño promedio y máximo, cantidad por año y retención | A confirmar | Cada tipo de trámite declara los formatos y el tamaño máximo de sus documentos, y un trámite guarda hasta 20 archivos por documento, número a confirmar con la Secretaría. Falta estimar cantidades y definir la retención con la Secretaría (D-09) |
 | Tipo y tamaño validados en el backend | Cumple | El backend lee el tipo del contenido y corta el archivo que pasa del tamaño máximo, los dos según lo que declara el tipo de trámite para ese documento |
 | Nombres generados por el sistema, fuera de la carpeta pública, y los privados servidos solo a quien corresponde | Cumple | Cada documento se guarda con el nombre de su hash SHA-256, que calcula el servidor, en una carpeta que el proxy no sirve. Solo lo descarga quien ve el trámite, a través de la API |
 | Ruta del volumen documentada para los respaldos | Cumple | `/var/lib/sigta/documents` en la imagen, configurable con `SIGTA_DOCUMENTS_DIR` (ver "Configuración del servicio de trámites" en el README). Se respalda junto con la base, primero la base y después la carpeta: así cada documento que registra la base tiene su archivo, y los archivos de más los borra el backend al arrancar |

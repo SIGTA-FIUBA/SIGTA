@@ -31,6 +31,11 @@ const (
 	// header.
 	maxFileName     = 200
 	defaultFileName = "documento"
+	// maxFilesPerDocument bounds how many files a procedure keeps for one
+	// document, since every replaced file stays recorded: without it, one
+	// person could fill the disk by uploading the same document again and
+	// again. The number is a guess, to confirm with the Secretaría.
+	maxFilesPerDocument = 20
 )
 
 // DocumentService decides who sees a procedure and who acts on its open step
@@ -62,6 +67,9 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	requirement, err := requested(content.Definition, p.OpenStep, u.Requirement)
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("procedure %s: %w", p.ID, err)
+	}
+	if err := s.belowMaxFiles(ctx, p.ID, requirement.ID); err != nil {
+		return domain.Document{}, err
 	}
 
 	file := bufio.NewReaderSize(u.Content, sniffLength)
@@ -132,6 +140,25 @@ func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documen
 		return domain.Document{}, nil, fmt.Errorf("document %s of %s: %w", documentID, procedureID, err)
 	}
 	return d, content, nil
+}
+
+// belowMaxFiles checks before storing anything. Two uploads at the same time
+// can both pass it, which goes past the maximum by a few files at most.
+func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requirement string) error {
+	documents, err := s.documents.List(ctx, procedureID)
+	if err != nil {
+		return fmt.Errorf("documents of %s: %w", procedureID, err)
+	}
+	n := 0
+	for _, d := range documents {
+		if d.Requirement == requirement {
+			n++
+		}
+	}
+	if n >= maxFilesPerDocument {
+		return fmt.Errorf("%s of %s: %w", requirement, procedureID, domain.ErrTooManyDocuments)
+	}
+	return nil
 }
 
 // RemoveUnreferencedFiles removes the stored files that no document names,

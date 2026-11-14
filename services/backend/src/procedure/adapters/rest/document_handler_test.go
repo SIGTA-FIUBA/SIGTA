@@ -190,6 +190,7 @@ func TestAttachAnswersEachRejection(t *testing.T) {
 		{domain.ErrDocumentType, http.StatusBadRequest, "tipo"},
 		{domain.ErrDocumentTooLarge, http.StatusBadRequest, "tamaño máximo"},
 		{domain.ErrEmptyDocument, http.StatusBadRequest, "vacío"},
+		{domain.ErrTooManyDocuments, http.StatusBadRequest, "cantidad máxima"},
 		{domain.ErrDocumentNotRequested, http.StatusBadRequest, "no pide"},
 		{domain.ErrAccessDenied, http.StatusForbidden, "No podés adjuntar"},
 		{domain.ErrProcedureNotFound, http.StatusNotFound, "No existe el trámite"},

@@ -358,3 +358,23 @@ func TestRemoveUnreferencedFiles(t *testing.T) {
 		t.Error("the file of the attached document was removed")
 	}
 }
+
+func TestAttachStopsAtTheMaximumOfFilesPerDocument(t *testing.T) {
+	f := newDocumentsFixture(t)
+	for i := range maxFilesPerDocument {
+		if _, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100+i))); err != nil {
+			t.Fatalf("file %d: %v", i+1, err)
+		}
+	}
+	stored := len(f.files.files)
+	_, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(50)))
+	if !errors.Is(err, domain.ErrTooManyDocuments) {
+		t.Fatalf("one more file: err = %v, want ErrTooManyDocuments", err)
+	}
+	if len(f.files.files) != stored {
+		t.Error("the store kept the file past the maximum")
+	}
+	if _, err := f.service.Attach(t.Context(), applicant, upload("annex", "anexo.pdf", pdf(100))); err != nil {
+		t.Errorf("another document of the same procedure: %v", err)
+	}
+}

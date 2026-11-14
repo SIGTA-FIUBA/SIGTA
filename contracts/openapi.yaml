@@ -335,7 +335,8 @@ paths:
         quien puede hacer ese paso. El servidor reconoce el tipo por el
         contenido del archivo, no por su nombre, y lo compara con los tipos y
         el tamaño máximo del documento. Adjuntar otro archivo para el mismo
-        documento reemplaza al anterior, que queda registrado.
+        documento reemplaza al anterior, que queda registrado. Un trámite
+        guarda hasta 20 archivos por documento.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:

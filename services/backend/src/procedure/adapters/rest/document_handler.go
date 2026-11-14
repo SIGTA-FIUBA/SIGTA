@@ -26,6 +26,7 @@ const (
 	messageType         = "El archivo no es de un tipo que acepte ese documento."
 	messageTooLarge     = "El archivo supera el tamaño máximo de ese documento."
 	messageEmpty        = "El archivo está vacío."
+	messageTooMany      = "El trámite ya tiene la cantidad máxima de archivos para ese documento."
 )
 
 const (
@@ -193,6 +194,8 @@ func rejection(err error) (string, bool) {
 		return messageType, true
 	case errors.Is(err, domain.ErrEmptyDocument):
 		return messageEmpty, true
+	case errors.Is(err, domain.ErrTooManyDocuments):
+		return messageTooMany, true
 	}
 	return "", false
 }
