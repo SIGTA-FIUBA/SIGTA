@@ -19,7 +19,7 @@ La infraestructura de FIUBA corre sobre Docker Swarm, con Traefik como proxy rev
 | Configuración por variables de entorno, sin valores de entorno escritos en la imagen | Cumple | Todo el backend se configura con variables `SIGTA_*` (ver "Configuración del servicio de trámites" en el README) |
 | Contraseñas y claves como secretos del despliegue, nunca en el repositorio | Cumple | Las credenciales de Google, el archivo de usuarios y las dos conexiones a la base (`SIGTA_DATABASE_URL` y `SIGTA_MIGRATIONS_DATABASE_URL`) son secretos del despliegue. Las contraseñas de `compose.yaml` son solo de desarrollo |
 | Servicios sin estado, con sesiones, caché y colas en la base o en Redis, para correr más de una réplica | No cumple | Las sesiones y las cuentas registradas se guardan en memoria del backend: se pierden al reiniciar y no se comparten entre réplicas. Se resuelve al guardar usuarios y sesiones en PostgreSQL |
-| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hoy el único volumen es el de la base de desarrollo. Los documentos que adjunta el titular todavía no se guardan |
+| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hay dos volúmenes: el de la base de desarrollo y el de los documentos (`/var/lib/sigta/documents`, `SIGTA_DOCUMENTS_DIR`). Los trámites y el registro de sus documentos todavía están en memoria |
 | La SPA no tiene la URL del backend fija en la imagen | Cumple | El frontend llama a la API por la ruta relativa `/api` (la opción que prefiere la Subsecretaría de TICs) |
 
 ## Base de datos
@@ -60,9 +60,9 @@ La Subsecretaría de TICs ofrece MariaDB 10.1.45 o PostgreSQL 11.9, como mínimo
 | Requisito | Estado | En SIGTA |
 | --- | --- | --- |
 | Estimación por tipo de archivo: formato, tamaño promedio y máximo, cantidad por año y retención | A confirmar | Cada tipo de trámite declara los formatos y el tamaño máximo de sus documentos. Falta estimar cantidades y definir la retención con la Secretaría (D-09) |
-| Tipo y tamaño validados en el backend | A confirmar | Se define con la carga de documentos, que todavía no existe |
-| Nombres generados por el sistema, fuera de la carpeta pública, y los privados servidos solo a quien corresponde | A confirmar | El adaptador de disco guarda cada documento con el nombre de su hash SHA-256, que calcula el servidor. Todavía nada lo usa: la carpeta, su volumen y el acceso solo de quien corresponde llegan con la carga de documentos |
-| Ruta del volumen documentada para los respaldos | A confirmar | Igual que el anterior |
+| Tipo y tamaño validados en el backend | Cumple | El backend lee el tipo del contenido y corta el archivo que pasa del tamaño máximo, los dos según lo que declara el tipo de trámite para ese documento |
+| Nombres generados por el sistema, fuera de la carpeta pública, y los privados servidos solo a quien corresponde | Cumple | Cada documento se guarda con el nombre de su hash SHA-256, que calcula el servidor, en una carpeta que el proxy no sirve. Solo lo descarga quien ve el trámite, a través de la API |
+| Ruta del volumen documentada para los respaldos | Cumple | `/var/lib/sigta/documents` en la imagen, configurable con `SIGTA_DOCUMENTS_DIR` (ver "Configuración del servicio de trámites" en el README) |
 
 ## Costos, mantenimiento y repositorio
 

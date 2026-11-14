@@ -84,6 +84,15 @@ La versión no se escribe: la asigna el servicio al publicar (ADR-012).
 
 Las versiones se guardan en PostgreSQL (ver "Base de datos"); sin `SIGTA_DATABASE_URL`, en desarrollo, quedan en memoria. Las áreas, que lee de auth (ADR-021), todavía solo existen en memoria. El catálogo (`GET /procedure-types`, público) muestra la última versión de cada tipo de trámite y, como requisitos, solo lo que piden los pasos del titular; un requisito obligatorio en alguno de esos pasos es obligatorio. Si una versión no coincide con su hash o no se puede leer, el catálogo entero falla. En desarrollo (`SIGTA_ENV=development`) el servidor publica un trámite de ejemplo inventado, para que el catálogo tenga qué mostrar, solo si ese tipo de trámite todavía no tiene versiones. Todavía no hay un endpoint para publicar: hoy solo publica ese arranque en desarrollo (`publishDevProcedureType`, en `cmd/http.go`).
 
+### Documentos
+
+Cada documento que pide un paso declara sus tipos aceptados y su tamaño máximo (`accepted_types` y `max_size`). Quien actúa sobre el paso abierto adjunta el archivo con `POST /procedures/{procedureId}/documents`, un formulario multipart con dos partes, en este orden: `document`, el identificador del documento, y `file`, el archivo.
+
+- El tipo sale del contenido, no del nombre ni del tipo que manda el navegador (`http.DetectContentType`). El tamaño se controla mientras se lee: un archivo que pasa del máximo se corta sin terminar de leerlo.
+- El archivo se guarda en disco, en `SIGTA_DOCUMENTS_DIR`, con el nombre del hash SHA-256 de su contenido; el registro del documento guarda el hash, el tamaño, el tipo, el nombre original (limpio de rutas y caracteres de control), el paso y quién lo subió. Un archivo nuevo para el mismo documento no borra el anterior: el actual es el último (`domain.Current`).
+- Lista y descarga los documentos solo quien ve el trámite. La descarga va como adjunto y con `X-Content-Type-Options: nosniff`, para que el navegador no ejecute lo que se subió.
+- Los trámites y el registro de los documentos todavía están en memoria: se pierden al reiniciar, aunque los archivos queden en la carpeta.
+
 ## Base de datos
 
 Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.
