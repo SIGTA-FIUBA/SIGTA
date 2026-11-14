@@ -43,12 +43,15 @@ type documentWorld struct {
 	procedures  movableProcedures
 	documents   *memory.DocumentRepository
 	service     *application.DocumentService
+	opener      *application.ProcedureService
 	dir         string
 
 	known     map[string]bool
 	procedure domain.Procedure
 	nextID    int
 
+	viewer     string
+	view       input.ProcedureView
 	attached   domain.Document
 	content    []byte
 	downloaded []byte
@@ -85,6 +88,8 @@ func registerDocumentSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the procedure is not found$`, func() error { return w.thenFails(domain.ErrProcedureNotFound) })
 	sc.Then(`^the document store keeps the file under the SHA-256 digest of its content$`, w.thenStoredByDigest)
 	sc.Then(`^the record of the document names that digest and its size$`, w.thenRecordNamesDigest)
+
+	registerDetailSteps(sc, w)
 }
 
 func (w *documentWorld) setUp() error {
@@ -113,8 +118,8 @@ func (w *documentWorld) setUp() error {
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	w.documents = memory.NewDocumentRepository()
-	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
-	w.service = application.NewDocumentService(procedures, w.documents, files, w.newID, time.Now)
+	w.opener = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+	w.service = application.NewDocumentService(w.opener, w.documents, files, w.newID, time.Now)
 	return nil
 }
 
