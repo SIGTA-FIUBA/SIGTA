@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -44,12 +43,14 @@ func openProcedureVersions(ctx context.Context, cfg config, logger *slog.Logger)
 func openFiles(cfg config, logger *slog.Logger) (output.Files, error) {
 	dir := cfg.documentsDir
 	if dir == "" {
-		// loadConfig asks for a directory everywhere but development.
-		dir = filepath.Join(os.TempDir(), "sigta-documents")
-		logger.Warn("SIGTA_DOCUMENTS_DIR is not set: the documents go to a temporary directory", "dir", dir)
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("documents directory %s: %w", dir, err)
+		// loadConfig asks for a directory everywhere but development. A new
+		// one each time, since the records of the documents are in memory and
+		// another user of the machine could have created a fixed one.
+		var err error
+		if dir, err = os.MkdirTemp("", "sigta-documents-"); err != nil {
+			return nil, fmt.Errorf("documents directory: %w", err)
 		}
+		logger.Warn("SIGTA_DOCUMENTS_DIR is not set: the documents go to a temporary directory", "dir", dir)
 	}
 	return disk.NewFiles(dir)
 }
