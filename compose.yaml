@@ -31,6 +31,7 @@ services:
     command: ["migrate"]
     environment:
       SIGTA_MIGRATIONS_DATABASE_URL: postgres://backend_migrations:backend_migrations@db:5432/sigta?sslmode=disable
+      SIGTA_ENV: development
     depends_on:
       db:
         condition: service_healthy
