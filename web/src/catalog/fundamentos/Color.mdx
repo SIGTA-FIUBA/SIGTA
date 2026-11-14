@@ -1,0 +1,45 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { BrandColors, ColorScale, TokenTable } from '../blocks'
+
+<Meta title="Fundamentos/Color" />
+
+# Color
+
+Cada muestra indica su contraste sobre blanco. El texto necesita al menos 4,5:1 (marca "texto"); los íconos y bordes, 3:1 (marca "gráficos").
+
+## Marca
+
+Los colores del logo, para el logo y lo que lo rodea.
+
+<BrandColors />
+
+## Primario: `fiuba`
+
+La escala de la interfaz. El tono 5 es el celeste del logo de la FIUBA: sobre blanco no alcanza el contraste del texto, así que botones y links usan el tono 7 y el hover el 8. En las pantallas se nombra por la escala (`color="fiuba"`, `bg="fiuba.0"`) o como el primario, nunca con el hexadecimal.
+
+<ColorScale name="fiuba" />
+
+## Grises
+
+Los de Mantine. El fondo de las páginas es `gray.0` y el texto atenuado (`c="dimmed"`) es `gray.7`.
+
+<ColorScale name="gray" />
+
+## Estados
+
+| Color    | Uso                                                            |
+| -------- | -------------------------------------------------------------- |
+| Primario | "En la Secretaría", acciones, links, foco                      |
+| `orange` | "En evaluación externa"                                        |
+| `gray`   | "Pendiente del titular"                                        |
+| `red`    | Solo errores (`Alert color="red"`). Si decora, deja de avisar. |
+
+<ColorScale name="orange" />
+
+<ColorScale name="red" />
+
+## Tokens
+
+<TokenTable path="color" />
+
+<TokenTable path="theme" />

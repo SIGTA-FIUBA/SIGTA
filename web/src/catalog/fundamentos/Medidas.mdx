@@ -1,0 +1,40 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { Radii, Shadows, Spacing, TokenTable } from '../blocks'
+
+<Meta title="Fundamentos/Medidas" />
+
+# Medidas
+
+Todas las medidas son una escala de `xs` a `xl`. En las pantallas se escribe el nombre (`p="md"`, `gap="sm"`), nunca un número: un valor suelto es una decisión de diseño que nadie tomó.
+
+## Espaciado
+
+Márgenes, rellenos y separaciones (`m`, `p`, `gap`, `spacing`).
+
+<Spacing />
+
+## Radios
+
+El radio por defecto lo usan todos los componentes que no dicen otro. Cada componente apunta a un token propio (`component.button.radius`, por ejemplo), así que se puede cambiar el de uno solo sin tocar el resto.
+
+<Radii />
+
+## Sombras
+
+Un panel normal no tiene sombra, tiene borde (`Paper withBorder`). La sombra es para lo que flota (menús, recuadros del menú lateral) o para el panel interactivo cuando el puntero pasa por encima.
+
+<Shadows />
+
+## Anchos de pantalla
+
+Por debajo de `sm` (48em) la interfaz es la del celular: el menú se pliega y los controles miden al menos 44 px de alto.
+
+<TokenTable path="breakpoint" />
+
+## Tokens
+
+<TokenTable path="spacing" />
+
+<TokenTable path="radius" />
+
+<TokenTable path="component" />
