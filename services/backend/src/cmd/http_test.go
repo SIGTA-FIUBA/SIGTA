@@ -17,10 +17,18 @@ import (
 	"backend/src/procedure/ports/output"
 )
 
+// TestDevProcedureTypeIsPublishedOnce publishes an older example, as a
+// previous binary would have, and then starts twice: the older one stays.
 func TestDevProcedureTypeIsPublishedOnce(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewSchema(t)
 	app := schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
+	older := devProcedureType()
+	older.Definition.Name = "Trámite de ejemplo anterior"
+	stored, err := application.NewProcedureTypeService(postgres.NewProcedureVersions(app), devAreaService(), devStaff(), time.Now).Publish(ctx, older)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Each start opens the same database with a new service.
 	for range 2 {
 		versions := postgres.NewProcedureVersions(app)
@@ -30,8 +38,8 @@ func TestDevProcedureTypeIsPublishedOnce(t *testing.T) {
 		}
 	}
 	latest, err := postgres.NewProcedureVersions(app).Latest(ctx, devProcedureType().ProcedureType)
-	if err != nil || latest.Number != 1 {
-		t.Fatalf("Latest() = version %d, %v; want version 1", latest.Number, err)
+	if err != nil || latest.Number != 1 || latest.Digest != stored.Digest {
+		t.Fatalf("Latest() = version %d, %v; want the older example as version 1", latest.Number, err)
 	}
 }
 

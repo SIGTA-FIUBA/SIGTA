@@ -170,10 +170,11 @@ func devAreas() []domain.Area {
 	}}}
 }
 
-// publishDevProcedureType publishes the example only once, so that it does not
-// pile up a version on every start against a database. If another start
-// publishes it first, publishing again finds the same content and returns the
-// stored version; another content is an error.
+// publishDevProcedureType publishes the example only if its procedure type
+// has no version. A database that has one keeps it even if the example
+// changed since, so editing the example does not add a version on every
+// start. If another start publishes first, publishing again finds the same
+// content and returns the stored version; another content is an error.
 func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes) error {
 	publication := devProcedureType()
 	_, err := versions.Latest(ctx, publication.ProcedureType)
@@ -181,7 +182,7 @@ func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersi
 		return err
 	}
 	_, err = procedureTypes.Publish(ctx, publication)
-	if _, lost := errors.AsType[*input.OutdatedBaseError](err); lost {
+	if errors.Is(err, input.ErrOutdatedBase) {
 		_, err = procedureTypes.Publish(ctx, publication)
 	}
 	return err

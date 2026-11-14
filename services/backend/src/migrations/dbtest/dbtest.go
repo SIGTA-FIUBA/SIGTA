@@ -70,7 +70,7 @@ func InCI() bool { return os.Getenv("CI") != "" }
 func NewSchema(t testing.TB) *Schema {
 	t.Helper()
 	s := NewEmptySchema(t)
-	if _, err := migrations.Apply(context.Background(), s.Pool(t, MigrationsRole, ReadCommitted)); err != nil {
+	if _, err := migrations.Apply(t.Context(), s.Pool(t, MigrationsRole, ReadCommitted)); err != nil {
 		t.Fatalf("apply the migrations: %v", err)
 	}
 	return s
@@ -83,7 +83,7 @@ func NewEmptySchema(t testing.TB) *Schema {
 	t.Helper()
 	s := &Schema{Name: "test_" + strings.ToLower(rand.Text()[:12]), url: URL(t)}
 	admin := connect(t, s.url)
-	ctx := context.Background()
+	ctx := t.Context()
 	createRoles(t, admin)
 	for _, statement := range []string{
 		fmt.Sprintf("CREATE SCHEMA %s AUTHORIZATION %s", s.Name, MigrationsRole),
@@ -94,7 +94,7 @@ func NewEmptySchema(t testing.TB) *Schema {
 		}
 	}
 	t.Cleanup(func() {
-		if _, err := admin.Exec(context.Background(), fmt.Sprintf("DROP SCHEMA %s CASCADE", s.Name)); err != nil {
+		if _, err := admin.Exec(context.WithoutCancel(ctx), fmt.Sprintf("DROP SCHEMA %s CASCADE", s.Name)); err != nil {
 			t.Errorf("drop schema %s: %v", s.Name, err)
 		}
 	})
@@ -120,7 +120,7 @@ func (s *Schema) Pool(t testing.TB, role string, isolation Isolation) *pgxpool.P
 			return err
 		}
 	}
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	pool, err := pgxpool.NewWithConfig(t.Context(), config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func (s *Schema) WaitForLocks(t testing.TB, n int) {
 	admin := s.Admin(t)
 	for range 1000 {
 		var waiting int
-		if err := admin.QueryRow(context.Background(),
+		if err := admin.QueryRow(t.Context(),
 			"SELECT count(*) FROM pg_stat_activity WHERE application_name = $1 AND wait_event_type = 'Lock'", s.Name).Scan(&waiting); err != nil {
 			t.Fatal(err)
 		}
@@ -157,7 +157,7 @@ func (s *Schema) WaitForLocks(t testing.TB, n int) {
 // test packages, which run in parallel, from creating the same role twice.
 func createRoles(t testing.TB, admin *pgxpool.Pool) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	tx, err := admin.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -185,12 +185,12 @@ func createRoles(t testing.TB, admin *pgxpool.Pool) {
 
 func connect(t testing.TB, url string) *pgxpool.Pool {
 	t.Helper()
-	pool, err := pgxpool.New(context.Background(), url)
+	pool, err := pgxpool.New(t.Context(), url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if err := pool.Ping(context.Background()); err != nil {
+	if err := pool.Ping(t.Context()); err != nil {
 		t.Fatalf("connect to %s: %v", urlVariable, err)
 	}
 	return pool
