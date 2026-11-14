@@ -7,6 +7,7 @@ import (
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -60,7 +61,7 @@ func (s *ProcedureService) Open(ctx context.Context, userID, procedureID string)
 	if err != nil {
 		return input.ProcedureView{}, err
 	}
-	view := input.ProcedureView{Procedure: p}
+	view := input.ProcedureView{Procedure: p, Name: content.Definition.Name, Steps: detail.Steps(content)}
 	allowed, err := s.canAct(ctx, userID, p, content, p.OpenStep)
 	if err != nil {
 		return input.ProcedureView{}, err
