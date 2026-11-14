@@ -104,7 +104,7 @@ func run(logger *slog.Logger) error {
 			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
 		}
 	}
-	files, err := openDocuments(cfg, logger)
+	files, err := openFiles(cfg, logger)
 	if err != nil {
 		return err
 	}

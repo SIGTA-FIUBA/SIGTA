@@ -38,12 +38,12 @@ const (
 type DocumentService struct {
 	procedures *ProcedureService
 	documents  output.DocumentRepository
-	files      output.Documents
+	files      output.Files
 	newID      func() string
 	now        func() time.Time
 }
 
-func NewDocumentService(procedures *ProcedureService, documents output.DocumentRepository, files output.Documents, newID func() string, now func() time.Time) *DocumentService {
+func NewDocumentService(procedures *ProcedureService, documents output.DocumentRepository, files output.Files, newID func() string, now func() time.Time) *DocumentService {
 	return &DocumentService{procedures: procedures, documents: documents, files: files, newID: newID, now: now}
 }
 

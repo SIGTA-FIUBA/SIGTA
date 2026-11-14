@@ -17,14 +17,14 @@ import (
 	"backend/src/procedure/ports/output"
 )
 
-func newDocuments(t *testing.T) (*disk.Documents, string) {
+func newFiles(t *testing.T) (*disk.Files, string) {
 	t.Helper()
 	dir := t.TempDir()
-	documents, err := disk.NewDocuments(dir)
+	files, err := disk.NewFiles(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return documents, dir
+	return files, dir
 }
 
 func filesIn(t *testing.T, dir string) []string {
@@ -41,13 +41,13 @@ func filesIn(t *testing.T, dir string) []string {
 }
 
 func TestPutAndOpen(t *testing.T) {
-	documents, dir := newDocuments(t)
+	files, dir := newFiles(t)
 	content := []byte("%PDF-1.7 constancia sintética, año 2026 \x00\xff")
 	sum := sha256.Sum256(content)
 	want := "sha256:" + hex.EncodeToString(sum[:])
 
 	for range 2 {
-		digest, size, err := documents.Put(t.Context(), bytes.NewReader(content))
+		digest, size, err := files.Put(t.Context(), bytes.NewReader(content))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestPutAndOpen(t *testing.T) {
 		t.Errorf("files = %v, want only the one named by the digest", got)
 	}
 
-	file, err := documents.Open(t.Context(), want)
+	file, err := files.Open(t.Context(), want)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,10 +96,10 @@ func (r *endlessReader) Read(p []byte) (int, error) {
 }
 
 func TestPutStopsReadingWhenTheRequestIsCanceled(t *testing.T) {
-	documents, dir := newDocuments(t)
+	files, dir := newFiles(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	content := &endlessReader{cancel: cancel}
-	if _, _, err := documents.Put(ctx, content); !errors.Is(err, context.Canceled) {
+	if _, _, err := files.Put(ctx, content); !errors.Is(err, context.Canceled) {
 		t.Errorf("Put() = %v, want context.Canceled", err)
 	}
 	if content.reads != 1 {
@@ -110,7 +110,7 @@ func TestPutStopsReadingWhenTheRequestIsCanceled(t *testing.T) {
 	}
 }
 
-func TestNewDocumentsRemovesStaleTemps(t *testing.T) {
+func TestNewFilesRemovesStaleTemps(t *testing.T) {
 	dir := t.TempDir()
 	for name, age := range map[string]time.Duration{".tmp-crashed": 2 * time.Hour, ".tmp-uploading": time.Minute} {
 		path := filepath.Join(dir, name)
@@ -122,7 +122,7 @@ func TestNewDocumentsRemovesStaleTemps(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := disk.NewDocuments(dir); err != nil {
+	if _, err := disk.NewFiles(dir); err != nil {
 		t.Fatal(err)
 	}
 	if got := filesIn(t, dir); len(got) != 1 || got[0] != ".tmp-uploading" {
@@ -142,8 +142,8 @@ func TestPutLeavesNothingWhenItFails(t *testing.T) {
 		{"the request is canceled", canceled, strings.NewReader("contenido")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			documents, dir := newDocuments(t)
-			if _, _, err := documents.Put(tc.ctx, tc.content); err == nil {
+			files, dir := newFiles(t)
+			if _, _, err := files.Put(tc.ctx, tc.content); err == nil {
 				t.Error("Put() = nil, want an error")
 			}
 			if got := filesIn(t, dir); len(got) != 0 {
@@ -162,7 +162,7 @@ func TestOpenOnlyByDigest(t *testing.T) {
 	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	documents, err := disk.NewDocuments(dir)
+	files, err := disk.NewFiles(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,36 +186,36 @@ func TestOpenOnlyByDigest(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			file, err := documents.Open(t.Context(), tc.digest)
+			file, err := files.Open(t.Context(), tc.digest)
 			if file != nil {
 				_ = file.Close()
 			}
-			if !errors.Is(err, output.ErrNoDocument) || file != nil {
-				t.Errorf("Open(%q) = %v, %v, want no file and ErrNoDocument", tc.digest, file, err)
+			if !errors.Is(err, output.ErrNoFile) || file != nil {
+				t.Errorf("Open(%q) = %v, %v, want no file and ErrNoFile", tc.digest, file, err)
 			}
 		})
 	}
 
-	if file, err := documents.Open(t.Context(), "sha256:"+hexSum); !errors.Is(err, output.ErrNoDocument) {
+	if file, err := files.Open(t.Context(), "sha256:"+hexSum); !errors.Is(err, output.ErrNoFile) {
 		if file != nil {
 			_ = file.Close()
 		}
-		t.Errorf("Open() of a digest that was never stored = %v, want ErrNoDocument", err)
+		t.Errorf("Open() of a digest that was never stored = %v, want ErrNoFile", err)
 	}
 }
 
-func TestNewDocumentsNeedsAWritableDirectory(t *testing.T) {
+func TestNewFilesNeedsAWritableDirectory(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "file")
 	if err := os.WriteFile(file, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{filepath.Join(dir, "missing"), file} {
-		if _, err := disk.NewDocuments(path); err == nil {
-			t.Errorf("NewDocuments(%s) = nil, want an error", path)
+		if _, err := disk.NewFiles(path); err == nil {
+			t.Errorf("NewFiles(%s) = nil, want an error", path)
 		}
 	}
 	if got := filesIn(t, dir); len(got) != 1 {
-		t.Errorf("NewDocuments left files behind: %v", got)
+		t.Errorf("NewFiles left files behind: %v", got)
 	}
 }

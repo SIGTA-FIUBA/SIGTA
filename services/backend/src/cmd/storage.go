@@ -40,8 +40,8 @@ func openProcedureVersions(ctx context.Context, cfg config, logger *slog.Logger)
 	return postgres.NewProcedureVersions(pool), pool.Close, nil
 }
 
-// openDocuments returns where the files of the procedures are kept.
-func openDocuments(cfg config, logger *slog.Logger) (output.Documents, error) {
+// openFiles returns where the files of the procedures are kept.
+func openFiles(cfg config, logger *slog.Logger) (output.Files, error) {
 	dir := cfg.documentsDir
 	if dir == "" {
 		// loadConfig asks for a directory everywhere but development.
@@ -51,7 +51,7 @@ func openDocuments(cfg config, logger *slog.Logger) (output.Documents, error) {
 			return nil, fmt.Errorf("documents directory %s: %w", dir, err)
 		}
 	}
-	return disk.NewDocuments(dir)
+	return disk.NewFiles(dir)
 }
 
 // checkDatabase refuses a schema that is not migrated, and a role that can

@@ -64,7 +64,7 @@ func (m *memoryFiles) Put(_ context.Context, content io.Reader) (string, int64, 
 func (m *memoryFiles) Open(_ context.Context, digest string) (io.ReadCloser, error) {
 	data, ok := m.files[digest]
 	if !ok {
-		return nil, output.ErrNoDocument
+		return nil, output.ErrNoFile
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }

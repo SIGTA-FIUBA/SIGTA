@@ -93,7 +93,7 @@ func (w *documentWorld) setUp() error {
 		return err
 	}
 	w.dir = dir
-	files, err := disk.NewDocuments(dir)
+	files, err := disk.NewFiles(dir)
 	if err != nil {
 		return err
 	}
