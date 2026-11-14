@@ -15,4 +15,7 @@ type DocumentRepository interface {
 	// Get fails with domain.ErrDocumentNotFound if the procedure has no
 	// document with that identifier.
 	Get(ctx context.Context, procedureID, documentID string) (domain.Document, error)
+	// Digests returns the digests of the files that the documents of every
+	// procedure name, each once and in no order.
+	Digests(ctx context.Context) ([]string, error)
 }

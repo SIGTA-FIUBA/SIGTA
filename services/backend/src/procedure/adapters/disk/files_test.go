@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -217,5 +218,45 @@ func TestNewFilesNeedsAWritableDirectory(t *testing.T) {
 	}
 	if got := filesIn(t, dir); len(got) != 1 {
 		t.Errorf("NewFiles left files behind: %v", got)
+	}
+}
+
+// TestDigestsAndRemove lists only the stored files, not the temporary ones
+// nor anything else in the directory, and removes them by digest.
+func TestDigestsAndRemove(t *testing.T) {
+	files, dir := newFiles(t)
+	var stored []string
+	for _, content := range []string{"%PDF-1.7 uno", "%PDF-1.7 dos"} {
+		digest, _, err := files.Put(t.Context(), strings.NewReader(content))
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored = append(stored, digest)
+	}
+	for _, other := range []string{".tmp-upload", "notas.txt"} {
+		if err := os.WriteFile(filepath.Join(dir, other), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := files.Digests(t.Context())
+	slices.Sort(got)
+	slices.Sort(stored)
+	if err != nil || !slices.Equal(got, stored) {
+		t.Fatalf("Digests() = %v, %v; want %v", got, err, stored)
+	}
+
+	for range 2 {
+		if err := files.Remove(t.Context(), stored[0]); err != nil {
+			t.Fatalf("Remove(%s) = %v", stored[0], err)
+		}
+	}
+	if _, err := files.Open(t.Context(), stored[0]); !errors.Is(err, output.ErrNoFile) {
+		t.Errorf("Open() of a removed file = %v, want ErrNoFile", err)
+	}
+	if err := files.Remove(t.Context(), "sha256:../notas.txt"); !errors.Is(err, output.ErrNoFile) {
+		t.Errorf("Remove() of an invalid digest = %v, want ErrNoFile", err)
+	}
+	if got := len(filesIn(t, dir)); got != 3 {
+		t.Errorf("%d entries left, want the other stored file and the two that are not stored files", got)
 	}
 }

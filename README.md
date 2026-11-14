@@ -233,7 +233,7 @@ flowchart LR
 | Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012) y que el rol de la aplicación solo puede leer y agregar (ADR-022); en desarrollo sin base, un adaptador en memoria | Elegido |
 | Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
-| Documentos | Sistema de archivos, con cada documento nombrado por el hash SHA-256 que calcula el servidor; almacenamiento compatible con S3 si la infraestructura lo ofrece. El adaptador de disco existe, pero nada lo usa todavía: el volumen y su configuración llegan con la carga de documentos | Elegido |
+| Documentos | Sistema de archivos, con cada documento nombrado por el hash SHA-256 que calcula el servidor; almacenamiento compatible con S3 si la infraestructura lo ofrece. Hoy se usa el adaptador de disco, sobre un volumen del backend | Elegido |
 | Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
 | Identidad | Cuenta de Google de la UBA; un adaptador falso en desarrollo y pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |

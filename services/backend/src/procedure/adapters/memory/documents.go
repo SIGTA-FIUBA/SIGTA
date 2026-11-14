@@ -50,3 +50,17 @@ func (r *DocumentRepository) Get(_ context.Context, procedureID, documentID stri
 	}
 	return r.documents[i], nil
 }
+
+func (r *DocumentRepository) Digests(_ context.Context) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	seen := map[string]bool{}
+	var digests []string
+	for _, d := range r.documents {
+		if !seen[d.Digest] {
+			seen[d.Digest] = true
+			digests = append(digests, d.Digest)
+		}
+	}
+	return digests, nil
+}

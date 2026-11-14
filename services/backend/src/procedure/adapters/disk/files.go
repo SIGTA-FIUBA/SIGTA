@@ -121,6 +121,38 @@ func (f *Files) Open(_ context.Context, digest string) (io.ReadCloser, error) {
 	return file, nil
 }
 
+func (f *Files) Digests(_ context.Context) ([]string, error) {
+	entries, err := os.ReadDir(f.dir)
+	if err != nil {
+		return nil, fmt.Errorf("list files: %w", err)
+	}
+	var digests []string
+	for _, entry := range entries {
+		// The temporary files and anything else in the directory are not
+		// named by a digest.
+		if digest := digestPrefix + entry.Name(); entry.Type().IsRegular() && validDigest.MatchString(digest) {
+			digests = append(digests, digest)
+		}
+	}
+	return digests, nil
+}
+
+func (f *Files) Remove(_ context.Context, digest string) error {
+	if !validDigest.MatchString(digest) {
+		return fmt.Errorf("%w: invalid digest %q", output.ErrNoFile, digest)
+	}
+	err := os.Remove(filepath.Join(f.dir, digest[len(digestPrefix):]))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove file %s: %w", digest, err)
+	}
+	// Like the rename of Put, the removal is durable once the directory is
+	// synced.
+	if err := syncDir(f.dir); err != nil {
+		return fmt.Errorf("remove file %s: %w", digest, err)
+	}
+	return nil
+}
+
 // contextReader stops reading once ctx is done, so a canceled request does
 // not keep writing its upload.
 type contextReader struct {

@@ -15,6 +15,7 @@ import (
 func TestDocumentRepository(t *testing.T, newRepository func(t *testing.T) output.DocumentRepository) {
 	t.Run("in the order they were added", func(t *testing.T) { inOrder(t, newRepository(t)) })
 	t.Run("only in their procedure", func(t *testing.T) { onlyInTheirProcedure(t, newRepository(t)) })
+	t.Run("digests of every procedure", func(t *testing.T) { digestsOfEveryProcedure(t, newRepository(t)) })
 }
 
 func document(id, procedureID, requirement string) domain.Document {
@@ -71,5 +72,16 @@ func onlyInTheirProcedure(t *testing.T, r output.DocumentRepository) {
 	}
 	if _, err := r.Get(t.Context(), "P-2", "D-1"); !errors.Is(err, domain.ErrDocumentNotFound) {
 		t.Errorf("Get(P-2, D-1) = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+func digestsOfEveryProcedure(t *testing.T, r output.DocumentRepository) {
+	again := document("D-3", "P-2", "statement")
+	again.Digest = "sha256:D-1"
+	addAll(t, r, document("D-1", "P-1", "statement"), document("D-2", "P-1", "annex"), again)
+	got, err := r.Digests(t.Context())
+	slices.Sort(got)
+	if want := []string{"sha256:D-1", "sha256:D-2"}; err != nil || !slices.Equal(got, want) {
+		t.Errorf("Digests() = %v, %v; want %v", got, err, want)
 	}
 }

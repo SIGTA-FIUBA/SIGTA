@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -70,6 +71,15 @@ func (m *memoryFiles) Open(_ context.Context, digest string) (io.ReadCloser, err
 		return nil, output.ErrNoFile
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+func (m *memoryFiles) Digests(context.Context) ([]string, error) {
+	return slices.Collect(maps.Keys(m.files)), nil
+}
+
+func (m *memoryFiles) Remove(_ context.Context, digest string) error {
+	delete(m.files, digest)
+	return nil
 }
 
 type documentsFixture struct {
@@ -321,5 +331,30 @@ func TestCleanFileName(t *testing.T) {
 		if got := cleanFileName(tt.name); got != tt.want {
 			t.Errorf("cleanFileName(%q) = %q, want %q", tt.name, got, tt.want)
 		}
+	}
+}
+
+// TestRemoveUnreferencedFiles keeps the file of an attached document and
+// removes one that no document names, as an upload whose record failed
+// leaves.
+func TestRemoveUnreferencedFiles(t *testing.T) {
+	f := newDocumentsFixture(t)
+	d, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphan, _, err := f.files.Put(t.Context(), bytes.NewReader(pdf(200)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, err := f.service.RemoveUnreferencedFiles(t.Context())
+	if err != nil || removed != 1 {
+		t.Fatalf("RemoveUnreferencedFiles() = %d, %v; want 1, nil", removed, err)
+	}
+	if _, ok := f.files.files[orphan]; ok {
+		t.Error("the file that no document names is still stored")
+	}
+	if _, ok := f.files.files[d.Digest]; !ok {
+		t.Error("the file of the attached document was removed")
 	}
 }

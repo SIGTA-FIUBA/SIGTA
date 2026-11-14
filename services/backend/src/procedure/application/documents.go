@@ -134,6 +134,38 @@ func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documen
 	return d, content, nil
 }
 
+// RemoveUnreferencedFiles removes the stored files that no document names,
+// and returns how many it removed. They come from an upload whose record
+// failed or, while the records are in memory, from every document of the
+// previous run, which no one can reach anymore and which hold personal data.
+// It runs at startup, before serving: during an upload the file is stored
+// before its record, so it would remove a file about to be named.
+func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, error) {
+	digests, err := s.documents.Digests(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("digests of the documents: %w", err)
+	}
+	named := make(map[string]bool, len(digests))
+	for _, digest := range digests {
+		named[digest] = true
+	}
+	stored, err := s.files.Digests(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("stored files: %w", err)
+	}
+	removed := 0
+	for _, digest := range stored {
+		if named[digest] {
+			continue
+		}
+		if err := s.files.Remove(ctx, digest); err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
+}
+
 // requested returns the document if the step asks for it, as required or
 // optional.
 func requested(def definition.ProcedureTypeDefinition, stepID, documentID string) (definition.Document, error) {
