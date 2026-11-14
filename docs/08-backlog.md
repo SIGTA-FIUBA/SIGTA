@@ -60,7 +60,7 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | US08 | SIG-12 | Modelo de definición de trámite | 3 | 2 |
 | US09 | SIG-15 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | 3 |
 | US25 | SIG-24 | Configuración del segundo trámite: reconocimiento de créditos | 8 | 4 |
-| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 | 5 |
+| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 |4 |
 | US49 | SIG-48 | Configuración de cobertura: pase de universidad extranjera | 5 | 14 |
 | US50 | SIG-51 | Configuración de cobertura: intercambios académicos | 5 | 15 |
 | US51 | SIG-54 | Configuración de cobertura: pase dentro de la UBA | 5 | 16 |
