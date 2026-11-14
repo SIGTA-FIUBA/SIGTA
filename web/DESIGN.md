@@ -4,14 +4,23 @@ Reglas para construir pantallas de SIGTA. Cada regla dice por qué existe, para 
 
 ## Dónde está cada cosa
 
-| Qué                                                                          | Dónde                                                                                        |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Componentes                                                                  | [Mantine 9](https://mantine.dev), documentación para agentes en https://mantine.dev/llms.txt |
-| Aspecto: colores, tipografía, radios, valores por defecto de cada componente | `src/theme/theme.ts`, y en ningún otro lugar                                                 |
-| Componentes propios de SIGTA                                                 | `src/components/`                                                                            |
-| Marco de las páginas con sesión: encabezado y menú de la cuenta              | `src/layout/`                                                                                |
-| Tests, con la misma estructura de carpetas que `src/`                        | `tests/`                                                                                     |
-| Reglas de lint que hacen cumplir este documento                              | `.oxlintrc.json` y `lint/design-rules.js`                                                    |
+| Qué                                                                              | Dónde                                                                                          |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Componentes                                                                      | [Mantine 9](https://mantine.dev), documentación para agentes en https://mantine.dev/llms.txt   |
+| Aspecto: colores, tipografía, radios, valores por defecto de cada componente     | `src/theme/tokens.json`, que `src/theme/theme.ts` convierte en el tema, y en ningún otro lugar |
+| Catálogo de diseño: marca, fundamentos y cada componente con el aspecto de SIGTA | `src/catalog/` y las historias `*.stories.tsx`; se ve en `/design/` o con `npm run catalog`    |
+| Logo de SIGTA en todas sus versiones                                             | `public/brand/`                                                                                |
+| Componentes propios de SIGTA                                                     | `src/components/`                                                                              |
+| Marco de las páginas con sesión: encabezado y menú de la cuenta                  | `src/layout/`                                                                                  |
+| Tests, con la misma estructura de carpetas que `src/`                            | `tests/`                                                                                       |
+| Reglas de lint que hacen cumplir este documento                                  | `.oxlintrc.json` y `lint/design-rules.js`                                                      |
+
+## Catálogo
+
+El catálogo (Storybook) muestra la marca, los tokens y cada componente con el aspecto de SIGTA. Se sirve en `/design/` junto con la aplicación (http://localhost:8000/design/) y en desarrollo se levanta con `npm run catalog` (http://localhost:6006). Para agentes, `/design/llms.txt` lista cada página y `/design/tokens.json` tiene los tokens.
+
+- **Una sola fuente de verdad.** Cada decisión de diseño es un token de `src/theme/tokens.json`, en el formato de design tokens del W3C. `theme.ts` arma el tema de Mantine con esos valores y el catálogo los muestra, así que cambiar un token (por ejemplo `component.button.radius`) cambia ese componente en todas las pantallas y en el catálogo.
+- **Cada componente nuevo entra con su historia**, en el mismo PR. Un test renderiza todas las historias, así que una historia rota hace fallar la CI.
 
 ## Reglas
 
@@ -34,7 +43,8 @@ Reglas para construir pantallas de SIGTA. Cada regla dice por qué existe, para 
 
 - **Color primario:** el celeste del logo de la FIUBA (`#009fe2`), como la escala `fiuba` del tema. Sobre blanco no alcanza el contraste del texto, así que botones y links usan el tono 7 (`#0074a6`) y el celeste puro queda para la marca: la barra lateral del menú y los fondos suaves.
 - **Texto:** el casi negro del logo (`#121516`). El texto atenuado (`dimmed`) usa el gris 7, porque el gris 6 de Mantine no llega a 4,5:1 sobre blanco.
-- **Logo:** `src/assets/fiuba-logo.png`, en el encabezado, sobre fondo blanco: sobre celeste se pierde. Es un PNG provisorio; hay que reemplazarlo por el SVG oficial que entregue la facultad.
+- **Logo de SIGTA:** en `public/brand/`, como isotipo, logotipo e isologo horizontal y vertical, con y sin descriptor, en color, color sobre fondo oscuro, negro y blanco. El catálogo los muestra en Marca/Logo.
+- **Logo de la FIUBA:** `src/assets/fiuba-logo.png`, en el encabezado, sobre fondo blanco: sobre celeste se pierde. Es un PNG provisorio; hay que reemplazarlo por el SVG oficial que entregue la facultad.
 - **Marco de las páginas:** el mismo encabezado en todas las pantallas (`layout/AppHeader`): el logo y "SIGTA" a la izquierda, como link al inicio, y las acciones a la derecha. En las pantallas con sesión, y menú en una barra lateral celeste (`NavLink variant="menu"`). Cada opción es un recuadro blanco con texto oscuro e ícono; la página actual se rellena en azul oscuro con texto blanco. Junto a la bandeja va la cantidad de trámites con acción requerida y, abajo, en otro recuadro blanco, quién tiene la sesión y con qué perfil. Sobre el celeste no va texto suelto: no alcanza el contraste. En el celular el menú se pliega detrás de un botón. Sin sesión (el catálogo público) no hay menú: el encabezado ofrece iniciar sesión.
 - **Portada pública** (`/login`): presenta la plataforma antes del ingreso, con un título grande (`Title variant="display"`, que crece con el ancho de pantalla), una vista de ejemplo del seguimiento de un trámite hecha con los mismos componentes, lo central de la plataforma, cómo se realiza un trámite y los criterios. No enumera los tipos de trámite: la plataforma va a sumar más, y el catálogo ya los lista. Es la única pantalla con esa composición; las pantallas de trabajo siguen siendo densas.
 - **Colores de estado:** "En la Secretaría" en el primario, "En evaluación externa" en naranja y "Pendiente del titular" en gris. El rojo sigue reservado para errores.
@@ -51,4 +61,6 @@ Criterios tomados de una revisión de diseño para que la plataforma se sienta m
 
 ## A confirmar
 
-- La tipografía institucional. Hasta que se defina, es la del sistema.
+- La tipografía institucional. Hasta que se defina, la interfaz usa la del sistema; el logo de SIGTA usa Montserrat, ya convertida en trazos.
+- La paleta: los colores del logo de SIGTA (`color.brand`) y la escala `fiuba` de la interfaz son distintos. Falta decidir si la interfaz adopta los del logo.
+- Las reglas de uso del logo (márgenes, tamaño mínimo, fondos), que en el catálogo son una propuesta.
