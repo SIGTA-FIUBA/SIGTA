@@ -95,7 +95,7 @@ func TestCheckRefusesAnotherSchema(t *testing.T) {
 		change string
 		want   error
 	}{
-		{"a migration that was not applied", "DELETE FROM schema_migrations WHERE name = '0001_procedures.sql'", migrations.ErrPending},
+		{"a migration that was not applied", "DELETE FROM schema_migrations WHERE name = (SELECT max(name) FROM schema_migrations)", migrations.ErrPending},
 		{"a migration edited after it was applied", "UPDATE schema_migrations SET checksum = 'edited'", migrations.ErrChanged},
 		{"a migration this binary does not have", "INSERT INTO schema_migrations (name, checksum) VALUES ('9999_newer.sql', 'x')", migrations.ErrUnknown},
 	} {
