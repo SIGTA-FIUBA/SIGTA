@@ -231,6 +231,7 @@ flowchart LR
 | Puerto de salida | Adaptadores | Estado |
 | --- | --- | --- |
 | Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012) y que el rol de la aplicación solo puede leer y agregar (ADR-022); en desarrollo sin base, un adaptador en memoria | Elegido |
+| Borradores de tipos de trámite | Una tabla en PostgreSQL, con un borrador por tipo de trámite y un número de revisión para que dos ediciones no se pisen; en desarrollo sin base, un adaptador en memoria | Elegido |
 | Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
 | Documentos | Sistema de archivos, con cada documento nombrado por el hash SHA-256 que calcula el servidor; almacenamiento compatible con S3 si la infraestructura lo ofrece. Hoy se usa el adaptador de disco, sobre un volumen del backend | Elegido |
@@ -243,7 +244,7 @@ En el código, el servicio de trámites se divide primero por módulo y, dentro 
 | Ruta en `services/backend/src/` | Contenido |
 | --- | --- |
 | `auth/` | Ingreso y sesiones, áreas, membresías y administradores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
-| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, `engine/`, que lo avanza cuando se confirma su paso abierto, y `submission/`, lo que se envía para iniciarlo (ADR-016, ADR-023). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
+| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, `engine/`, que lo avanza cuando se confirma su paso abierto, `submission/`, lo que se envía para iniciarlo, y `draft/`, el borrador de un tipo de trámite que una persona propone y otra aprueba (ADR-013, ADR-016, ADR-023). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
 | `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
 | `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
 
