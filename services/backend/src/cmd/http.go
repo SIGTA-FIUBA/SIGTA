@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"backend/src/api"
@@ -108,7 +110,35 @@ func run(logger *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
-	return server.ListenAndServe()
+	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancelStop()
+	return serve(stop, server, server.ListenAndServe)
+}
+
+// shutdownTimeout is how long the requests in flight have to finish once the
+// server is asked to stop. Docker waits 10 seconds before it kills it.
+const shutdownTimeout = 8 * time.Second
+
+// serve runs listen until stop is done, and then lets the requests in flight
+// finish before it returns, so that they do not lose the database that the
+// deferred functions of run close.
+func serve(stop context.Context, server *http.Server, listen func() error) error {
+	failed := make(chan error, 1)
+	go func() { failed <- listen() }()
+	select {
+	case err := <-failed:
+		return err
+	case <-stop.Done():
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shut down: %w", err)
+	}
+	if err := <-failed; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
 func peopleOf(cfg config, areas []domain.Area) (people, error) {
