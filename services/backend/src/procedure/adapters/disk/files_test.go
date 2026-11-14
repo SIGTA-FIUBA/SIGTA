@@ -260,3 +260,22 @@ func TestDigestsAndRemove(t *testing.T) {
 		t.Errorf("%d entries left, want the other stored file and the two that are not stored files", got)
 	}
 }
+
+// TestOpenRefusesACorruptFile changes a stored file on disk, as a failing disk
+// or a mistaken restore would.
+func TestOpenRefusesACorruptFile(t *testing.T) {
+	files, dir := newFiles(t)
+	digest, _, err := files.Put(t.Context(), strings.NewReader("%PDF-1.7 original"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, digest[len("sha256:"):]), []byte("%PDF-1.7 cambiado"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if file, err := files.Open(t.Context(), digest); !errors.Is(err, output.ErrCorruptFile) {
+		if file != nil {
+			_ = file.Close()
+		}
+		t.Errorf("Open() = %v, want ErrCorruptFile", err)
+	}
+}

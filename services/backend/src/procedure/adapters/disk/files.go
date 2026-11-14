@@ -118,7 +118,28 @@ func (f *Files) Open(_ context.Context, digest string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open file %s: %w", digest, err)
 	}
+	if err := verify(file, digest); err != nil {
+		_ = file.Close()
+		return nil, err
+	}
 	return file, nil
+}
+
+// verify reads the whole file before any of it is sent: checking while
+// sending would notice a corrupt file only after the client had all of it.
+// A file is at most api.MaxRequestBytes, so reading it twice is cheap.
+func verify(file *os.File, digest string) error {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return fmt.Errorf("open file %s: %w", digest, err)
+	}
+	if hex.EncodeToString(hash.Sum(nil)) != digest[len(digestPrefix):] {
+		return fmt.Errorf("%w: %s", output.ErrCorruptFile, digest)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("open file %s: %w", digest, err)
+	}
+	return nil
 }
 
 func (f *Files) Digests(_ context.Context) ([]string, error) {

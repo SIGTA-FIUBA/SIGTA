@@ -10,6 +10,9 @@ import (
 // name a stored file.
 var ErrNoFile = errors.New("file not found")
 
+// ErrCorruptFile is a stored file whose content no longer has its digest.
+var ErrCorruptFile = errors.New("stored file does not match its digest")
+
 // Files stores the files of the procedures under the SHA-256 digest of
 // their content, which the store computes itself instead of trusting the
 // client. The same content is stored once, and a stored file is never changed:
@@ -19,7 +22,8 @@ type Files interface {
 	// The file is durable when Put returns, so the record that names it is
 	// written after it and never points to a missing file.
 	Put(ctx context.Context, content io.Reader) (digest string, size int64, err error)
-	// Open fails with ErrNoFile if no file has that digest.
+	// Open fails with ErrNoFile if no file has that digest, and with
+	// ErrCorruptFile if the content of the file no longer has it.
 	Open(ctx context.Context, digest string) (io.ReadCloser, error)
 	// Digests returns the digests of the stored files, in no order.
 	Digests(ctx context.Context) ([]string, error)
