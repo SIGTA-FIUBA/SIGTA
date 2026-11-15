@@ -45,11 +45,12 @@ var errMalformedUpload = errors.New("the upload must have the document and then 
 // only finds who is behind the session.
 type DocumentHandler struct {
 	auth      authinput.Authenticator
+	people    authinput.People
 	documents ports.Documents
 }
 
-func NewDocumentHandler(auth authinput.Authenticator, documents ports.Documents) *DocumentHandler {
-	return &DocumentHandler{auth: auth, documents: documents}
+func NewDocumentHandler(auth authinput.Authenticator, people authinput.People, documents ports.Documents) *DocumentHandler {
+	return &DocumentHandler{auth: auth, people: people, documents: documents}
 }
 
 func (h *DocumentHandler) ListProcedureDocuments(ctx context.Context, req api.ListProcedureDocumentsRequestObject) (api.ListProcedureDocumentsResponseObject, error) {
@@ -67,9 +68,17 @@ func (h *DocumentHandler) ListProcedureDocuments(ctx context.Context, req api.Li
 	if err != nil {
 		return nil, err
 	}
+	uploaders := make([]string, 0, len(attached))
+	for _, d := range attached {
+		uploaders = append(uploaders, d.UploadedBy)
+	}
+	names, err := h.people.Names(ctx, uploaders)
+	if err != nil {
+		return nil, err
+	}
 	response := make(api.ListProcedureDocuments200JSONResponse, 0, len(attached))
 	for _, d := range attached {
-		response = append(response, procedureDocument(d.Document, d.Current))
+		response = append(response, procedureDocument(d.Document, d.Current, names))
 	}
 	return response, nil
 }
@@ -105,7 +114,7 @@ func (h *DocumentHandler) AttachProcedureDocument(ctx context.Context, req api.A
 	case err != nil:
 		return nil, err
 	}
-	return api.AttachProcedureDocument201JSONResponse(procedureDocument(d, true)), nil
+	return api.AttachProcedureDocument201JSONResponse(procedureDocument(d, true, map[string]string{user.ID: user.Name})), nil
 }
 
 func (h *DocumentHandler) DownloadProcedureDocument(ctx context.Context, req api.DownloadProcedureDocumentRequestObject) (api.DownloadProcedureDocumentResponseObject, error) {
@@ -200,7 +209,8 @@ func rejection(err error) (string, bool) {
 	return "", false
 }
 
-func procedureDocument(d domain.Document, current bool) api.ProcedureDocument {
+// procedureDocument shows who uploaded the file by the name in names.
+func procedureDocument(d domain.Document, current bool, names map[string]string) api.ProcedureDocument {
 	return api.ProcedureDocument{
 		Id:         d.ID,
 		Document:   d.Requirement,
@@ -208,10 +218,16 @@ func procedureDocument(d domain.Document, current bool) api.ProcedureDocument {
 		FileName:   d.FileName,
 		MediaType:  d.MediaType,
 		Size:       d.Size,
-		UploadedBy: d.UploadedBy,
+		UploadedBy: person(d.UploadedBy, names),
 		UploadedAt: d.UploadedAt,
 		Current:    current,
 	}
+}
+
+// person leaves the name empty if names does not have it, as for someone who
+// is not registered.
+func person(id string, names map[string]string) api.Person {
+	return api.Person{Id: id, Name: names[id]}
 }
 
 func valueOf(s *string) string {

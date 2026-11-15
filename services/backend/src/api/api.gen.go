@@ -41,6 +41,27 @@ func (e LoginError) Valid() bool {
 	}
 }
 
+// Defines values for ProcedureState.
+const (
+	Closed        ProcedureState = "closed"
+	InOffice      ProcedureState = "in_office"
+	WithApplicant ProcedureState = "with_applicant"
+)
+
+// Valid indicates whether the value is a known member of the ProcedureState enum.
+func (e ProcedureState) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case InOffice:
+		return true
+	case WithApplicant:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProcedureStepAction.
 const (
 	ConfirmExternalFact ProcedureStepAction = "confirm_external_fact"
@@ -101,7 +122,7 @@ type CatalogEntry struct {
 	Fields        []FieldRequirement    `json:"fields"`
 	Id            int64                 `json:"id"`
 	Name          string                `json:"name"`
-	Version       int                   `json:"version"`
+	Version       int64                 `json:"version"`
 }
 
 // DocumentRequirement defines model for DocumentRequirement.
@@ -142,6 +163,12 @@ type Membership struct {
 	Scope       []int64    `json:"scope"`
 	Until       *time.Time `json:"until,omitempty"`
 	UserId      string     `json:"user_id"`
+}
+
+// NamedOption defines model for NamedOption.
+type NamedOption struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // NewArea defines model for NewArea.
@@ -196,8 +223,18 @@ type Permission struct {
 	Name string `json:"name"`
 }
 
+// Person defines model for Person.
+type Person struct {
+	Id string `json:"id"`
+
+	// Name Vacío si la persona no está registrada
+	Name string `json:"name"`
+}
+
 // ProcedureDetail defines model for ProcedureDetail.
 type ProcedureDetail struct {
+	Applicant Person `json:"applicant"`
+
 	// CanAct Si quien mira puede hacer el paso abierto
 	CanAct bool   `json:"can_act"`
 	Id     string `json:"id"`
@@ -205,13 +242,18 @@ type ProcedureDetail struct {
 	// Name Nombre del tipo de trámite
 	Name string `json:"name"`
 
-	// OpenStep Identificador del paso que espera ahora
-	OpenStep      string          `json:"open_step"`
-	ProcedureType int64           `json:"procedure_type"`
-	Steps         []ProcedureStep `json:"steps"`
+	// OpenStep Identificador del paso que espera ahora; ausente si el trámite está cerrado
+	OpenStep      *string `json:"open_step,omitempty"`
+	ProcedureType int64   `json:"procedure_type"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+	State ProcedureState `json:"state"`
+
+	// Steps Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso.
+	Steps []ProcedureStep `json:"steps"`
 
 	// Version Versión del tipo de trámite con la que se inició
-	Version int `json:"version"`
+	Version int64 `json:"version"`
 }
 
 // ProcedureDocument defines model for ProcedureDocument.
@@ -233,24 +275,36 @@ type ProcedureDocument struct {
 	// Step Paso en el que se adjuntó
 	Step       string    `json:"step"`
 	UploadedAt time.Time `json:"uploaded_at"`
-	UploadedBy string    `json:"uploaded_by"`
+	UploadedBy Person    `json:"uploaded_by"`
 }
+
+// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+type ProcedureState string
 
 // ProcedureStep defines model for ProcedureStep.
 type ProcedureStep struct {
 	// Action Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
 	Action ProcedureStepAction `json:"action"`
 
-	// AreaName Área del personal que hace el paso; vacío si lo hace el titular
-	AreaName string `json:"area_name"`
+	// Area Área del personal que hace el paso; ausente si lo hace el titular
+	Area *NamedOption `json:"area,omitempty"`
 
 	// Documents Documentos que pide el paso, en el orden en que los declara el tipo de trámite
 	Documents []DocumentRequirement `json:"documents"`
+
+	// Fields Datos que pide el paso, en el orden en que los declara el tipo de trámite
+	Fields []FieldRequirement `json:"fields"`
 
 	// Files Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece.
 	Files []ProcedureDocument `json:"files"`
 	Id    string              `json:"id"`
 	Name  string              `json:"name"`
+
+	// Next Paso que sigue si no es un paso decide; ausente en el último
+	Next *string `json:"next,omitempty"`
+
+	// Outcomes Salidas entre las que se elige en un paso decide; vacío en los demás
+	Outcomes []StepOutcome `json:"outcomes"`
 
 	// Role Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
 	Role StepRole `json:"role"`
@@ -272,6 +326,15 @@ type Role struct {
 type RolePermissions struct {
 	// Permissions Identificadores de permisos del área, al menos uno
 	Permissions []string `json:"permissions"`
+}
+
+// StepOutcome defines model for StepOutcome.
+type StepOutcome struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Next Paso al que lleva esa salida
+	Next string `json:"next"`
 }
 
 // StepRole Quién hace el paso. applicant: el titular. staff: el personal del área del paso.

@@ -8,40 +8,63 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"backend/src/procedure/application"
+	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/ports/input"
 )
 
-// registerDetailSteps adds to the world of the documents what the detail of
-// a procedure shows: the detail reads the same procedure type and files.
-func registerDetailSteps(sc *godog.ScenarioContext, w *documentWorld) {
+// detailWorld opens the procedure that the world of the documents sets up,
+// with the files attached there. Its errors go to that world, which checks
+// that the procedure is not found.
+type detailWorld struct {
+	*documentWorld
+	details *application.ProcedureDetailService
+
+	viewer string
+	detail input.ProcedureDetail
+}
+
+func registerDetailSteps(sc *godog.ScenarioContext, documents *documentWorld) {
+	w := &detailWorld{documentWorld: documents}
+	// It runs after the Before of the documents, which builds what it uses.
+	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
+		procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+		w.details = application.NewProcedureDetailService(procedures, w.documents)
+		return ctx, nil
+	})
+
+	sc.Given(`^the procedure has no open step$`, func() error { return w.givenMovedOn("") })
+
 	sc.When(`^"([^"]*)" opens the procedure$`, w.open)
 
 	sc.Then(`^they see these steps:$`, w.thenSteps)
 	sc.Then(`^the open step is "([^"]*)", done by (.+)$`, w.thenOpenStep)
+	sc.Then(`^the procedure is (with the applicant|in an office|closed)$`, w.thenState)
 	sc.Then(`^it is up to them$`, func() error { return w.thenTurn(true) })
 	sc.Then(`^it is not up to them$`, func() error { return w.thenTurn(false) })
 	sc.Then(`^the "([^"]*)" shows the file "([^"]*)"$`, w.thenShowsFile)
 	sc.Then(`^the "([^"]*)" shows no file$`, func(requirement string) error { return w.thenShowsFile(requirement, "") })
 }
 
-func (w *documentWorld) open(user string) {
+func (w *detailWorld) open(user string) {
 	w.viewer = user
-	w.view, w.err = w.service.Detail(context.Background(), user, w.procedure.ID)
+	w.detail, w.err = w.details.Detail(context.Background(), user, w.procedure.ID)
 }
 
 func doneBy(s detail.Step) string {
 	if s.Step.Role == definition.RoleApplicant {
 		return "the applicant"
 	}
-	return s.AreaName
+	return s.Area.Name
 }
 
-func (w *documentWorld) thenSteps(table *godog.Table) error {
+func (w *detailWorld) thenSteps(table *godog.Table) error {
 	if w.err != nil {
 		return w.err
 	}
-	steps := w.view.Steps
+	steps := w.detail.Steps
 	if len(steps) != len(table.Rows)-1 {
 		return fmt.Errorf("got %d steps, want %d", len(steps), len(table.Rows)-1)
 	}
@@ -59,12 +82,12 @@ func (w *documentWorld) thenSteps(table *godog.Table) error {
 	return nil
 }
 
-func (w *documentWorld) thenOpenStep(step, by string) error {
+func (w *detailWorld) thenOpenStep(step, by string) error {
 	if w.err != nil {
 		return w.err
 	}
-	for _, s := range w.view.Steps {
-		if s.Step.ID != w.view.Procedure.OpenStep {
+	for _, s := range w.detail.Steps {
+		if s.Step.ID != w.detail.Procedure.OpenStep {
 			continue
 		}
 		if s.Step.ID != step || doneBy(s) != by {
@@ -72,27 +95,43 @@ func (w *documentWorld) thenOpenStep(step, by string) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("the open step %s is not among the steps", w.view.Procedure.OpenStep)
+	return fmt.Errorf("the open step %s is not among the steps", w.detail.Procedure.OpenStep)
 }
 
-func (w *documentWorld) thenTurn(want bool) error {
+var states = map[string]domain.State{
+	"with the applicant": domain.StateWithApplicant,
+	"in an office":       domain.StateInOffice,
+	"closed":             domain.StateClosed,
+}
+
+func (w *detailWorld) thenState(state string) error {
 	if w.err != nil {
 		return w.err
 	}
-	if w.view.CanAct() != want {
-		return fmt.Errorf("%s can act on the open step: %t, want %t", w.viewer, w.view.CanAct(), want)
+	if w.detail.State != states[state] {
+		return fmt.Errorf("the procedure is %s, want %s", w.detail.State, states[state])
+	}
+	return nil
+}
+
+func (w *detailWorld) thenTurn(want bool) error {
+	if w.err != nil {
+		return w.err
+	}
+	if w.detail.CanAct != want {
+		return fmt.Errorf("%s can act on the open step: %t, want %t", w.viewer, w.detail.CanAct, want)
 	}
 	return nil
 }
 
 // thenShowsFile looks for the file next to the requirement in every step of
 // the detail that asks for it.
-func (w *documentWorld) thenShowsFile(requirement, name string) error {
+func (w *detailWorld) thenShowsFile(requirement, name string) error {
 	if w.err != nil {
 		return w.err
 	}
 	asked := false
-	for _, s := range w.view.Steps {
+	for _, s := range w.detail.Steps {
 		if !slices.ContainsFunc(s.Documents, func(r definition.DocumentRequirement) bool { return r.Document.ID == requirement }) {
 			continue
 		}

@@ -49,15 +49,15 @@ type documentWorld struct {
 	procedure domain.Procedure
 	nextID    int
 
-	viewer     string
-	view       input.ProcedureView
 	attached   domain.Document
 	content    []byte
 	downloaded []byte
 	err        error
 }
 
-func registerDocumentSteps(sc *godog.ScenarioContext) {
+// registerDocumentSteps returns its world so that the detail of a procedure
+// can share the procedure type, the staff and the procedure it sets up.
+func registerDocumentSteps(sc *godog.ScenarioContext) *documentWorld {
 	w := &documentWorld{known: map[string]bool{}}
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		return ctx, w.setUp()
@@ -87,8 +87,7 @@ func registerDocumentSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the procedure is not found$`, func() error { return w.thenFails(domain.ErrProcedureNotFound) })
 	sc.Then(`^the document store keeps the file under the SHA-256 digest of its content$`, w.thenStoredByDigest)
 	sc.Then(`^the record of the document names that digest and its size$`, w.thenRecordNamesDigest)
-
-	registerDetailSteps(sc, w)
+	return w
 }
 
 func (w *documentWorld) setUp() error {

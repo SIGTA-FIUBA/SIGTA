@@ -18,15 +18,11 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
-	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
 
-var (
-	_ input.Documents        = (*DocumentService)(nil)
-	_ input.ProcedureDetails = (*DocumentService)(nil)
-)
+var _ input.Documents = (*DocumentService)(nil)
 
 const (
 	actionAttach = "attach"
@@ -135,19 +131,6 @@ func (s *DocumentService) List(ctx context.Context, userID, procedureID string) 
 		attached = append(attached, input.AttachedDocument{Document: d, Current: current[d.ID]})
 	}
 	return attached, nil
-}
-
-func (s *DocumentService) Detail(ctx context.Context, userID, procedureID string) (input.ProcedureView, error) {
-	view, err := s.procedures.Open(ctx, userID, procedureID)
-	if err != nil {
-		return input.ProcedureView{}, err
-	}
-	documents, err := s.documents.List(ctx, procedureID)
-	if err != nil {
-		return input.ProcedureView{}, fmt.Errorf("documents of %s: %w", procedureID, err)
-	}
-	view.Steps = detail.WithFiles(view.Steps, documents)
-	return view, nil
 }
 
 func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documentID string) (domain.Document, io.ReadCloser, error) {

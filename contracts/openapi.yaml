@@ -308,10 +308,10 @@ paths:
       summary: Detalle de un trámite
       description: >
         Para quien puede ver el trámite: su titular y el personal de las áreas
-        por las que pasa. Muestra los pasos de la versión con la que se inició,
-        en el orden en que los declara, con quién hace cada uno y los
-        documentos que pide, y cuál es el paso abierto. Para quien no lo ve,
-        el trámite no existe.
+        por las que pasa. Muestra su estado, su titular, el paso abierto y los
+        pasos de la versión con la que se inició, con quién hace cada uno, los
+        datos y documentos que pide y sus salidas. Para quien no lo ve, el
+        trámite no existe.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/ProcedureId"
@@ -498,6 +498,42 @@ components:
         lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
         del dominio institucional.
       enum: [state_mismatch, rejected, domain_not_allowed]
+    ProcedureState:
+      type: string
+      description: >
+        Se deriva del paso abierto. with_applicant: espera al titular.
+        in_office: lo tiene el personal. closed: no tiene paso abierto. No es
+        el resultado del trámite, que no se modela. Falta referred, derivado a
+        un evaluador externo, que se agrega cuando se defina de dónde sale.
+      enum: [with_applicant, in_office, closed]
+    NamedOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Person:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Vacío si la persona no está registrada
+    StepOutcome:
+      type: object
+      required: [id, name, next]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        next:
+          type: string
+          description: Paso al que lleva esa salida
     StepRole:
       type: string
       description: >
@@ -543,6 +579,7 @@ components:
           format: int64
         version:
           type: integer
+          format: int64
         name:
           type: string
         description:
@@ -734,7 +771,7 @@ components:
           type: string
     ProcedureDetail:
       type: object
-      required: [id, procedure_type, version, name, open_step, can_act, steps]
+      required: [id, procedure_type, version, name, state, applicant, can_act, steps]
       properties:
         id:
           type: string
@@ -743,23 +780,32 @@ components:
           format: int64
         version:
           type: integer
+          format: int64
           description: Versión del tipo de trámite con la que se inició
         name:
           type: string
           description: Nombre del tipo de trámite
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        applicant:
+          $ref: "#/components/schemas/Person"
         open_step:
           type: string
-          description: Identificador del paso que espera ahora
+          description: Identificador del paso que espera ahora; ausente si el trámite está cerrado
         can_act:
           type: boolean
           description: Si quien mira puede hacer el paso abierto
         steps:
           type: array
+          description: >
+            Los pasos en el orden en que los declara el tipo de trámite. No es
+            necesariamente el recorrido, porque un paso puede volver a uno
+            anterior: el recorrido lo dicen next y las salidas de cada paso.
           items:
             $ref: "#/components/schemas/ProcedureStep"
     ProcedureStep:
       type: object
-      required: [id, name, action, role, area_name, documents, files]
+      required: [id, name, action, role, fields, documents, outcomes, files]
       properties:
         id:
           type: string
@@ -775,14 +821,28 @@ components:
           enum: [enter_data, upload_document, confirm_external_fact, decide]
         role:
           $ref: "#/components/schemas/StepRole"
-        area_name:
-          type: string
-          description: Área del personal que hace el paso; vacío si lo hace el titular
+        area:
+          description: Área del personal que hace el paso; ausente si lo hace el titular
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        fields:
+          type: array
+          description: Datos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
         documents:
           type: array
           description: Documentos que pide el paso, en el orden en que los declara el tipo de trámite
           items:
             $ref: "#/components/schemas/DocumentRequirement"
+        outcomes:
+          type: array
+          description: Salidas entre las que se elige en un paso decide; vacío en los demás
+          items:
+            $ref: "#/components/schemas/StepOutcome"
+        next:
+          type: string
+          description: Paso que sigue si no es un paso decide; ausente en el último
         files:
           type: array
           description: >
@@ -812,7 +872,7 @@ components:
           format: int64
           description: Tamaño en bytes
         uploaded_by:
-          type: string
+          $ref: "#/components/schemas/Person"
         uploaded_at:
           type: string
           format: date-time

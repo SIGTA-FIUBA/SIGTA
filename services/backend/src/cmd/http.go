@@ -117,7 +117,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, memberships, newID)
-	documents := procedureapp.NewDocumentService(procedures, proceduremem.NewDocumentRepository(), files, newID, time.Now)
+	documentRepository := proceduremem.NewDocumentRepository()
+	documents := procedureapp.NewDocumentService(procedures, documentRepository, files, newID, time.Now)
+	people := application.NewPeopleService(users)
 	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(startup)
 	if err != nil {
@@ -130,8 +132,8 @@ func run(logger *slog.Logger) error {
 		authHandler,
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
-		procedurerest.NewDocumentHandler(auth, documents),
-		procedurerest.NewProcedureHandler(auth, documents),
+		procedurerest.NewDocumentHandler(auth, people, documents),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository)),
 	)
 
 	server := &http.Server{

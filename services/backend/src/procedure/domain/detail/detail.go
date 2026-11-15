@@ -7,20 +7,28 @@ import (
 )
 
 // Step is a step of a procedure as its detail shows it: who does it, what
-// documents it asks for and the files that cover them.
+// fields and documents it asks for and the files that cover them. Its
+// outcomes are those of Step.
 type Step struct {
 	Step definition.Step
-	// AreaName is empty on the steps of the applicant.
-	AreaName  string
+	// Area is nil on the steps of the applicant.
+	Area      *Area
+	Fields    []definition.FieldRequirement
 	Documents []definition.DocumentRequirement
 	// Files holds the current file of each document that has one, in the
 	// order of Documents.
 	Files []domain.Document
 }
 
-// Steps returns the steps of a version in the order it declares them. Each
-// step lists its documents in the order the definition declares them; a
-// document the step asks for both ways is mandatory.
+type Area struct {
+	ID   string
+	Name string
+}
+
+// Steps returns the steps of a version in the order it declares them, which
+// is not the path a procedure follows when a step goes back to an earlier
+// one. Each step lists its fields and documents in the order the definition
+// declares them; one the step asks for both ways is mandatory.
 func Steps(c version.Content) []Step {
 	areas := map[string]string{}
 	for _, a := range c.Areas {
@@ -30,26 +38,38 @@ func Steps(c version.Content) []Step {
 	for _, s := range c.Definition.Steps {
 		step := Step{Step: s}
 		if s.Area != "" {
-			step.AreaName = areas[s.Area]
-			if step.AreaName == "" {
-				step.AreaName = s.Area
+			step.Area = &Area{ID: s.Area, Name: areas[s.Area]}
+			if step.Area.Name == "" {
+				step.Area.Name = s.Area
 			}
 		}
-		required := map[string]bool{}
-		for _, id := range s.OptionalDocuments {
-			required[id] = false
+		fields := asked(s.Fields, s.OptionalFields)
+		for _, f := range c.Definition.Fields {
+			if r, ok := fields[f.ID]; ok {
+				step.Fields = append(step.Fields, definition.FieldRequirement{Field: f, Required: r})
+			}
 		}
-		for _, id := range s.Documents {
-			required[id] = true
-		}
+		documents := asked(s.Documents, s.OptionalDocuments)
 		for _, d := range c.Definition.Documents {
-			if r, asked := required[d.ID]; asked {
+			if r, ok := documents[d.ID]; ok {
 				step.Documents = append(step.Documents, definition.DocumentRequirement{Document: d, Required: r})
 			}
 		}
 		steps = append(steps, step)
 	}
 	return steps
+}
+
+// asked says, for each id a step asks for, whether it is mandatory.
+func asked(mandatory, optional []string) map[string]bool {
+	required := map[string]bool{}
+	for _, id := range optional {
+		required[id] = false
+	}
+	for _, id := range mandatory {
+		required[id] = true
+	}
+	return required
 }
 
 // WithFiles puts next to each document of the steps the file that covers it

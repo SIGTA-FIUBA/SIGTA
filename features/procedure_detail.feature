@@ -27,15 +27,22 @@ Feature: Detail of a procedure
     Given the procedure moved on to the "<step>" step
     When "<person>" opens the procedure
     Then the open step is "<step>", done by <done by>
+    And the procedure is <state>
     And <turn>
 
     Examples:
-      | step      | person              | done by         | turn                 |
-      | documents | applicant@fi.uba.ar | the applicant   | it is up to them     |
-      | documents | reader@fi.uba.ar    | the applicant   | it is not up to them |
-      | ruling    | resolver@fi.uba.ar  | student affairs | it is up to them     |
-      | ruling    | reader@fi.uba.ar    | student affairs | it is not up to them |
-      | ruling    | applicant@fi.uba.ar | student affairs | it is not up to them |
+      | step      | person              | done by         | state              | turn                 |
+      | documents | applicant@fi.uba.ar | the applicant   | with the applicant | it is up to them     |
+      | documents | reader@fi.uba.ar    | the applicant   | with the applicant | it is not up to them |
+      | ruling    | resolver@fi.uba.ar  | student affairs | in an office       | it is up to them     |
+      | ruling    | reader@fi.uba.ar    | student affairs | in an office       | it is not up to them |
+      | ruling    | applicant@fi.uba.ar | student affairs | in an office       | it is not up to them |
+
+  Scenario: a procedure with no open step is closed and up to nobody
+    Given the procedure has no open step
+    When "applicant@fi.uba.ar" opens the procedure
+    Then the procedure is closed
+    And it is not up to them
 
   Scenario: the attached documents show next to the requirement they cover
     Given "applicant@fi.uba.ar" attached a PDF of 200 bytes named "historia.pdf" as the "transcript"

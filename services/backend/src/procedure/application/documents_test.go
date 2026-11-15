@@ -107,11 +107,13 @@ func (r *failingRecords) Add(ctx context.Context, d domain.Document) error {
 }
 
 type documentsFixture struct {
-	service    *DocumentService
-	procedures *memory.ProcedureRepository
-	documents  *memory.DocumentRepository
-	records    *failingRecords
-	files      *memoryFiles
+	service     *DocumentService
+	details     *ProcedureDetailService
+	memberships *authapp.MembershipService
+	procedures  *memory.ProcedureRepository
+	documents   *memory.DocumentRepository
+	records     *failingRecords
+	files       *memoryFiles
 	// digest is the one of the version that the procedures follow.
 	digest string
 }
@@ -145,6 +147,8 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	}
 	f.records = &failingRecords{DocumentRepository: f.documents}
 	f.service = NewDocumentService(procedures, f.records, f.files, newID, func() time.Time { return attachedAt })
+	f.details = NewProcedureDetailService(procedures, f.documents)
+	f.memberships = memberships
 	f.on(t, "P-1", "documents")
 	return f
 }
@@ -312,34 +316,6 @@ func TestListMarksTheCurrentDocuments(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: List = %v, want %v", user, got, want)
 		}
-	}
-}
-
-func TestDetailPutsTheCurrentFileNextToEachDocument(t *testing.T) {
-	f := newDocumentsFixture(t)
-	for _, u := range []input.Upload{upload("annex", "anexo.pdf", pdf(100)), upload("statement", "primera.pdf", pdf(100)), upload("statement", "segunda.pdf", pdf(100))} {
-		if _, err := f.service.Attach(t.Context(), applicant, u); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, user := range []string{applicant, reviewer} {
-		view, err := f.service.Detail(t.Context(), user, "P-1")
-		if err != nil {
-			t.Fatalf("%s: %v", user, err)
-		}
-		var got []string
-		for _, s := range view.Steps {
-			for _, d := range s.Files {
-				got = append(got, s.Step.ID+" "+d.Requirement+" "+d.FileName)
-			}
-		}
-		want := []string{"documents statement segunda.pdf", "documents annex anexo.pdf"}
-		if !slices.Equal(got, want) {
-			t.Errorf("%s: files = %v, want %v", user, got, want)
-		}
-	}
-	if _, err := f.service.Detail(t.Context(), "otra@fi.uba.ar", "P-1"); !errors.Is(err, domain.ErrProcedureNotFound) {
-		t.Errorf("someone who cannot see the procedure: err = %v, want ErrProcedureNotFound", err)
 	}
 }
 

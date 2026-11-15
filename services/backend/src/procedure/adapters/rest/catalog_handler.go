@@ -31,7 +31,7 @@ func (h *CatalogHandler) ListProcedureTypes(ctx context.Context, _ api.ListProce
 func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 	fields := make([]api.FieldRequirement, 0, len(entry.Fields))
 	for _, field := range entry.Fields {
-		fields = append(fields, api.FieldRequirement{Id: field.Field.ID, Name: field.Field.Name, Required: field.Required})
+		fields = append(fields, fieldRequirement(field))
 	}
 	documents := make([]api.DocumentRequirement, 0, len(entry.Documents))
 	for _, document := range entry.Documents {
@@ -39,7 +39,7 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 	}
 	return api.CatalogEntry{
 		Id:            entry.ProcedureType,
-		Version:       entry.Version,
+		Version:       int64(entry.Version),
 		Name:          entry.Name,
 		Description:   entry.Description,
 		Deadlines:     orEmpty(entry.Deadlines),
@@ -47,6 +47,10 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 		Fields:        fields,
 		Documents:     documents,
 	}
+}
+
+func fieldRequirement(r definition.FieldRequirement) api.FieldRequirement {
+	return api.FieldRequirement{Id: r.Field.ID, Name: r.Field.Name, Required: r.Required}
 }
 
 func documentRequirement(r definition.DocumentRequirement) api.DocumentRequirement {

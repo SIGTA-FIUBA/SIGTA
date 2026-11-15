@@ -203,7 +203,7 @@ export interface paths {
         };
         /**
          * Detalle de un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra los pasos de la versión con la que se inició, en el orden en que los declara, con quién hace cada uno y los documentos que pide, y cuál es el paso abierto. Para quien no lo ve, el trámite no existe.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas. Para quien no lo ve, el trámite no existe.
          */
         get: operations["getProcedure"];
         put?: never;
@@ -276,6 +276,26 @@ export interface components {
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
         /**
+         * @description Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+         * @enum {string}
+         */
+        ProcedureState: "with_applicant" | "in_office" | "closed";
+        NamedOption: {
+            id: string;
+            name: string;
+        };
+        Person: {
+            id: string;
+            /** @description Vacío si la persona no está registrada */
+            name: string;
+        };
+        StepOutcome: {
+            id: string;
+            name: string;
+            /** @description Paso al que lleva esa salida */
+            next: string;
+        };
+        /**
          * @description Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
          * @enum {string}
          */
@@ -300,6 +320,7 @@ export interface components {
         CatalogEntry: {
             /** Format: int64 */
             id: number;
+            /** Format: int64 */
             version: number;
             name: string;
             description: string;
@@ -396,14 +417,20 @@ export interface components {
             id: string;
             /** Format: int64 */
             procedure_type: number;
-            /** @description Versión del tipo de trámite con la que se inició */
+            /**
+             * Format: int64
+             * @description Versión del tipo de trámite con la que se inició
+             */
             version: number;
             /** @description Nombre del tipo de trámite */
             name: string;
-            /** @description Identificador del paso que espera ahora */
-            open_step: string;
+            state: components["schemas"]["ProcedureState"];
+            applicant: components["schemas"]["Person"];
+            /** @description Identificador del paso que espera ahora; ausente si el trámite está cerrado */
+            open_step?: string;
             /** @description Si quien mira puede hacer el paso abierto */
             can_act: boolean;
+            /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
         };
         ProcedureStep: {
@@ -415,10 +442,16 @@ export interface components {
              */
             action: "enter_data" | "upload_document" | "confirm_external_fact" | "decide";
             role: components["schemas"]["StepRole"];
-            /** @description Área del personal que hace el paso; vacío si lo hace el titular */
-            area_name: string;
+            /** @description Área del personal que hace el paso; ausente si lo hace el titular */
+            area?: components["schemas"]["NamedOption"];
+            /** @description Datos que pide el paso, en el orden en que los declara el tipo de trámite */
+            fields: components["schemas"]["FieldRequirement"][];
             /** @description Documentos que pide el paso, en el orden en que los declara el tipo de trámite */
             documents: components["schemas"]["DocumentRequirement"][];
+            /** @description Salidas entre las que se elige en un paso decide; vacío en los demás */
+            outcomes: components["schemas"]["StepOutcome"][];
+            /** @description Paso que sigue si no es un paso decide; ausente en el último */
+            next?: string;
             /** @description Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece. */
             files: components["schemas"]["ProcedureDocument"][];
         };
@@ -436,7 +469,7 @@ export interface components {
              * @description Tamaño en bytes
              */
             size: number;
-            uploaded_by: string;
+            uploaded_by: components["schemas"]["Person"];
             /** Format: date-time */
             uploaded_at: string;
             /** @description Si es el último que se adjuntó para ese documento; los anteriores quedan registrados */

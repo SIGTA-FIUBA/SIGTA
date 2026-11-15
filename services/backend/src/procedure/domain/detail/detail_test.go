@@ -14,9 +14,10 @@ import (
 func TestSteps(t *testing.T) {
 	content := version.Content{
 		Definition: definition.ProcedureTypeDefinition{
+			Fields:    []definition.Field{{ID: "reason"}, {ID: "phone"}},
 			Documents: []definition.Document{{ID: "annex"}, {ID: "transcript"}, {ID: "ruling"}},
 			Steps: []definition.Step{
-				{ID: "documents", Role: definition.RoleApplicant, Documents: []string{"transcript"}, OptionalDocuments: []string{"annex", "transcript"}, Next: "review"},
+				{ID: "documents", Role: definition.RoleApplicant, Fields: []string{"reason"}, OptionalFields: []string{"phone", "reason"}, Documents: []string{"transcript"}, OptionalDocuments: []string{"annex", "transcript"}, Next: "review"},
 				{ID: "review", Role: definition.RoleStaff, Area: "office", Next: "ruling"},
 				{ID: "ruling", Role: definition.RoleStaff, Area: "missing", Documents: []string{"ruling"}},
 			},
@@ -34,6 +35,13 @@ func TestSteps(t *testing.T) {
 			t.Errorf("step %d is %s, want %s", i, steps[i].Step.ID, want)
 		}
 	}
+	var fields []string
+	for _, f := range steps[0].Fields {
+		fields = append(fields, fmt.Sprintf("%s %t", f.Field.ID, f.Required))
+	}
+	if want := []string{"reason true", "phone false"}; !slices.Equal(fields, want) {
+		t.Errorf("fields of the first step = %v, want %v", fields, want)
+	}
 	var documents []string
 	for _, d := range steps[0].Documents {
 		documents = append(documents, fmt.Sprintf("%s %t", d.Document.ID, d.Required))
@@ -41,15 +49,15 @@ func TestSteps(t *testing.T) {
 	if want := []string{"annex false", "transcript true"}; !slices.Equal(documents, want) {
 		t.Errorf("documents of the first step = %v, want %v", documents, want)
 	}
-	if steps[0].AreaName != "" {
-		t.Errorf("the step of the applicant has the area %q", steps[0].AreaName)
+	if steps[0].Area != nil {
+		t.Errorf("the step of the applicant has the area %+v", *steps[0].Area)
 	}
-	if steps[1].AreaName != "Dirección de Alumnos" || len(steps[1].Documents) != 0 {
+	if a := steps[1].Area; a == nil || *a != (detail.Area{ID: "office", Name: "Dirección de Alumnos"}) || len(steps[1].Fields) != 0 || len(steps[1].Documents) != 0 {
 		t.Errorf("second step = %+v", steps[1])
 	}
 	// A version keeps the areas its steps use, so this only guards the display.
-	if steps[2].AreaName != "missing" {
-		t.Errorf("an area the version does not keep shows as %q, want its id", steps[2].AreaName)
+	if a := steps[2].Area; a == nil || a.Name != "missing" {
+		t.Errorf("an area the version does not keep shows as %+v, want its id", a)
 	}
 }
 
