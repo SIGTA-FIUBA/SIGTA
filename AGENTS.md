@@ -42,8 +42,8 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
 | Área | area | Parte de la organización a la que pertenece el personal, creada como dato salvo la Secretaría; un paso del personal es de un área | Rol, que agrupa permisos de un área: el titular no tiene área, y cada paso dice quién lo hace (`applicant` o `staff`) |
 | Salida | outcome | Opción de una decisión, con el paso al que lleva | Resultado del trámite, que no se modela |
-| Derivación | referral | Salida del trámite hacia un evaluador externo | Devolución |
-| Retorno | referral return | Vuelta del trámite desde el evaluador, con el dictamen adjunto | Resultado, que no se modela |
+| Derivación | referral | Salida del trámite hacia un evaluador externo: pasar a un paso de otra área (ADR-023) | Devolución |
+| Retorno | referral return | Vuelta del trámite al área de la que salió, con el dictamen adjunto | Resultado, que no se modela |
 | Dictamen | ruling | Lo que resuelve el evaluador; se adjunta y se comunica | Un estado del trámite |
 | Devolución | send back | Vuelta a un paso anterior, decidida por la Secretaría | Subsanación |
 | Subsanación | correction request | Pedido puntual al titular, sin cerrar ni reiniciar el trámite | Devolución |
@@ -71,7 +71,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/`, `catalog/` y `detail/` (ADR-016). Además, `api/` (código generado desde el contrato y montaje de la API), `cmd/` (arranque, configuración y el comando `migrate`) y `migrations/` (migraciones de la base, embebidas en el binario; en `schema.go`, las tablas que solo crecen y el control del rol de la aplicación; y `dbtest/` para probar contra PostgreSQL; ADR-022) |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/` y `engine/`, que avanza un trámite cuando se confirma su paso abierto (ADR-016, ADR-023). Además, `api/` (código generado desde el contrato y montaje de la API), `cmd/` (arranque, configuración y el comando `migrate`) y `migrations/` (migraciones de la base, embebidas en el binario; en `schema.go`, las tablas que solo crecen y el control del rol de la aplicación; y `dbtest/` para probar contra PostgreSQL; ADR-022) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio; en el backend, uno para la aplicación y otro, dueño de las tablas, para las migraciones) |

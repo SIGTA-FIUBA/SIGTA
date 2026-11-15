@@ -243,7 +243,7 @@ En el código, el servicio de trámites se divide primero por módulo y, dentro 
 | Ruta en `services/backend/src/` | Contenido |
 | --- | --- |
 | `auth/` | Ingreso y sesiones, áreas, membresías y administradores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
-| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/` y `detail/`, lo que muestra el detalle de un trámite (ADR-016). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
+| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, y `engine/`, que lo avanza cuando se confirma su paso abierto (ADR-016, ADR-023). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
 | `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
 | `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
 
@@ -366,6 +366,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 - **Trámites como configuración:** los cinco trámites comparten estructura, así que un tipo de trámite es una configuración que se va a editar desde la interfaz de SIGTA, sin cambiar el código. Cada versión la propone una persona y la aprueba otra (ADR-013).
 - **Un trámite en curso conserva su versión:** cada vez que se publica un cambio en un tipo de trámite, el servicio crea una versión nueva, la guarda completa con su hash, quién la propuso, quién la aprobó y cuándo, y no la modifica más. Cada trámite termina con la versión con la que empezó y los nuevos toman la última, así que un cambio de circuito no deja a un trámite a mitad de camino en un paso que ya no existe, y queda constancia de qué versión exacta siguió cada uno.
 - **La inteligencia artificial propone y una persona decide:** un error en un trámite afecta la situación académica de alguien.
+- **Derivar es cambiar de área:** confirmar un paso que lleva a otra área deriva el trámite, y volver al área de la que salió es el retorno, sin configurar nada en cada tipo de trámite (ADR-023).
 - **Los sistemas institucionales se registran, no se integran:** el personal confirma en SIGTA lo que hace en SIU Guaraní o en el expediente electrónico, y queda registrado quién lo declaró.
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
 - **Monolito modular y un solo servicio aparte:** el de inteligencia artificial se separa desde el inicio porque usa otro lenguaje y tiene su propio ciclo de evaluación. Cualquier otra separación espera a que se cumpla su disparador.
@@ -386,6 +387,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
 | Integridad del historial | Si alcanzan los permisos de la base, que ya impiden a la aplicación modificar versiones y eventos (ADR-022), o hace falta encadenar hashes para que una modificación del dueño de las tablas quede en evidencia | Equipo |
 | Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
+| Pases y derivaciones | Si un pase entre dos áreas del personal es siempre una derivación, o si hay pases internos que no cuentan días sin retorno (D-13) | Secretaría |
 | Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
 | Alcance del personal | Qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si se usa el alcance por tipo de trámite (D-12) | Secretaría |
 | Quién publica tipos de trámite | A quién de la Secretaría, y si también al equipo, se le dan los permisos para proponer y aprobar versiones (D-08) | Equipo y Secretaría |

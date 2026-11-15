@@ -43,7 +43,7 @@ Parte de la organización a la que pertenece el personal, como la Dirección de 
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
 
 **Estado del trámite**
-Situación en la que se encuentra el trámite en un momento dado, derivada del tipo de área del paso abierto: esperando al titular, en el área, derivado o cerrado. La configuración del tipo de trámite no declara estados. A confirmar con la Secretaría: si un trámite cerrado guarda su motivo de cierre (resuelto y, según se defina, desistido o vencido). El motivo de cierre no sería el resultado del trámite.
+Situación en la que se encuentra el trámite en un momento dado, derivada de su paso abierto: cerrado si no tiene, esperando al titular si el paso es del titular, derivado si tiene una derivación abierta y en el área si no (ADR-023). La configuración del tipo de trámite no declara estados. A confirmar con la Secretaría: si un trámite cerrado guarda su motivo de cierre (resuelto y, según se defina, desistido o vencido). El motivo de cierre no sería el resultado del trámite.
 
 **Resultado del trámite**
 Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. **La plataforma no lo modela ni lo interpreta** (ADR-009): lo recibe como documento y lo comunica al titular. Para la plataforma, los tres casos son el mismo evento.
@@ -52,10 +52,10 @@ Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. 
 Actor ajeno a la Secretaría que dictamina sobre el contenido académico del trámite: comisión curricular, departamento u otra unidad académica, según el trámite. No usa la plataforma (duda pendiente, ver alcance).
 
 **Derivación**
-Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de otra área, que registra el destino, la fecha y, si corresponde, el número de expediente. Si el evaluador no usa SIGTA, el paso es del área que registra su dictamen.
+Salida del trámite hacia un evaluador externo. En el modelo es pasar de un paso del personal a uno de otra área, y registra el área de origen y la de destino, quién derivó, la fecha y, si corresponde, el número de expediente (ADR-023). Si el evaluador no usa SIGTA, el paso es del área que registra su dictamen. Mientras no vuelve al área de la que salió, el trámite está derivado, y cuenta los días sin retorno desde que salió.
 
 **Retorno**
-Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009).
+Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009). En el modelo, el retorno es volver a un paso del área de la que salió la derivación (ADR-023).
 
 **Devolución**
 Vuelta del trámite a un paso anterior, decidida por la Secretaría e indicando el motivo.
