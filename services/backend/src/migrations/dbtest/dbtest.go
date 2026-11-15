@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -52,9 +53,8 @@ type Schema struct {
 // URL returns SIGTA_TEST_DATABASE_URL, and skips the test if it is not set.
 func URL(t testing.TB) string {
 	t.Helper()
-	url := os.Getenv(urlVariable)
-	if url != "" {
-		return url
+	if value := os.Getenv(urlVariable); value != "" {
+		return value
 	}
 	if InCI() {
 		t.Fatalf("%s is not set: the PostgreSQL tests must run in the continuous integration", urlVariable)
@@ -106,7 +106,52 @@ func NewEmptySchema(t testing.TB) *Schema {
 // With an empty role it stays the superuser.
 func (s *Schema) Pool(t testing.TB, role string, isolation Isolation) *pgxpool.Pool {
 	t.Helper()
-	config, err := pgxpool.ParseConfig(s.url)
+	return s.pool(t, s.url, role, isolation)
+}
+
+// MemberPool connects with a login of its own that is a member of role and
+// then takes role, as the server and the migrate command do. Unlike Pool, the
+// session user is not a superuser, so it is the only pool that passes
+// migrations.CheckApplicationRole.
+func (s *Schema) MemberPool(t testing.TB, role string, isolation Isolation) *pgxpool.Pool {
+	t.Helper()
+	return s.pool(t, s.MemberURL(t, role), role, isolation)
+}
+
+// MemberURL creates a login that is a member of role and nothing else, and
+// returns SIGTA_TEST_DATABASE_URL with that login and the schema as its
+// search_path. The login is dropped when the test ends.
+func (s *Schema) MemberURL(t testing.TB, role string) string {
+	t.Helper()
+	ctx := t.Context()
+	admin := s.Admin(t)
+	login := s.Name + "_" + role + "_" + strings.ToLower(rand.Text()[:6])
+	name := pgx.Identifier{login}.Sanitize()
+	const password = "member"
+	if _, err := admin.Exec(ctx, fmt.Sprintf("CREATE ROLE %s LOGIN PASSWORD '%s' IN ROLE %s", name, password, pgx.Identifier{role}.Sanitize())); err != nil {
+		t.Fatal(err)
+	}
+	// Registered before the pools of the login, so it runs after they close.
+	t.Cleanup(func() {
+		// DROP OWNED takes what the login created if it did not act as role.
+		if _, err := admin.Exec(context.WithoutCancel(ctx), "DROP OWNED BY "+name+"; DROP ROLE "+name); err != nil {
+			t.Errorf("drop login %s: %v", name, err)
+		}
+	})
+	u, err := url.Parse(s.url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.User = url.UserPassword(login, password)
+	query := u.Query()
+	query.Set("search_path", s.Name)
+	u.RawQuery = query.Encode()
+	return u.String()
+}
+
+func (s *Schema) pool(t testing.TB, connString, role string, isolation Isolation) *pgxpool.Pool {
+	t.Helper()
+	config, err := pgxpool.ParseConfig(connString)
 	if err != nil {
 		t.Fatal(err)
 	}

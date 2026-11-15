@@ -32,16 +32,19 @@ var immutable = []struct {
 	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest"}},
 }
 
-// CheckApplicationRole fails with ErrPrivileged if the role of pool, or a
-// role it can become, can change an immutable value: if it is a superuser,
-// can create roles, owns the table or its schema, or has UPDATE on one of the
-// columns, DELETE or TRUNCATE.
+// CheckApplicationRole fails with ErrPrivileged if the role of pool, the
+// login it connected with, or a role either of them can become, can change an
+// immutable value: if it is a superuser, can create roles, owns the table or
+// its schema, or has UPDATE on one of the columns, DELETE or TRUNCATE. The
+// login counts because SET ROLE does not drop its privileges: RESET ROLE
+// gives them back.
 func CheckApplicationRole(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, t := range immutable {
 		var role string
 		err := pool.QueryRow(ctx, `SELECT m.rolname
 			FROM pg_roles m, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-			WHERE c.oid = $1::regclass AND pg_has_role(current_user, m.oid, 'MEMBER') AND (
+			WHERE c.oid = $1::regclass
+				AND (pg_has_role(current_user, m.oid, 'MEMBER') OR pg_has_role(session_user, m.oid, 'MEMBER')) AND (
 				m.rolsuper OR m.rolcreaterole OR m.oid IN (c.relowner, n.nspowner)
 				OR has_table_privilege(m.oid, c.oid, 'DELETE')
 				OR has_table_privilege(m.oid, c.oid, 'TRUNCATE')

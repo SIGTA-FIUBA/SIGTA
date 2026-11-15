@@ -201,31 +201,34 @@ func columnsOf(t *testing.T, db *pgxpool.Pool, table string) []string {
 	return columns
 }
 
+// TestCheckApplicationRole connects as the server does, with a login that is
+// only a member of the role, except where the case is the login itself.
 func TestCheckApplicationRole(t *testing.T) {
 	ctx := t.Context()
 	for _, tc := range []struct {
 		name  string
 		grant string
-		role  string
+		pool  func(*testing.T, *dbtest.Schema) *pgxpool.Pool
 	}{
-		{"the owner of the tables", "", dbtest.MigrationsRole},
-		{"a superuser", "", ""},
-		{"UPDATE on a single column", "GRANT UPDATE (approved_by) ON procedure_type_versions TO " + dbtest.AppRole, dbtest.AppRole},
-		{"DELETE", "GRANT DELETE ON procedure_events TO " + dbtest.AppRole, dbtest.AppRole},
-		{"TRUNCATE", "GRANT TRUNCATE ON procedure_type_versions TO " + dbtest.AppRole, dbtest.AppRole},
-		{"UPDATE on the version of a procedure", "GRANT UPDATE (version_number) ON procedures TO " + dbtest.AppRole, dbtest.AppRole},
+		{"the owner of the tables", "", member(dbtest.MigrationsRole)},
+		{"a superuser", "", superuser("")},
+		{"a superuser that takes the application role", "", superuser(dbtest.AppRole)},
+		{"UPDATE on a single column", "GRANT UPDATE (approved_by) ON procedure_type_versions TO " + dbtest.AppRole, member(dbtest.AppRole)},
+		{"DELETE", "GRANT DELETE ON procedure_events TO " + dbtest.AppRole, member(dbtest.AppRole)},
+		{"TRUNCATE", "GRANT TRUNCATE ON procedure_type_versions TO " + dbtest.AppRole, member(dbtest.AppRole)},
+		{"UPDATE on the version of a procedure", "GRANT UPDATE (version_number) ON procedures TO " + dbtest.AppRole, member(dbtest.AppRole)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := dbtest.NewSchema(t)
-			if err := migrations.CheckApplicationRole(ctx, schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)); err != nil {
-				t.Fatalf("CheckApplicationRole() as %s = %v, want nil", dbtest.AppRole, err)
+			if err := migrations.CheckApplicationRole(ctx, schema.MemberPool(t, dbtest.AppRole, dbtest.ReadCommitted)); err != nil {
+				t.Fatalf("CheckApplicationRole() as a member of %s = %v, want nil", dbtest.AppRole, err)
 			}
 			if tc.grant != "" {
 				if _, err := schema.Admin(t).Exec(ctx, tc.grant); err != nil {
 					t.Fatal(err)
 				}
 			}
-			err := migrations.CheckApplicationRole(ctx, schema.Pool(t, tc.role, dbtest.ReadCommitted))
+			err := migrations.CheckApplicationRole(ctx, tc.pool(t, schema))
 			if !errors.Is(err, migrations.ErrPrivileged) {
 				t.Errorf("CheckApplicationRole() = %v, want ErrPrivileged", err)
 			}
@@ -251,11 +254,22 @@ func TestCheckApplicationRole(t *testing.T) {
 				t.Errorf("drop role %s: %v", member, err)
 			}
 		})
-		err := migrations.CheckApplicationRole(ctx, schema.Pool(t, member, dbtest.ReadCommitted))
+		err := migrations.CheckApplicationRole(ctx, schema.MemberPool(t, member, dbtest.ReadCommitted))
 		if !errors.Is(err, migrations.ErrPrivileged) {
 			t.Errorf("CheckApplicationRole() = %v, want ErrPrivileged", err)
 		}
 	})
+}
+
+// member returns a pool that logs in as a member of role and takes it.
+func member(role string) func(*testing.T, *dbtest.Schema) *pgxpool.Pool {
+	return func(t *testing.T, s *dbtest.Schema) *pgxpool.Pool { return s.MemberPool(t, role, dbtest.ReadCommitted) }
+}
+
+// superuser returns a pool that logs in as the superuser and takes role, or
+// stays the superuser with an empty role.
+func superuser(role string) func(*testing.T, *dbtest.Schema) *pgxpool.Pool {
+	return func(t *testing.T, s *dbtest.Schema) *pgxpool.Pool { return s.Pool(t, role, dbtest.ReadCommitted) }
 }
 
 func TestNoForeignKeyCascades(t *testing.T) {

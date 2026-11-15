@@ -94,7 +94,7 @@ Las tablas del servicio de trámites se crean con las migraciones de `services/b
 - Solo se usa lo que existe en PostgreSQL 11, la versión que ofrece la facultad (ver [requisitos de infraestructura](docs/12-requisitos-infraestructura-fiuba.md)).
 - `procedure_type_versions` guarda el contenido en `bytea`, tal como se hasheó: `jsonb` reordena las claves. El hash se puede recalcular en la base con `'sha256:' || encode(sha256(content), 'hex')`. La fila de `procedure_types` se crea al publicar la versión 1. Que los números de versión no tengan huecos lo garantiza el adaptador, no la base.
 - Un trámite (`procedures`) referencia su versión por tipo, número y hash, con una clave foránea. Sus eventos (`procedure_events`) solo se agregan: lo que pasa después es un evento nuevo. Por ahora las dos tablas tienen solo sus claves y la versión; el resto de sus columnas llega con las historias que inician y hacen avanzar un trámite.
-- El servidor no migra: se conecta como `backend` (o con un usuario miembro de ese rol, que toma con `SET ROLE`, igual que `migrate` con `backend_migrations`) y, si falta aplicar alguna migración o si su rol puede modificar o borrar las versiones, los eventos o la versión de un trámite, no arranca. Las aplica el comando `migrate` del mismo binario, con `SIGTA_MIGRATIONS_DATABASE_URL`; en Docker Compose lo corre el servicio `migrate` antes del backend.
+- El servidor no migra: se conecta como `backend` (o con un usuario miembro de ese rol, que toma con `SET ROLE`, igual que `migrate` con `backend_migrations`) y, si falta aplicar alguna migración o si su rol o el usuario con el que se conecta pueden modificar o borrar las versiones, los eventos o la versión de un trámite, no arranca. Por eso ese usuario no puede ser un superusuario ni miembro de `backend_migrations`, aunque tome `backend` con `SET ROLE`. Las aplica el comando `migrate` del mismo binario, con `SIGTA_MIGRATIONS_DATABASE_URL`; en Docker Compose lo corre el servicio `migrate` antes del backend.
 
 `deploy/postgres/sql/roles.sql` crea los roles y esquemas de cada servicio solo al crear el volumen de la base. Si el volumen es anterior a la persistencia de los tipos de trámite, le falta el rol de migraciones: se recrea con `docker compose down --volumes`. El comando `migrate` lo sugiere solo con `SIGTA_ENV=development`, porque en otro entorno el mismo error viene de una contraseña o un permiso mal configurado.
 
@@ -120,7 +120,7 @@ cd services/backend
 SIGTA_TEST_DATABASE_URL='postgres://postgres@localhost:5433/sigta?host=/tmp' go test ./...
 ```
 
-Si los roles no existen, las pruebas los crean sin permiso para iniciar sesión. `TestRolesOfTheDatabase`, que revisa lo que deja `roles.sql`, solo corre si la base tiene el esquema `backend`.
+Si los roles no existen, las pruebas los crean sin permiso para iniciar sesión. Las que revisan el control del rol de la aplicación se conectan, como el servidor, con usuarios propios que solo son miembros de esos roles, y los borran al terminar. `TestRolesOfTheDatabase`, que revisa lo que deja `roles.sql`, solo corre si la base tiene el esquema `backend`.
 
 Sin la variable, esas pruebas se saltean; en la integración continua, donde está definida `CI`, fallan.
 

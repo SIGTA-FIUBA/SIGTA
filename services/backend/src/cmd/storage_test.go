@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,8 +22,8 @@ import (
 func TestCheckDatabase(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewEmptySchema(t)
-	app := schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
-	owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+	app := schema.MemberPool(t, dbtest.AppRole, dbtest.ReadCommitted)
+	owner := schema.MemberPool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
 	if err := checkDatabase(ctx, app); !errors.Is(err, migrations.ErrPending) {
 		t.Fatalf("checkDatabase() before migrating = %v, want ErrPending", err)
 	}
@@ -120,29 +119,7 @@ func TestLoginsThatAreMembersOfTheRoles(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewEmptySchema(t)
 	admin := schema.Admin(t)
-	login := func(role string) string {
-		name := "sigta_" + schema.Name + "_" + role
-		if _, err := admin.Exec(ctx, fmt.Sprintf("CREATE ROLE %s LOGIN PASSWORD 'member' IN ROLE %s", pgx.Identifier{name}.Sanitize(), role)); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			// DROP OWNED takes what the login created if it did not act as role.
-			quoted := pgx.Identifier{name}.Sanitize()
-			if _, err := admin.Exec(context.WithoutCancel(ctx), "DROP OWNED BY "+quoted+"; DROP ROLE "+quoted); err != nil {
-				t.Error(err)
-			}
-		})
-		u, err := url.Parse(dbtest.URL(t))
-		if err != nil {
-			t.Fatal(err)
-		}
-		u.User = url.UserPassword(name, "member")
-		query := u.Query()
-		query.Set("search_path", schema.Name)
-		u.RawQuery = query.Encode()
-		return u.String()
-	}
-	migrator, err := connect(ctx, login(dbtest.MigrationsRole), migrationsRole)
+	migrator, err := connect(ctx, schema.MemberURL(t, dbtest.MigrationsRole), migrationsRole)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +138,7 @@ func TestLoginsThatAreMembersOfTheRoles(t *testing.T) {
 	if !slices.Equal(owners, []string{dbtest.MigrationsRole}) {
 		t.Errorf("the tables belong to %v, want only %s", owners, dbtest.MigrationsRole)
 	}
-	server, err := connect(ctx, login(dbtest.AppRole), appRole)
+	server, err := connect(ctx, schema.MemberURL(t, dbtest.AppRole), appRole)
 	if err != nil {
 		t.Fatal(err)
 	}
