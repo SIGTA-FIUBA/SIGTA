@@ -6,6 +6,8 @@
 
 > **La curva.** 17, 19, 26, 30, 29, 17 en la primera mitad; 13, 11, 18, 24, 24, 14, 14, 8 en la segunda. Total 264 SP. Los sprints 3, 4 y 5 quedan por encima de la capacidad estimada de 24 SP: sostienen la demo de diciembre y no se recortaron. Es el riesgo consciente del plan.
 
+> **Historias agregadas el 14/11.** Las cinco historias de US72 a US76 (29 SP, con estimación provisoria) todavía no están repartidas en este documento. Con ellas el backlog pasa a 58 historias y 293 SP, y la carga cambia en cuatro sprints: el 4 de 30 a 38 SP (US72), el 5 de 29 a 34 (US73), el 6 de 17 a 30 (US74 y US75) y el 16 de 14 a 17 (US76). La curva queda en 17, 19, 26, 38, 34, 30 y 13, 11, 18, 24, 24, 14, 17, 8. El índice por épica, con el sprint de cada historia, está en el backlog.
+
 ---
 
 ## Sprint 1 · 21 sep – 4 oct 2026 · 17 SP
