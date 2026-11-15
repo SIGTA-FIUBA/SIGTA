@@ -200,3 +200,38 @@ func TestGetProcedureAsksToSignIn(t *testing.T) {
 		t.Errorf("status %d: %s", recorder.Code, recorder.Body)
 	}
 }
+
+func TestGetProcedureShowsWhereAReferredProcedureIs(t *testing.T) {
+	referred := openedDetail(false)
+	referred.State = domain.StateReferred
+	referred.Referral = &detail.Referral{
+		Area:              detail.Area{ID: "commission", Name: "Comisión Curricular"},
+		From:              detail.Area{ID: "office", Name: "Dirección de Alumnos"},
+		DaysWithoutReturn: 4,
+	}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: referred}, session))
+
+	if got.State != api.Referred || got.Referral == nil {
+		t.Fatalf("state %s, referral %+v; want referred with its referral", got.State, got.Referral)
+	}
+	want := api.ProcedureReferral{
+		Area:              api.NamedOption{Id: "commission", Name: "Comisión Curricular"},
+		From:              api.NamedOption{Id: "office", Name: "Dirección de Alumnos"},
+		DaysWithoutReturn: 4,
+	}
+	if *got.Referral != want {
+		t.Errorf("referral = %+v, want %+v", *got.Referral, want)
+	}
+}
+
+func TestGetProcedureOmitsTheReferralWhenNotReferred(t *testing.T) {
+	recorder := getProcedure(t, fakeProcedures{detail: openedDetail(true)}, session)
+	var got map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["referral"]; ok {
+		t.Errorf("referral = %v, want it absent", got["referral"])
+	}
+}

@@ -249,6 +249,9 @@ type ProcedureDetail struct {
 	OpenStep      *string `json:"open_step,omitempty"`
 	ProcedureType int64   `json:"procedure_type"`
 
+	// Referral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+	Referral *ProcedureReferral `json:"referral,omitempty"`
+
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
@@ -304,6 +307,15 @@ type ProcedureEvent struct {
 
 	// Step Paso confirmado
 	Step string `json:"step"`
+}
+
+// ProcedureReferral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+type ProcedureReferral struct {
+	Area              NamedOption `json:"area"`
+	DaysWithoutReturn int64       `json:"days_without_return"`
+
+	// From Área de la que salió y a la que vuelve
+	From NamedOption `json:"from"`
 }
 
 // ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.

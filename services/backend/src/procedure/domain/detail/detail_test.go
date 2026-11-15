@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
@@ -95,5 +96,25 @@ func TestWithFiles(t *testing.T) {
 	want := []string{"documents [annex D-2 transcript D-3]", "review []", "fix [transcript D-3]"}
 	if !slices.Equal(got, want) {
 		t.Errorf("files = %v, want %v", got, want)
+	}
+}
+
+func TestReferralOf(t *testing.T) {
+	content := version.Content{Areas: []definition.Area{{ID: "affairs", Name: "Dirección de Alumnos"}, {ID: "commission", Name: "Comisión Curricular"}}}
+	since := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, time.UTC)
+
+	if got := detail.ReferralOf(domain.Procedure{OpenStep: "check"}, content, now); got != nil {
+		t.Errorf("referral of a procedure not referred = %+v, want nil", got)
+	}
+
+	p := domain.Procedure{OpenStep: "evaluate", Referral: &domain.Referral{From: "affairs", To: "commission", Since: since}}
+	want := detail.Referral{
+		Area:              detail.Area{ID: "commission", Name: "Comisión Curricular"},
+		From:              detail.Area{ID: "affairs", Name: "Dirección de Alumnos"},
+		DaysWithoutReturn: 4,
+	}
+	if got := detail.ReferralOf(p, content, now); got == nil || *got != want {
+		t.Errorf("referral = %+v, want %+v", got, want)
 	}
 }

@@ -141,6 +141,7 @@ Feature: Step confirmation
     And "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
     When it is "2026-11-20"
     Then the procedure is referred to "curricular commission" for 4 days without return
+    And its detail shows it in "curricular commission", from "student affairs", for 4 days without return
 
   Scenario: moving to a step of the same area is not a referral
     Given a "subject equivalence" procedure whose open step is "file"

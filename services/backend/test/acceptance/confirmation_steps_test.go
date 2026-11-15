@@ -59,6 +59,7 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 	sc.Then(`^the procedure is referred to "([^"]*)" for (\d+) days without return$`, w.thenReferredFor)
 	sc.Then(`^the procedure is not referred$`, w.thenNotReferred)
 	sc.Then(`^its state is (with the applicant|in an office|referred|closed)$`, w.thenState)
+	sc.Then(`^its detail shows it in "([^"]*)", from "([^"]*)", for (\d+) days without return$`, w.thenDetailShowsReferral)
 	sc.Then(`^the referral is recorded by "([^"]*)" on "([^"]*)" to "([^"]*)" with the external file number "([^"]*)"$`, w.thenReferralRecorded)
 	sc.Then(`^the referral is recorded without an external file number$`, w.thenReferralWithoutNumber)
 }
@@ -339,6 +340,22 @@ func (w *confirmationWorld) thenState(state string) error {
 	}
 	if got != want {
 		return fmt.Errorf("state = %s, want %s", got, want)
+	}
+	return nil
+}
+
+func (w *confirmationWorld) thenDetailShowsReferral(area, from string, days int) error {
+	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	shown, err := details.Detail(context.Background(), "applicant@fi.uba.ar", w.current)
+	if err != nil {
+		return err
+	}
+	r := shown.Referral
+	if r == nil {
+		return errors.New("the detail shows no referral")
+	}
+	if r.Area.Name != area || r.From.Name != from || r.DaysWithoutReturn != days {
+		return fmt.Errorf("the detail shows it in %q, from %q, for %d days; want %q, %q, %d", r.Area.Name, r.From.Name, r.DaysWithoutReturn, area, from, days)
 	}
 	return nil
 }

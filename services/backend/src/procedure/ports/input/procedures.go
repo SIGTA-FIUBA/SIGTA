@@ -29,6 +29,7 @@ type ProcedureDetail struct {
 	State     domain.State
 	Steps     []detail.Step
 	CanAct    bool
+	Referral  *detail.Referral
 }
 
 // ProcedureDetails answers domain.ErrProcedureNotFound to whoever cannot see

@@ -65,6 +65,13 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	if !p.Closed() {
 		response.OpenStep = &p.OpenStep
 	}
+	if r := detail.Referral; r != nil {
+		response.Referral = &api.ProcedureReferral{
+			Area:              api.NamedOption{Id: r.Area.ID, Name: r.Area.Name},
+			From:              api.NamedOption{Id: r.From.ID, Name: r.From.Name},
+			DaysWithoutReturn: int64(r.DaysWithoutReturn),
+		}
+	}
 	for _, s := range detail.Steps {
 		response.Steps = append(response.Steps, procedureStep(s, names))
 	}

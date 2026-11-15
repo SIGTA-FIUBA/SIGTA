@@ -483,8 +483,17 @@ export interface components {
             open_step?: string;
             /** @description Si quien mira puede hacer el paso abierto */
             can_act: boolean;
+            referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
+        };
+        /** @description Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área. */
+        ProcedureReferral: {
+            area: components["schemas"]["NamedOption"];
+            /** @description Área de la que salió y a la que vuelve */
+            from: components["schemas"]["NamedOption"];
+            /** Format: int64 */
+            days_without_return: number;
         };
         ProcedureStep: {
             id: string;

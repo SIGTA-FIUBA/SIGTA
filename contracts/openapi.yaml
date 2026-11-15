@@ -904,6 +904,8 @@ components:
         can_act:
           type: boolean
           description: Si quien mira puede hacer el paso abierto
+        referral:
+          $ref: "#/components/schemas/ProcedureReferral"
         steps:
           type: array
           description: >
@@ -912,6 +914,23 @@ components:
             anterior: el recorrido lo dicen next y las salidas de cada paso.
           items:
             $ref: "#/components/schemas/ProcedureStep"
+    ProcedureReferral:
+      type: object
+      description: >
+        Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los
+        días sin retorno se cuentan por día de calendario desde que salió del
+        área.
+      required: [area, from, days_without_return]
+      properties:
+        area:
+          $ref: "#/components/schemas/NamedOption"
+        from:
+          description: Área de la que salió y a la que vuelve
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        days_without_return:
+          type: integer
+          format: int64
     ProcedureStep:
       type: object
       required: [id, name, action, role, fields, documents, outcomes, files]
