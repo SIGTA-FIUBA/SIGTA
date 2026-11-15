@@ -60,7 +60,7 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | US08 | SIG-12 | Modelo de definición de trámite | 3 | 2 |
 | US09 | SIG-15 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | 3 |
 | US25 | SIG-24 | Configuración del segundo trámite: reconocimiento de créditos | 8 | 4 |
-| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 |4 |
+| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 | 4 |
 | US49 | SIG-48 | Configuración de cobertura: pase de universidad extranjera | 5 | 14 |
 | US50 | SIG-51 | Configuración de cobertura: intercambios académicos | 5 | 15 |
 | US51 | SIG-54 | Configuración de cobertura: pase dentro de la UBA | 5 | 16 |
@@ -191,3 +191,4 @@ Tickets que se crearon en Linear al partir una historia o para seguir una depend
 | SIG-71 | Metadata de plazos y descripción de los pasos | Sale de US67 |
 | SIG-72 | Identidad visual y marco de la aplicación | Sale de SIG-66 |
 | SIG-73 | Auditoría de accesos y cambios de permisos (a discutir) | Sale de US07 |
+| SIG-79 | Catálogo de identidad visual y componentes | Sigue a SIG-72 |
