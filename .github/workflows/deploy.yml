@@ -1,0 +1,102 @@
+name: Deploy
+
+# Each push to develop builds the images, publishes them in GHCR and deploys
+# them on the staging VM in Google Cloud (docs/15-despliegue.md). GitHub
+# keeps no key of Google Cloud: the job gets a short-lived token through
+# Workload Identity Federation, which only accepts runs of develop.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and none is cancelled halfway.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/sigta-fiuba/sigta
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/928624274175/locations/global/workloadIdentityPools/github/providers/sigta
+  GCP_SERVICE_ACCOUNT: sigta-deploy@summer-function-513519-a1.iam.gserviceaccount.com
+  GCP_PROJECT: summer-function-513519-a1
+  GCP_ZONE: southamerica-east1-b
+  GCP_VM: sigta-staging
+  SIGTA_URL: https://sigta.lopeztancredi.com.ar
+
+jobs:
+  images:
+    name: Image ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: backend
+            context: services/backend
+            file: services/backend/Dockerfile
+          - image: proxy
+            context: .
+            file: deploy/nginx/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ matrix.image }}:develop
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: Deploy to staging
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: Copy the stack to the VM
+        run: |
+          gcloud compute scp --recurse deploy/swarm deploy/postgres "$GCP_VM:~/" \
+            --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet
+      - name: Deploy
+        # The registry login lasts what this job: the token of the run goes in
+        # through standard input and is removed after the deploy.
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf %s "$TOKEN" | gcloud compute ssh "$GCP_VM" \
+            --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet \
+            --command "sudo docker login ghcr.io --username '${{ github.actor }}' --password-stdin \
+              && { sudo sh swarm/deploy.sh '${{ github.sha }}'; status=\$?; sudo docker logout ghcr.io; exit \$status; }"
+      - name: Check SIGTA through the tunnel
+        run: |
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "$SIGTA_URL/"
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "$SIGTA_URL/api/procedure-types"
