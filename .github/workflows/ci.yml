@@ -37,7 +37,9 @@ jobs:
         working-directory: .
         run: docker compose up --detach --wait --wait-timeout 120 db
       - name: Test
-        run: go test -race ./...
+        # -count=1: the cache of go test does not see roles.sql nor the image of
+        # PostgreSQL change.
+        run: go test -race -count=1 ./...
         env:
           SIGTA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/sigta?sslmode=disable
       - name: Check that the generated code matches the contract
