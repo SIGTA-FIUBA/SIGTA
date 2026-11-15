@@ -5,6 +5,8 @@ import type { ReactNode } from 'react'
 import { createMemoryRouter, Link, RouterProvider } from 'react-router'
 import type { components } from '../api/schema'
 import { AppHeader } from './AppHeader'
+import { HomePage } from '../pages/HomePage'
+import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
 import { UserMenu } from './UserMenu'
 
@@ -16,6 +18,8 @@ type ProcedureList = components['schemas']['ProcedureList']
 const staff: User = { id: 'u1', email: 'operativo@ejemplo.edu.ar', name: 'Laura Méndez', role: 'staff_operative' }
 const applicant: User = { id: 'u2', email: 'titular@ejemplo.edu.ar', name: 'Martín Sosa', role: 'applicant' }
 
+const states = ['in_office', 'referred', 'with_applicant'] as const
+
 function procedures(actionable: number): ProcedureList {
   const item = {
     procedure_type: 1,
@@ -24,13 +28,17 @@ function procedures(actionable: number): ProcedureList {
     step_name: 'Revisión de la Secretaría',
     area: 'secretaria',
     area_name: 'Secretaría Académica',
-    state: 'in_office' as const,
     started_at: '2026-11-02T10:00:00Z',
-    last_moved_at: '2026-11-10T10:00:00Z',
     age_days: 12,
   }
   return {
-    items: Array.from({ length: actionable }, (_, index) => ({ ...item, id: `p${index}`, actionable: true })),
+    items: Array.from({ length: actionable }, (_, index) => ({
+      ...item,
+      id: `p${index}`,
+      state: states[index % states.length]!,
+      last_moved_at: `2026-11-${String(10 - index).padStart(2, '0')}T10:00:00Z`,
+      actionable: true,
+    })),
     procedure_types: [],
     areas: [],
   }
@@ -57,7 +65,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El marco de todas las páginas (`src/layout/`): el encabezado con el logo y las acciones, el menú lateral celeste con sesión y el menú de la cuenta.',
+          'El marco de todas las páginas (`src/layout/`): la barra superior con la firma SIGTA y el menú de la cuenta, el único lugar donde figura la persona, y el menú lateral blanco de 240. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón.',
       },
     },
   },
@@ -90,6 +98,40 @@ export const AppLayoutVisitor: StoryObj = {
   },
 }
 
+export const HomeStaff: StoryObj = {
+  name: 'Inicio, personal',
+  render: () => (
+    <Page user={staff}>
+      <HomePage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El Inicio del personal: la bandeja como acción principal, los trámites que requieren acción por última novedad y cómo se trabaja, abierto la primera vez y plegado después.',
+      },
+    },
+  },
+}
+
+export const HomeApplicant: StoryObj = {
+  name: 'Inicio, titular',
+  render: () => (
+    <Page user={applicant}>
+      <HomePage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El Inicio del titular: iniciar un trámite como acción principal y cómo se realiza. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
+      },
+    },
+  },
+}
+
 export const AppHeaderStory: StoryObj = {
   name: 'AppHeader',
   // AppHeader fills the height of its bar, so it goes inside an AppShell header
@@ -100,7 +142,7 @@ export const AppHeaderStory: StoryObj = {
         {
           path: '/',
           element: (
-            <AppShell header={{ height: 64 }} mode="static">
+            <AppShell header={{ height: tokens.layout.topBar }} mode="static">
               <AppShell.Header>
                 <AppHeader
                   end={
