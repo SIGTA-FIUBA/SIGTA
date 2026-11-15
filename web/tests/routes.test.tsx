@@ -39,6 +39,7 @@ function renderAt(path: string) {
 describe('routes', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    localStorage.clear()
   })
 
   it('sends a visitor without a session to the login page', async () => {
@@ -66,9 +67,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/')
 
-    expect(
-      await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' }),
-    ).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).toHaveTextContent('AT')
     expect(router.state.location.pathname).toBe('/')
   })
@@ -77,14 +76,25 @@ describe('routes', () => {
     stubApi({ session: true })
     renderAt('/')
 
-    await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' })
+    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
     expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
-    // The applicant has no inbox, and the menu says who has the session.
+    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+    // The applicant has no inbox, and only the account menu says who has the
+    // session.
     expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
-    expect(within(menu).getByText('Titular')).toBeVisible()
+    expect(within(menu).queryByText('Ana Titular')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).getByText('Titular')).toBeVisible()
+  })
+
+  it('shows the page about SIGTA to a visitor without a session', async () => {
+    stubApi({ session: false })
+    const router = renderAt('/about')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Acerca de SIGTA' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/about')
   })
 
   it('keeps the menu on the catalog for whoever has a session, to go back', async () => {
@@ -101,9 +111,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/login')
 
-    expect(
-      await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' }),
-    ).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
   })
 

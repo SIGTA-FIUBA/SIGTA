@@ -1,122 +1,151 @@
-import { Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import { Anchor, Button, Collapse, Group, Loader, Stack, Text, Title } from '@mantine/core'
+import { useLocalStorage } from '@mantine/hooks'
+import { useEffect, useState } from 'react'
 import { Link, useOutletContext } from 'react-router'
+import { useProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { applicantSteps, principles, staffSteps } from '../content/platform'
+import { EmptyState } from '../components/EmptyState/EmptyState'
+import { PageHeader } from '../components/PageHeader/PageHeader'
+import { ProcedureRow, ProcedureRows } from '../components/ProcedureRow/ProcedureRow'
+import type { StatusTone } from '../components/StatusBadge/StatusBadge'
+import { StepList } from '../components/StepList/StepList'
+import { applicantSteps, staffSteps } from '../content/platform'
 
 type User = components['schemas']['User']
+type Item = components['schemas']['ProcedureListItem']
+type State = components['schemas']['ProcedureState']
 
-type Shortcut = { to: string; title: string; text: string }
+const states: Record<State, { tone: StatusTone; label: string }> = {
+  in_office: { tone: 'office', label: 'En la Secretaría' },
+  referred: { tone: 'external', label: 'En evaluación externa' },
+  with_applicant: { tone: 'applicant', label: 'Pendiente del titular' },
+}
 
-function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
+// The home page shows the latest procedures that need action, no more.
+const latest = 5
+
+function movedText(timestamp: string) {
+  const days = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 86_400_000))
+  if (days === 0) {
+    return 'Hoy'
+  }
+  return days === 1 ? 'Hace 1 día' : `Hace ${days} días`
+}
+
+// Pending lists, for the staff, the procedures that need action from the
+// profile, the latest news first.
+function Pending() {
+  const procedures = useProcedures()
+  if (procedures.isPending) {
+    return <Loader size="sm" aria-label="Cargando los trámites" />
+  }
+  if (procedures.isError) {
+    return <EmptyState title="No se pudieron cargar los trámites" text="Volvé a intentarlo en unos minutos." />
+  }
+  const items = procedures.data.items
+    .filter((item) => item.actionable)
+    .sort((a, b) => Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at))
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="No hay trámites pendientes"
+        text="Cuando un trámite requiera acción del perfil, aparece acá."
+      />
+    )
+  }
   return (
-    <Paper component={Link} to={shortcut.to} variant="interactive" withBorder p="lg" td="none" c="inherit">
-      <Stack gap="xs">
-        <Text fw={600} c="fiuba.7">
-          {shortcut.title}
-        </Text>
-        <Text size="sm" c="dimmed">
-          {shortcut.text}
-        </Text>
-      </Stack>
-    </Paper>
+    <Stack gap="sm">
+      <ProcedureRows label="Trámites que requieren acción">
+        {items.slice(0, latest).map((item: Item) => (
+          <ProcedureRow
+            key={item.id}
+            to={`/procedures/${encodeURIComponent(item.id)}`}
+            state={{ from: '/' }}
+            name={item.procedure_type_name}
+            detail={item.applicant_name}
+            status={states[item.state]}
+            nextStep={item.step_name}
+            date={movedText(item.last_moved_at)}
+          />
+        ))}
+      </ProcedureRows>
+      {items.length > latest && (
+        <Anchor component={Link} to="/inbox" size="sm" w="fit-content">
+          Ver los {items.length} trámites en la bandeja
+        </Anchor>
+      )}
+    </Stack>
   )
 }
 
+// Steps shows how SIGTA is used: open on the first visit, folded afterwards.
+function Steps({ staff }: { staff: boolean }) {
+  const [seen, setSeen] = useLocalStorage({
+    key: 'sigta.home.steps-seen',
+    defaultValue: false,
+    getInitialValueInEffect: false,
+  })
+  const [open, setOpen] = useState(!seen)
+  useEffect(() => setSeen(true), [setSeen])
+
+  return (
+    <Stack component="section" aria-labelledby="how" gap="md">
+      <Group justify="space-between" gap="sm">
+        <Title order={2} id="how">
+          {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
+        </Title>
+        <Button variant="subtle" aria-expanded={open} aria-controls="how-steps" onClick={() => setOpen(!open)}>
+          {open ? 'Ocultar los pasos' : 'Mostrar los pasos'}
+        </Button>
+      </Group>
+      <Collapse expanded={open} id="how-steps">
+        <StepList steps={staff ? staffSteps : applicantSteps} />
+      </Collapse>
+    </Stack>
+  )
+}
+
+// HomePage shows the person where they are and what to do next: the primary
+// action on top, the procedures that need action for the staff, and how
+// SIGTA is used. What SIGTA is lives in "Acerca de SIGTA".
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
   const staff = user != null && user.role !== 'applicant'
 
-  const shortcuts: Shortcut[] = [
-    ...(staff
-      ? [
-          {
-            to: '/inbox',
-            title: 'Bandeja de trámites',
-            text: 'Trámites en curso y acciones pendientes del perfil.',
-          },
-        ]
-      : []),
-    {
-      to: '/catalog',
-      title: 'Catálogo de trámites',
-      text: 'Requisitos, plazos y documentación de cada trámite.',
-    },
-  ]
-  const steps = staff ? staffSteps : applicantSteps
-
   return (
-    <Stack gap="xl">
-      <Stack gap="xs">
-        <Text size="sm" fw={600} c="fiuba.7">
-          Secretaría de Gestión Académica · Facultad de Ingeniería
+    <Stack gap="xxl">
+      <PageHeader
+        title="Inicio"
+        action={
+          staff ? (
+            <Button component={Link} to="/inbox">
+              Ir a la bandeja
+            </Button>
+          ) : (
+            <Button component={Link} to="/catalog">
+              Iniciar un trámite
+            </Button>
+          )
+        }
+      />
+      {staff && (
+        <Stack component="section" aria-labelledby="pending" gap="md">
+          <Title order={2} id="pending">
+            Requieren acción
+          </Title>
+          <Pending />
+        </Stack>
+      )}
+      <Steps staff={staff} />
+      <Group component="footer" gap="md">
+        <Text size="xs" c="gray.6">
+          Secretaría de Gestión Académica, Facultad de Ingeniería
         </Text>
-        <Title order={1}>Sistema Integral de Gestión de Trámites Académicos</Title>
-        <Text c="dimmed">
-          SIGTA es la plataforma de la Secretaría de Gestión Académica para iniciar, gestionar y seguir los trámites
-          académicos de la facultad, del inicio a la resolución.
-        </Text>
-      </Stack>
-
-      <section aria-labelledby="shortcuts">
-        <Stack gap="sm">
-          <Title order={2} id="shortcuts" size="h4">
-            Accesos
-          </Title>
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-            {shortcuts.map((shortcut) => (
-              <ShortcutCard key={shortcut.to} shortcut={shortcut} />
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </section>
-
-      <section aria-labelledby="how">
-        <Stack gap="sm">
-          <Title order={2} id="how" size="h4">
-            {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
-          </Title>
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
-            {steps.map((step, index) => (
-              <Paper key={step.title} withBorder p="lg">
-                <Stack gap="sm">
-                  <ThemeIcon variant="light" radius="xl" aria-hidden>
-                    <Text size="sm" fw={700}>
-                      {index + 1}
-                    </Text>
-                  </ThemeIcon>
-                  <Title order={3} size="h5">
-                    {step.title}
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    {step.text}
-                  </Text>
-                </Stack>
-              </Paper>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </section>
-
-      <section aria-labelledby="principles">
-        <Stack gap="sm">
-          <Title order={2} id="principles" size="h4">
-            Criterios de la plataforma
-          </Title>
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-            {principles.map((principle) => (
-              <Stack key={principle.title} gap="xs">
-                <Title order={3} size="h5">
-                  {principle.title}
-                </Title>
-                <Text size="sm" c="dimmed">
-                  {principle.text}
-                </Text>
-              </Stack>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </section>
+        <Anchor component={Link} to="/about" size="xs">
+          Acerca de SIGTA
+        </Anchor>
+      </Group>
     </Stack>
   )
 }

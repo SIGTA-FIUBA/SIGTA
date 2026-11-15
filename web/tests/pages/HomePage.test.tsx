@@ -1,8 +1,30 @@
-import { screen } from '@testing-library/react'
-import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../render'
 import { HomePage } from '../../src/pages/HomePage'
+
+const item = {
+  procedure_type: '2',
+  procedure_type_name: 'Equivalencia',
+  applicant_name: 'Titular Uno',
+  step_name: 'Registrar expediente',
+  area: 'office',
+  area_name: 'Dirección de Alumnos',
+  state: 'in_office',
+  actionable: true,
+  started_at: '2026-11-01T10:00:00Z',
+  last_moved_at: '2026-11-03T10:00:00Z',
+  age_days: 3,
+}
+
+function stubProcedures(items: unknown[]) {
+  const fetch = vi.fn(async (_request: Request) => Response.json({ items, procedure_types: [], areas: [] }))
+  vi.stubGlobal('fetch', fetch)
+  return fetch
+}
 
 function renderAs(role: string) {
   const router = createMemoryRouter([
@@ -11,35 +33,68 @@ function renderAs(role: string) {
       children: [{ path: '/', element: <HomePage /> }],
     },
   ])
-  render(<RouterProvider router={router} />)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
 }
 
 describe('HomePage', () => {
-  it('says what the platform is', () => {
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>,
-    )
-
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Sistema Integral de Gestión de Trámites Académicos' }),
-    ).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Criterios de la plataforma' })).toBeVisible()
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
   })
 
-  it('explains to an applicant how a procedure is done, and links to the catalog', () => {
+  it('offers an applicant to start a procedure, and how it is done', () => {
     renderAs('applicant')
 
+    expect(screen.getByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Iniciar un trámite' })).toHaveAttribute('href', '/catalog')
     expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
-    expect(screen.getByRole('link', { name: /Catálogo de trámites/ })).toHaveAttribute('href', '/catalog')
-    expect(screen.queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Requieren acción' })).not.toBeInTheDocument()
   })
 
-  it('explains to the staff how to work, and links to the inbox', () => {
+  it('links to the page about SIGTA from the footer', () => {
+    renderAs('applicant')
+
+    expect(screen.getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
+  })
+
+  it('lists for the staff the procedures that need action, the latest news first', async () => {
+    stubProcedures([
+      { ...item, id: 'old', applicant_name: 'Titular Uno' },
+      { ...item, id: 'new', applicant_name: 'Titular Dos', last_moved_at: '2026-11-05T10:00:00Z' },
+      { ...item, id: 'waiting', applicant_name: 'Titular Tres', actionable: false },
+    ])
     renderAs('staff_operative')
 
-    expect(screen.getByRole('heading', { name: 'Cómo se trabaja en SIGTA' })).toBeVisible()
-    expect(screen.getByRole('link', { name: /Bandeja de trámites/ })).toHaveAttribute('href', '/inbox')
+    expect(screen.getByRole('link', { name: 'Ir a la bandeja' })).toHaveAttribute('href', '/inbox')
+    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    const links = within(list).getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/procedures/new', '/procedures/old'])
+    expect(within(links[0]!).getByText('Titular Dos')).toBeVisible()
+    expect(within(links[0]!).getByText('En la Secretaría')).toBeVisible()
+    expect(within(links[0]!).getByText('Próximo paso: Registrar expediente')).toBeVisible()
+  })
+
+  it('says so when no procedure needs action', async () => {
+    stubProcedures([{ ...item, id: 'waiting', actionable: false }])
+    renderAs('staff_operative')
+
+    expect(await screen.findByText('No hay trámites pendientes')).toBeVisible()
+  })
+
+  it('shows the steps on the first visit and folds them afterwards', async () => {
+    const first = renderAs('applicant')
+    expect(screen.getByRole('button', { name: 'Ocultar los pasos' })).toHaveAttribute('aria-expanded', 'true')
+    first.unmount()
+
+    renderAs('applicant')
+    const toggle = screen.getByRole('button', { name: 'Mostrar los pasos' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(screen.getByRole('button', { name: 'Ocultar los pasos' })).toHaveAttribute('aria-expanded', 'true')
   })
 })
