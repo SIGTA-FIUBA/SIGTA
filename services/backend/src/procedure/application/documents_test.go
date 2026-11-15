@@ -313,8 +313,12 @@ func TestWithExtension(t *testing.T) {
 	tests := []struct{ name, mediaType, want string }{
 		{"constancia.pdf", "application/pdf", "constancia.pdf"},
 		{"CONSTANCIA.PDF", "application/pdf", "CONSTANCIA.PDF"},
-		{"constancia.html", "application/pdf", "constancia.html.pdf"},
+		{"constancia.html", "application/pdf", "constancia.pdf"},
+		{"foto.pdf", "image/png", "foto.png"},
+		{"informe.final", "application/pdf", "informe.final.pdf"},
 		{"constancia", "image/png", "constancia.png"},
+		{"foto", "image/jpeg", "foto.jpg"},
+		{"foto.JPEG", "image/jpeg", "foto.JPEG"},
 		{"datos.bin", "application/x-unknown-to-mime", "datos.bin"},
 	}
 	for _, tt := range tests {

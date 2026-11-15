@@ -2,6 +2,7 @@ package application
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -252,14 +253,30 @@ func cleanFileName(name string) string {
 	return name
 }
 
+// preferredExtensions are the usual extensions of the types for which mime
+// lists another one first, such as .jfif for image/jpeg. The list of mime
+// depends on the mime.types of the machine.
+var preferredExtensions = map[string]string{
+	"application/zip": ".zip",
+	"image/jpeg":      ".jpg",
+	"text/html":       ".html",
+	"text/plain":      ".txt",
+}
+
 // withExtension makes the name end in an extension of the detected type, so
 // that the downloaded file opens as what it is and not as what its name says.
+// An extension of another type is replaced, so a PNG named foto.pdf becomes
+// foto.png; one that names no type is kept, as in informe.final.pdf.
 func withExtension(name, mediaType string) string {
 	extensions, err := mime.ExtensionsByType(mediaType)
-	if err != nil || len(extensions) == 0 || slices.Contains(extensions, strings.ToLower(path.Ext(name))) {
+	ext := path.Ext(name)
+	if err != nil || len(extensions) == 0 || slices.Contains(extensions, strings.ToLower(ext)) {
 		return name
 	}
-	return name + extensions[0]
+	if ext != "" && mime.TypeByExtension(ext) != "" {
+		name = strings.TrimSuffix(name, ext)
+	}
+	return name + cmp.Or(preferredExtensions[mediaType], extensions[0])
 }
 
 // sizeLimit fails the upload as soon as it goes past the maximum size, so the
