@@ -1,42 +1,55 @@
 import { Meta } from '@storybook/addon-docs/blocks'
-import { BrandColors, ColorScale, TokenTable } from '../blocks'
+import { ColorScale, Palette, TokenTable } from '../blocks'
 
 <Meta title="Fundamentos/Color" />
 
 # Color
 
-Cada muestra indica su contraste sobre blanco. El texto necesita al menos 4,5:1 (marca "texto"); los íconos y bordes, 3:1 (marca "gráficos").
+La paleta sale del Manual de Identidad Visual de la FIUBA (Res. CD 3477/20): el cian institucional, el negro institucional y el gris claro. Cada muestra indica su contraste sobre blanco. El texto necesita al menos 4,5:1 (marca "texto"); los íconos y bordes, 3:1 (marca "gráficos").
 
-## Marca
+## Colores con nombre
 
-Los colores del logo, para el logo y lo que lo rodea.
+Cada color tiene un uso. En las pantallas se nombra por la escala de Mantine que lo lleva (`c="dimmed"`, `bg="gray.0"`, el primario), nunca con el hexadecimal.
 
-<BrandColors />
+<Palette groups={['brand', 'action', 'ink', 'surface', 'border']} />
 
 ## Primario: `fiuba`
 
-La escala de la interfaz. El tono 5 es el celeste del logo de la FIUBA: sobre blanco no alcanza el contraste del texto, así que botones y links usan el tono 7 y el hover el 8. En las pantallas se nombra por la escala (`color="fiuba"`, `bg="fiuba.0"`) o como el primario, nunca con el hexadecimal.
+El tono 5 es el cian institucional: sobre blanco no alcanza el contraste del texto, así que es solo una firma (la barra del ítem seleccionado). Botones, links, selección y foco usan el tono 7 (`action.600`) y el hover el 8 (`action.700`). El tinte 0 (`brand.50`) es el fondo del ítem seleccionado y del avatar.
 
 <ColorScale name="fiuba" />
 
 ## Grises
 
-Los de Mantine. El fondo de las páginas es `gray.0` y el texto atenuado (`c="dimmed"`) es `gray.7`.
+Los neutros de la interfaz: el fondo de la app es `gray.0`, los bordes `gray.3`, el texto atenuado (`c="dimmed"`) `gray.7` y los metadatos (fechas, roles) `gray.6`.
 
 <ColorScale name="gray" />
 
 ## Estados
 
+Cada estado escribe su tono 700 sobre su tinte 50, y siempre con texto: el color nunca es la única señal.
+
 | Color    | Uso                                                            |
 | -------- | -------------------------------------------------------------- |
 | Primario | "En la Secretaría", acciones, links, foco                      |
-| `orange` | "En evaluación externa"                                        |
+| `orange` | "En evaluación externa", lo que espera a alguien de afuera     |
 | `gray`   | "Pendiente del titular"                                        |
+| `green`  | Lo que terminó bien                                            |
 | `red`    | Solo errores (`Alert color="red"`). Si decora, deja de avisar. |
+
+<Palette groups={['success', 'warning', 'danger']} />
+
+<ColorScale name="green" />
 
 <ColorScale name="orange" />
 
 <ColorScale name="red" />
+
+## Logo
+
+Los colores del logo actual de SIGTA, solo para el logo. Quedan pendientes: el logo todavía no se decidió.
+
+<Palette groups={['logo']} />
 
 ## Tokens
 

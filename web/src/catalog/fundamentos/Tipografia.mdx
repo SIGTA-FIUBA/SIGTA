@@ -1,5 +1,5 @@
 import { Meta } from '@storybook/addon-docs/blocks'
-import { FontFamilies, Headings, TextSizes, TokenTable } from '../blocks'
+import { FontFamilies, Headings, TextStyles, TokenTable } from '../blocks'
 
 <Meta title="Fundamentos/Tipografía" />
 
@@ -7,15 +7,15 @@ import { FontFamilies, Headings, TextSizes, TokenTable } from '../blocks'
 
 ## Familias
 
-La interfaz usa la tipografía del sistema operativo de cada persona: carga al instante y se lee como el resto de su computadora. Montserrat queda solo en el logo, ya convertida en curvas.
+La tipografía institucional de la FIUBA es Helvetica Neue, y su reemplazo aceptado es Arial (Manual de Identidad Visual, A.6 y B.4). La interfaz no carga una fuente web: usa Helvetica Neue donde el sistema la tiene (macOS, iOS) y Arial en el resto. Montserrat queda solo en el logo, ya convertida en curvas.
 
 <FontFamilies />
 
-## Tamaños de texto
+## Estilos de texto
 
-`Text size="..."` y la propiedad `fz`. El cuerpo es `md`; las etiquetas y datos secundarios, `sm`; las notas, `xs`.
+Hay seis estilos y no hay otros. Dos pesos: regular (400) y negrita (700).
 
-<TextSizes />
+<TextStyles />
 
 ## Títulos
 
@@ -27,4 +27,4 @@ Cada página tiene un solo `Title order={1}` y los demás bajan de nivel sin sal
 
 <TokenTable path="font" />
 
-<TokenTable path="heading" />
+<TokenTable path="textStyle" />

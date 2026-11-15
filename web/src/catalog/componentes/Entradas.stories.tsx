@@ -173,9 +173,7 @@ export const PinInputStory: StoryObj = {
   name: 'PinInput',
   render: () => (
     <Stack gap="xs">
-      <Text size="sm" fw={500}>
-        Código de verificación
-      </Text>
+      <Text size="sm">Código de verificación</Text>
       <PinInput length={6} type="number" oneTimeCode ariaLabel="Código de verificación" />
       <PinInput length={6} type="number" defaultValue="123" error ariaLabel="Código de verificación con error" />
       <Text size="xs" c="red">
@@ -372,9 +370,7 @@ export const CheckboxCardStory: StoryObj = {
             <Group wrap="nowrap" align="flex-start">
               <Checkbox.Indicator />
               <Stack gap={0}>
-                <Text size="sm" fw={500}>
-                  {subject.label}
-                </Text>
+                <Text size="sm">{subject.label}</Text>
                 <Text size="xs" c="dimmed">
                   {subject.detail}
                 </Text>
@@ -456,9 +452,7 @@ export const RadioCardStory: StoryObj = {
             <Group wrap="nowrap" align="flex-start">
               <Radio.Indicator />
               <Stack gap={0}>
-                <Text size="sm" fw={500}>
-                  {type.label}
-                </Text>
+                <Text size="sm">{type.label}</Text>
                 <Text size="xs" c="dimmed">
                   {type.detail}
                 </Text>
@@ -534,9 +528,7 @@ export const SliderStory: StoryObj = {
   name: 'Slider',
   render: () => (
     <Stack gap="xs">
-      <Text size="sm" fw={500}>
-        Coincidencia de contenidos con el programa de la FIUBA
-      </Text>
+      <Text size="sm">Coincidencia de contenidos con el programa de la FIUBA</Text>
       <Slider
         aria-label="Coincidencia de contenidos con el programa de la FIUBA"
         defaultValue={75}
@@ -564,9 +556,7 @@ export const RangeSliderStory: StoryObj = {
   name: 'RangeSlider',
   render: () => (
     <Stack gap="xs">
-      <Text size="sm" fw={500}>
-        Año de aprobación
-      </Text>
+      <Text size="sm">Año de aprobación</Text>
       <RangeSlider
         aria-label="Año de aprobación"
         min={2010}
@@ -615,9 +605,7 @@ export const RatingStory: StoryObj = {
   name: 'Rating',
   render: () => (
     <Stack gap="xs">
-      <Text size="sm" fw={500}>
-        Valoración de la atención recibida
-      </Text>
+      <Text size="sm">Valoración de la atención recibida</Text>
       <Rating defaultValue={4} getSymbolLabel={(index) => `${index + 1} de 5`} />
       <Rating value={3} readOnly />
     </Stack>

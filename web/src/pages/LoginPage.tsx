@@ -45,7 +45,7 @@ function TrackingPreview() {
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" gap="xs">
           <Stack gap={0}>
-            <Text fw={600}>Equivalencia entre asignaturas</Text>
+            <Text fw={700}>Equivalencia entre asignaturas</Text>
             <Text size="sm" c="dimmed">
               Iniciado hace 24 días
             </Text>
@@ -100,7 +100,7 @@ export function LoginPage() {
           <Container size="lg" py="xl" mih="calc(100dvh - var(--app-shell-header-height))" display="flex">
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" py="xl" my="auto" w="100%">
               <Stack gap="lg" justify="center">
-                <Text size="sm" fw={600} tt="uppercase">
+                <Text size="sm" fw={700} tt="uppercase">
                   Secretaría de Gestión Académica · FIUBA
                 </Text>
                 <Title order={1} id="hero" variant="display">

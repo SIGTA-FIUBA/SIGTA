@@ -1,50 +1,139 @@
 /*
- * States the Styles API cannot write inline: hover, press and screen width.
- * Only theme.ts uses these classes; screens never import CSS.
+ * States the Styles API cannot write inline: hover, press, focus and screen
+ * width. Only theme.ts uses these classes; screens never import CSS.
  */
 
-/* A clickable panel (Paper variant="interactive") rises a little under the
- * pointer and settles when pressed. */
+/* A panel that is a control (Paper variant="interactive"): the action card
+ * and the rows. Under the pointer the background turns gray and the border
+ * darkens; nothing moves. */
 .interactive {
   transition:
-    transform 150ms ease,
-    box-shadow 150ms ease,
+    background-color 150ms ease,
     border-color 150ms ease;
 }
 
 .interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--mantine-shadow-sm);
-  border-color: var(--mantine-color-fiuba-3);
-}
-
-.interactive:active {
-  transform: translateY(0);
-  box-shadow: none;
+  background-color: var(--mantine-color-gray-1);
+  border-color: var(--mantine-color-gray-4);
 }
 
 /* Mantine draws its focus ring only on its own controls; a panel turned into
- * a button or a link needs the same ring for whoever moves with the keyboard. */
+ * a link needs the same ring for whoever moves with the keyboard. */
 .interactive:focus-visible {
-  outline: 2px solid var(--mantine-primary-color-filled);
-  outline-offset: 2px;
+  outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
+  outline-offset: var(--sigta-focus-offset);
 }
 
-/* A link of the side menu, on the logo's light blue: a white box with dark
- * text, that tints under the pointer. The current page is filled in dark blue
- * (theme.ts). */
-.menuLink {
-  border-radius: var(--sigta-menu-link-radius);
-  box-shadow: var(--mantine-shadow-xs);
+/* The container of rows (Paper variant="rows"), a list: its corners clip the
+ * hover of the first and last row, and a divider separates the rows. */
+.rows {
+  overflow: hidden;
+  list-style: none;
 }
 
-.menuLink:where(:not([data-active])) {
-  background-color: var(--mantine-color-white);
+.rows > li + li {
+  border-top: 1px solid var(--mantine-color-gray-3);
+}
+
+/* The steps of a procedure (List variant="steps"): an ordered list in three
+ * columns, one on a phone, without boxes. A line on top of each column marks
+ * the sequence. 48em repeats breakpoint.sm. */
+.steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mantine-spacing-lg);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+@media (min-width: 48em) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.stepsItem {
+  list-style: none;
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-gray-3);
+}
+
+/* An item of the side navigation (NavLink variant="menu"). At rest it is
+ * transparent with ink.600 text; under the pointer, surface.hover with
+ * ink.900. The current page has the cyan tint, action.600 text in bold and a
+ * bar of brand.500 on the left: the bar reinforces, the background, the weight
+ * and the color already say it. */
+.navItem {
+  position: relative;
+  min-height: var(--sigta-nav-item-height);
+  border-radius: var(--sigta-nav-item-radius);
+  padding-inline: var(--mantine-spacing-sm);
+  color: var(--mantine-color-gray-7);
+  background-color: transparent;
+}
+
+.navItem:hover {
   color: var(--mantine-color-black);
+  background-color: var(--mantine-color-gray-1);
 }
 
-.menuLink:where(:not([data-active])):hover {
+.navItem[data-active],
+.navItem[data-active]:hover {
+  color: var(--mantine-color-fiuba-7);
   background-color: var(--mantine-color-fiuba-0);
+}
+
+.navItem[data-active]::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--mantine-spacing-xs);
+  inset-inline-start: 0;
+  width: var(--sigta-nav-marker);
+  border-radius: var(--sigta-nav-marker);
+  background-color: var(--mantine-color-fiuba-5);
+}
+
+.navItem :global(.mantine-NavLink-section[data-position='left']) {
+  margin-inline-end: var(--mantine-spacing-sm);
+}
+
+/* The item of the compact navigation (variant="menu-icon"), on a tablet: only
+ * the icon, centered; the label goes in a tooltip. */
+.navIcon {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.navIcon :global(.mantine-NavLink-section[data-position='left']) {
+  margin-inline-end: 0;
+}
+
+.navIcon :global(.mantine-NavLink-body) {
+  display: none;
+}
+
+.navLabel {
+  font-size: var(--mantine-font-size-sm);
+  line-height: var(--mantine-line-height-sm);
+}
+
+.navItem[data-active] .navLabel {
+  font-weight: var(--mantine-font-weight-bold);
+}
+
+/* A status badge: the state reads in its text, in caption bold, without
+ * capitals. */
+.badge {
+  text-transform: none;
+  font-weight: var(--mantine-font-weight-bold);
+  letter-spacing: normal;
+}
+
+/* The initials of the avatar, in caption bold. */
+.avatar {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: var(--mantine-font-weight-bold);
 }
 
 /* On a phone every control is at least 44px tall (component.touchTarget in
@@ -59,9 +148,5 @@
 @media (prefers-reduced-motion: reduce) {
   .interactive {
     transition: none;
-  }
-
-  .interactive:hover {
-    transform: none;
   }
 }

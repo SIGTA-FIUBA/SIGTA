@@ -1,13 +1,22 @@
 import {
+  Avatar,
+  Badge,
   Button,
+  Container,
   type CSSVariablesResolver,
   createTheme,
+  defaultVariantColorsResolver,
   Input,
+  List,
+  Menu,
   NavLink,
   Paper,
+  Popover,
   rem,
   SegmentedControl,
   Title,
+  Tooltip,
+  type VariantColorsResolver,
 } from '@mantine/core'
 import classes from './interactions.module.css'
 import { tokens } from './tokens'
@@ -18,57 +27,121 @@ import typography from './typography.module.css'
 // never raw colors or measures; the lint rules in lint/ enforce it. The values
 // come from tokens.json, so a design decision is changed there and nowhere else.
 
+const shadows = { xs: tokens.shadow, sm: tokens.shadow, md: tokens.shadow, lg: tokens.shadow, xl: tokens.shadow }
+
+// The light variant (badges, avatars, light buttons) writes the 700 shade on
+// the 50 tint of the same color, as tokens.json defines every state. Mantine
+// would mix the color with transparency instead.
+const variantColorResolver: VariantColorsResolver = (input) => {
+  const colors = defaultVariantColorsResolver(input)
+  if (input.variant !== 'light') {
+    return colors
+  }
+  const name = input.color ?? input.theme.primaryColor
+  if (!(name in input.theme.colors)) {
+    return colors
+  }
+  return {
+    ...colors,
+    background: `var(--mantine-color-${name}-0)`,
+    hover: `var(--mantine-color-${name}-1)`,
+    color: `var(--mantine-color-${name}-7)`,
+  }
+}
+
+// Controls of the default size are as tall as layout.control.
+const controlHeight = (size: unknown, height: string, variable: string) =>
+  size === undefined || size === 'sm' ? { [variable]: height } : {}
+
 export const theme = createTheme({
-  colors: { fiuba: tokens.color.fiuba },
+  colors: tokens.color.scales,
   primaryColor: tokens.primaryColor,
   primaryShade: tokens.primaryShade,
-  black: tokens.color.text,
+  black: tokens.color.ink[900],
   white: tokens.color.white,
   defaultRadius: tokens.defaultRadius,
   radius: tokens.radius,
   spacing: tokens.spacing,
+  shadows,
   fontSizes: tokens.font.sizes,
   lineHeights: tokens.font.lineHeights,
+  fontWeights: tokens.font.weights,
   breakpoints: tokens.breakpoints,
   cursorType: 'pointer',
   fontFamily: tokens.font.sans,
   fontFamilyMonospace: tokens.font.mono,
-  headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.headingWeight, sizes: tokens.headings },
+  headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.weights.bold, sizes: tokens.headings },
+  variantColorResolver,
   components: {
-    // The side menu (variant="menu") sits on the logo's light blue: each link
-    // is a white box with dark text, and the current page is filled in dark
-    // blue with white text.
+    // An item of the side navigation (variant="menu"): transparent at rest,
+    // gray under the pointer, and the current page in the cyan tint with a
+    // bar on the left (interactions.module.css). On a tablet, variant
+    // "menu-icon" shows only the icon.
     NavLink: NavLink.extend({
-      vars: (_theme, props) => ({
+      classNames: (_theme, props) => ({
         root:
           props.variant === 'menu'
-            ? {
-                '--nl-bg': 'var(--mantine-color-fiuba-8)',
-                '--nl-color': 'var(--mantine-color-white)',
-                '--nl-hover': 'var(--mantine-color-fiuba-9)',
-              }
-            : {},
-        children: {},
-      }),
-      classNames: (_theme, props) => ({
-        root: props.variant === 'menu' ? `${classes.touch} ${classes.menuLink}` : classes.touch,
+            ? `${classes.touch} ${classes.navItem}`
+            : props.variant === 'menu-icon'
+              ? `${classes.touch} ${classes.navItem} ${classes.navIcon}`
+              : classes.touch,
+        label: props.variant === 'menu' ? classes.navLabel : '',
       }),
     }),
-    // A panel that is itself a control, such as a summary that filters the
-    // list, uses variant="interactive" and answers the pointer.
+    // A panel with a border and a background of its own is a control: the
+    // action card and the rows use variant="interactive", which answers the
+    // pointer; the container of rows uses variant="rows". Any other panel has
+    // neither border nor background.
     Paper: Paper.extend({
-      defaultProps: { radius: tokens.component.paper.radius },
-      classNames: (_theme, props) => ({ root: props.variant === 'interactive' ? classes.interactive : '' }),
+      defaultProps: { radius: tokens.component.card.radius },
+      classNames: (_theme, props) => ({
+        root: props.variant === 'interactive' ? classes.interactive : props.variant === 'rows' ? classes.rows : '',
+      }),
+    }),
+    // The steps of a procedure: an ordered list in columns (StepList).
+    List: List.extend({
+      classNames: (_theme, props) =>
+        props.variant === 'steps' ? { root: classes.steps, item: classes.stepsItem } : {},
     }),
     Input: Input.extend({
       defaultProps: { radius: tokens.component.input.radius },
+      vars: (_theme, props) => ({
+        wrapper: controlHeight(props.size, tokens.component.input.height, '--input-height'),
+      }),
       classNames: { input: classes.touch },
     }),
     Button: Button.extend({
       defaultProps: { radius: tokens.component.button.radius },
+      vars: (_theme, props) => ({
+        root: controlHeight(props.size, tokens.component.button.height, '--button-height'),
+      }),
       classNames: { root: classes.touch },
     }),
+    // A state reads in its text: no capitals, caption in bold, 700 on 50.
+    Badge: Badge.extend({
+      defaultProps: { variant: 'light' },
+      vars: (_theme, props) => ({
+        root:
+          props.size === undefined || props.size === 'md'
+            ? {
+                '--badge-height': tokens.component.badge.height,
+                '--badge-fz': 'var(--mantine-font-size-xs)',
+                '--badge-padding-x': 'var(--mantine-spacing-xs)',
+              }
+            : {},
+      }),
+      classNames: { root: classes.badge },
+    }),
+    Avatar: Avatar.extend({
+      defaultProps: { color: tokens.primaryColor, variant: 'light' },
+      vars: () => ({ root: { '--avatar-size': tokens.component.avatar.size } }),
+      classNames: { root: classes.avatar },
+    }),
+    Container: Container.extend({ defaultProps: { size: 'content' } }),
     SegmentedControl: SegmentedControl.extend({ classNames: { control: classes.touch } }),
+    Menu: Menu.extend({ defaultProps: { shadow: 'md' } }),
+    Popover: Popover.extend({ defaultProps: { shadow: 'md' } }),
+    Tooltip: Tooltip.extend({ defaultProps: { openDelay: 300 } }),
     // The headline of the landing page grows with the screen.
     Title: Title.extend({
       classNames: (_theme, props) => ({ root: props.variant === 'display' ? typography.display : '' }),
@@ -76,14 +149,27 @@ export const theme = createTheme({
   },
 })
 
-// Mantine's dimmed text (gray 6) reads at 3.3:1 on white, below the 4.5:1 that
-// text needs; tokens.json sets gray 7, which reaches 8.2:1. The other variables
-// carry tokens to the CSS modules of this folder.
+// Dimmed text (c="dimmed") is the secondary text, gray 7 (ink.600); Mantine
+// would use gray 6, which here is the metadata (ink.500). The hover of
+// default controls is surface.hover.
+// The other variables carry tokens to the CSS modules of this folder and to
+// the screens, which name them instead of writing a measure.
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {
-    '--sigta-menu-link-radius': `var(--mantine-radius-${tokens.component.menuLink.radius})`,
+    '--container-size-content': tokens.layout.content,
+    '--sigta-measure': tokens.layout.measure,
+    '--sigta-logo-width': tokens.layout.logo,
+    '--sigta-top-bar-divider': tokens.layout.topBarDivider,
+    '--sigta-nav-item-height': tokens.component.navItem.height,
+    '--sigta-nav-item-radius': `var(--mantine-radius-${tokens.component.navItem.radius})`,
+    '--sigta-nav-marker': tokens.component.navItem.marker,
+    '--sigta-focus-width': tokens.focus.width,
+    '--sigta-focus-offset': tokens.focus.offset,
     '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),
   },
-  light: { '--mantine-color-dimmed': `var(--mantine-color-gray-${tokens.dimmedShade})` },
+  light: {
+    '--mantine-color-dimmed': `var(--mantine-color-gray-${tokens.dimmedShade})`,
+    '--mantine-color-default-hover': 'var(--mantine-color-gray-1)',
+  },
   dark: {},
 })

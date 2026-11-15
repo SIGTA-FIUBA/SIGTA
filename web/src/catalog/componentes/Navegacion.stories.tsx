@@ -1,13 +1,10 @@
 import {
   Anchor,
-  Avatar,
   Badge,
-  Box,
   Breadcrumbs,
   Container,
   getTreeExpandedState,
   Grid,
-  Group,
   Menu,
   Menubar,
   NavLink,
@@ -24,7 +21,7 @@ import {
   useTree,
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Links and the controls that move between pages or parts of a page. Each story
 // shows the component as SIGTA uses it.
@@ -35,7 +32,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El menú lateral es `NavLink variant="menu"` sobre el celeste de la marca; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
+          'El menú lateral es `NavLink variant="menu"` sobre blanco; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
       },
     },
   },
@@ -45,7 +42,7 @@ export default meta
 
 export const NavLinkStory: StoryObj<typeof NavLink> = {
   name: 'NavLink',
-  render: (args) => <NavLink href="#" leftSection={<MenuIcon name="inbox" />} {...args} />,
+  render: (args) => <NavLink href="#" leftSection={<Icon name="inbox" />} {...args} />,
   args: {
     label: 'Bandeja de trámites',
     description: 'Trámites con acción requerida',
@@ -71,51 +68,32 @@ export const NavLinkMenu: StoryObj = {
   name: 'NavLink, menú lateral',
   render: () => (
     <Container size="xs" mx={0} px={0}>
-      <Box bg="fiuba.5" p="sm">
-        <Stack gap="xs">
-          <NavLink href="#" label="Inicio" leftSection={<MenuIcon name="home" />} variant="menu" fw={600} />
+      <Paper withBorder p="sm">
+        <Stack gap="xxs">
+          <NavLink href="#" label="Inicio" leftSection={<Icon name="home" />} variant="menu" />
           <NavLink
             href="#"
             label="Bandeja de trámites"
-            leftSection={<MenuIcon name="inbox" />}
+            leftSection={<Icon name="inbox" />}
             rightSection={
-              <Badge variant="white" size="sm" circle aria-label="3 con acción requerida">
+              <Badge variant="filled" size="sm" circle aria-label="3 con acción requerida">
                 3
               </Badge>
             }
             active
+            aria-current="page"
             variant="menu"
-            fw={600}
           />
-          <NavLink
-            href="#"
-            label="Catálogo de trámites"
-            leftSection={<MenuIcon name="catalog" />}
-            variant="menu"
-            fw={600}
-          />
-          <Paper p="sm" radius="md" shadow="xs" mt="xl">
-            <Group gap="sm" wrap="nowrap">
-              <Avatar name="Laura Méndez" color="fiuba" aria-hidden />
-              <Stack gap={0} miw={0}>
-                <Text size="sm" fw={600} truncate="end">
-                  Laura Méndez
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Perfil operativo
-                </Text>
-              </Stack>
-            </Group>
-          </Paper>
+          <NavLink href="#" label="Catálogo de trámites" leftSection={<Icon name="catalog" />} variant="menu" />
         </Stack>
-      </Box>
+      </Paper>
     </Container>
   ),
   parameters: {
     docs: {
       description: {
         story:
-          'El menú de las pantallas con sesión (`AppLayout`): recuadros blancos sobre `fiuba.5` y la página actual rellena. Sobre el celeste no va texto suelto.',
+          'El menú de las pantallas con sesión (`AppLayout`). En reposo, transparente con el texto atenuado; con el puntero, `surface-hover`. La página actual lleva el tinte `brand.50`, el texto `action.600` en negrita y una barra de 3 en el cian institucional, y se anuncia con `aria-current="page"`: la barra refuerza, no es la única señal.',
       },
     },
   },

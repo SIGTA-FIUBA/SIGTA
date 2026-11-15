@@ -26,7 +26,7 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Components drawn over the page. Each story opens its overlay from a button
 // and starts closed, so the docs page stays usable.
@@ -152,7 +152,7 @@ export const PopoverStory: StoryObj = {
       </Popover.Target>
       <Popover.Dropdown>
         <Stack gap="xs">
-          <Text size="sm" fw={600}>
+          <Text size="sm" fw={700}>
             Requisitos
           </Text>
           <Text size="sm">Certificado analítico y programa de la asignatura.</Text>
@@ -180,7 +180,7 @@ export const HoverCardStory: StoryObj = {
         <Group gap="sm" wrap="nowrap">
           <Avatar name="Martina Ferreyra" color="fiuba" aria-hidden />
           <Stack gap={0}>
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={700}>
               Martina Ferreyra
             </Text>
             <Text size="xs" c="dimmed">
@@ -206,7 +206,7 @@ export const TooltipStory: StoryObj = {
   render: () => (
     <Tooltip label="Ir al inicio">
       <ActionIcon variant="default" size="lg" aria-label="Ir al inicio">
-        <MenuIcon name="home" />
+        <Icon name="home" />
       </ActionIcon>
     </Tooltip>
   ),
@@ -287,7 +287,7 @@ function LoadingOverlayDemo() {
       <Paper withBorder p="lg" pos="relative">
         <LoadingOverlay visible={visible} />
         <Stack gap="xs">
-          <Text size="sm" fw={600}>
+          <Text size="sm" fw={700}>
             Pase de carrera
           </Text>
           <Text size="sm" c="dimmed">
@@ -356,13 +356,13 @@ function TourDemo() {
         Recorrer la pantalla
       </Button>
       <Group>
-        <Button variant="light" leftSection={<MenuIcon name="home" />} data-tour-step="home">
+        <Button variant="light" leftSection={<Icon name="home" size={16} />} data-tour-step="home">
           Inicio
         </Button>
-        <Button variant="light" leftSection={<MenuIcon name="inbox" />} data-tour-step="inbox">
+        <Button variant="light" leftSection={<Icon name="inbox" size={16} />} data-tour-step="inbox">
           Bandeja de trámites
         </Button>
-        <Button variant="light" leftSection={<MenuIcon name="catalog" />} data-tour-step="catalog">
+        <Button variant="light" leftSection={<Icon name="catalog" size={16} />} data-tour-step="catalog">
           Catálogo de trámites
         </Button>
       </Group>
@@ -412,7 +412,7 @@ function FloatingWindowDemo() {
         >
           <Stack gap="xs">
             <Group justify="space-between" wrap="nowrap" data-drag-handle>
-              <Text size="sm" fw={600}>
+              <Text size="sm" fw={700}>
                 Notas de la revisión
               </Text>
               <CloseButton aria-label="Cerrar las notas" onClick={close} />

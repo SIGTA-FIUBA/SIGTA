@@ -3,7 +3,6 @@ import {
   Badge,
   Box,
   Code,
-  DEFAULT_THEME,
   Group,
   MantineProvider,
   Paper,
@@ -16,7 +15,7 @@ import {
 import { Unstyled } from '@storybook/addon-docs/blocks'
 import type { ReactNode } from 'react'
 import { cssVariablesResolver, theme } from '../theme/theme'
-import { tokenSource, tokens } from '../theme/tokens'
+import { tokenSource, tokens, value } from '../theme/tokens'
 
 // Blocks of the catalog's documentation pages (the .mdx files). They draw the
 // tokens from tokens.json with the app's theme, so the pages cannot drift from
@@ -24,6 +23,7 @@ import { tokenSource, tokens } from '../theme/tokens'
 // which is why .oxlintrc.json lets this folder write styles.
 
 const SIZES = ['xs', 'sm', 'md', 'lg', 'xl'] as const
+const SPACING = ['xxs', 'xs', 'sm', 'md', 'lg', 'xl', 'xxl', 'xxxl'] as const
 
 // Frame puts a block inside the app's theme, away from the styles of the
 // documentation page.
@@ -51,11 +51,11 @@ function contrast(a: string, b: string) {
 
 function Swatch({ color, label, note }: { color: string; label: string; note?: string }) {
   const onWhite = contrast(color, '#ffffff')
-  const ink = onWhite >= 4.5 ? '#ffffff' : tokens.color.text
+  const ink = onWhite >= 4.5 ? '#ffffff' : tokens.color.ink[900]
   return (
     <Paper withBorder radius="sm" style={{ overflow: 'hidden' }}>
       <Box p="sm" style={{ background: color, color: ink, minHeight: 72 }}>
-        <Text fw={600} size="sm">
+        <Text fw={700} size="sm">
           {label}
         </Text>
         <Text size="xs" ff="monospace">
@@ -83,19 +83,35 @@ function Swatch({ color, label, note }: { color: string; label: string; note?: s
   )
 }
 
-// ColorScale shows the ten shades of a Mantine color, with their contrast on white.
-export function ColorScale({ name }: { name: string }) {
-  const shades = name === 'fiuba' ? tokens.color.fiuba : DEFAULT_THEME.colors[name]
-  const notes: Record<number, string> =
-    name === 'fiuba'
-      ? { 5: 'Celeste de la marca, fondos', 7: 'Primario: botones y links', 8: 'Hover del primario' }
-      : name === 'gray'
-        ? { 0: 'Fondo de las páginas', 7: 'Texto atenuado (dimmed)' }
-        : {}
+const SCALE_NOTES: Record<string, Record<number, string>> = {
+  fiuba: {
+    0: 'brand.50: selección, avatar',
+    5: 'brand.500: cian institucional',
+    7: 'action.600: primario',
+    8: 'action.700: hover',
+  },
+  gray: {
+    0: 'surface.page: fondo',
+    1: 'surface.hover',
+    3: 'border.subtle: bordes y divisores',
+    4: 'border.control: campos',
+    6: 'ink.500: metadatos',
+    7: 'ink.600: texto atenuado (dimmed)',
+    9: 'ink.900: texto',
+  },
+  green: { 0: 'success.50', 7: 'success.700' },
+  orange: { 0: 'warning.50', 7: 'warning.700' },
+  red: { 0: 'danger.50', 7: 'danger.700' },
+}
+
+// ColorScale shows the ten shades of a Mantine color, with their contrast on
+// white and the semantic token each one carries.
+export function ColorScale({ name }: { name: keyof typeof tokens.color.scales }) {
+  const notes = SCALE_NOTES[name] ?? {}
   return (
     <Frame>
       <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="xs">
-        {shades.map((shade, index) => (
+        {tokens.color.scales[name].map((shade, index) => (
           <Swatch key={shade} color={shade} label={`${name}.${index}`} note={notes[index]} />
         ))}
       </SimpleGrid>
@@ -103,17 +119,36 @@ export function ColorScale({ name }: { name: string }) {
   )
 }
 
-// BrandColors shows the colors of the logo and of the text.
-export function BrandColors() {
-  const brand = tokenSource.color.brand
+type ColorNode = Record<string, { $value?: string; $description?: string }> & { $description?: string }
+
+// Palette shows the semantic colors of a group of tokens.json, such as
+// "brand" or "ink", with what each one is for.
+export function Palette({ groups }: { groups: string[] }) {
   return (
     <Frame>
-      <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="xs">
-        <Swatch color={brand.navy.$value} label="brand.navy" note={brand.navy.$description} />
-        <Swatch color={brand.cyan.$value} label="brand.cyan" note={brand.cyan.$description} />
-        <Swatch color={brand.ink.$value} label="brand.ink" note={brand.ink.$description} />
-        <Swatch color={tokens.color.text} label="text" note="Texto de la interfaz (Mantine black)." />
-      </SimpleGrid>
+      <Stack gap="md">
+        {groups.map((group) => {
+          const node = (tokenSource.color as unknown as Record<string, ColorNode>)[group]!
+          const keys = Object.keys(node).filter((key) => !key.startsWith('$'))
+          return (
+            <Stack key={group} gap="xs">
+              <Text size="sm">
+                <Code>color.{group}</Code> {node.$description}
+              </Text>
+              <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+                {keys.map((key) => (
+                  <Swatch
+                    key={key}
+                    color={String(value(`color.${group}.${key}`))}
+                    label={`${group}.${key}`}
+                    note={node[key]!.$description}
+                  />
+                ))}
+              </SimpleGrid>
+            </Stack>
+          )
+        })}
+      </Stack>
     </Frame>
   )
 }
@@ -147,30 +182,43 @@ export function FontFamilies() {
   )
 }
 
-// TextSizes shows the body sizes, xs to xl, as Text renders them.
-export function TextSizes() {
+const TEXT_STYLES = [
+  { name: 'title-page', use: 'Title order={1}', sample: (t: string) => <Title order={1}>{t}</Title> },
+  { name: 'title-section', use: 'Title order={2}', sample: (t: string) => <Title order={2}>{t}</Title> },
+  { name: 'title-item', use: 'Title order={3}, Text fw={700}', sample: (t: string) => <Text fw={700}>{t}</Text> },
+  { name: 'body', use: 'Text', sample: (t: string) => <Text>{t}</Text> },
+  { name: 'body-sm', use: 'Text size="sm"', sample: (t: string) => <Text size="sm">{t}</Text> },
+  { name: 'caption', use: 'Text size="xs"', sample: (t: string) => <Text size="xs">{t}</Text> },
+]
+
+// TextStyles shows the six text styles, the only ones, as the screens write
+// them.
+export function TextStyles() {
   return (
     <Frame>
       <Table>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Tamaño</Table.Th>
+            <Table.Th>Estilo</Table.Th>
             <Table.Th>Medida</Table.Th>
-            <Table.Th>Interlineado</Table.Th>
+            <Table.Th>En las pantallas</Table.Th>
             <Table.Th>Ejemplo</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {SIZES.map((size) => (
-            <Table.Tr key={size}>
+          {TEXT_STYLES.map((style) => (
+            <Table.Tr key={style.name}>
               <Table.Td>
-                <Code>{size}</Code>
+                <Code>{style.name}</Code>
               </Table.Td>
-              <Table.Td>{tokenSource.font.size[size].$value}</Table.Td>
-              <Table.Td>{tokenSource.font.lineHeight[size].$value}</Table.Td>
               <Table.Td>
-                <Text size={size}>El trámite espera la firma del titular.</Text>
+                {String(value(`textStyle.${style.name}.size`))} / {String(value(`textStyle.${style.name}.lineHeight`))},{' '}
+                {String(value(`textStyle.${style.name}.weight`))}
               </Table.Td>
+              <Table.Td>
+                <Code>{style.use}</Code>
+              </Table.Td>
+              <Table.Td>{style.sample('Equivalencia entre asignaturas')}</Table.Td>
             </Table.Tr>
           ))}
         </Table.Tbody>
@@ -179,32 +227,29 @@ export function TextSizes() {
   )
 }
 
-// Headings shows Title order 1 to 6 and the display variant.
+// Headings shows Title order 1 to 3 and the display variant of the landing
+// page. Orders 4 to 6 look like order 3.
 export function Headings() {
-  const orders = [1, 2, 3, 4, 5, 6] as const
+  const orders = [1, 2, 3] as const
   return (
     <Frame>
       <Stack gap="md">
         <Box>
           <Text size="xs" c="dimmed">
-            Title variant=&quot;display&quot;: crece con el ancho de pantalla, solo en la portada
+            Title variant=&quot;display&quot;: crece con el ancho de pantalla, solo en la pantalla de ingreso
           </Text>
           <Title order={1} variant="display">
             Trámites académicos, sin papeles
           </Title>
         </Box>
-        {orders.map((order) => {
-          const heading = tokenSource.heading[`h${order}`]
-          return (
-            <Box key={order}>
-              <Text size="xs" c="dimmed">
-                Title order={order}: {heading.fontSize.$value}, interlineado {heading.lineHeight.$value}, peso{' '}
-                {tokens.font.headingWeight}
-              </Text>
-              <Title order={order}>Equivalencia entre asignaturas</Title>
-            </Box>
-          )
-        })}
+        {orders.map((order) => (
+          <Box key={order}>
+            <Text size="xs" c="dimmed">
+              Title order={order}: {TEXT_STYLES[order - 1]!.name}
+            </Text>
+            <Title order={order}>Equivalencia entre asignaturas</Title>
+          </Box>
+        ))}
       </Stack>
     </Frame>
   )
@@ -215,9 +260,9 @@ export function Spacing() {
   return (
     <Frame>
       <Stack gap="xs">
-        {SIZES.map((size) => (
+        {SPACING.map((size) => (
           <Group key={size} gap="md" wrap="nowrap">
-            <Code w={40}>{size}</Code>
+            <Code w={48}>{size}</Code>
             <Text size="sm" w={80}>
               {tokenSource.spacing[size].$value}
             </Text>
@@ -250,17 +295,13 @@ export function Radii() {
   )
 }
 
-// Shadows shows each shadow on a panel.
+// Shadows shows the only shadow, on what floats.
 export function Shadows() {
   return (
     <Frame>
-      <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="lg">
-        {SIZES.map((size) => (
-          <Paper key={size} shadow={size} p="md">
-            <Code>{size}</Code>
-          </Paper>
-        ))}
-      </SimpleGrid>
+      <Paper shadow="md" p="md" maw={240}>
+        <Text size="sm">Un menú desplegado</Text>
+      </Paper>
     </Frame>
   )
 }
@@ -364,7 +405,7 @@ export function LogoGallery({ piece }: { piece?: string }) {
                       />
                     </Box>
                     <Stack gap={2} p="xs">
-                      <Text size="sm" fw={600}>
+                      <Text size="sm" fw={700}>
                         {v.name}
                       </Text>
                       <Text size="xs" c="dimmed">

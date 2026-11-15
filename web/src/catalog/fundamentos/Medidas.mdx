@@ -5,29 +5,35 @@ import { Radii, Shadows, Spacing, TokenTable } from '../blocks'
 
 # Medidas
 
-Todas las medidas son una escala de `xs` a `xl`. En las pantallas se escribe el nombre (`p="md"`, `gap="sm"`), nunca un número: un valor suelto es una decisión de diseño que nadie tomó.
+Todas las medidas son una escala con nombre. En las pantallas se escribe el nombre (`p="md"`, `gap="sm"`), nunca un número: un valor suelto es una decisión de diseño que nadie tomó.
 
 ## Espaciado
 
-Márgenes, rellenos y separaciones (`m`, `p`, `gap`, `spacing`).
+Una sola escala de base 4: 4, 8, 12, 16, 24, 32, 48 y 64. No hay valores intermedios. Sirve para márgenes, rellenos y separaciones (`m`, `p`, `gap`, `spacing`).
 
 <Spacing />
 
 ## Radios
 
-El radio por defecto lo usan todos los componentes que no dicen otro. Cada componente apunta a un token propio (`component.button.radius`, por ejemplo), así que se puede cambiar el de uno solo sin tocar el resto.
+Los controles usan 6 (`sm`, el radio por defecto) y las tarjetas 10 (`md`). Cada componente apunta a un token propio (`component.button.radius`, por ejemplo), así que se puede cambiar el de uno solo sin tocar el resto.
 
 <Radii />
 
-## Sombras
+## Sombra
 
-Un panel normal no tiene sombra, tiene borde (`Paper withBorder`). La sombra es para lo que flota (menús, recuadros del menú lateral) o para el panel interactivo cuando el puntero pasa por encima.
+Hay una sola, y es para lo que flota: menús, recuadros y diálogos. Un panel normal no tiene sombra, tiene borde (`Paper withBorder`), y el panel interactivo cambia de fondo y de borde con el puntero, sin elevarse.
 
 <Shadows />
 
+## Marco
+
+La barra superior mide 64 de alto, el menú lateral 240 de ancho y el contenido 1120 como máximo (`Container`, que ya lo trae por defecto), con un relleno de página de 32 (16 en el celular).
+
+<TokenTable path="layout" />
+
 ## Anchos de pantalla
 
-Por debajo de `sm` (48em) la interfaz es la del celular: el menú se pliega y los controles miden al menos 44 px de alto.
+Desde `md` (64em) el menú lateral mide 240. Entre `sm` (48em) y `md` queda en íconos con tooltip. Por debajo de `sm` la interfaz es la del celular: el menú se pliega detrás de un botón y los controles miden al menos 44 de alto.
 
 <TokenTable path="breakpoint" />
 
@@ -36,5 +42,7 @@ Por debajo de `sm` (48em) la interfaz es la del celular: el menú se pliega y lo
 <TokenTable path="spacing" />
 
 <TokenTable path="radius" />
+
+<TokenTable path="focus" />
 
 <TokenTable path="component" />

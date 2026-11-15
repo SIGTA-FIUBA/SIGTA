@@ -31,7 +31,7 @@ export const TextStory: StoryObj<typeof Text> = {
   },
   argTypes: {
     size: { control: 'select', options: ['xs', 'sm', 'md', 'lg', 'xl'] },
-    fw: { control: 'select', options: [400, 500, 600, 700] },
+    fw: { control: 'select', options: [400, 700] },
     c: { control: 'select', options: [undefined, 'dimmed', 'bright', 'fiuba', 'gray'] },
     truncate: { control: 'select', options: [false, true, 'start', 'end'] },
   },

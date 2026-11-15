@@ -24,7 +24,7 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Components that place other components on the screen. Each item is a panel
 // with a border, so the space between them shows the layout.
@@ -361,16 +361,16 @@ export const AppShellStory: StoryObj = {
     <AspectRatio ratio={16 / 7}>
       <AppShell mode="static" header={{ height: 56 }} navbar={{ width: 220, breakpoint: 'xs' }} padding="md">
         <AppShell.Header p="md">
-          <Text fw={600}>SIGTA</Text>
+          <Text fw={700}>SIGTA</Text>
         </AppShell.Header>
-        <AppShell.Navbar p="sm" bg="fiuba.5" aria-label="Menú principal">
-          <Stack gap="xs">
-            <NavLink variant="menu" label="Inicio" leftSection={<MenuIcon name="home" />} />
-            <NavLink variant="menu" label="Bandeja de trámites" leftSection={<MenuIcon name="inbox" />} active />
-            <NavLink variant="menu" label="Catálogo de trámites" leftSection={<MenuIcon name="catalog" />} />
+        <AppShell.Navbar p="sm" aria-label="Menú principal">
+          <Stack gap="xxs">
+            <NavLink variant="menu" label="Inicio" leftSection={<Icon name="home" />} />
+            <NavLink variant="menu" label="Bandeja de trámites" leftSection={<Icon name="inbox" />} active />
+            <NavLink variant="menu" label="Catálogo de trámites" leftSection={<Icon name="catalog" />} />
           </Stack>
         </AppShell.Navbar>
-        <AppShell.Main>
+        <AppShell.Main bg="gray.0">
           <Item>El contenido de la página.</Item>
         </AppShell.Main>
       </AppShell>

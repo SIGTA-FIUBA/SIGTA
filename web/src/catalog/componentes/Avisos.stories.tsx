@@ -15,7 +15,7 @@ import {
   Text,
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Feedback: messages, loading states and progress. Each story shows the
 // component as SIGTA uses it; the controls of the first one try every property.
@@ -205,7 +205,7 @@ export const EmptyStateStory: StoryObj = {
   name: 'EmptyState',
   render: () => (
     <EmptyState
-      icon={<MenuIcon name="inbox" />}
+      icon={<Icon name="inbox" />}
       variant="light"
       title="No hay trámites que requieran acción de este perfil."
       description="Los trámites asignados aparecen acá cuando llegan a una instancia de este perfil."
@@ -230,12 +230,12 @@ export const IndicatorStory: StoryObj = {
     <Group gap="xl">
       <Indicator label={3} size={16}>
         <ActionIcon variant="default" size="lg" aria-label="Bandeja de trámites, 3 con acción requerida">
-          <MenuIcon name="inbox" />
+          <Icon name="inbox" />
         </ActionIcon>
       </Indicator>
       <Indicator processing>
         <ActionIcon variant="default" size="lg" aria-label="Catálogo de trámites, con novedades">
-          <MenuIcon name="catalog" />
+          <Icon name="catalog" />
         </ActionIcon>
       </Indicator>
     </Group>

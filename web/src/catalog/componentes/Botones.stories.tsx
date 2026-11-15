@@ -12,7 +12,7 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Buttons and the controls that act on a click. Each story shows the component
 // as SIGTA uses it; the controls of the first one try every property.
@@ -91,8 +91,8 @@ export const ButtonWithSections: StoryObj = {
   name: 'Button, con ícono',
   render: () => (
     <Group>
-      <Button leftSection={<MenuIcon name="inbox" />}>Bandeja de trámites</Button>
-      <Button variant="default" rightSection={<MenuIcon name="catalog" />}>
+      <Button leftSection={<Icon name="inbox" size={16} />}>Bandeja de trámites</Button>
+      <Button variant="default" rightSection={<Icon name="catalog" size={16} />}>
         Ver catálogo
       </Button>
       <Button fullWidth variant="light">
@@ -119,15 +119,15 @@ export const ActionIconStory: StoryObj = {
     <Group>
       {(['filled', 'light', 'default', 'subtle'] as const).map((variant) => (
         <ActionIcon key={variant} variant={variant} size="lg" aria-label="Ir al inicio">
-          <MenuIcon name="home" />
+          <Icon name="home" />
         </ActionIcon>
       ))}
       <ActionIcon.Group>
         <ActionIcon variant="default" size="lg" aria-label="Inicio">
-          <MenuIcon name="home" />
+          <Icon name="home" />
         </ActionIcon>
         <ActionIcon variant="default" size="lg" aria-label="Bandeja">
-          <MenuIcon name="inbox" />
+          <Icon name="inbox" />
         </ActionIcon>
       </ActionIcon.Group>
     </Group>

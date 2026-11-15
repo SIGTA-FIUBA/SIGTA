@@ -1,7 +1,7 @@
 import { ActionBar, Button, Checkbox, Stack, Text, Toolbar } from '@mantine/core'
 import { type ReactNode, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Bars that group the actions on a list. ActionBar appears while there is a
 // selection; Toolbar stays above the list.
@@ -113,7 +113,7 @@ export const ToolbarStory: StoryObj<typeof Toolbar> = {
         <Toolbar.Group>
           <FilterToggle>Con acción requerida</FilterToggle>
           <FilterToggle label="Solo los trámites asignados">
-            <MenuIcon name="inbox" />
+            <Icon name="inbox" />
           </FilterToggle>
         </Toolbar.Group>
       </>

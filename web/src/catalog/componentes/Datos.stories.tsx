@@ -26,7 +26,7 @@ import {
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { Icon } from '../../components/Icon/Icon'
 
 // Components that show data: tables, states, people, panels and lists. Each
 // story shows the component as SIGTA uses it; the controls of the first ones
@@ -97,7 +97,7 @@ export const TableStory: StoryObj = {
             <Table.Tr key={item.id}>
               <Table.Td>
                 <Stack gap={0}>
-                  <Text fw={600}>{item.applicant}</Text>
+                  <Text fw={700}>{item.applicant}</Text>
                   <Text size="sm" c="dimmed">
                     {item.type}
                   </Text>
@@ -105,7 +105,7 @@ export const TableStory: StoryObj = {
               </Table.Td>
               <Table.Td>
                 <Stack gap={0}>
-                  <Text fw={500}>{item.step}</Text>
+                  <Text>{item.step}</Text>
                   <Text size="sm" c="dimmed">
                     {item.area}
                   </Text>
@@ -205,7 +205,7 @@ export const CardStory: StoryObj = {
   render: () => (
     <Card withBorder padding="lg" maw="50%">
       <Card.Section withBorder inheritPadding py="sm">
-        <Text fw={600}>Equivalencia entre asignaturas</Text>
+        <Text fw={700}>Equivalencia entre asignaturas</Text>
       </Card.Section>
       <Text size="sm" c="dimmed" mt="sm">
         Reconoce una asignatura aprobada en otra carrera o institución como equivalente a una del plan de estudios.
@@ -230,7 +230,7 @@ export const PaperStory: StoryObj = {
     <SimpleGrid cols={2} spacing="sm">
       <Paper withBorder p="md">
         <Stack gap="xs">
-          <Text fw={600}>Análisis Matemático II</Text>
+          <Text fw={700}>Análisis Matemático II</Text>
           <Text size="sm" c="dimmed">
             Asignatura de origen aprobada el 12 de marzo de 2025.
           </Text>
@@ -238,7 +238,7 @@ export const PaperStory: StoryObj = {
       </Paper>
       <Paper component="button" type="button" variant="interactive" withBorder p="md" ta="left">
         <Stack gap="xs">
-          <Text size="sm" fw={500} c="dimmed">
+          <Text size="sm" c="dimmed">
             Acción requerida
           </Text>
           <Text fz="xl" fw={700}>
@@ -396,7 +396,7 @@ export const BackgroundImageStory: StoryObj = {
   name: 'BackgroundImage',
   render: () => (
     <BackgroundImage src="brand/sigta-isotipo-color.svg" p="xl">
-      <Text fw={600}>Sistema Integral de Gestión de Trámites Académicos</Text>
+      <Text fw={700}>Sistema Integral de Gestión de Trámites Académicos</Text>
     </BackgroundImage>
   ),
   parameters: {
@@ -441,7 +441,7 @@ export const ThemeIconStory: StoryObj = {
         </ThemeIcon>
       ))}
       <ThemeIcon variant="light" size="lg" aria-hidden>
-        <MenuIcon name="catalog" />
+        <Icon name="catalog" />
       </ThemeIcon>
     </Group>
   ),
