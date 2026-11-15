@@ -76,8 +76,11 @@ Complete*) ;;
     ;;
 esac
 
+# Compose does not interpolate keys, and the labels of Traefik name the
+# router and the service after the environment: they are filled in here.
 echo "Application"
-timeout 600 docker stack deploy --detach=false --prune --with-registry-auth -c "$here/app.yml" "$stack"
+sed "s/[$]{ENVIRONMENT}/$environment/g" "$here/app.yml" |
+    timeout 600 docker stack deploy --detach=false --prune --with-registry-auth -c - "$stack"
 for service in "${stack}_backend" "${stack}_proxy"; do
     update=$(docker service inspect --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{end}}' "$service")
     case "$update" in
