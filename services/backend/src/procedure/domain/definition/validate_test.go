@@ -304,6 +304,12 @@ func TestInvalidCatalogTexts(t *testing.T) {
 		}, definition.CodeInvalidAcceptedType},
 		"wildcard type": {func(d *definition.ProcedureTypeDefinition) { d.Documents[0].AcceptedTypes = []string{"image/*"} }, definition.CodeInvalidAcceptedType},
 		"any type":      {func(d *definition.ProcedureTypeDefinition) { d.Documents[0].AcceptedTypes = []string{"*/*"} }, definition.CodeInvalidAcceptedType},
+		"type the upload cannot recognize": {func(d *definition.ProcedureTypeDefinition) {
+			d.Documents[0].AcceptedTypes = []string{"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+		}, definition.CodeUndetectedAcceptedType},
+		"type of any content": {func(d *definition.ProcedureTypeDefinition) {
+			d.Documents[0].AcceptedTypes = []string{"application/octet-stream"}
+		}, definition.CodeUndetectedAcceptedType},
 		"repeated type": {func(d *definition.ProcedureTypeDefinition) {
 			d.Documents[0].AcceptedTypes = []string{"application/pdf", "application/pdf"}
 		}, definition.CodeRepeatedAcceptedType},

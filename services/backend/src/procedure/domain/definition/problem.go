@@ -52,6 +52,7 @@ const (
 	CodeBlankText                ProblemCode = "blank_text"
 	CodeNoAcceptedTypes          ProblemCode = "no_accepted_types"
 	CodeInvalidAcceptedType      ProblemCode = "invalid_accepted_type"
+	CodeUndetectedAcceptedType   ProblemCode = "undetected_accepted_type"
 	CodeRepeatedAcceptedType     ProblemCode = "repeated_accepted_type"
 	CodeNoMaxSize                ProblemCode = "no_max_size"
 )
@@ -204,6 +205,8 @@ func (p ValidationProblem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("%s accepts no file types", last), true
 	case CodeInvalidAcceptedType:
 		return fmt.Sprintf("%s accepts %q, which is not a media type", last, p.Value), true
+	case CodeUndetectedAcceptedType:
+		return fmt.Sprintf("%s accepts %q, which the upload cannot recognize in a file", last, p.Value), true
 	case CodeRepeatedAcceptedType:
 		return fmt.Sprintf("%s accepts %q twice", last, p.Value), true
 	case CodeNoMaxSize:

@@ -186,6 +186,8 @@ func (w *catalogWorld) publishBroken(problem string) error {
 		d.Documents[0].AcceptedTypes = nil
 	case "a document with a wrong format":
 		d.Documents[0].AcceptedTypes = []string{"pdf"}
+	case "a document with a format the upload cannot recognize":
+		d.Documents[0].AcceptedTypes = []string{"application/msword"}
 	case "a document without a size limit":
 		d.Documents[0].MaxSizeBytes = 0
 	case "a blank deadline":

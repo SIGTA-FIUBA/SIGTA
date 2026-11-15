@@ -378,3 +378,31 @@ func TestAttachStopsAtTheMaximumOfFilesPerDocument(t *testing.T) {
 		t.Errorf("another document of the same procedure: %v", err)
 	}
 }
+
+// TestDetectTypeReturnsTypesADocumentCanAccept checks the detection against
+// definition.DetectedTypes: a type the detector returns that is not in that
+// list could never be accepted, and a Word file, which it detects as a zip,
+// is why the list does not have the Office types.
+func TestDetectTypeReturnsTypesADocumentCanAccept(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		content []byte
+		want    string
+	}{
+		{"pdf", pdf(64), "application/pdf"},
+		{"png", []byte("\x89PNG\x0D\x0A\x1A\x0A" + strings.Repeat("\x00", 16)), "image/png"},
+		{"jpeg", []byte("\xFF\xD8\xFF\xE0" + strings.Repeat("\x00", 16)), "image/jpeg"},
+		{"text", []byte("Nota sintética del titular."), "text/plain"},
+		{"word", []byte("PK\x03\x04" + strings.Repeat("\x00", 26) + "word/document.xml"), "application/zip"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := detectType(tc.content)
+			if got != tc.want {
+				t.Errorf("detectType = %q, want %q", got, tc.want)
+			}
+			if !slices.Contains(definition.DetectedTypes, got) {
+				t.Errorf("%q is not in definition.DetectedTypes", got)
+			}
+		})
+	}
+}
