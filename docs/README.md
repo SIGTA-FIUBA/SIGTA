@@ -29,7 +29,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [05 · Riesgos](05-riesgos.md) | Registro de riesgos con disparador, mitigación y contingencia |
 | [06 · Stakeholders y comunicación](06-stakeholders-comunicacion.md) | Mapa de stakeholders, canales, ceremonias y escalamiento |
 | [07 · User Story Mapping](07-user-story-mapping.md) | Recorrido del titular y del Secretario, cada detalle con su historia y sprint |
-| [08 · Backlog](08-backlog.md) | Índice de las 53 historias por épica, con su ticket de Linear; los criterios están en Linear |
+| [08 · Backlog](08-backlog.md) | Índice de las 58 historias por épica, con su ticket de Linear; los criterios están en Linear |
 | [09 · Proceso y métricas](09-proceso-y-metricas.md) | Definition of Ready y of Done, estimación, estados en Linear, estrategia de pruebas |
 | [10 · Roadmap](10-roadmap.md) | Bloques, calendario, hitos y puntos de control |
 | [11 · Plan de sprints](11-plan-de-sprints.md) | Historias asignadas a cada sprint |

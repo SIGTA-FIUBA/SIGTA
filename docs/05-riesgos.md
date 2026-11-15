@@ -12,7 +12,7 @@
 | ID | Riesgo | P | S | Exp. |
 |---|---|---|---|---|
 | R-01 | El alcance completo excede la capacidad del equipo | Alta | Alta | 9 |
-| R-13 | Los sprints 3, 4 y 5 por encima de la capacidad estimada | Alta | Alta | 9 |
+| R-13 | Los sprints 3 a 6 por encima de la capacidad estimada | Alta | Alta | 9 |
 | R-03 | Los cinco trámites no quedan relevados a tiempo | Media | Alta | 6 |
 | R-06 | Alucinaciones con consecuencia administrativa | Media | Alta | 6 |
 | R-15 | Pérdida de contexto en el receso | Alta | Media | 6 |
@@ -35,7 +35,7 @@
 ### R-01 — El alcance completo excede la capacidad del equipo
 **Categoría:** Alcance · **P:** Alta · **S:** Alta · **Exposición:** 9 · **Estado:** Abierto
 
-El alcance son 264 SP en 14 sprints con carga: los cinco trámites, los tres usos de IA y la plataforma completa, con 4 personas a 12 hs semanales. Se decidió no recortar de antemano (ADR-008).
+El alcance son 293 SP en 14 sprints con carga (los 264 de la revisión del 27/09 más 29 de las cinco historias agregadas el 14/11): los cinco trámites, los tres usos de IA y la plataforma completa, con 4 personas a 12 hs semanales. Se decidió no recortar de antemano (ADR-008).
 
 - **Disparador:** velocidad medida al cierre del sprint 2 más de un 25% por debajo de lo planificado, o cualquier punto de control del roadmap que no se cumpla.
 - **Mitigación:** puntos de control decisorios en los sprints 2, 4, 6, 13, 14 y 16. Replanificar sobre la velocidad real, no sobre la nominal.
@@ -126,10 +126,10 @@ El modelo de configuración asume que todo paso cae en una de cuatro acciones (c
 - **Disparador:** una reunión quincenal cancelada sin reprogramar dentro de la semana.
 - **Mitigación:** hilo único de correo con los directores, reunión quincenal fija en calendario y canal directo con la Secretaría.
 
-### R-13 — Los sprints 3, 4 y 5 están planificados por encima de la capacidad estimada
+### R-13 — Los sprints 3 a 6 están planificados por encima de la capacidad estimada
 **Categoría:** Planificación · **P:** Alta · **S:** Alta · **Exposición:** 9 · **Estado:** Abierto
 
-Los sprints 3, 4 y 5 piden 26, 30 y 29 SP contra una capacidad estimada de 24 por sprint pleno. Todo lo que tienen alimenta la demo de diciembre, así que se decidió no recortar nada y asumir el exceso. El ritmo se planificó sin ninguna medición de velocidad, y el pico llega antes de tenerla.
+Los sprints 3, 4, 5 y 6 piden 26, 38, 34 y 30 SP contra una capacidad estimada de 24 por sprint pleno, y el 6 es de carga reducida por diciembre. Antes de las historias agregadas el 14/11 eran 26, 30, 29 y 17: el exceso salía de los sprints 3 a 5, y ahora alcanza también al 6. Todo lo que tienen alimenta la demo de diciembre, así que se decidió no recortar nada y asumir el exceso. El ritmo se planificó sin ninguna medición de velocidad, y el pico llega antes de tenerla.
 
 - **Disparador:** velocidad del sprint 2 por debajo del 80% de los 26 SP planificados.
 - **Mitigación:** comprometer el sprint 1 con la regla del 60% y reescalar la curva entera al cierre del sprint 2, antes de entrar al pico.

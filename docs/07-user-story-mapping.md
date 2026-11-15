@@ -12,7 +12,7 @@ Dos mapas, uno por cada rol de la plataforma. Cada mapa tiene tres niveles: **ac
 | `—` | Fuera del alcance. Está en el mapa a propósito, para discutir alcance |
 | `—*` | Fuera del alcance, pero es una duda pendiente con la Secretaría |
 
-**Lo que no está en estos mapas.** Infraestructura, CI/CD, configuración de trámites, modelo de dominio y base de conocimiento no son tareas de ningún rol: viven solo en el backlog. El evaluador externo tampoco es un rol de la plataforma: sus pasos los registra el Secretario.
+**Lo que no está en estos mapas.** Infraestructura, CI/CD, modelo de dominio y base de conocimiento no son tareas de ningún rol: viven solo en el backlog. La configuración de trámites y la administración de permisos sí lo son desde ADR-013 y ADR-017, y están en SA7. El evaluador externo tampoco es un rol de la plataforma: sus pasos los registra el Secretario.
 
 **Sobre el rol Secretario.** En el mapa es un solo rol. En permisos siguen existiendo dos perfiles: el **operativo** (recibe, verifica, deriva, registra) y el de **aprobación** (aprueba y firma). La columna Permiso marca qué detalles requieren el segundo.
 
@@ -145,9 +145,9 @@ Dos mapas, uno por cada rol de la plataforma. Cada mapa tiene tres niveles: **ac
 
 **Quién es.** Personal de la Secretaría de Gestión Académica. Recibe solicitudes de fuentes dispersas, las centraliza a mano, deriva a evaluadores externos y redacta resoluciones. Lo que le duele hoy: no tener una bandeja única, no saber qué se está durmiendo, y redactar actas desde cero.
 
-| SA1. Organizar | SA2. Verificar | SA3. Pedir | SA4. Derivar | SA5. Resolver | SA6. Cerrar |
-|---|---|---|---|---|---|
-| Saber qué requiere su intervención | Controlar que la solicitud esté en condiciones | Obtener lo que falta | Llevar el trámite al evaluador y traerlo de vuelta | Producir el documento formal | Dejar constancia |
+| SA1. Organizar | SA2. Verificar | SA3. Pedir | SA4. Derivar | SA5. Resolver | SA6. Cerrar | SA7. Configurar |
+|---|---|---|---|---|---|---|
+| Saber qué requiere su intervención | Controlar que la solicitud esté en condiciones | Obtener lo que falta | Llevar el trámite al evaluador y traerlo de vuelta | Producir el documento formal | Dejar constancia | Definir trámites, áreas y permisos |
 
 ## SA1 — Organizar
 
@@ -270,6 +270,25 @@ Dos mapas, uno por cada rol de la plataforma. Cada mapa tiene tres niveles: **ac
 | SEC-6.1.a | Ver el historial completo de pasos, con responsable y fecha | Operativo | US11 · S4 |
 | SEC-6.1.b | Que el historial no se pueda alterar una vez registrado | Operativo | US11 · S4 |
 | SEC-6.1.c | Consultar resoluciones anteriores como antecedente de un caso nuevo | — | — |
+
+## SA7 — Configurar
+
+### ST7.1 — Definir los tipos de trámite
+
+| ID | Detalle | Permiso | Historia |
+|---|---|---|---|
+| SEC-7.1.a | Editar un tipo de trámite como borrador desde la interfaz | A definir (D-08) | US72 · S4 |
+| SEC-7.1.b | Proponer el borrador para que lo apruebe otra persona | A definir (D-08) | US72 · S4 |
+| SEC-7.1.c | Aprobar y publicar una versión nueva, que no se modifica | A definir (D-08) | US72 · S4 |
+| SEC-7.1.d | Publicar una versión sin la aprobación de otra persona | — | — |
+
+### ST7.2 — Administrar áreas, permisos y membresías
+
+| ID | Detalle | Permiso | Historia |
+|---|---|---|---|
+| SEC-7.2.a | Dar de alta y modificar las áreas de la Secretaría | Administrador | US74 · S6 |
+| SEC-7.2.b | Definir qué permisos tiene cada rol | Administrador | US74 · S6 |
+| SEC-7.2.c | Asignar a cada persona un rol en un área | Administrador | US74 · S6 |
 
 ---
 

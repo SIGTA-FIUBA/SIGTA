@@ -13,21 +13,23 @@
 | ID | Épica | Historias | SP |
 |---|---|---|---|
 | EP00 | Relevamiento y modelado del dominio | 4 | 10 |
-| EP01 | Identidad y acceso | 2 | 11 |
-| EP02 | Configuración de trámites | 6 | 34 |
+| EP01 | Identidad y acceso | 3 | 16 |
+| EP02 | Configuración de trámites | 7 | 42 |
 | EP03 | Inicio de solicitud | 2 | 7 |
 | EP04 | Seguimiento del titular | 5 | 13 |
 | EP05 | Bandeja y verificación de la Secretaría | 6 | 18 |
 | EP06 | Motor de pasos y estados | 3 | 13 |
-| EP07 | Gestión documental | 2 | 13 |
+| EP07 | Gestión documental | 3 | 16 |
 | EP08 | Derivación a evaluación externa | 2 | 8 |
 | EP09 | Asistente RAG al titular | 6 | 48 |
-| EP10 | Validación asistida | 3 | 21 |
+| EP10 | Validación asistida | 4 | 29 |
 | EP11 | Generación de preactas | 4 | 21 |
 | EP12 | Notificaciones | 2 | 11 |
-| EP13 | Infraestructura y CI/CD | 5 | 28 |
+| EP13 | Infraestructura y CI/CD | 6 | 33 |
 | EP14 | Cierre académico | 1 | 8 |
-| | **Total** | **53** | **264** |
+| | **Total** | **58** | **293** |
+
+La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap y del plan de sprints. Las cinco historias de US72 a US76 se agregaron el 14/11, al revisar el backlog contra el alcance, con estimación provisoria.
 
 ---
 
@@ -49,6 +51,7 @@
 | US06 | SIG-11 | Autenticación con proveedor abstraído | 8 | 2 |
 | US06 | SIG-61 | Ingreso con la cuenta de Google de la UBA |  | 3 |
 | US07 | SIG-14 | Perfiles y autorización | 3 | 3 |
+| US74 | SIG-76 | Administración de áreas, permisos y membresías | 5 | 6 |
 
 ### EP02 — Configuración de trámites
 
@@ -57,6 +60,7 @@
 | US08 | SIG-12 | Modelo de definición de trámite | 3 | 2 |
 | US09 | SIG-15 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | 3 |
 | US25 | SIG-24 | Configuración del segundo trámite: reconocimiento de créditos | 8 | 4 |
+| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 | 4 |
 | US49 | SIG-48 | Configuración de cobertura: pase de universidad extranjera | 5 | 14 |
 | US50 | SIG-51 | Configuración de cobertura: intercambios académicos | 5 | 15 |
 | US51 | SIG-54 | Configuración de cobertura: pase dentro de la UBA | 5 | 16 |
@@ -103,6 +107,7 @@
 |---|---|---|---|---|
 | US15 | SIG-18 | Carga y almacenamiento de documentos | 8 | 3 |
 | US16 | SIG-26 | Visualización y descarga de documentos del trámite | 5 | 5 |
+| US76 | SIG-78 | Conservación de los documentos de un trámite cerrado | 3 | 16 |
 
 ### EP08 — Derivación a evaluación externa
 
@@ -126,6 +131,7 @@
 
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
+| US75 | SIG-77 | Quitar los datos identificatorios antes de llamar al modelo | 8 | 6 |
 | US40 | SIG-37 | Lectura de los documentos cargados | 5 | 12 |
 | US41 | SIG-38 | Criterios verificables de cada requisito y cruce con los documentos | 8 | 12 |
 | US43 | SIG-46 | Set de evaluación de la validación asistida y de las preactas | 8 | 14 |
@@ -154,6 +160,7 @@
 | US65 | SIG-8 | Definición y setup del stack tecnológico | 5 | 1 |
 | US02 | SIG-10 | Configuración de herramientas agénticas de desarrollo | 5 | 2 |
 | US04 | SIG-19 | Generador de datos sintéticos | 5 | 4 |
+| US73 | SIG-75 | Persistencia de personas, áreas, trámites y documentos | 5 | 5 |
 | US68 | SIG-29 | Despliegue automático | 8 | 5 |
 
 ### EP14 — Cierre académico
@@ -166,10 +173,22 @@
 
 ## Tickets sin historia del backlog
 
-Tickets que se crearon en Linear al partir una historia o para seguir una dependencia externa. No suman al total de 264 SP.
+Tickets que se crearon en Linear al partir una historia o para seguir una dependencia externa. No suman al total de SP.
 
 | Ticket | Título | Origen |
 |---|---|---|
 | SIG-58 | Respuesta de la Secretaría: validación del relevamiento y ejemplos de trámites | Seguimiento de US62 y US71 |
 | SIG-59 | Proyecto base | Sale de US01 y US65 |
 | SIG-62 | Entrega intermedia de la cátedra | Entrega obligatoria del 29/11, sprint 5 |
+| SIG-63 | Requisitos compartidos entre trámites | Sale de US08 |
+| SIG-64 | Automatizar los escenarios de aceptación en el pipeline | Definición de terminado |
+| SIG-65 | Persistencia de los tipos de trámite | Sale de US08 |
+| SIG-66 | Base de la interfaz con Mantine y un único tema | Sigue a SIG-59 |
+| SIG-67 | Control de claves según el formato de la versión | Revisión del PR de US13 |
+| SIG-68 | Quitar el trámite de ejemplo de desarrollo | Revisión del PR de US13 |
+| SIG-69 | Requisitos de infraestructura de FIUBA | Documento de la Subsecretaría de TICs |
+| SIG-70 | Dividir el dominio de los tipos de trámite en paquetes | Registra el PR #27 |
+| SIG-71 | Metadata de plazos y descripción de los pasos | Sale de US67 |
+| SIG-72 | Identidad visual y marco de la aplicación | Sale de SIG-66 |
+| SIG-73 | Auditoría de accesos y cambios de permisos (a discutir) | Sale de US07 |
+| SIG-79 | Catálogo de identidad visual y componentes | Sigue a SIG-72 |
