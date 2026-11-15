@@ -1,0 +1,52 @@
+# The entry shared by the environments of SIGTA: Traefik, which routes each
+# host to the proxy of its environment (app.yml), and the Cloudflare tunnel,
+# the only way in. No service publishes a port on the host.
+services:
+  traefik:
+    image: traefik:v3.7.19
+    command:
+      - --providers.swarm.endpoint=unix:///var/run/docker.sock
+      - --providers.swarm.exposedByDefault=false
+      - --providers.swarm.network=sigta-edge
+      - --entryPoints.web.address=:80
+      # Port 80 is only reachable from the edge network, where the tunnel
+      # sets the client address.
+      - --entryPoints.web.forwardedHeaders.insecure=true
+      - --ping=true
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.0
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --credentials-file=/run/secrets/cloudflared_credentials
+      - --url=http://traefik:80
+      - run
+      - ${CLOUDFLARE_TUNNEL_ID}
+    secrets:
+      - cloudflared_credentials
+    networks:
+      - edge
+
+networks:
+  edge:
+    name: sigta-edge
+    driver: overlay
+
+secrets:
+  cloudflared_credentials:
+    external: true

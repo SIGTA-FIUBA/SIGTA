@@ -1,0 +1,85 @@
+# One environment of SIGTA (deploy.sh sets ENVIRONMENT, prod or dev, and
+# SIGTA_TAG, the version of the images, already built): the proxy with the
+# frontend and the backend. Traefik, in edge.yml, sends the host of the
+# environment to its proxy; the database is the stack of database.yml.
+x-update: &update
+  # The new task starts before the old one stops, and replaces it only once
+  # healthy; otherwise Swarm goes back to the previous version.
+  update_config:
+    order: start-first
+    failure_action: rollback
+    monitor: 30s
+  rollback_config:
+    order: start-first
+
+services:
+  proxy:
+    image: ghcr.io/sigta-fiuba/sigta/proxy:${SIGTA_TAG}
+    networks:
+      - edge
+      - app
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      <<: *update
+      labels:
+        traefik.enable: "true"
+        traefik.http.routers.sigta-${ENVIRONMENT}.rule: Host(`${SIGTA_HOST}`)
+        traefik.http.routers.sigta-${ENVIRONMENT}.entrypoints: web
+        traefik.http.services.sigta-${ENVIRONMENT}.loadbalancer.server.port: "80"
+
+  backend:
+    image: ghcr.io/sigta-fiuba/sigta/backend:${SIGTA_TAG}
+    environment:
+      SIGTA_ENV: ${SIGTA_ENV}
+      SIGTA_IDENTITY_PROVIDER: google
+      SIGTA_PUBLIC_URL: https://${SIGTA_HOST}/api
+      SIGTA_APP_URL: https://${SIGTA_HOST}/
+      SIGTA_ALLOWED_DOMAIN: fi.uba.ar
+      SIGTA_DATABASE_URL_FILE: /run/secrets/database_url
+      SIGTA_GOOGLE_CLIENT_ID_FILE: /run/secrets/google_client_id
+      SIGTA_GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret
+    volumes:
+      - documents:/var/lib/sigta/documents
+    secrets:
+      - database_url
+      - google_client_id
+      - google_client_secret
+    networks:
+      - app
+      - db
+    healthcheck:
+      test: ["CMD", "/backend", "probe"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      <<: *update
+
+volumes:
+  documents:
+
+networks:
+  edge:
+    name: sigta-edge
+    external: true
+  app:
+    driver: overlay
+  db:
+    name: sigta-${ENVIRONMENT}-db
+    external: true
+
+# The connection to the database is of the environment; the Google client
+# is shared, with the callback of each host.
+secrets:
+  database_url:
+    name: ${ENVIRONMENT}_database_url
+    external: true
+  google_client_id:
+    external: true
+  google_client_secret:
+    external: true

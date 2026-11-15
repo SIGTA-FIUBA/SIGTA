@@ -1,7 +1,8 @@
 #!/bin/sh
-# Creates the staging environment of SIGTA in Google Cloud: a small VM with
-# Docker Swarm in a network that accepts no connection from the internet, and
-# the identity GitHub Actions uses to deploy on it, without long-lived keys.
+# Creates the test environments of SIGTA in Google Cloud: a VM with Docker
+# Swarm, where prod (main) and dev (develop) run side by side, in a network
+# that accepts no connection from the internet, and the identity GitHub
+# Actions uses to deploy on it, without long-lived keys.
 # Each step skips what already exists, so it can run again.
 #
 #   CLOUDSDK_CORE_PROJECT=<project> BILLING_ACCOUNT=<id> sh deploy/gcp/setup.sh
@@ -13,7 +14,7 @@ project=${CLOUDSDK_CORE_PROJECT:?set CLOUDSDK_CORE_PROJECT}
 billing_account=${BILLING_ACCOUNT:?set BILLING_ACCOUNT}
 region=southamerica-east1
 zone=$region-b
-vm=sigta-staging
+vm=sigta
 deployer=sigta-deploy
 deployer_email=$deployer@$project.iam.gserviceaccount.com
 # GitHub ids instead of names: a renamed or recreated repository with the
@@ -47,25 +48,30 @@ exists gcloud compute routers nats describe sigta --router=sigta --region="$regi
 
 # The VM has no service account: it does not call Google Cloud.
 exists gcloud compute instances describe "$vm" --zone="$zone" ||
-    gcloud compute instances create "$vm" --zone="$zone" --machine-type=e2-small \
+    gcloud compute instances create "$vm" --zone="$zone" --machine-type=e2-medium \
         --subnet=sigta --no-address --no-service-account --no-scopes \
         --image-family=debian-13 --image-project=debian-cloud \
-        --boot-disk-size=20GB --boot-disk-type=pd-balanced \
+        --boot-disk-size=30GB --boot-disk-type=pd-balanced \
         --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring \
         --metadata=enable-oslogin=TRUE \
         --metadata-from-file=startup-script="$here/startup.sh"
 
-# GitHub Actions gets a token for the deployer only from a run of the
-# develop branch of the repository, through Workload Identity Federation.
+# GitHub Actions gets a token for the deployer only from a run of the main
+# or develop branch of the repository, through Workload Identity Federation.
 exists gcloud iam service-accounts describe "$deployer_email" ||
     gcloud iam service-accounts create "$deployer" --display-name="SIGTA deploy from GitHub Actions"
 exists gcloud iam workload-identity-pools describe github --location=global ||
     gcloud iam workload-identity-pools create github --location=global --display-name=GitHub
-exists gcloud iam workload-identity-pools providers describe sigta --location=global --workload-identity-pool=github ||
+condition="assertion.repository_id == '$repository_id' && assertion.repository_owner_id == '$owner_id' && assertion.ref in ['refs/heads/main', 'refs/heads/develop']"
+if exists gcloud iam workload-identity-pools providers describe sigta --location=global --workload-identity-pool=github; then
+    gcloud iam workload-identity-pools providers update-oidc sigta --location=global \
+        --workload-identity-pool=github --attribute-condition="$condition"
+else
     gcloud iam workload-identity-pools providers create-oidc sigta --location=global \
         --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com \
         --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref \
-        --attribute-condition="assertion.repository_id == '$repository_id' && assertion.repository_owner_id == '$owner_id' && assertion.ref == 'refs/heads/develop'"
+        --attribute-condition="$condition"
+fi
 gcloud iam service-accounts add-iam-policy-binding "$deployer_email" --role=roles/iam.workloadIdentityUser \
     --member="principalSet://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/attribute.repository_id/$repository_id" >/dev/null
 
@@ -77,10 +83,13 @@ for role in roles/compute.viewer roles/iap.tunnelResourceAccessor roles/compute.
 done
 
 # Budget alert: emails the billing administrators at half, 90% and all of it.
-if [ -z "$(gcloud billing budgets list --billing-account="$billing_account" --filter='displayName="SIGTA staging"' --format='value(name)')" ]; then
-    gcloud billing budgets create --billing-account="$billing_account" --display-name="SIGTA staging" \
-        --budget-amount=25USD --filter-projects="projects/$project" \
+budget=$(gcloud billing budgets list --billing-account="$billing_account" --filter='displayName="SIGTA"' --format='value(name)')
+if [ -z "$budget" ]; then
+    gcloud billing budgets create --billing-account="$billing_account" --display-name=SIGTA \
+        --budget-amount=60USD --filter-projects="projects/$project" \
         --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
+else
+    gcloud billing budgets update "$budget" --budget-amount=60USD
 fi
 
 echo "Workload identity provider: projects/$number/locations/global/workloadIdentityPools/github/providers/sigta"

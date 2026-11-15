@@ -1,32 +1,48 @@
 #!/bin/sh
-# Deploys a version of SIGTA on the Swarm manager, in three steps: brings up
-# the database, applies the migrations of the new version and updates the
-# application. A failed step leaves the previous version online. The images
-# are ghcr.io/sigta-fiuba/sigta/{backend,proxy}:TAG, and the registry login
-# is the caller's (docker login ghcr.io).
+# Deploys a version of SIGTA in one environment of the Swarm manager, prod or
+# dev, in four steps: updates the shared entry (edge.yml), brings up the
+# database of the environment, applies the migrations of the new version and
+# updates the application. A failed step leaves the previous version online.
+# The images are ghcr.io/sigta-fiuba/sigta/{backend,proxy}:TAG, and the
+# registry login is the caller's (docker login ghcr.io).
 #
-#   sudo sh deploy.sh TAG
+#   sudo sh deploy.sh ENVIRONMENT TAG
 #
-# /etc/sigta/deploy.env sets SIGTA_HOST, SIGTA_ENV and CLOUDFLARE_TUNNEL_ID
-# (docs/15-despliegue.md).
+# /etc/sigta/edge.env sets CLOUDFLARE_TUNNEL_ID, and /etc/sigta/ENVIRONMENT.env
+# sets SIGTA_HOST and SIGTA_ENV (docs/15-despliegue.md).
 set -eu
 
-tag=$1
+environment=$1
+tag=$2
+case "$environment" in
+prod | dev) ;;
+*)
+    echo "Unknown environment: $environment (prod or dev)" >&2
+    exit 2
+    ;;
+esac
 here=$(cd "$(dirname "$0")" && pwd)
-. /etc/sigta/deploy.env
-export SIGTA_TAG="$tag" SIGTA_HOST SIGTA_ENV CLOUDFLARE_TUNNEL_ID
+. /etc/sigta/edge.env
+. "/etc/sigta/$environment.env"
+ENVIRONMENT=$environment
+SIGTA_TAG=$tag
 DB_INIT_DIGEST=$(cat "$here/../postgres/init.sh" "$here/../postgres/sql/roles.sql" | sha256sum | cut -c1-12)
-export DB_INIT_DIGEST
+export ENVIRONMENT SIGTA_TAG SIGTA_HOST SIGTA_ENV CLOUDFLARE_TUNNEL_ID DB_INIT_DIGEST
+stack=sigta-$environment
+
+echo "Entry"
+docker stack deploy --detach=false --prune -c "$here/edge.yml" sigta-edge
 
 echo "Database"
-docker stack deploy --detach=false --prune -c "$here/database.yml" sigta-db
+docker stack deploy --detach=false --prune -c "$here/database.yml" "$stack-db"
+healthy() {
+    [ -n "$(docker ps --quiet --filter "label=com.docker.swarm.service.name=$stack-db_db" --filter health=healthy)" ]
+}
 for _ in $(seq 60); do
-    if [ -n "$(docker ps --quiet --filter label=com.docker.swarm.service.name=sigta-db_db --filter health=healthy)" ]; then
-        break
-    fi
+    healthy && break
     sleep 2
 done
-if [ -z "$(docker ps --quiet --filter label=com.docker.swarm.service.name=sigta-db_db --filter health=healthy)" ]; then
+if ! healthy; then
     echo "The database is not healthy" >&2
     exit 1
 fi
@@ -34,23 +50,24 @@ fi
 # Swarm has no one-off containers with secrets: the migrations run as a
 # service that does not restart, and its final state says how they went.
 echo "Migrations"
-docker service rm sigta-migrate >/dev/null 2>&1 || true
-docker service create --detach --quiet --name sigta-migrate --with-registry-auth \
-    --restart-condition none --network sigta-db_db \
-    --secret migrations_database_url \
+migrate=$stack-migrate
+docker service rm "$migrate" >/dev/null 2>&1 || true
+docker service create --detach --quiet --name "$migrate" --with-registry-auth \
+    --restart-condition none --network "$stack-db" \
+    --secret "source=${environment}_migrations_database_url,target=migrations_database_url" \
     --env SIGTA_ENV="$SIGTA_ENV" \
     --env SIGTA_MIGRATIONS_DATABASE_URL_FILE=/run/secrets/migrations_database_url \
     "ghcr.io/sigta-fiuba/sigta/backend:$tag" migrate >/dev/null
 state=
 for _ in $(seq 150); do
-    state=$(docker service ps --format '{{.CurrentState}}' sigta-migrate | head -n 1)
+    state=$(docker service ps --format '{{.CurrentState}}' "$migrate" | head -n 1)
     case "$state" in
     Complete* | Failed* | Rejected*) break ;;
     esac
     sleep 2
 done
-docker service logs --raw sigta-migrate 2>&1 || true
-docker service rm sigta-migrate >/dev/null
+docker service logs --raw "$migrate" 2>&1 || true
+docker service rm "$migrate" >/dev/null
 case "$state" in
 Complete*) ;;
 *)
@@ -60,8 +77,8 @@ Complete*) ;;
 esac
 
 echo "Application"
-timeout 600 docker stack deploy --detach=false --prune --with-registry-auth -c "$here/sigta.yml" sigta
-for service in sigta_backend sigta_proxy; do
+timeout 600 docker stack deploy --detach=false --prune --with-registry-auth -c "$here/app.yml" "$stack"
+for service in "${stack}_backend" "${stack}_proxy"; do
     update=$(docker service inspect --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{end}}' "$service")
     case "$update" in
     rollback_* | paused)
@@ -70,4 +87,4 @@ for service in sigta_backend sigta_proxy; do
         ;;
     esac
 done
-echo "Deployed $tag"
+echo "Deployed $tag in $environment"

@@ -1,18 +1,20 @@
 name: Deploy
 
-# Each push to develop builds the images, publishes them in GHCR and deploys
-# them on the staging VM in Google Cloud (docs/15-despliegue.md). GitHub
-# keeps no key of Google Cloud: the job gets a short-lived token through
-# Workload Identity Federation, which only accepts runs of develop.
+# Each push to main or develop builds the images, publishes them in GHCR and
+# deploys them on the VM in Google Cloud: main in prod and develop in dev
+# (docs/15-despliegue.md). GitHub keeps no key of Google Cloud: the job gets a
+# short-lived token through Workload Identity Federation, which only accepts
+# runs of those two branches.
 on:
   push:
-    branches: [develop]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One deploy at a time, and none is cancelled halfway.
+# One deploy at a time, since both environments share the entry, and none
+# is cancelled halfway.
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -23,8 +25,10 @@ env:
   GCP_SERVICE_ACCOUNT: sigta-deploy@summer-function-513519-a1.iam.gserviceaccount.com
   GCP_PROJECT: summer-function-513519-a1
   GCP_ZONE: southamerica-east1-b
-  GCP_VM: sigta-staging
-  SIGTA_URL: https://sigta.lopeztancredi.com.ar
+  GCP_VM: sigta
+  # main is prod; develop, dev.
+  ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+  SIGTA_URL: ${{ github.ref_name == 'main' && 'https://sigta.lopeztancredi.com.ar' || 'https://sigta-dev.lopeztancredi.com.ar' }}
 
 jobs:
   images:
@@ -60,12 +64,12 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ matrix.image }}:develop
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.ref_name }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   deploy:
-    name: Deploy to staging
+    name: Deploy to ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
     needs: images
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -95,7 +99,7 @@ jobs:
           printf %s "$TOKEN" | gcloud compute ssh "$GCP_VM" \
             --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet \
             --command "sudo docker login ghcr.io --username '${{ github.actor }}' --password-stdin \
-              && { sudo sh swarm/deploy.sh '${{ github.sha }}'; status=\$?; sudo docker logout ghcr.io; exit \$status; }"
+              && { sudo sh swarm/deploy.sh \"$ENVIRONMENT\" '${{ github.sha }}'; status=\$?; sudo docker logout ghcr.io; exit \$status; }"
       - name: Check SIGTA through the tunnel
         run: |
           curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "$SIGTA_URL/"

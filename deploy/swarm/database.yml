@@ -1,7 +1,7 @@
-# The database of SIGTA, apart from the application: deploy.sh brings it up
-# and runs the migrations before updating the application (ADR-022). Swarm
-# reads the passwords from its secrets, created once on the manager (see
-# docs/13-despliegue.md).
+# The database of one environment of SIGTA, apart from its application:
+# deploy.sh brings it up and runs the migrations before updating the
+# application (ADR-022). Swarm reads the passwords from the secrets of the
+# environment, created once on the manager (docs/15-despliegue.md).
 services:
   db:
     image: pgvector/pgvector:pg18
@@ -43,6 +43,7 @@ networks:
   # Attachable, so the migrations run as a one-off service next to the
   # database before each update of the application.
   db:
+    name: sigta-${ENVIRONMENT}-db
     driver: overlay
     attachable: true
 
@@ -54,18 +55,22 @@ volumes:
 # volume is empty.
 configs:
   init:
-    name: sigta-db-init-${DB_INIT_DIGEST}
+    name: sigta-${ENVIRONMENT}-db-init-${DB_INIT_DIGEST}
     file: ../postgres/init.sh
   roles:
-    name: sigta-db-roles-${DB_INIT_DIGEST}
+    name: sigta-${ENVIRONMENT}-db-roles-${DB_INIT_DIGEST}
     file: ../postgres/sql/roles.sql
 
 secrets:
   postgres_password:
+    name: ${ENVIRONMENT}_postgres_password
     external: true
   backend_db_password:
+    name: ${ENVIRONMENT}_backend_db_password
     external: true
   backend_migrations_db_password:
+    name: ${ENVIRONMENT}_backend_migrations_db_password
     external: true
   ai_db_password:
+    name: ${ENVIRONMENT}_ai_db_password
     external: true
