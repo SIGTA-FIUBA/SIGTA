@@ -36,6 +36,11 @@ const (
 	// person could fill the disk by uploading the same document again and
 	// again. The number is a guess, to confirm with the Secretaría.
 	maxFilesPerDocument = 20
+
+	// unreferencedAge is how old a file that no document names has to be
+	// for RemoveUnreferencedFiles to remove it: a younger one can be from an
+	// upload, of this instance or another, that has not been recorded yet.
+	unreferencedAge = time.Hour
 )
 
 // DocumentService decides who sees a procedure and who acts on its open step
@@ -161,13 +166,20 @@ func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requir
 	return nil
 }
 
-// RemoveUnreferencedFiles removes the stored files that no document names,
-// and returns how many it removed. They come from an upload whose record
-// failed or, while the records are in memory, from every document of the
-// previous run, which no one can reach anymore and which hold personal data.
-// It runs at startup, before serving: during an upload the file is stored
-// before its record, so it would remove a file about to be named.
+// RemoveUnreferencedFiles removes the stored files that no document names
+// and that are older than unreferencedAge, and returns how many it removed.
+// They come from an upload whose record failed or, while the records are in
+// memory, from every document of a previous run, which no one can reach
+// anymore and which hold personal data. It runs at startup, before serving.
+// It assumes a single instance: while the records are in memory, another one
+// would lose the files of its documents.
 func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, error) {
+	// Read before the records, so that a file stored and named meanwhile is
+	// not taken for unnamed.
+	stored, err := s.files.Digests(ctx, s.now().Add(-unreferencedAge))
+	if err != nil {
+		return 0, fmt.Errorf("stored files: %w", err)
+	}
 	digests, err := s.documents.Digests(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("digests of the documents: %w", err)
@@ -175,10 +187,6 @@ func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, err
 	named := make(map[string]bool, len(digests))
 	for _, digest := range digests {
 		named[digest] = true
-	}
-	stored, err := s.files.Digests(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("stored files: %w", err)
 	}
 	removed := 0
 	for _, digest := range stored {

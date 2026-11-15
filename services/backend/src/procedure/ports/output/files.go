@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 )
 
 // ErrNoFile also covers a digest that is not well formed, since it cannot
@@ -25,8 +26,9 @@ type Files interface {
 	// Open fails with ErrNoFile if no file has that digest, and with
 	// ErrCorruptFile if the content of the file no longer has it.
 	Open(ctx context.Context, digest string) (io.ReadCloser, error)
-	// Digests returns the digests of the stored files, in no order.
-	Digests(ctx context.Context) ([]string, error)
+	// Digests returns the digests of the files stored before storedBefore,
+	// in no order. A file stored again counts from the last time.
+	Digests(ctx context.Context, storedBefore time.Time) ([]string, error)
 	// Remove deletes the file with that digest, and does nothing if there is
 	// none.
 	Remove(ctx context.Context, digest string) error

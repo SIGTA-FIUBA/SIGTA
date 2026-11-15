@@ -238,11 +238,19 @@ func TestDigestsAndRemove(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	got, err := files.Digests(t.Context())
+	got, err := files.Digests(t.Context(), time.Now().Add(time.Minute))
 	slices.Sort(got)
 	slices.Sort(stored)
 	if err != nil || !slices.Equal(got, stored) {
 		t.Fatalf("Digests() = %v, %v; want %v", got, err, stored)
+	}
+	// A file stored earlier is listed only for a time after it.
+	old := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(filepath.Join(dir, strings.TrimPrefix(stored[0], "sha256:")), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := files.Digests(t.Context(), time.Now().Add(-time.Hour)); err != nil || !slices.Equal(got, stored[:1]) {
+		t.Fatalf("Digests(an hour ago) = %v, %v; want %v", got, err, stored[:1])
 	}
 
 	for range 2 {

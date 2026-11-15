@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -51,8 +50,12 @@ func documentsDefinition() definition.ProcedureTypeDefinition {
 }
 
 // memoryFiles keeps the files in memory, under the digest the disk adapter
-// would give them.
-type memoryFiles struct{ files map[string][]byte }
+// would give them, and records each one as stored at the time in at.
+type memoryFiles struct {
+	files  map[string][]byte
+	stored map[string]time.Time
+	at     time.Time
+}
 
 func (m *memoryFiles) Put(_ context.Context, content io.Reader) (string, int64, error) {
 	data, err := io.ReadAll(content)
@@ -62,6 +65,7 @@ func (m *memoryFiles) Put(_ context.Context, content io.Reader) (string, int64, 
 	sum := sha256.Sum256(data)
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 	m.files[digest] = data
+	m.stored[digest] = m.at
 	return digest, int64(len(data)), nil
 }
 
@@ -73,12 +77,19 @@ func (m *memoryFiles) Open(_ context.Context, digest string) (io.ReadCloser, err
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
-func (m *memoryFiles) Digests(context.Context) ([]string, error) {
-	return slices.Collect(maps.Keys(m.files)), nil
+func (m *memoryFiles) Digests(_ context.Context, storedBefore time.Time) ([]string, error) {
+	var digests []string
+	for digest, at := range m.stored {
+		if at.Before(storedBefore) {
+			digests = append(digests, digest)
+		}
+	}
+	return digests, nil
 }
 
 func (m *memoryFiles) Remove(_ context.Context, digest string) error {
 	delete(m.files, digest)
+	delete(m.stored, digest)
 	return nil
 }
 
@@ -110,7 +121,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 		digest:     published.Digest,
 		procedures: memory.NewProcedureRepository(),
 		documents:  memory.NewDocumentRepository(),
-		files:      &memoryFiles{files: map[string][]byte{}},
+		files:      &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: attachedAt},
 	}
 	procedures := NewProcedureService(types, f.procedures, memberships, func() string { return "P-new" })
 	attached := 0
@@ -336,9 +347,11 @@ func TestCleanFileName(t *testing.T) {
 
 // TestRemoveUnreferencedFiles keeps the file of an attached document and
 // removes one that no document names, as an upload whose record failed
-// leaves.
+// leaves, but not a recent one, which can be from an upload that is still
+// to be recorded.
 func TestRemoveUnreferencedFiles(t *testing.T) {
 	f := newDocumentsFixture(t)
+	f.files.at = attachedAt.Add(-2 * unreferencedAge)
 	d, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100)))
 	if err != nil {
 		t.Fatal(err)
@@ -347,12 +360,20 @@ func TestRemoveUnreferencedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	f.files.at = attachedAt.Add(-unreferencedAge / 2)
+	recent, _, err := f.files.Put(t.Context(), bytes.NewReader(pdf(300)))
+	if err != nil {
+		t.Fatal(err)
+	}
 	removed, err := f.service.RemoveUnreferencedFiles(t.Context())
 	if err != nil || removed != 1 {
 		t.Fatalf("RemoveUnreferencedFiles() = %d, %v; want 1, nil", removed, err)
 	}
 	if _, ok := f.files.files[orphan]; ok {
-		t.Error("the file that no document names is still stored")
+		t.Error("the old file that no document names is still stored")
+	}
+	if _, ok := f.files.files[recent]; !ok {
+		t.Error("the recent file that no document names yet was removed")
 	}
 	if _, ok := f.files.files[d.Digest]; !ok {
 		t.Error("the file of the attached document was removed")

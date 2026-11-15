@@ -112,7 +112,7 @@ func run(logger *slog.Logger) error {
 	// memory until they are stored in PostgreSQL.
 	procedures := procedureapp.NewProcedureService(procedureTypes, proceduremem.NewProcedureRepository(), memberships, newID)
 	documents := procedureapp.NewDocumentService(procedures, proceduremem.NewDocumentRepository(), files, newID, time.Now)
-	// Before serving, since an upload stores its file before recording it.
+	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(startup)
 	if err != nil {
 		return fmt.Errorf("remove the files that no document names: %w", err)

@@ -142,7 +142,9 @@ func verify(file *os.File, digest string) error {
 	return nil
 }
 
-func (f *Files) Digests(_ context.Context) ([]string, error) {
+// Digests takes the time of a file from its modification, which Put renews
+// each time, since the rename leaves the file of the new temporary one.
+func (f *Files) Digests(_ context.Context, storedBefore time.Time) ([]string, error) {
 	entries, err := os.ReadDir(f.dir)
 	if err != nil {
 		return nil, fmt.Errorf("list files: %w", err)
@@ -151,7 +153,18 @@ func (f *Files) Digests(_ context.Context) ([]string, error) {
 	for _, entry := range entries {
 		// The temporary files and anything else in the directory are not
 		// named by a digest.
-		if digest := digestPrefix + entry.Name(); entry.Type().IsRegular() && validDigest.MatchString(digest) {
+		digest := digestPrefix + entry.Name()
+		if !entry.Type().IsRegular() || !validDigest.MatchString(digest) {
+			continue
+		}
+		info, err := entry.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list files: %w", err)
+		}
+		if info.ModTime().Before(storedBefore) {
 			digests = append(digests, digest)
 		}
 	}
