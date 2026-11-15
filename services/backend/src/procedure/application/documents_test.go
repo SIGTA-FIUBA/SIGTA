@@ -93,10 +93,24 @@ func (m *memoryFiles) Remove(_ context.Context, digest string) error {
 	return nil
 }
 
+// failingRecords fails each Add with err, if it is set.
+type failingRecords struct {
+	*memory.DocumentRepository
+	err error
+}
+
+func (r *failingRecords) Add(ctx context.Context, d domain.Document) error {
+	if r.err != nil {
+		return r.err
+	}
+	return r.DocumentRepository.Add(ctx, d)
+}
+
 type documentsFixture struct {
 	service    *DocumentService
 	procedures *memory.ProcedureRepository
 	documents  *memory.DocumentRepository
+	records    *failingRecords
 	files      *memoryFiles
 	// digest is the one of the version that the procedures follow.
 	digest string
@@ -129,7 +143,8 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 		attached++
 		return fmt.Sprintf("D-%d", attached)
 	}
-	f.service = NewDocumentService(procedures, f.documents, f.files, newID, func() time.Time { return attachedAt })
+	f.records = &failingRecords{DocumentRepository: f.documents}
+	f.service = NewDocumentService(procedures, f.records, f.files, newID, func() time.Time { return attachedAt })
 	f.on(t, "P-1", "documents")
 	return f
 }
@@ -381,6 +396,27 @@ func TestRemoveUnreferencedFiles(t *testing.T) {
 	}
 	if _, ok := f.files.files[d.Digest]; !ok {
 		t.Error("the file of the attached document was removed")
+	}
+}
+
+// TestAttachWhoseRecordFails leaves the file stored and named by no
+// document, and the next start removes it once it is old enough.
+func TestAttachWhoseRecordFails(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.files.at = attachedAt.Add(-2 * unreferencedAge)
+	f.records.err = errors.New("the database did not answer")
+	if _, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100))); !errors.Is(err, f.records.err) {
+		t.Fatalf("Attach() = %v, want %v", err, f.records.err)
+	}
+	if documents, err := f.documents.List(t.Context(), "P-1"); err != nil || len(documents) != 0 {
+		t.Fatalf("List() = %v, %v; want no documents", documents, err)
+	}
+	if len(f.files.files) != 1 {
+		t.Fatalf("stored files = %d, want the one of the failed upload", len(f.files.files))
+	}
+	removed, err := f.service.RemoveUnreferencedFiles(t.Context())
+	if err != nil || removed != 1 || len(f.files.files) != 0 {
+		t.Fatalf("RemoveUnreferencedFiles() = %d, %v, with %d files left; want 1, nil, none", removed, err, len(f.files.files))
 	}
 }
 
