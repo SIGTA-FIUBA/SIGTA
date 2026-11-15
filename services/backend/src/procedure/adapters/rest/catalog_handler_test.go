@@ -12,7 +12,6 @@ import (
 
 	"backend/src/api"
 	"backend/src/procedure/adapters/rest"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/ports/input"
 )
@@ -29,7 +28,7 @@ func (catalog fakeCatalog) Catalog(context.Context) ([]input.CatalogEntry, error
 
 func getCatalog(t *testing.T, catalog fakeCatalog) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, rest.NewCatalogHandler(catalog), nil, nil)
+	server := api.NewServer(nil, rest.NewCatalogHandler(catalog), nil, nil, nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedure-types", http.NoBody))
@@ -42,8 +41,8 @@ func TestListProcedureTypesNeedsNoSession(t *testing.T) {
 		Version:       2,
 		Name:          "Trámite",
 		Description:   "Descripción",
-		Fields:        []catalog.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: true}},
-		Documents: []catalog.DocumentRequirement{{
+		Fields:        []definition.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: true}},
+		Documents: []definition.DocumentRequirement{{
 			Document: definition.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024},
 		}},
 	}}})

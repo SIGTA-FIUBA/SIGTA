@@ -302,6 +302,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /procedures/{procedureId}:
+    get:
+      operationId: getProcedure
+      summary: Detalle de un trámite
+      description: >
+        Para quien puede ver el trámite: su titular y el personal de las áreas
+        por las que pasa. Muestra su estado, su titular, el paso abierto y los
+        pasos de la versión con la que se inició, con quién hace cada uno, los
+        datos y documentos que pide y sus salidas. Para quien no lo ve, el
+        trámite no existe.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "200":
+          description: El trámite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /procedures/{procedureId}/documents:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"
@@ -474,6 +498,48 @@ components:
         lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
         del dominio institucional.
       enum: [state_mismatch, rejected, domain_not_allowed]
+    ProcedureState:
+      type: string
+      description: >
+        Se deriva del paso abierto. with_applicant: espera al titular.
+        in_office: lo tiene el personal. closed: no tiene paso abierto. No es
+        el resultado del trámite, que no se modela. Falta referred, derivado a
+        un evaluador externo, que se agrega cuando se defina de dónde sale.
+      enum: [with_applicant, in_office, closed]
+    NamedOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Person:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Vacío si la persona no está registrada
+    StepOutcome:
+      type: object
+      required: [id, name, next]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        next:
+          type: string
+          description: Paso al que lleva esa salida
+    StepRole:
+      type: string
+      description: >
+        Quién hace el paso. applicant: el titular. staff: el personal del
+        área del paso.
+      enum: [applicant, staff]
     FieldRequirement:
       type: object
       required: [id, name, required]
@@ -513,6 +579,7 @@ components:
           format: int64
         version:
           type: integer
+          format: int64
         name:
           type: string
         description:
@@ -702,6 +769,87 @@ components:
           format: date-time
         granted_by:
           type: string
+    ProcedureDetail:
+      type: object
+      required: [id, procedure_type, version, name, state, applicant, can_act, steps]
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+          description: Versión del tipo de trámite con la que se inició
+        name:
+          type: string
+          description: Nombre del tipo de trámite
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        applicant:
+          $ref: "#/components/schemas/Person"
+        open_step:
+          type: string
+          description: Identificador del paso que espera ahora; ausente si el trámite está cerrado
+        can_act:
+          type: boolean
+          description: Si quien mira puede hacer el paso abierto
+        steps:
+          type: array
+          description: >
+            Los pasos en el orden en que los declara el tipo de trámite. No es
+            necesariamente el recorrido, porque un paso puede volver a uno
+            anterior: el recorrido lo dicen next y las salidas de cada paso.
+          items:
+            $ref: "#/components/schemas/ProcedureStep"
+    ProcedureStep:
+      type: object
+      required: [id, name, action, role, fields, documents, outcomes, files]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        action:
+          type: string
+          description: >
+            Qué se hace en el paso. enter_data: completar datos.
+            upload_document: adjuntar documentos. confirm_external_fact:
+            confirmar algo que pasó fuera de SIGTA. decide: elegir una de
+            sus salidas.
+          enum: [enter_data, upload_document, confirm_external_fact, decide]
+        role:
+          $ref: "#/components/schemas/StepRole"
+        area:
+          description: Área del personal que hace el paso; ausente si lo hace el titular
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        fields:
+          type: array
+          description: Datos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
+        documents:
+          type: array
+          description: Documentos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
+        outcomes:
+          type: array
+          description: Salidas entre las que se elige en un paso decide; vacío en los demás
+          items:
+            $ref: "#/components/schemas/StepOutcome"
+        next:
+          type: string
+          description: Paso que sigue si no es un paso decide; ausente en el último
+        files:
+          type: array
+          description: >
+            Archivo vigente de cada documento del paso que ya tiene uno, en el
+            mismo orden que documents. Un documento sin archivo no aparece.
+          items:
+            $ref: "#/components/schemas/ProcedureDocument"
     ProcedureDocument:
       type: object
       required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]
@@ -724,7 +872,7 @@ components:
           format: int64
           description: Tamaño en bytes
         uploaded_by:
-          type: string
+          $ref: "#/components/schemas/Person"
         uploaded_at:
           type: string
           format: date-time

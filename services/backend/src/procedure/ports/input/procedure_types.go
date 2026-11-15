@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 )
@@ -45,8 +44,8 @@ type CatalogEntry struct {
 	Description   string
 	Deadlines     []string
 	Admissibility []string
-	Fields        []catalog.FieldRequirement
-	Documents     []catalog.DocumentRequirement
+	Fields        []definition.FieldRequirement
+	Documents     []definition.DocumentRequirement
 }
 
 type ProcedureTypes interface {

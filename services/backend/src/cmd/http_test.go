@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	"backend/src/migrations/dbtest"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/adapters/postgres"
@@ -94,6 +96,97 @@ func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
 				t.Fatalf("Latest() = version %d, %v; want version 1", latest.Number, err)
 			}
 		})
+	}
+}
+
+// The example procedure opens as the server wires it: the applicant acts on
+// its open step, and the staff of the area see it without acting.
+func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
+	ctx := t.Context()
+	versions := memory.NewProcedureVersions()
+	if err := publishDevProcedureType(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)); err != nil {
+		t.Fatal(err)
+	}
+	procedures := memory.NewProcedureRepository()
+	if err := addDevProcedure(ctx, versions, procedures, devApplicantID); err != nil {
+		t.Fatal(err)
+	}
+	directory := devPeople()
+	areas := authmem.NewAreaRepository(devAreas()...)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memberships, func() string { return "id" })
+
+	for _, tc := range []struct {
+		user   string
+		canAct bool
+	}{
+		{devApplicantID, true},
+		{"dev-operative", false},
+	} {
+		view, err := service.Open(ctx, tc.user, devProcedureID)
+		if err != nil {
+			t.Fatalf("%s opens the example: %v", tc.user, err)
+		}
+		if view.Procedure.OpenStep != devDocumentsStep || view.CanAct() != tc.canAct {
+			t.Errorf("%s sees the open step %s and can act: %t, want documents and %t", tc.user, view.Procedure.OpenStep, view.CanAct(), tc.canAct)
+		}
+	}
+}
+
+// With Google nobody signs in as the test applicant, so the example goes to
+// the first account that registers, and only to it.
+func TestDevProcedureGoesToTheFirstSignUpWithGoogle(t *testing.T) {
+	ctx := t.Context()
+	versions := memory.NewProcedureVersions()
+	procedureTypes := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
+	procedures := memory.NewProcedureRepository()
+	users, err := addDevExample(ctx, config{identityProvider: identityGoogle}, slog.New(slog.DiscardHandler), versions, procedureTypes, procedures, authmem.NewUserRepository(devPeople().users...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := procedures.Get(ctx, devProcedureID); err == nil {
+		t.Fatal("the example exists before anyone registers")
+	}
+	for _, user := range []authdomain.User{
+		{ID: "first", Email: "primera@fi.uba.ar"},
+		{ID: "again", Email: "primera@fi.uba.ar"},
+		{ID: "second", Email: "segunda@fi.uba.ar"},
+	} {
+		if _, err := users.Register(ctx, user); err != nil {
+			t.Fatalf("register %s: %v", user.ID, err)
+		}
+	}
+	got, err := procedures.Get(ctx, devProcedureID)
+	if err != nil || got.Applicant != "first" {
+		t.Errorf("the example is of %q, %v; want the first account", got.Applicant, err)
+	}
+}
+
+func TestFailingToGiveTheExampleDoesNotStopTheSignUp(t *testing.T) {
+	ctx := t.Context()
+	var given []string
+	users := &exampleForFirstSignUp{
+		UserRepository: authmem.NewUserRepository(),
+		logger:         slog.New(slog.DiscardHandler),
+		give: func(_ context.Context, applicant string) error {
+			if applicant == "first" {
+				return errors.New("the example type is not published")
+			}
+			given = append(given, applicant)
+			return nil
+		},
+	}
+	for _, user := range []authdomain.User{
+		{ID: "first", Email: "primera@fi.uba.ar"},
+		{ID: "second", Email: "segunda@fi.uba.ar"},
+		{ID: "third", Email: "tercera@fi.uba.ar"},
+	} {
+		if registered, err := users.Register(ctx, user); err != nil || registered.ID != user.ID {
+			t.Fatalf("register %s: %+v, %v", user.ID, registered, err)
+		}
+	}
+	if len(given) != 1 || given[0] != "second" {
+		t.Errorf("the example went to %v, want only the second account", given)
 	}
 }
 

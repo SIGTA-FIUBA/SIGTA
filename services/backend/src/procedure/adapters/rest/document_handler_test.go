@@ -70,7 +70,7 @@ func (f *fakeDocuments) Open(context.Context, string, string, string) (domain.Do
 
 func serve(t *testing.T, documents *fakeDocuments, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, documents))
+	server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, fakePeople{}, documents), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r.Header.Set("Cookie", "sigta_session="+session)
 	recorder := httptest.NewRecorder()
@@ -214,7 +214,7 @@ func TestDocumentsNeedASession(t *testing.T) {
 	}
 	for name, r := range requests {
 		t.Run(name, func(t *testing.T) {
-			server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, &fakeDocuments{}))
+			server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, fakePeople{}, &fakeDocuments{}), nil)
 			recorder := httptest.NewRecorder()
 			api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler)).ServeHTTP(recorder, r)
 			if recorder.Code != http.StatusUnauthorized {
@@ -227,8 +227,8 @@ func TestDocumentsNeedASession(t *testing.T) {
 func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 	uploaded := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	documents := &fakeDocuments{listed: []input.AttachedDocument{
-		{Document: domain.Document{ID: "D-1", Requirement: "transcript", UploadedAt: uploaded}},
-		{Document: domain.Document{ID: "D-2", Requirement: "transcript", UploadedAt: uploaded}, Current: true},
+		{Document: domain.Document{ID: "D-1", Requirement: "transcript", UploadedAt: uploaded, UploadedBy: "ana"}},
+		{Document: domain.Document{ID: "D-2", Requirement: "transcript", UploadedAt: uploaded, UploadedBy: "gone"}, Current: true},
 	}}
 	recorder := serve(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
 
@@ -238,6 +238,9 @@ func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].Current || !got[1].Current {
 		t.Errorf("body = %s; want D-2 as the current one", recorder.Body)
+	}
+	if got[0].UploadedBy != (api.Person{Id: "ana", Name: "Ana Prueba"}) || got[1].UploadedBy != (api.Person{Id: "gone"}) {
+		t.Errorf("uploaded by %+v and %+v; want the name only of who is registered", got[0].UploadedBy, got[1].UploadedBy)
 	}
 }
 

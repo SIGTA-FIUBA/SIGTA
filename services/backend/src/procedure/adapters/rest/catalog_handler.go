@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"backend/src/api"
+	"backend/src/procedure/domain/definition"
 	ports "backend/src/procedure/ports/input"
 )
 
@@ -30,27 +31,35 @@ func (h *CatalogHandler) ListProcedureTypes(ctx context.Context, _ api.ListProce
 func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 	fields := make([]api.FieldRequirement, 0, len(entry.Fields))
 	for _, field := range entry.Fields {
-		fields = append(fields, api.FieldRequirement{Id: field.Field.ID, Name: field.Field.Name, Required: field.Required})
+		fields = append(fields, fieldRequirement(field))
 	}
 	documents := make([]api.DocumentRequirement, 0, len(entry.Documents))
 	for _, document := range entry.Documents {
-		documents = append(documents, api.DocumentRequirement{
-			Id:            document.Document.ID,
-			Name:          document.Document.Name,
-			Required:      document.Required,
-			AcceptedTypes: orEmpty(document.Document.AcceptedTypes),
-			MaxSize:       document.Document.MaxSizeBytes,
-		})
+		documents = append(documents, documentRequirement(document))
 	}
 	return api.CatalogEntry{
 		Id:            entry.ProcedureType,
-		Version:       entry.Version,
+		Version:       int64(entry.Version),
 		Name:          entry.Name,
 		Description:   entry.Description,
 		Deadlines:     orEmpty(entry.Deadlines),
 		Admissibility: orEmpty(entry.Admissibility),
 		Fields:        fields,
 		Documents:     documents,
+	}
+}
+
+func fieldRequirement(r definition.FieldRequirement) api.FieldRequirement {
+	return api.FieldRequirement{Id: r.Field.ID, Name: r.Field.Name, Required: r.Required}
+}
+
+func documentRequirement(r definition.DocumentRequirement) api.DocumentRequirement {
+	return api.DocumentRequirement{
+		Id:            r.Document.ID,
+		Name:          r.Document.Name,
+		Required:      r.Required,
+		AcceptedTypes: orEmpty(r.Document.AcceptedTypes),
+		MaxSize:       r.Document.MaxSizeBytes,
 	}
 }
 

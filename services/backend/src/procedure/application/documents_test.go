@@ -107,11 +107,13 @@ func (r *failingRecords) Add(ctx context.Context, d domain.Document) error {
 }
 
 type documentsFixture struct {
-	service    *DocumentService
-	procedures *memory.ProcedureRepository
-	documents  *memory.DocumentRepository
-	records    *failingRecords
-	files      *memoryFiles
+	service     *DocumentService
+	details     *ProcedureDetailService
+	memberships *authapp.MembershipService
+	procedures  *memory.ProcedureRepository
+	documents   *memory.DocumentRepository
+	records     *failingRecords
+	files       *memoryFiles
 	// digest is the one of the version that the procedures follow.
 	digest string
 }
@@ -145,6 +147,8 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	}
 	f.records = &failingRecords{DocumentRepository: f.documents}
 	f.service = NewDocumentService(procedures, f.records, f.files, newID, func() time.Time { return attachedAt })
+	f.details = NewProcedureDetailService(procedures, f.documents)
+	f.memberships = memberships
 	f.on(t, "P-1", "documents")
 	return f
 }
