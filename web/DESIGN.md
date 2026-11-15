@@ -41,26 +41,30 @@ El catálogo (Storybook) muestra la marca, los tokens y cada componente con el a
 
 ## Identidad
 
-- **Color primario:** el celeste del logo de la FIUBA (`#009fe2`), como la escala `fiuba` del tema. Sobre blanco no alcanza el contraste del texto, así que botones y links usan el tono 7 (`#0074a6`) y el celeste puro queda para la marca: la barra lateral del menú y los fondos suaves.
-- **Texto:** el casi negro del logo (`#121516`). El texto atenuado (`dimmed`) usa el gris 7, porque el gris 6 de Mantine no llega a 4,5:1 sobre blanco.
+- **Color primario:** el celeste institucional de la FIUBA (`#0088CC`, Pantone 2394 C, según el manual de marca). Sobre blanco no alcanza el contraste del texto, así que queda para la marca: la barra del ítem actual del menú y los fondos suaves (`#E5F3FA`). Botones, links, selección y foco usan el celeste oscurecido (`color.action`, `#005A87`, 7,5:1), y es el único color de interacción.
+- **Texto:** el negro institucional (`#211E16`) para títulos y texto principal, el gris `ink.600` (`#4D4D4D`) para lo secundario (`dimmed`) y `ink.500` (`#6B6B6B`) para fechas, roles y notas. Solo dos pesos: 400 y 700.
+- **Tipografía:** Helvetica Neue, la del manual (A.6), con Arial como reemplazo aceptado (B.4). La interfaz no carga una fuente web: Helvetica Neue tiene licencia comercial, así que en cada equipo se ve la que esté instalada.
 - **Logo de SIGTA:** en `public/brand/`, como isotipo, logotipo e isologo horizontal y vertical, con y sin descriptor, en color, color sobre fondo oscuro, negro y blanco. El catálogo los muestra en Marca/Logo.
 - **Logo de la FIUBA:** `src/assets/fiuba-logo.png`, en el encabezado, sobre fondo blanco: sobre celeste se pierde. Es un PNG provisorio; hay que reemplazarlo por el SVG oficial que entregue la facultad.
-- **Marco de las páginas:** el mismo encabezado en todas las pantallas (`layout/AppHeader`): el logo y "SIGTA" a la izquierda, como link al inicio, y las acciones a la derecha. En las pantallas con sesión, y menú en una barra lateral celeste (`NavLink variant="menu"`). Cada opción es un recuadro blanco con texto oscuro e ícono; la página actual se rellena en azul oscuro con texto blanco. Junto a la bandeja va la cantidad de trámites con acción requerida y, abajo, en otro recuadro blanco, quién tiene la sesión y con qué perfil. Sobre el celeste no va texto suelto: no alcanza el contraste. En el celular el menú se pliega detrás de un botón. Sin sesión (el catálogo público) no hay menú: el encabezado ofrece iniciar sesión.
+- **Marco de las páginas:** el mismo encabezado blanco en todas las pantallas (`layout/AppHeader`): el logo de la FIUBA, un separador y "SIGTA" a la izquierda, como link al inicio, y a la derecha el menú de la cuenta, con el nombre y el perfil. En las pantallas con sesión, un menú lateral blanco (`NavLink variant="menu"`): el ítem actual va en el tinte celeste con una barra a la izquierda, y junto a la bandeja va la cantidad de trámites con acción requerida. En una tableta el menú muestra solo los íconos (`variant="menu-icon"`), con el nombre en un tooltip y un punto sobre la bandeja; en el celular se pliega detrás de un botón. El contenido va sobre gris claro. Sin sesión (el catálogo y la página Acerca de SIGTA) no hay menú: el encabezado ofrece iniciar sesión.
+- **Inicio:** para el personal, los trámites que requieren acción (los cinco más recientes, con un link a la bandeja) y un botón a la bandeja; para el titular, un botón para iniciar un trámite. Los dos ven los pasos de un trámite, abiertos en la primera visita y plegados después. El pie lleva a Acerca de SIGTA, que reúne lo que ofrece la plataforma y sus criterios.
+- **Componentes propios:** `PageHeader` (título, descripción y acción de cada página), `ActionCard`, `ProcedureRow` y `ProcedureRows` (una lista de trámites en un solo contenedor), `StatusBadge`, `StepList`, `EmptyState` e `Icon`. Cada uno tiene su historia en el catálogo.
 - **Portada pública** (`/login`): presenta la plataforma antes del ingreso, con un título grande (`Title variant="display"`, que crece con el ancho de pantalla), una vista de ejemplo del seguimiento de un trámite hecha con los mismos componentes, lo central de la plataforma, cómo se realiza un trámite y los criterios. No enumera los tipos de trámite: la plataforma va a sumar más, y el catálogo ya los lista. Es la única pantalla con esa composición; las pantallas de trabajo siguen siendo densas.
-- **Colores de estado:** "En la Secretaría" en el primario, "En evaluación externa" en naranja y "Pendiente del titular" en gris. El rojo sigue reservado para errores.
+- **Colores de estado:** "En la Secretaría" en el primario, "En evaluación externa" en naranja y "Pendiente del titular" en gris (`StatusBadge`). Éxito, aviso y error tienen su par de texto y fondo en `tokens.json`. El rojo sigue reservado para errores.
 
 ## Interacción
 
 Criterios tomados de una revisión de diseño para que la plataforma se sienta moderna sin dejar de ser una herramienta de trabajo: densa, rápida de leer y sin distracciones. Por eso no hay fotos, animaciones al desplazarse ni efectos decorativos.
 
 - **Todo lo que se puede tocar responde al puntero.** Un panel que es un control (por ejemplo, un resumen que filtra la lista) usa `Paper variant="interactive"`: sube 2px al pasar el mouse y se asienta al presionarlo. Las filas de las tablas se resaltan (`highlightOnHover`) y los botones se hunden al presionarlos, como hace Mantine.
-- **Un solo sistema.** Un estilo de panel (`Paper withBorder`), un radio (`sm`), un estilo de link y un botón principal por pantalla.
+- **Un solo sistema.** Un estilo de panel (`Paper withBorder`), dos radios (`sm`, 6px, en los controles y `md`, 10px, en las tarjetas), una sola sombra, un estilo de link y un botón principal por pantalla.
 - **Toques cómodos en el celular.** Por debajo de 48em, botones, campos, links del menú y controles segmentados miden al menos 44px de alto.
 - **Movimiento reducido.** Con `prefers-reduced-motion`, nada se desplaza.
 - **Foco visible.** Mantine dibuja el anillo de foco con el color primario; no se oculta.
 
 ## A confirmar
 
-- La tipografía institucional. Hasta que se defina, la interfaz usa la del sistema; el logo de SIGTA usa Montserrat, ya convertida en trazos.
-- La paleta: los colores del logo de SIGTA (`color.brand`) y la escala `fiuba` de la interfaz son distintos. Falta decidir si la interfaz adopta los del logo.
+- La firma conjunta de SIGTA con la FIUBA en el encabezado: la tiene que validar la Dirección de Comunicación Institucional.
+- El logo de SIGTA: sus colores (`color.logo`) no son los de la paleta institucional, y falta decidir si se rediseña.
+- Los colores de las áreas, que todavía no están definidos.
 - Las reglas de uso del logo (márgenes, tamaño mínimo, fondos), que en el catálogo son una propuesta.
