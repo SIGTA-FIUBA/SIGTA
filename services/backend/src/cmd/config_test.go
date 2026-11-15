@@ -24,6 +24,7 @@ func production() map[string]string {
 		"SIGTA_GOOGLE_CLIENT_ID":     "client",
 		"SIGTA_GOOGLE_CLIENT_SECRET": "secret",
 		"SIGTA_USERS_FILE":           "/run/secrets/users.json",
+		"SIGTA_DATABASE_URL":         "postgres://backend@db/sigta",
 	}
 }
 
@@ -32,8 +33,8 @@ func TestDevelopmentNeedsOnlyItsEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.identityProvider != identityDev || cfg.allowedDomain != "fi.uba.ar" || cfg.usersFile != "" {
-		t.Fatalf("provider %q, domain %q, users file %q; want %q, %q and none", cfg.identityProvider, cfg.allowedDomain, cfg.usersFile, identityDev, "fi.uba.ar")
+	if cfg.identityProvider != identityDev || cfg.allowedDomain != "fi.uba.ar" || cfg.usersFile != "" || cfg.databaseURL != "" {
+		t.Fatalf("provider %q, domain %q, users file %q, database %q; want %q, %q, none and none", cfg.identityProvider, cfg.allowedDomain, cfg.usersFile, cfg.databaseURL, identityDev, "fi.uba.ar")
 	}
 	if cfg.callbackURL() != "http://localhost:8080/auth/callback" || cfg.loginURL() != "http://localhost:5173/login" {
 		t.Fatalf("callback %s, login %s; want http://localhost:8080/auth/callback and http://localhost:5173/login", cfg.callbackURL(), cfg.loginURL())
@@ -85,6 +86,7 @@ func TestRejectedConfigs(t *testing.T) {
 		{"no client ID", func(e map[string]string) { delete(e, "SIGTA_GOOGLE_CLIENT_ID") }, "SIGTA_GOOGLE_CLIENT_ID"},
 		{"no client secret", func(e map[string]string) { delete(e, "SIGTA_GOOGLE_CLIENT_SECRET") }, "SIGTA_GOOGLE_CLIENT_SECRET"},
 		{"no users file", func(e map[string]string) { delete(e, "SIGTA_USERS_FILE") }, "SIGTA_USERS_FILE"},
+		{"no database", func(e map[string]string) { delete(e, "SIGTA_DATABASE_URL") }, "SIGTA_DATABASE_URL"},
 		{"no public URL", func(e map[string]string) { delete(e, "SIGTA_PUBLIC_URL") }, "SIGTA_PUBLIC_URL"},
 		{"no app URL", func(e map[string]string) { delete(e, "SIGTA_APP_URL") }, "SIGTA_APP_URL"},
 		{"no domain", func(e map[string]string) { delete(e, "SIGTA_ALLOWED_DOMAIN") }, "SIGTA_ALLOWED_DOMAIN"},

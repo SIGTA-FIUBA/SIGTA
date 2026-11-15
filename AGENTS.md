@@ -71,10 +71,10 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | Ruta | Contenido |
 | --- | --- |
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
-| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/` y `catalog/` (ADR-016). Además, `api/` (código generado desde el contrato y montaje de la API) y `cmd/` (arranque y configuración) |
+| `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/` y `catalog/` (ADR-016). Además, `api/` (código generado desde el contrato y montaje de la API), `cmd/` (arranque, configuración y el comando `migrate`) y `migrations/` (migraciones de la base, embebidas en el binario; en `schema.go`, las tablas que solo crecen y el control del rol de la aplicación; y `dbtest/` para probar contra PostgreSQL; ADR-022) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
 | `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado), `theme/` (el único lugar del aspecto), `components/`, `layout/` (encabezado y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
-| `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio) |
+| `deploy/` | nginx de desarrollo y scripts de inicialización de PostgreSQL (roles por servicio; en el backend, uno para la aplicación y otro, dueño de las tablas, para las migraciones) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
 | `features/` | Escenarios Gherkin de cada historia y su matriz de trazabilidad |
 | `.claude/skills/` | Rutinas para las tareas recurrentes (ver más abajo) |
@@ -89,6 +89,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 | Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`) |
 | Regenerar código desde el contrato | `make contracts` |
 | Backend: tests y lint | `cd services/backend && go test -race ./...` y `golangci-lint run` |
+| Backend: tests contra PostgreSQL | `docker compose up --detach --wait db` y los tests con `SIGTA_TEST_DATABASE_URL` (ver "Pruebas contra PostgreSQL" en CONTRIBUTING.md) |
 | Frontend: lint, tipos, tests | `cd web && npm run lint && npm run format:check && npm run typecheck && npm test` |
 | Instalar el hook de commits | `npm install` en la raíz |
 
@@ -98,7 +99,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
 - **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
 - **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`. Corren con godog dentro de `go test`, y un paso sin implementar hace fallar el pipeline, así que un `.feature` entra junto con sus pasos.
-- **Pruebas:** el dominio se prueba con adaptadores en memoria; cada adaptador, contra la dependencia real en un contenedor.
+- **Pruebas:** el dominio se prueba con adaptadores en memoria; cada adaptador, contra la dependencia real en un contenedor. Los de PostgreSQL toman la base de `SIGTA_TEST_DATABASE_URL`, y cada adaptador de un puerto de salida que tenga una suite de contrato en `ports/output/outputtest` la corre.
 - **Documentación en el mismo PR** (ADR-007): si cambia comportamiento, arquitectura o configuración de trámites, se actualizan docs, README del módulo y este archivo. Un PR sin su documentación no cumple la definición de terminado.
 - **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en `docs/04-decisiones-adr.md`, y el README se actualiza con el resultado vigente en el mismo PR. Un ADR no se borra: se marca como reemplazado.
 - **Componentes de IA:** cada llamada a un modelo registra costo, latencia y versión del prompt. Los modelos van detrás de puertos; en la CI se usan adaptadores deterministas.

@@ -115,6 +115,17 @@ func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64,
 	return v, nil
 }
 
+func (s *ProcedureTypeService) Pinned(ctx context.Context, pin version.Pin) (version.ProcedureTypeVersion, error) {
+	v, err := s.Version(ctx, pin.ProcedureTypeID, pin.Number)
+	if err != nil {
+		return version.ProcedureTypeVersion{}, err
+	}
+	if err := pin.Check(v); err != nil {
+		return version.ProcedureTypeVersion{}, err
+	}
+	return v, nil
+}
+
 func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntry, error) {
 	versions, err := s.versions.LatestOfEach(ctx)
 	if err != nil {

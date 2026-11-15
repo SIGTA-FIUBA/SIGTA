@@ -30,6 +30,9 @@ type config struct {
 	allowedDomain    string
 	googleClient     struct{ id, secret string }
 	usersFile        string
+	// databaseURL connects as the application role. Without it, development
+	// keeps the procedure types in memory.
+	databaseURL string
 }
 
 func (c config) development() bool { return c.env == envDevelopment }
@@ -50,6 +53,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 		appURL:           getenv("SIGTA_APP_URL"),
 		allowedDomain:    getenv("SIGTA_ALLOWED_DOMAIN"),
 		usersFile:        getenv("SIGTA_USERS_FILE"),
+		databaseURL:      getenv("SIGTA_DATABASE_URL"),
 	}
 	c.googleClient.id = getenv("SIGTA_GOOGLE_CLIENT_ID")
 	c.googleClient.secret = getenv("SIGTA_GOOGLE_CLIENT_SECRET")
@@ -77,6 +81,9 @@ func loadConfig(getenv func(string) string) (config, error) {
 	}
 	if !c.development() && c.usersFile == "" {
 		missing = append(missing, "SIGTA_USERS_FILE")
+	}
+	if !c.development() && c.databaseURL == "" {
+		missing = append(missing, "SIGTA_DATABASE_URL")
 	}
 
 	switch c.identityProvider {

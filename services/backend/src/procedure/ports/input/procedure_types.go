@@ -66,6 +66,10 @@ type ProcedureTypes interface {
 	// version does not exist, and with version.ErrAlteredContent or
 	// output.ErrWrongVersion if it cannot be trusted.
 	Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error)
+	// Pinned returns the version a procedure started with, like Version, and
+	// also fails with version.ErrNotPinnedVersion if the version with that
+	// number is not the one pinned, as when it was lost and published again.
+	Pinned(ctx context.Context, pin version.Pin) (version.ProcedureTypeVersion, error)
 	// Catalog returns the latest version of every procedure type, after checking
 	// their digests. It fails with version.ErrAlteredContent,
 	// output.ErrWrongVersion or version.ErrUnknownFormat if any of them cannot be

@@ -77,3 +77,10 @@ Feature: Define and publish a procedure type
     When a procedure asks for version 1
     Then the version is not returned
     And nothing is published on top of it
+
+  @SIG-65
+  Scenario: a procedure does not follow a version published again with other content
+    Given a procedure that started with version 2 of "subject equivalence"
+    And version 2 was lost and published again with other content
+    When the procedure asks for the version it follows
+    Then the version is not returned because it is not the one the procedure follows

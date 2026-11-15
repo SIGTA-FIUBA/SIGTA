@@ -57,6 +57,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^version (\d+) of "([^"]*)" was proposed by "([^"]*)" and approved by "([^"]*)"$`, w.givenPublishedBy)
 	sc.Given(`^a procedure that started with version (\d+) of "([^"]*)"$`, w.givenProcedure)
 	sc.Given(`^the stored content of version (\d+) no longer matches its digest$`, w.givenAlteredVersion)
+	sc.Given(`^version (\d+) was lost and published again with other content$`, w.givenRepublished)
 
 	sc.When(`^a valid "([^"]*)" definition is published from version (\d+)$`, w.publishValid)
 	sc.When(`^the same definition is published from version (\d+)$`, w.publishSame)
@@ -68,6 +69,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	sc.When(`^version (\d+) is published$`, w.publishUpTo)
 	sc.When(`^the "([^"]*)" area is renamed$`, w.renameArea)
 	sc.When(`^a procedure asks for version (\d+)$`, w.askForVersion)
+	sc.When(`^the procedure asks for the version it follows$`, w.askForPinnedVersion)
 
 	sc.Then(`^version (\d+) of "([^"]*)" is published$`, w.thenPublished)
 	sc.Then(`^it records who proposed it, who approved it and when it was published$`, w.thenRecordsAuthorship)
@@ -81,6 +83,7 @@ func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^version (\d+) still shows the previous name of the area$`, w.thenShowsPreviousName)
 	sc.Then(`^the version is not returned$`, w.thenVersionNotReturned)
 	sc.Then(`^nothing is published on top of it$`, w.thenNothingOnTop)
+	sc.Then(`^the version is not returned because it is not the one the procedure follows$`, w.thenNotPinnedVersion)
 }
 
 func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
@@ -227,6 +230,33 @@ func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 	})
 }
 
+// givenRepublished copies every version before number to a new store, as a
+// restore from a backup taken before number was published, and publishes
+// number again with other content.
+func (w *procedureTypeWorld) givenRepublished(number int) error {
+	restored := memory.NewProcedureVersions()
+	for n := 1; n < number; n++ {
+		v, err := w.versions.Get(context.Background(), procedureType, n)
+		if err != nil {
+			return err
+		}
+		if err := restored.Add(context.Background(), v); err != nil {
+			return err
+		}
+	}
+	w.versions = restored
+	if err := w.publish(number-1, w.revised()); err != nil {
+		return err
+	}
+	if w.err != nil {
+		return w.err
+	}
+	if w.published.Number != number || w.published.Digest == w.followed.Digest {
+		return fmt.Errorf("published version %d with digest %s, want version %d with another digest than %s", w.published.Number, w.published.Digest, number, w.followed.Digest)
+	}
+	return nil
+}
+
 func (w *procedureTypeWorld) publishValid(name string, base int) error {
 	return w.publish(base, validDefinition(name))
 }
@@ -311,6 +341,11 @@ func (w *procedureTypeWorld) renameArea(name string) error {
 
 func (w *procedureTypeWorld) askForVersion(number int) error {
 	w.requested, w.err = w.service().Version(context.Background(), procedureType, number)
+	return nil
+}
+
+func (w *procedureTypeWorld) askForPinnedVersion() error {
+	w.requested, w.err = w.service().Pinned(context.Background(), w.followed.Pin())
 	return nil
 }
 
@@ -454,6 +489,16 @@ func (w *procedureTypeWorld) thenNothingOnTop() error {
 func validationProblems(err error) []definition.ValidationProblem {
 	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
 		return invalid.Problems
+	}
+	return nil
+}
+
+func (w *procedureTypeWorld) thenNotPinnedVersion() error {
+	if !errors.Is(w.err, version.ErrNotPinnedVersion) {
+		return fmt.Errorf("got %w, want ErrNotPinnedVersion", w.err)
+	}
+	if w.requested.Number != 0 {
+		return fmt.Errorf("returned version %d", w.requested.Number)
 	}
 	return nil
 }

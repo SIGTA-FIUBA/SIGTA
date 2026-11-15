@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"backend/src/api"
@@ -18,16 +21,23 @@ import (
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
-	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := migrateCommand(os.Getenv, logger); err != nil {
+			logger.Error("migrations failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(logger); err != nil {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
@@ -35,6 +45,10 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
+	// Taken before anything else, so that a SIGTERM while the server waits for
+	// the database also runs the deferred functions instead of killing it.
+	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancelStop()
 	cfg, err := loadConfig(os.Getenv)
 	if err != nil {
 		return err
@@ -74,10 +88,19 @@ func run(logger *slog.Logger) error {
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, memberships, time.Now)
+	// Bounds the start against the database, so one that does not answer
+	// stops it.
+	startup, cancel := context.WithTimeout(stop, 30*time.Second)
+	defer cancel()
+	versions, closeVersions, err := openProcedureVersions(startup, cfg, logger)
+	if err != nil {
+		return stoppedDuringStartup(stop, err)
+	}
+	defer closeVersions()
+	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
 	if cfg.development() {
-		if _, err := procedureTypes.Publish(ctx, devProcedureType()); err != nil {
-			return fmt.Errorf("publish the example procedure type: %w", err)
+		if err := publishDevProcedureType(startup, versions, procedureTypes); err != nil {
+			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
 		}
 	}
 	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
@@ -91,7 +114,42 @@ func run(logger *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
-	return server.ListenAndServe()
+	return serve(stop, server, server.ListenAndServe)
+}
+
+// stoppedDuringStartup returns nil instead of err if the server was asked to
+// stop while it started, since then err is only the interrupted wait.
+func stoppedDuringStartup(stop context.Context, err error) error {
+	if stop.Err() != nil {
+		return nil
+	}
+	return err
+}
+
+// shutdownTimeout is how long the requests in flight have to finish once the
+// server is asked to stop. Docker waits 10 seconds before it kills it.
+const shutdownTimeout = 8 * time.Second
+
+// serve runs listen until stop is done, and then lets the requests in flight
+// finish before it returns, so that they do not lose the database that the
+// deferred functions of run close.
+func serve(stop context.Context, server *http.Server, listen func() error) error {
+	failed := make(chan error, 1)
+	go func() { failed <- listen() }()
+	select {
+	case err := <-failed:
+		return err
+	case <-stop.Done():
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shut down: %w", err)
+	}
+	if err := <-failed; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
 func peopleOf(cfg config, areas []domain.Area) (people, error) {
@@ -151,6 +209,24 @@ func devAreas() []domain.Area {
 		{ID: "review", Name: "Revisar"},
 		{ID: "approve", Name: "Aprobar"},
 	}}}
+}
+
+// publishDevProcedureType publishes the example only if its procedure type
+// has no version. A database that has one keeps it even if the example
+// changed since, so editing the example does not add a version on every
+// start. If another start publishes first, publishing again finds the same
+// content and returns the stored version; another content is an error.
+func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes) error {
+	publication := devProcedureType()
+	_, err := versions.Latest(ctx, publication.ProcedureType)
+	if !errors.Is(err, output.ErrNoVersion) {
+		return err
+	}
+	_, err = procedureTypes.Publish(ctx, publication)
+	if errors.Is(err, input.ErrOutdatedBase) {
+		_, err = procedureTypes.Publish(ctx, publication)
+	}
+	return err
 }
 
 // devProcedureType is a made-up procedure type, so that the catalog has
