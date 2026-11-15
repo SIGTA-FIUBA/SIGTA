@@ -1,6 +1,7 @@
 package inbox_test
 
 import (
+	"maps"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestBuildCountsWholeDaysAndNeverNegative(t *testing.T) {
 		{ID: "b", Area: external, StartedAt: now.Add(time.Hour), LastMovedAt: now.Add(time.Hour)},
 	}
 
-	list := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll}, now)
+	list := inbox.Build(summaries, operative, nil, inbox.Query{View: inbox.ViewAll}, now)
 
 	got := map[string][2]int{}
 	for _, item := range list.Items {
@@ -66,7 +67,7 @@ func TestBuildReturnsAnEmptyListAndOptionsOfTheView(t *testing.T) {
 		{ID: "c", ProcedureType: 1, ProcedureTypeName: "A", Area: office, Profile: definition.ProfileStaffOperative},
 	}
 
-	mine := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewMine, ProcedureType: 9}, now)
+	mine := inbox.Build(summaries, operative, nil, inbox.Query{View: inbox.ViewMine, ProcedureType: 9}, now)
 	if mine.Items == nil || len(mine.Items) != 0 {
 		t.Errorf("items = %#v, want an empty list", mine.Items)
 	}
@@ -74,7 +75,7 @@ func TestBuildReturnsAnEmptyListAndOptionsOfTheView(t *testing.T) {
 	if len(mine.ProcedureTypes) != 1 || mine.ProcedureTypes[0].Name != "A" {
 		t.Errorf("type options of mine = %v", mine.ProcedureTypes)
 	}
-	all := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll}, now)
+	all := inbox.Build(summaries, operative, nil, inbox.Query{View: inbox.ViewAll}, now)
 	if len(all.ProcedureTypes) != 2 || all.ProcedureTypes[0].Name != "A" || len(all.Areas) != 2 || all.Areas[0].Name != "Comisión" {
 		t.Errorf("options of all = %v, %v", all.ProcedureTypes, all.Areas)
 	}
@@ -86,7 +87,7 @@ func TestBuildBreaksTiesByID(t *testing.T) {
 		{ID: "a", Area: titular, StartedAt: now, LastMovedAt: now},
 	}
 	for _, sort := range []inbox.Sort{inbox.SortOldest, inbox.SortLastMoved} {
-		list := inbox.Build(summaries, operative, inbox.Query{View: inbox.ViewAll, Sort: sort}, now)
+		list := inbox.Build(summaries, operative, nil, inbox.Query{View: inbox.ViewAll, Sort: sort}, now)
 		if list.Items[0].ID != "a" {
 			t.Errorf("sort %q puts %q first, want %q", sort, list.Items[0].ID, "a")
 		}
@@ -101,7 +102,7 @@ func TestBuildShowsOnlyWhatTheAccessCanSee(t *testing.T) {
 	}
 	ids := func(access inbox.Access) []string {
 		var got []string
-		for _, item := range inbox.Build(summaries, access, inbox.Query{View: inbox.ViewAll}, now).Items {
+		for _, item := range inbox.Build(summaries, access, nil, inbox.Query{View: inbox.ViewAll}, now).Items {
 			got = append(got, item.ID)
 		}
 		return got
@@ -115,7 +116,7 @@ func TestBuildShowsOnlyWhatTheAccessCanSee(t *testing.T) {
 		t.Errorf("a staff member with a profile in type 2 sees %v", got)
 	}
 	// The profile held in the type of the procedure decides, not another one.
-	mine := inbox.Build(summaries, inbox.Access{Profiles: map[int64]definition.Profile{1: definition.ProfileStaffApprover, 2: definition.ProfileStaffOperative}}, inbox.Query{View: inbox.ViewMine}, now)
+	mine := inbox.Build(summaries, inbox.Access{Profiles: map[int64]definition.Profile{1: definition.ProfileStaffApprover, 2: definition.ProfileStaffOperative}}, nil, inbox.Query{View: inbox.ViewMine}, now)
 	if len(mine.Items) != 0 {
 		t.Errorf("an operative in type 2 can act on %v", mine.Items)
 	}
@@ -133,5 +134,59 @@ func TestAccessStaff(t *testing.T) {
 	}
 	if (inbox.Access{}).Staff() {
 		t.Error("an empty access counts as staff")
+	}
+}
+
+func TestBuildMarksWhatMovedSinceTheLastView(t *testing.T) {
+	summaries := []inbox.Summary{
+		{ID: "moved", Area: office, LastMovedAt: now.Add(-time.Hour)},
+		{ID: "quiet", Area: office, LastMovedAt: now.Add(-48 * time.Hour)},
+		{ID: "never-seen", Area: office, LastMovedAt: now.Add(-48 * time.Hour)},
+	}
+	seen := inbox.Seen{"moved": now.Add(-2 * time.Hour), "quiet": now.Add(-24 * time.Hour)}
+
+	list := inbox.Build(summaries, operative, seen, inbox.Query{View: inbox.ViewAll}, now)
+
+	got := map[string]bool{}
+	for _, item := range list.Items {
+		got[item.ID] = item.HasNews
+	}
+	want := map[string]bool{"moved": true, "quiet": false, "never-seen": true}
+	if !maps.Equal(got, want) {
+		t.Errorf("news = %v, want %v", got, want)
+	}
+}
+
+func TestBuildLeavesOutClosedProcedures(t *testing.T) {
+	closed := now.Add(-time.Hour)
+	summaries := []inbox.Summary{
+		{ID: "open", Area: office},
+		{ID: "closed", Area: office, ClosedAt: &closed},
+	}
+
+	list := inbox.Build(summaries, operative, nil, inbox.Query{View: inbox.ViewAll}, now)
+
+	if len(list.Items) != 1 || list.Items[0].ID != "open" {
+		t.Errorf("items = %+v", list.Items)
+	}
+}
+
+func TestClosedThisMonth(t *testing.T) {
+	at := func(t time.Time) *time.Time { return &t }
+	start := inbox.MonthStart(now)
+	summaries := []inbox.Summary{
+		{ID: "first-moment", Area: office, ClosedAt: at(start)},
+		{ID: "this-week", Area: office, ClosedAt: at(now.Add(-72 * time.Hour))},
+		{ID: "last-month", Area: office, ClosedAt: at(start.Add(-time.Second))},
+		{ID: "in-progress", Area: office},
+		{ID: "other-type", ProcedureType: 2, Area: office, ClosedAt: at(now)},
+	}
+	onlyFirstType := inbox.Access{Profiles: map[int64]definition.Profile{0: definition.ProfileStaffOperative}}
+
+	if got := inbox.ClosedThisMonth(summaries, onlyFirstType, now); got != 2 {
+		t.Errorf("closed this month = %d, want 2", got)
+	}
+	if start != time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC) {
+		t.Errorf("month start = %v", start)
 	}
 }

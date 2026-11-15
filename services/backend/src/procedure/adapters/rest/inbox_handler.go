@@ -28,14 +28,23 @@ func NewInboxHandler(inbox ports.Inbox, authenticate Authenticate) *InboxHandler
 	return &InboxHandler{inbox: inbox, authenticate: authenticate}
 }
 
-func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProceduresRequestObject) (api.ListProceduresResponseObject, error) {
+const (
+	signInMessage    = "Iniciá sesión para continuar."
+	staffOnlyMessage = "La bandeja es solo para el personal de la Secretaría."
+)
+
+func (h *InboxHandler) person(ctx context.Context, session *string) (inbox.Person, error) {
 	token := ""
-	if req.Params.SigtaSession != nil {
-		token = *req.Params.SigtaSession
+	if session != nil {
+		token = *session
 	}
-	person, err := h.authenticate(ctx, token)
+	return h.authenticate(ctx, token)
+}
+
+func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProceduresRequestObject) (api.ListProceduresResponseObject, error) {
+	person, err := h.person(ctx, req.Params.SigtaSession)
 	if errors.Is(err, ErrNoSession) {
-		return api.ListProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: "Iniciá sesión para continuar."}}, nil
+		return api.ListProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: signInMessage}}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -45,12 +54,32 @@ func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProcedure
 	}
 	list, err := h.inbox.List(ctx, person, queryOf(req.Params))
 	if errors.Is(err, ports.ErrNotStaff) {
-		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal de la Secretaría."}}, nil
+		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: staffOnlyMessage}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	return api.ListProcedures200JSONResponse(procedureList(list)), nil
+}
+
+func (h *InboxHandler) MarkProcedureSeen(ctx context.Context, req api.MarkProcedureSeenRequestObject) (api.MarkProcedureSeenResponseObject, error) {
+	person, err := h.person(ctx, req.Params.SigtaSession)
+	if errors.Is(err, ErrNoSession) {
+		return api.MarkProcedureSeen401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: signInMessage}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	err = h.inbox.MarkSeen(ctx, person, req.Id)
+	switch {
+	case errors.Is(err, ports.ErrNotStaff):
+		return api.MarkProcedureSeen403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: staffOnlyMessage}}, nil
+	case errors.Is(err, ports.ErrProcedureNotFound):
+		return api.MarkProcedureSeen404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: "No se encontró el trámite."}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return api.MarkProcedureSeen204Response{}, nil
 }
 
 // validParams rejects values the contract does not list: the generated code
@@ -83,9 +112,10 @@ func queryOf(p api.ListProceduresParams) inbox.Query {
 
 func procedureList(list inbox.List) api.ProcedureList {
 	response := api.ProcedureList{
-		Items:          make([]api.ProcedureListItem, 0, len(list.Items)),
-		ProcedureTypes: make([]api.NamedOption, 0, len(list.ProcedureTypes)),
-		Areas:          make([]api.NamedOption, 0, len(list.Areas)),
+		Items:           make([]api.ProcedureListItem, 0, len(list.Items)),
+		ProcedureTypes:  make([]api.NamedOption, 0, len(list.ProcedureTypes)),
+		Areas:           make([]api.NamedOption, 0, len(list.Areas)),
+		ClosedThisMonth: list.ClosedThisMonth,
 	}
 	for _, item := range list.Items {
 		response.Items = append(response.Items, api.ProcedureListItem{
@@ -93,7 +123,11 @@ func procedureList(list inbox.List) api.ProcedureList {
 			ProcedureType:     item.ProcedureType,
 			ProcedureTypeName: item.ProcedureTypeName,
 			ApplicantName:     item.ApplicantName,
+			ApplicantProgram:  optional(item.ApplicantProgram),
+			FileNumber:        optional(item.FileNumber),
 			StepName:          item.StepName,
+			StepNumber:        item.StepNumber,
+			StepCount:         item.StepCount,
 			Area:              item.Area.ID,
 			AreaName:          item.Area.Name,
 			State:             api.ProcedureState(item.State),
@@ -102,6 +136,7 @@ func procedureList(list inbox.List) api.ProcedureList {
 			LastMovedAt:       item.LastMovedAt,
 			AgeDays:           item.AgeDays,
 			DaysReferred:      item.DaysReferred,
+			HasNews:           item.HasNews,
 		})
 	}
 	for _, option := range list.ProcedureTypes {
@@ -111,6 +146,14 @@ func procedureList(list inbox.List) api.ProcedureList {
 		response.Areas = append(response.Areas, api.NamedOption{Id: option.ID, Name: option.Name})
 	}
 	return response
+}
+
+// optional leaves out an empty text, which the contract does not list.
+func optional(text string) *string {
+	if text == "" {
+		return nil
+	}
+	return &text
 }
 
 func idText(id int64) string {

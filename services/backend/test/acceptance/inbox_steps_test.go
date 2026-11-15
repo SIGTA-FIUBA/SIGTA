@@ -43,6 +43,7 @@ const grantee = "staff-1"
 type inboxWorld struct {
 	summaries *memory.ProcedureSummaries
 	granted   map[string]inbox.Access
+	views     *memory.ProcedureViews
 	service   *application.InboxService
 	now       time.Time
 	types     map[string]int64
@@ -56,10 +57,12 @@ func registerInboxSteps(sc *godog.ScenarioContext) {
 	now := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
 	summaries := memory.NewProcedureSummaries()
 	granted := map[string]inbox.Access{}
+	views := memory.NewProcedureViews()
 	world := &inboxWorld{
 		summaries: summaries,
 		granted:   granted,
-		service:   application.NewInboxService(grantedPermissions{granted: granted}, summaries, func() time.Time { return now }),
+		views:     views,
+		service:   application.NewInboxService(grantedPermissions{granted: granted}, summaries, views, func() time.Time { return now }),
 		now:       now,
 		types:     map[string]int64{},
 		areas:     map[string]string{},
@@ -72,6 +75,11 @@ func registerInboxSteps(sc *godog.ScenarioContext) {
 	sc.Given(`^a staff member holds the "([^"]*)" profile in "([^"]*)" and the "([^"]*)" profile in "([^"]*)"$`, func(p1, t1, p2, t2 string) {
 		world.grant(map[string]string{t1: p1, t2: p2})
 	})
+	sc.Given(`^"([^"]*)" is at step (\d+) of (\d+)$`, world.givenStep)
+	sc.Given(`^the staff member saw "([^"]*)" today$`, func(id string) error { return world.givenSeen(id, 0) })
+	sc.Given(`^the staff member saw "([^"]*)" (\d+) days ago$`, world.givenSeen)
+	sc.Given(`^"([^"]*)" of "([^"]*)" was closed (\d+) days ago$`, world.givenClosed)
+	sc.When(`^they mark "([^"]*)" as seen$`, world.markSeen)
 	sc.When(`^they list all the procedures$`, func() error {
 		return world.query(inbox.Person{ID: grantee}, inbox.Query{View: inbox.ViewAll})
 	})
@@ -112,6 +120,11 @@ func registerInboxSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^"([^"]*)" is in the state "([^"]*)"$`, world.thenState)
 	sc.Then(`^"([^"]*)" has been referred for (\d+) days$`, world.thenReferred)
 	sc.Then(`^"([^"]*)" shows no referral days$`, world.thenNotReferred)
+	sc.Then(`^"([^"]*)" shows step (\d+) of (\d+)$`, world.thenStepOf)
+	sc.Then(`^"([^"]*)" is marked as having news$`, func(id string) error { return world.thenNews(id, true) })
+	sc.Then(`^"([^"]*)" is not marked as having news$`, func(id string) error { return world.thenNews(id, false) })
+	sc.Then(`^they are told the procedure does not exist$`, func() error { return world.thenStatus(http.StatusNotFound) })
+	sc.Then(`^(\d+) procedures? (?:was|were) closed this month$`, world.thenClosedThisMonth)
 	sc.Then(`^they are told the inbox is only for the staff$`, func() error { return world.thenStatus(http.StatusForbidden) })
 	sc.Then(`^they are asked to sign in$`, func() error { return world.thenStatus(http.StatusUnauthorized) })
 	sc.Then(`^the type filter offers "([^"]*)"$`, world.thenTypeOptions)
@@ -146,6 +159,48 @@ func (w *inboxWorld) givenProcedures(table *godog.Table) error {
 		})
 	}
 	return nil
+}
+
+func (w *inboxWorld) givenStep(id string, number, count int) error {
+	summary, ok, err := w.summaries.Find(context.Background(), inbox.Access{EveryType: definition.ProfileStaffApprover}, id)
+	if err != nil || !ok {
+		return fmt.Errorf("%q is not in progress: %w", id, err)
+	}
+	summary.StepNumber, summary.StepCount = number, count
+	w.summaries.Add(summary)
+	return nil
+}
+
+// givenSeen records that the staff member of the scenarios opened the
+// procedure some days ago.
+func (w *inboxWorld) givenSeen(id string, days int) error {
+	return w.views.See(context.Background(), "staff", id, w.daysAgo(days))
+}
+
+func (w *inboxWorld) givenClosed(id, typeName string, days int) error {
+	closed := w.daysAgo(days)
+	w.summaries.Add(inbox.Summary{
+		ID:                id,
+		ProcedureType:     w.types[typeName],
+		ProcedureTypeName: typeName,
+		Area:              definition.Area{ID: "students_office", Name: "Students office", Kind: definition.AreaOffice},
+		StartedAt:         w.daysAgo(days + 10),
+		LastMovedAt:       closed,
+		ClosedAt:          &closed,
+	})
+	return nil
+}
+
+// markSeen marks a procedure as seen over HTTP, as the grantee.
+func (w *inboxWorld) markSeen(id string) {
+	authenticate := func(context.Context, string) (inbox.Person, error) {
+		return inbox.Person{ID: grantee}, nil
+	}
+	server := api.NewServer(nil, nil, rest.NewInboxHandler(w.service, authenticate))
+	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/procedures/"+id+"/seen", http.NoBody))
+	w.status = recorder.Code
 }
 
 func (w *inboxWorld) daysAgo(days int) time.Time {
@@ -299,6 +354,35 @@ func (w *inboxWorld) thenTypeOptions(names string) error {
 	want := strings.Split(names, ", ")
 	if !slices.Equal(got, want) {
 		return fmt.Errorf("type options = %v, want %v", got, want)
+	}
+	return nil
+}
+
+func (w *inboxWorld) thenStepOf(id string, number, count int) error {
+	item, err := w.item(id)
+	if err != nil {
+		return err
+	}
+	if item.StepNumber != number || item.StepCount != count {
+		return fmt.Errorf("step %d of %d, want %d of %d", item.StepNumber, item.StepCount, number, count)
+	}
+	return nil
+}
+
+func (w *inboxWorld) thenNews(id string, want bool) error {
+	item, err := w.item(id)
+	if err != nil {
+		return err
+	}
+	if item.HasNews != want {
+		return fmt.Errorf("has news = %v, want %v", item.HasNews, want)
+	}
+	return nil
+}
+
+func (w *inboxWorld) thenClosedThisMonth(want int) error {
+	if w.list.ClosedThisMonth != want {
+		return fmt.Errorf("closed this month = %d, want %d", w.list.ClosedThisMonth, want)
 	}
 	return nil
 }

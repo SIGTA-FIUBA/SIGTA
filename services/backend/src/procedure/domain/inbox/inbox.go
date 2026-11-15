@@ -12,20 +12,33 @@ import (
 	"backend/src/procedure/domain/definition"
 )
 
-// Summary is what the inbox needs of a procedure in progress: its open step,
-// who has it, and when it started and reached that step.
+// Summary is what the inbox needs of a procedure: its open step, who has it,
+// and when it started and reached that step.
 type Summary struct {
 	ID                string
 	ProcedureType     int64
 	ProcedureTypeName string
 	ApplicantID       string
 	ApplicantName     string
-	StepName          string
-	Area              definition.Area
+	// ApplicantProgram is the degree program the applicant declared; empty if
+	// none.
+	ApplicantProgram string
+	// FileNumber is the number of the electronic file, once the staff recorded
+	// it as an external fact (ADR-004); empty before.
+	FileNumber string
+	StepName   string
+	// StepNumber is the position of the open step among the StepCount steps of
+	// the procedure type, in the order of its published version.
+	StepNumber int
+	StepCount  int
+	Area       definition.Area
 	// Profile is the one the open step asks for; empty for applicant steps.
 	Profile     definition.Profile
 	StartedAt   time.Time
 	LastMovedAt time.Time
+	// ClosedAt is when the procedure was closed; nil while it is in progress.
+	// Closing says nothing of the result, which is not modeled (ADR-009).
+	ClosedAt *time.Time
 }
 
 // State is derived from the area of the open step. It is not the result of
@@ -103,6 +116,19 @@ type Item struct {
 	// DaysReferred is how long it has been with an external evaluator without
 	// returning; it is set only when the state is StateReferred.
 	DaysReferred *int
+	// HasNews tells whether the procedure moved after the viewer last saw it,
+	// or the viewer never saw it.
+	HasNews bool
+}
+
+// Seen is when the viewer last saw each procedure, by its ID.
+type Seen map[string]time.Time
+
+// HasNews tells whether s moved after the viewer last saw it. A procedure the
+// viewer never saw is news.
+func (seen Seen) HasNews(s Summary) bool {
+	at, ok := seen[s.ID]
+	return !ok || s.LastMovedAt.After(at)
 }
 
 // Option is a value to filter by, with the name to show.
@@ -118,16 +144,37 @@ type List struct {
 	Items          []Item
 	ProcedureTypes []Option[int64]
 	Areas          []Option[string]
+	// ClosedThisMonth counts the procedures the access can see that were
+	// closed since the first day of the current month.
+	ClosedThisMonth int
+}
+
+// MonthStart is the first moment of the month of now, in its location.
+func MonthStart(now time.Time) time.Time {
+	return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+}
+
+// ClosedThisMonth counts the closed procedures that the access can see and
+// that were closed since the first day of the month of now.
+func ClosedThisMonth(closed []Summary, access Access, now time.Time) int {
+	start := MonthStart(now)
+	count := 0
+	for _, s := range closed {
+		if access.CanSee(s) && s.ClosedAt != nil && !s.ClosedAt.Before(start) && !s.ClosedAt.After(now) {
+			count++
+		}
+	}
+	return count
 }
 
 // Build answers a query over the procedures in progress, as seen with an
-// access at a given moment. The store already returns only what the access
-// can see; Build checks it again, so that a store that returns more never
-// shows it.
-func Build(summaries []Summary, access Access, q Query, now time.Time) List {
+// access at a given moment, by a viewer who saw some of them before. The store
+// already returns only what the access can see; Build checks it again, so
+// that a store that returns more never shows it.
+func Build(summaries []Summary, access Access, seen Seen, q Query, now time.Time) List {
 	var inView []Item
 	for _, s := range summaries {
-		if !access.CanSee(s) {
+		if !access.CanSee(s) || s.ClosedAt != nil {
 			continue
 		}
 		item := Item{
@@ -135,6 +182,7 @@ func Build(summaries []Summary, access Access, q Query, now time.Time) List {
 			State:      StateOf(s.Area),
 			Actionable: CanAct(access.ProfileIn(s.ProcedureType), s),
 			AgeDays:    daysBetween(s.StartedAt, now),
+			HasNews:    seen.HasNews(s),
 		}
 		if item.State == StateReferred {
 			days := daysBetween(s.LastMovedAt, now)

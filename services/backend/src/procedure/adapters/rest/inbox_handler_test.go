@@ -22,12 +22,18 @@ type fakeInbox struct {
 	err    error
 	person inbox.Person
 	query  inbox.Query
+	seen   string
 	asked  bool
 }
 
 func (f *fakeInbox) List(_ context.Context, person inbox.Person, q inbox.Query) (inbox.List, error) {
 	f.person, f.query, f.asked = person, q, true
 	return f.list, f.err
+}
+
+func (f *fakeInbox) MarkSeen(_ context.Context, person inbox.Person, id string) error {
+	f.person, f.seen, f.asked = person, id, true
+	return f.err
 }
 
 func getProcedures(t *testing.T, box *fakeInbox, role string, authErr error, query string) *httptest.ResponseRecorder {
@@ -49,13 +55,15 @@ func TestListProceduresAnswersTheList(t *testing.T) {
 		Items: []inbox.Item{{
 			Summary: inbox.Summary{
 				ID: "p-1", ProcedureType: 7, ProcedureTypeName: "Trámite", ApplicantName: "Titular de prueba",
-				StepName: "Dictamen", Area: definition.Area{ID: "committee", Name: "Comisión", Kind: definition.AreaExternal},
+				StepName: "Dictamen", StepNumber: 4, StepCount: 6, FileNumber: "EX-1",
+				Area:      definition.Area{ID: "committee", Name: "Comisión", Kind: definition.AreaExternal},
 				StartedAt: started, LastMovedAt: started,
 			},
-			State: inbox.StateReferred, AgeDays: 38, DaysReferred: &days,
+			State: inbox.StateReferred, AgeDays: 38, DaysReferred: &days, HasNews: true,
 		}},
-		ProcedureTypes: []inbox.Option[int64]{{ID: 7, Name: "Trámite"}},
-		Areas:          []inbox.Option[string]{{ID: "committee", Name: "Comisión"}},
+		ClosedThisMonth: 3,
+		ProcedureTypes:  []inbox.Option[int64]{{ID: 7, Name: "Trámite"}},
+		Areas:           []inbox.Option[string]{{ID: "committee", Name: "Comisión"}},
 	}}
 
 	recorder := getProcedures(t, box, "staff_approver", nil, "?view=all&procedure_type=7&state=referred&area=committee&sort=last_moved")
@@ -75,6 +83,12 @@ func TestListProceduresAnswersTheList(t *testing.T) {
 	if item.Id != "p-1" || item.State != api.Referred || item.DaysReferred == nil || *item.DaysReferred != 4 || item.AreaName != "Comisión" {
 		t.Errorf("item = %+v", item)
 	}
+	if item.StepNumber != 4 || item.StepCount != 6 || !item.HasNews || item.FileNumber == nil || *item.FileNumber != "EX-1" || item.ApplicantProgram != nil {
+		t.Errorf("step %d of %d, news %v, file %v, program %v", item.StepNumber, item.StepCount, item.HasNews, item.FileNumber, item.ApplicantProgram)
+	}
+	if got.ClosedThisMonth != 3 {
+		t.Errorf("closed this month = %d, want 3", got.ClosedThisMonth)
+	}
 	if got.ProcedureTypes[0] != (api.NamedOption{Id: "7", Name: "Trámite"}) {
 		t.Errorf("type options = %v", got.ProcedureTypes)
 	}
@@ -92,7 +106,7 @@ func TestListProceduresDefaultsToMineByAge(t *testing.T) {
 		t.Errorf("query = %+v", box.query)
 	}
 	// Lists are [] in the JSON, never null.
-	if body := recorder.Body.String(); body != `{"areas":[],"items":[],"procedure_types":[]}`+"\n" {
+	if body := recorder.Body.String(); body != `{"areas":[],"closed_this_month":0,"items":[],"procedure_types":[]}`+"\n" {
 		t.Errorf("body = %s", body)
 	}
 }
@@ -137,5 +151,51 @@ func TestListProceduresFailsWhenTheInboxFails(t *testing.T) {
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", recorder.Code)
+	}
+}
+
+func putSeen(t *testing.T, box *fakeInbox, authErr error) *httptest.ResponseRecorder {
+	t.Helper()
+	authenticate := func(context.Context, string) (inbox.Person, error) {
+		return inbox.Person{ID: "u1", Role: "staff_operative"}, authErr
+	}
+	server := api.NewServer(nil, nil, rest.NewInboxHandler(box, authenticate))
+	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/procedures/p-1/seen", http.NoBody))
+	return recorder
+}
+
+func TestMarkProcedureSeen(t *testing.T) {
+	box := &fakeInbox{}
+
+	recorder := putSeen(t, box, nil)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204: %s", recorder.Code, recorder.Body)
+	}
+	if box.person.ID != "u1" || box.seen != "p-1" {
+		t.Errorf("marked %q as seen by %+v", box.seen, box.person)
+	}
+}
+
+func TestMarkProcedureSeenRefuses(t *testing.T) {
+	tests := []struct {
+		name    string
+		authErr error
+		err     error
+		want    int
+	}{
+		{"without a session", rest.ErrNoSession, nil, http.StatusUnauthorized},
+		{"who is not staff", nil, input.ErrNotStaff, http.StatusForbidden},
+		{"a procedure the person cannot see", nil, input.ErrProcedureNotFound, http.StatusNotFound},
+		{"when the inbox fails", nil, errors.New("store down"), http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if recorder := putSeen(t, &fakeInbox{err: tt.err}, tt.authErr); recorder.Code != tt.want {
+				t.Errorf("status = %d, want %d", recorder.Code, tt.want)
+			}
+		})
 	}
 }

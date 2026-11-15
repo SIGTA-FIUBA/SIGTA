@@ -73,7 +73,7 @@ func run(logger *slog.Logger) error {
 			summaries.Add(summary)
 		}
 	}
-	inboxHandler := procedurerest.NewInboxHandler(procedureapp.NewInboxService(roleaccess.Permissions{}, summaries, time.Now), personOf(auth))
+	inboxHandler := procedurerest.NewInboxHandler(procedureapp.NewInboxService(roleaccess.Permissions{}, summaries, proceduremem.NewProcedureViews(), time.Now), personOf(auth))
 	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inboxHandler)
 
 	router := http.NewServeMux()

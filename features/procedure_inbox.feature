@@ -57,6 +57,37 @@ Feature: Procedure inbox
     When they open their inbox
     Then it lists the procedures "p-1"
 
+  Scenario: each item tells which step of its procedure it is at
+    Given "p-1" is at step 3 of 9
+    When a staff member with the "staff_operative" profile opens their inbox
+    Then "p-1" shows step 3 of 9
+
+  Scenario: a procedure the staff member has not opened yet has news
+    When a staff member with the "staff_operative" profile opens their inbox
+    Then "p-1" is marked as having news
+
+  Scenario: a procedure has no news once seen, until it moves again
+    Given the staff member saw "p-1" today
+    When a staff member with the "staff_operative" profile opens their inbox
+    Then "p-1" is not marked as having news
+
+  Scenario: a procedure moved since it was last seen has news again
+    Given the staff member saw "p-1" 4 days ago
+    When a staff member with the "staff_operative" profile opens their inbox
+    Then "p-1" is marked as having news
+
+  Scenario: a staff member cannot mark as seen a procedure they cannot see
+    Given a staff member holds the "staff_operative" profile only in "credit recognition"
+    When they mark "p-1" as seen
+    Then they are told the procedure does not exist
+
+  Scenario: closed procedures leave the list and count for the month
+    Given "p-5" of "subject equivalence" was closed 3 days ago
+    And "p-6" of "subject equivalence" was closed 40 days ago
+    When a staff member with the "staff_operative" profile lists all the procedures
+    Then it lists the procedures "p-3, p-2, p-4, p-1"
+    And 1 procedure was closed this month
+
   Scenario: an applicant cannot open the inbox
     When an applicant asks for the inbox
     Then they are told the inbox is only for the staff
