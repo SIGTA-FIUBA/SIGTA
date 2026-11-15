@@ -48,6 +48,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 	if err != nil {
 		return domain.Procedure{}, fmt.Errorf("procedure type %d version %d: %w", procedureType, latest.Number, err)
 	}
+	now := s.now()
 	p := domain.Procedure{
 		ID:            s.newID(),
 		ProcedureType: procedureType,
@@ -55,6 +56,8 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 		VersionDigest: latest.Digest,
 		Applicant:     userID,
 		OpenStep:      content.Definition.Steps[0].ID,
+		StartedAt:     now,
+		MovedAt:       now,
 	}
 	if err := s.procedures.Add(ctx, p); err != nil {
 		return domain.Procedure{}, fmt.Errorf("start procedure: %w", err)

@@ -201,7 +201,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Bandeja y listado de trámites del personal
+         * @description Solo para el personal, quien tiene al menos una membresía vigente (ADR-020). Con view=mine devuelve los trámites cuyo paso abierto puede hacer quien mira; con view=all, todos los trámites en curso que puede ver: los de los tipos de trámite que cubren sus membresías y que pasan por sus áreas. Los trámites cerrados no aparecen. Los filtros se combinan. Las opciones de filtro salen de todos los trámites de la vista, sin filtrar, para que elegir un filtro no haga desaparecer los demás.
+         */
+        get: operations["listProcedures"];
         put?: never;
         /**
          * Inicia un trámite
@@ -405,6 +409,48 @@ export interface components {
             message: string;
             /** @description Vacío si el pedido está mal formado */
             problems: components["schemas"]["SubmissionProblem"][];
+        };
+        /**
+         * @description mine: los trámites cuyo paso abierto puede hacer quien mira. all: todos los trámites en curso que puede ver.
+         * @default mine
+         * @enum {string}
+         */
+        ProcedureListView: "mine" | "all";
+        /**
+         * @description oldest: primero los que empezaron hace más tiempo. last_moved: primero los que se movieron más recientemente.
+         * @default oldest
+         * @enum {string}
+         */
+        ProcedureListSort: "oldest" | "last_moved";
+        ProcedureListItem: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            procedure_type_name: string;
+            applicant: components["schemas"]["Person"];
+            /** @description Paso abierto, el que se espera ahora */
+            step_name: string;
+            /** @description Área del paso abierto; ausente si lo hace el titular */
+            area?: components["schemas"]["NamedOption"];
+            state: components["schemas"]["ProcedureState"];
+            /** @description Si quien mira tiene los permisos que exige el paso abierto */
+            actionable: boolean;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description Cuándo el trámite llegó al paso abierto
+             */
+            last_moved_at: string;
+            /** @description Días desde que empezó el trámite */
+            age_days: number;
+        };
+        ProcedureList: {
+            items: components["schemas"]["ProcedureListItem"][];
+            /** @description Tipos de trámite presentes en la vista, para filtrar */
+            procedure_types: components["schemas"]["NamedOption"][];
+            /** @description Áreas responsables presentes en la vista, para filtrar */
+            areas: components["schemas"]["NamedOption"][];
         };
         User: {
             id: string;
@@ -925,6 +971,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Membership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listProcedures: {
+        parameters: {
+            query?: {
+                view?: components["schemas"]["ProcedureListView"];
+                procedure_type?: number;
+                state?: components["schemas"]["ProcedureState"];
+                /** @description Área responsable del paso abierto */
+                area?: string;
+                sort?: components["schemas"]["ProcedureListSort"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trámites y opciones de filtro */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureList"];
                 };
             };
             400: components["responses"]["BadRequest"];

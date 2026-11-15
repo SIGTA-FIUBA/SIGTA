@@ -233,6 +233,16 @@ func (m movableProcedures) Get(ctx context.Context, id string) (domain.Procedure
 	return p, err
 }
 
+func (m movableProcedures) List(ctx context.Context) ([]domain.Procedure, error) {
+	all, err := m.ProcedureRepository.List(ctx)
+	for i, p := range all {
+		if step, ok := m.openStep[p.ID]; ok {
+			all[i].OpenStep = step
+		}
+	}
+	return all, err
+}
+
 func (w *documentWorld) givenAttached(user, file, name, requirement string) error {
 	w.attach(user, file, name, requirement)
 	return w.err

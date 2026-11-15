@@ -82,7 +82,7 @@ func submitRequest(t *testing.T, parts ...part) *http.Request {
 
 func serveSubmission(t *testing.T, submissions *fakeSubmissions, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, nil, submissions, nil))
+	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, nil, submissions, nil), nil)
 	recorder := httptest.NewRecorder()
 	api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler)).ServeHTTP(recorder, r)
 	return recorder
