@@ -49,7 +49,7 @@ type authorizationWorld struct {
 	listed []domain.Procedure
 }
 
-func registerAuthorizationSteps(sc *godog.ScenarioContext) {
+func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	w := &authorizationWorld{
 		administrators:    authmem.NewAdministrators("admin@fi.uba.ar"),
 		storedMemberships: authmem.NewMembershipRepository(),
@@ -119,6 +119,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^it is a "([^"]*)" procedure$`, w.thenOfType)
 	sc.Then(`^none of them belongs to "([^"]*)"$`, w.thenNoneOf)
 	sc.Then(`^the procedure stays on the "([^"]*)" step$`, w.thenStaysOn)
+	return w
 }
 
 func (w *authorizationWorld) newID() string {
