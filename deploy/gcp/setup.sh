@@ -77,7 +77,7 @@ for role in roles/compute.viewer roles/iap.tunnelResourceAccessor roles/compute.
 done
 
 # Budget alert: emails the billing administrators at half, 90% and all of it.
-if [ -z "$(gcloud billing budgets list --billing-account="$billing_account" --filter='displayName=SIGTA staging' --format='value(name)')" ]; then
+if [ -z "$(gcloud billing budgets list --billing-account="$billing_account" --filter='displayName="SIGTA staging"' --format='value(name)')" ]; then
     gcloud billing budgets create --billing-account="$billing_account" --display-name="SIGTA staging" \
         --budget-amount=25USD --filter-projects="projects/$project" \
         --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
