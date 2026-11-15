@@ -44,7 +44,7 @@ La Subsecretaría de TICs ofrece MariaDB 10.1.45 o PostgreSQL 11.9, como mínimo
 | Client ID, client secret y URL de redirección por variables de entorno | Cumple | `SIGTA_GOOGLE_CLIENT_ID`, `SIGTA_GOOGLE_CLIENT_SECRET` y `SIGTA_PUBLIC_URL` |
 | Credenciales de Google de test y producción provistas por la Subsecretaría de TICs | A confirmar | Hoy se usa un cliente propio del equipo |
 | Requisitos para un ingreso propio con contraseña | No aplica | SIGTA no guarda contraseñas ni ofrece otra forma de ingresar (ADR-010) |
-| Roles y permisos verificados en el backend en cada endpoint | A confirmar | Los perfiles operativo y de aprobación existen, pero todavía no hay endpoints que los exijan. Con ADR-017 pasan a ser roles configurables por un administrador |
+| Roles y permisos verificados en el backend en cada endpoint | A confirmar | Los permisos son de cada área y se asignan en membresías, sueltos o en roles que crea el administrador (ADR-020). Se verifican en los casos de uso del servidor: la administración de áreas y membresías exige ser administrador, y publicar un tipo de trámite, los permisos de la Secretaría |
 
 ## Correo electrónico
 

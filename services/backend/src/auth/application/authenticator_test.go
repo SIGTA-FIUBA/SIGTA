@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	applicant = domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular", Role: domain.RoleApplicant}
-	operative = domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo", Role: domain.RoleStaffOperative}
+	applicant = domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"}
+	operative = domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"}
 )
 
 type fixture struct {
@@ -102,8 +102,8 @@ func TestCompleteLoginRegistersANewIdentityAsApplicant(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if user.Email != "nuevo@fi.uba.ar" || user.Role != domain.RoleApplicant {
-			t.Fatalf("got %+v, want an applicant with the normalized email", user)
+		if user.Email != "nuevo@fi.uba.ar" {
+			t.Fatalf("got %+v, want the normalized email", user)
 		}
 		ids = append(ids, user.ID)
 	}

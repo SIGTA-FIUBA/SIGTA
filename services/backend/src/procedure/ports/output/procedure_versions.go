@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 )
 
@@ -33,11 +32,4 @@ type ProcedureVersions interface {
 	// version with that number, also when another publication added it at the
 	// same time.
 	Add(ctx context.Context, v version.ProcedureTypeVersion) error
-}
-
-// AreaCatalog lists the areas shared by every procedure type. It returns them
-// as stored, without validating them: ProcedureTypeDefinition.Validate does
-// that.
-type AreaCatalog interface {
-	List(ctx context.Context) ([]definition.Area, error)
 }

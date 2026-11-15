@@ -7,29 +7,12 @@ import (
 
 var ErrUnknownUser = errors.New("no user registered with that identity")
 
-type Role string
-
-const (
-	RoleApplicant      Role = "applicant"
-	RoleStaffOperative Role = "staff_operative"
-	RoleStaffApprover  Role = "staff_approver"
-)
-
-func (r Role) Known() bool {
-	switch r {
-	case RoleApplicant, RoleStaffOperative, RoleStaffApprover:
-		return true
-	}
-	return false
-}
-
-// User is a person registered in SIGTA. Their role lives in SIGTA's own
-// storage, never in the identity provider.
+// User is a person registered in SIGTA. What they may do comes from their
+// memberships, never from the identity provider.
 type User struct {
 	ID    string
 	Email string
 	Name  string
-	Role  Role
 }
 
 func NormalizeEmail(email string) string {

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from '../src/routes'
 import { render } from './render'
 
-const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', role: 'applicant' }
+const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', role: 'applicant', administrator: false }
 
 // stubApi plays the API: /me answers while the session is open, and a
 // successful /auth/logout closes it.

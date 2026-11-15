@@ -24,9 +24,9 @@ Salen de "Flujos de los trámites" ([relevamiento](13-relevamiento-de-tramites.m
 | DU-02 | ¿El Secretario Académico y el de Gestión Académica son la misma persona? | Son cargos distintos, pero no importa para SIGTA: firman afuera y la DA confirma la firma | Supuesto |
 | DU-03 | ¿Por qué algunos trámites pasan por el CD y otros no? | Lo define cada tipo de trámite en su configuración | Supuesto |
 | DU-04 | En los pases, ¿FIUBA ve algo antes de que llegue de Rectorado? | El estudiante inicia en SIGTA al presentar en Rectorado; el trámite espera en un paso externo hasta que la DA lo recibe | Supuesto |
-| DU-05 | ¿Quiénes de la DA usan el sistema? ¿La Directora General es otra área? | Todo el personal de la DA, de Intercambios y la Directora General, con los roles que asigna el administrador. La Directora General tiene un rol propio | Supuesto, en línea con la respuesta del 4/11 |
+| DU-05 | ¿Quiénes de la DA usan el sistema? ¿La Directora General es otra área? | Todo el personal de la DA, de Intercambios y la Directora General. Cada persona tiene una membresía en su área, con los roles y permisos de esa área que le asigna el administrador (ADR-020). La Directora General es parte del área de la DA, con un rol propio para los pasos que exigen su permiso | Supuesto, en línea con la respuesta del 4/11 |
 | DU-06 | ¿Quién sube los documentos al expediente electrónico? | La DA, fuera de SIGTA. SIGTA guarda solo el número de expediente | Supuesto (ADR-004) |
-| DU-34 | Rectorado, el CBC y el Despacho del Consejo Directivo no usan SIGTA, pero tampoco evalúan. Si sus pasos son de un área `external`, el trámite se muestra "En evaluación externa" y cuenta días sin retorno, como una derivación. ¿Se separa "evaluador externo" de "otra dependencia", o sus pasos los confirma la DA, como el archivo? | Se modelan como `external`, como en el relevamiento. Mesa de Entrada ya no es un área: el archivo lo confirma la DA | Se espera, con el equipo, junto con SIG-71 |
+| DU-34 | Rectorado, el CBC y el Despacho del Consejo Directivo no usan SIGTA, pero tampoco evalúan. Con ADR-020 no hay áreas `external`: un paso que resuelve alguien de afuera es del área que lo registra en SIGTA. ¿Sus pasos los confirma la DA, como el archivo, o cada dependencia es un área con su propio permiso para registrarlos? ¿Cómo se muestra al titular que el trámite espera a otra dependencia? | Sus pasos son de la DA, que confirma lo que pasó afuera, como el archivo. Mesa de Entrada ya no es un área | Se espera, con el equipo, junto con SIG-71 |
 
 ### Equivalencia entre asignaturas
 
@@ -101,7 +101,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
-| DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | Se espera; con roles configurables se puede resolver como dos permisos | Se espera, con la Secretaría, antes de la interfaz de edición |
+| DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 
 ---
 
@@ -110,5 +110,5 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | ID | Duda | Respuesta | Fecha |
 | --- | --- | --- | --- |
 | — | ¿Hace falta un editor de flujos? | Sí: los tipos de trámite se editan desde la interfaz (ADR-013) | Antes del 8/11 |
-| DU-31 | ¿Los perfiles operativo y de aprobación son personas distintas? (D-02) | No es así: la Secretaría pidió un administrador que asigna roles configurables (ADR-017, aceptado) | 8/11 |
+| DU-31 | ¿Los perfiles operativo y de aprobación son personas distintas? (D-02) | La pregunta dejó de aplicar: no hay perfiles fijos. Cada área tiene sus permisos y roles, que el administrador asigna en las membresías, y una persona puede tener cualquier combinación (ADR-020, que reemplaza a ADR-017) | 8/11 |
 | DU-33 | ¿Se mantiene la validación asistida con IA, si la completitud se puede revisar con reglas en código? | Sí, se mantiene (ADR-002). Las reglas en código revisan que esté todo; la IA revisa el contenido, propone hallazgos y decide una persona | 8/11 |

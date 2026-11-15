@@ -36,8 +36,7 @@ type Document struct {
 	Name string `json:"name"`
 	// AcceptedTypes are media types, such as "application/pdf".
 	AcceptedTypes []string `json:"accepted_types,omitempty"`
-	// MaxSize is in bytes.
-	MaxSize int64 `json:"max_size,omitempty"`
+	MaxSizeBytes  int64    `json:"max_size,omitempty"`
 }
 
 func validateFields(fields []Field, seen map[string]bool) []ValidationProblem {
@@ -72,7 +71,7 @@ func validateDocuments(documents []Document, seen map[string]bool) []ValidationP
 			}
 			accepted[mediaType] = true
 		}
-		if doc.MaxSize <= 0 {
+		if doc.MaxSizeBytes <= 0 {
 			problems = append(problems, ValidationProblem{Code: CodeNoMaxSize, Path: []Element{ref}})
 		}
 	}

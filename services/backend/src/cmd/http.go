@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	authrest "backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
@@ -37,7 +39,16 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	users, err := usersOf(cfg)
+	ctx := context.Background()
+	areaRepository := memory.NewAreaRepository(devAreas()...)
+	if err := application.EnsureSecretariat(ctx, areaRepository); err != nil {
+		return err
+	}
+	areas, err := areaRepository.List(ctx)
+	if err != nil {
+		return err
+	}
+	directory, err := peopleOf(cfg, areas)
 	if err != nil {
 		return err
 	}
@@ -52,19 +63,24 @@ func run(logger *slog.Logger) error {
 			AllowedDomain: cfg.allowedDomain,
 		},
 		identity,
-		memory.NewUserRepository(users...),
+		memory.NewUserRepository(directory.users...),
 		memory.NewSessionStore(),
 		time.Now,
 	)
 
-	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), proceduremem.NewAreaCatalog(devAreas()...), time.Now)
+	administrators := memory.NewAdministrators(directory.administrators...)
+	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
+	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
+	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
+
+	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
+	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), areaService, memberships, time.Now)
 	if cfg.development() {
-		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
+		if _, err := procedureTypes.Publish(ctx, devProcedureType()); err != nil {
 			return fmt.Errorf("publish the example procedure type: %w", err)
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes))
+	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
 
 	router := http.NewServeMux()
 	api.Mount(router, app, logger)
@@ -74,16 +90,20 @@ func run(logger *slog.Logger) error {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
+	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
 	return server.ListenAndServe()
 }
 
-func usersOf(cfg config) ([]domain.User, error) {
+func peopleOf(cfg config, areas []domain.Area) (people, error) {
 	if cfg.usersFile != "" {
-		return loadUsers(cfg.usersFile, cfg.allowedDomain)
+		return loadUsers(cfg.usersFile, cfg.allowedDomain, areas)
 	}
 	// loadConfig asks for a users file everywhere but development.
-	return devUsers(), nil
+	return devPeople(), nil
+}
+
+func newID() string {
+	return rand.Text()
 }
 
 func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
@@ -101,24 +121,36 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 	}, logger)
 }
 
-// devApplicantEmail is who the development identity provider logs in by
-// default.
 const devApplicantEmail = "titular@fi.uba.ar"
 
-// devUsers are synthetic accounts, one per role, for local development.
-func devUsers() []domain.User {
-	return []domain.User{
-		{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba", Role: domain.RoleApplicant},
-		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
-		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
+// devPeople are synthetic accounts for local development: an applicant, a
+// member who reviews and edits procedure types, one who also approves and
+// publishes them, and an administrator.
+func devPeople() people {
+	return people{
+		users: []domain.User{
+			{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba"},
+			{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba"},
+			{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba"},
+			{ID: "dev-admin", Email: "admin@fi.uba.ar", Name: "Administración de prueba"},
+		},
+		administrators: []string{"dev-admin"},
+		memberships: []domain.Membership{
+			{ID: "dev-operative-1", UserID: "dev-operative", Area: "office", Permissions: []string{"review"}, GrantedBy: "dev-admin"},
+			{ID: "dev-approver-1", UserID: "dev-approver", Area: "office", Permissions: []string{"review", "approve"}, GrantedBy: "dev-admin"},
+			{ID: "dev-operative-2", UserID: "dev-operative", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}, GrantedBy: "dev-admin"},
+			{ID: "dev-approver-2", UserID: "dev-approver", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}, GrantedBy: "dev-admin"},
+		},
 	}
 }
 
-func devAreas() []definition.Area {
-	return []definition.Area{
-		{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant},
-		{ID: "office", Name: "Área de prueba", Kind: definition.AreaOffice},
-	}
+// devAreas are the areas of staff until they are stored in PostgreSQL, besides
+// the Secretariat, which EnsureSecretariat adds.
+func devAreas() []domain.Area {
+	return []domain.Area{{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
+		{ID: "review", Name: "Revisar"},
+		{ID: "approve", Name: "Aprobar"},
+	}}}
 }
 
 // devProcedureType is a made-up procedure type, so that the catalog has
@@ -137,12 +169,12 @@ func devProcedureType() input.Publication {
 				{ID: "comment", Name: "Comentario", Type: definition.FieldLongText},
 			},
 			Documents: []definition.Document{
-				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
+				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSizeBytes: 10 << 20},
 			},
 			Steps: []definition.Step{
-				{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
-				{ID: "documents", Name: "Documentación", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
+				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
+				{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
+				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 			},
 		},
 	}

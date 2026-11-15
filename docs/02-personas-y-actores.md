@@ -1,27 +1,31 @@
 # Personas usuarias y actores
 
-**Versión:** 0.2 · alineado al mapa de usuario por roles
+**Versión:** 0.2 · alineado al mapa de usuario
 Las afirmaciones marcadas **(supuesto)** son hipótesis nuestras y se validan en el relevamiento del sprint 1 (US62 y US64).
 
 ---
 
-## 1. Roles de la plataforma
+## 1. Personas usuarias de la plataforma
 
-La plataforma distingue al **titular del trámite**, que es un rol fijo, y al **personal**, que tiene los roles que le asigna el administrador (ADR-017). Operativo y de aprobación son los roles iniciales. Son los mismos dos tipos de persona que ordenan el User Story Mapping, y las personas P2 y P3 se mantienen como arquetipos.
+La plataforma tiene **dos tipos de persona usuaria**, los mismos que ordenan el User Story Mapping (ADR-020). No se excluyen y ninguno se guarda: titular es quien inicia un trámite, y personal quien tiene una membresía vigente. Una misma persona puede ser las dos cosas.
 
-| Persona usuaria | Roles iniciales | Qué hace |
+| Persona usuaria | Qué la habilita | Qué hace |
 |---|---|---|
-| **Titular del trámite** | Titular, fijo | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente |
-| **Secretario** | **Operativo** y **de aprobación** | Recibe, verifica, deriva, registra retornos; el rol de aprobación además aprueba y firma |
+| **Titular del trámite** | Iniciar el trámite | Inicia, carga documentación, consulta estado, completa subsanaciones, conversa con el asistente. Cualquier persona que ingresa puede iniciar trámites, también el personal |
+| **Secretario** (personal) | Los permisos de cada área que le asignan sus membresías | Recibe, verifica, deriva, registra retornos, aprueba y firma, según sus permisos. Es personal quien tiene al menos una membresía vigente. No actúa como personal en los pasos de sus propios trámites |
 
-**Por qué dos roles iniciales para el personal.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como una sola persona usuaria. Pero no cualquiera puede aprobar o firmar, así que los permisos distinguen el rol operativo del de aprobación.
+**Por qué un solo tipo de persona para el personal.** En el trabajo diario es el mismo tipo de persona haciendo el mismo recorrido, así que el mapa de usuario lo trata como uno solo. Pero no cualquiera puede aprobar o firmar: lo distinguen los permisos que cada persona tiene en cada área. Las personas P2 y P3 son arquetipos de dos combinaciones de permisos.
 
-## 2. Actores que no son roles de la plataforma
+**Áreas, roles y membresías.** El personal se organiza en áreas (Comisión Curricular X, Dirección de Alumnos, etc.) que se crean como datos, sin una lista fija. La excepción es la Secretaría, que trae SIGTA y es la única que puede editar y publicar tipos de trámite. Cada área tiene su grupo de permisos y sus roles, que agrupan permisos; los crea el administrador. Una membresía pone a una persona en un área con algunos de esos roles y permisos, opcionalmente solo para algunos tipos de trámite (alcance), y con una vigencia. Una persona puede estar en varias áreas.
+
+**Administrador.** Es una marca sobre una persona: crea áreas, permisos y roles, otorga y da de baja membresías, y no le da acceso a los trámites.
+
+## 2. Actores que no son personas usuarias de la plataforma
 
 | Actor | Relación con la plataforma |
 |---|---|
 | **Evaluador externo** (comisión curricular, departamento u otra unidad académica) | No usa la plataforma. Recibe derivaciones y devuelve dictámenes fuera de ella; el Secretario registra la salida y el retorno (ADR-004). Que pudiera trabajar dentro de la plataforma es una **duda pendiente** |
-| **Equipo de proyecto** | Mantiene la base de conocimiento. A confirmar (D-08): si propone y aprueba las versiones de los tipos de trámite; si lo hace, necesita un rol o permiso dentro de SIGTA. Hoy no es un rol de la plataforma: por eso no tiene mapa de usuario y su trabajo vive solo en el backlog |
+| **Equipo de proyecto** | Mantiene la base de conocimiento. A confirmar (D-08): si propone y aprueba las versiones de los tipos de trámite; si lo hace, necesita una membresía en la Secretaría con sus permisos de plataforma. Hoy no es una persona usuaria de la plataforma: por eso no tiene mapa de usuario y su trabajo vive solo en el backlog |
 | **Subsecretaría de TICs de la FIUBA** | Interlocutor para el entorno de CI/CD, el hosting y la identidad institucional |
 | **Directores del proyecto** | Supervisan y validan entregables |
 
@@ -96,11 +100,11 @@ La plataforma distingue al **titular del trámite**, que es un rol fijo, y al **
 
 ## 4. Permisos
 
-| Perfil | Ve trámites | Avanza pasos operativos | Deriva y registra retornos | Aprueba y firma | Edita configuración |
-|---|---|---|---|---|---|
-| Titular | Solo los propios | No | No | No | No |
-| Secretario operativo | Todos los de su ámbito | Sí | Sí | No | A confirmar (D-08) |
-| Secretario de aprobación | Todos | Sí | Sí | Sí | A confirmar (D-08) |
-| Equipo de proyecto | No aplica | No aplica | No aplica | No aplica | A confirmar (D-08) |
+| Quién | Ve trámites | Actúa en pasos | Crea áreas, permisos y membresías | Edita configuración |
+|---|---|---|---|---|
+| Titular | Los que inició | Los del titular, en sus trámites | No | No |
+| Personal de un área | Los que pasan por su área, dentro de su alcance, y los que inició | Los de su área para los que tiene todos los permisos que exigen, salvo en sus propios trámites | No | Solo en la Secretaría, con sus permisos de plataforma (D-08) |
+| Administrador (marca) | Solo por sus membresías | Solo por sus membresías | Sí, también roles | Solo por sus membresías |
+| Equipo de proyecto | No aplica | No aplica | No aplica | A confirmar (D-08): con una membresía en la Secretaría |
 
-> La tabla es la hipótesis mínima. Con ADR-017, cada fila del personal pasa a ser un rol inicial que el administrador puede cambiar. El reparto por área se completa en la reunión con las áreas de la Secretaría (US64).
+> La tabla sigue el modelo de ADR-020. Falta confirmar con la Secretaría qué ve el personal (D-10), quién da de alta al personal de cada área (D-11), si se usa el alcance (D-12) y a quién se le dan los permisos para editar y publicar tipos de trámite (D-08).

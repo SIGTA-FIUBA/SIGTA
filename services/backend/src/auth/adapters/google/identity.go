@@ -57,7 +57,7 @@ func NewIdentityProvider(ctx context.Context, cfg Config, logger *slog.Logger) (
 			ClientSecret: cfg.ClientSecret,
 			RedirectURL:  cfg.RedirectURL,
 			Endpoint:     provider.Endpoint(),
-			// The profile lives in SIGTA: Google only says who the person is.
+			// Google only says who the person is: what they may do lives in SIGTA.
 			Scopes: []string{oidc.ScopeOpenID, "email", "profile"},
 		},
 		verifier:     provider.Verifier(&oidc.Config{ClientID: cfg.ClientID}),

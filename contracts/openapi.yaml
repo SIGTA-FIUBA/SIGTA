@@ -124,6 +124,184 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogEntry"
+  /areas:
+    post:
+      operationId: createArea
+      summary: Crea un área del personal
+      description: >
+        Solo para administradores (ADR-020). El identificador queda fijo: va en
+        minúsculas, empieza con una letra y no puede ser el de un área
+        existente o dada de baja, ni el de la Secretaría (secretariat), que
+        trae SIGTA. El nombre no puede repetir el de otra área. El área empieza
+        sin permisos ni roles.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewArea"
+      responses:
+        "201":
+          description: Área creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Area"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/permissions:
+    post:
+      operationId: createPermission
+      summary: Crea un permiso en un área del personal
+      description: >
+        Solo para administradores (ADR-020). Los permisos son de un área y los
+        exigen los pasos del personal de esa área. El identificador queda fijo
+        y no puede repetir el de otro permiso del área, aunque esté dado de
+        baja. El nombre no puede repetir el de otro permiso del área. En la
+        Secretaría están reservados edit_procedure_types y
+        publish_procedure_types, que trae SIGTA.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPermission"
+      responses:
+        "201":
+          description: Permiso creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Permission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/roles:
+    post:
+      operationId: createRole
+      summary: Crea un rol en un área del personal
+      description: >
+        Solo para administradores (ADR-020). Un rol agrupa permisos del área
+        para otorgarlos juntos. El identificador queda fijo y no puede repetir
+        el de otro rol del área, aunque esté dado de baja. El nombre no puede
+        repetir el de otro rol del área.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRole"
+      responses:
+        "201":
+          description: Rol creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/roles/{roleId}/permissions:
+    put:
+      operationId: updateRolePermissions
+      summary: Reemplaza los permisos de un rol
+      description: >
+        Solo para administradores (ADR-020). Cambia al instante lo que puede
+        hacer cada persona con una membresía que tiene el rol. El cambio queda
+        registrado con quién y cuándo.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolePermissions"
+      responses:
+        "200":
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No existe el área o el rol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /memberships:
+    post:
+      operationId: grantMembership
+      summary: Otorga una membresía a una persona
+      description: >
+        Solo para administradores (ADR-020). La membresía pone a la persona en
+        un área con algunos de sus roles y permisos, opcionalmente solo para
+        algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de
+        otra membresía vigente de la misma persona.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMembership"
+      responses:
+        "201":
+          description: Membresía otorgada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   parameters:
     SessionCookie:
@@ -145,6 +323,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: La persona no tiene permiso para esta acción
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Error:
       type: object
@@ -160,9 +344,6 @@ components:
         lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
         del dominio institucional.
       enum: [state_mismatch, rejected, domain_not_allowed]
-    Role:
-      type: string
-      enum: [applicant, staff_operative, staff_approver]
     FieldRequirement:
       type: object
       required: [id, name, required]
@@ -225,7 +406,7 @@ components:
             $ref: "#/components/schemas/DocumentRequirement"
     User:
       type: object
-      required: [id, email, name, role]
+      required: [id, email, name, staff, administrator]
       properties:
         id:
           type: string
@@ -234,5 +415,160 @@ components:
           format: email
         name:
           type: string
-        role:
-          $ref: "#/components/schemas/Role"
+        staff:
+          type: boolean
+          description: >
+            Si tiene al menos una membresía vigente (ADR-020). Cualquiera puede
+            iniciar trámites, sea o no del personal; el personal no actúa en los
+            pasos del personal de sus propios trámites
+        administrator:
+          type: boolean
+          description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+    Area:
+      type: object
+      required: [id, name, permissions, roles]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+    Role:
+      type: object
+      required: [id, name, permissions]
+      description: >
+        Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene
+        los permisos que el rol tenga en cada momento
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área
+          items:
+            type: string
+    NewRole:
+      type: object
+      required: [id, name, permissions]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, al menos uno
+          items:
+            type: string
+    RolePermissions:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, al menos uno
+          items:
+            type: string
+    NewArea:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+    Permission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    NewPermission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+    NewMembership:
+      type: object
+      required: [user_id, area]
+      description: Necesita al menos un rol o un permiso del área
+      properties:
+        user_id:
+          type: string
+        area:
+          type: string
+          description: Identificador del área
+        roles:
+          type: array
+          description: Identificadores de roles del área
+          items:
+            type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, sueltos
+          items:
+            type: string
+        scope:
+          type: array
+          description: >
+            Tipos de trámite a los que se limita. Vacío o ausente vale para
+            todos, incluidos los que se publiquen después
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+          description: Desde cuándo vale. Ausente vale desde ahora
+        until:
+          type: string
+          format: date-time
+          description: Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+    Membership:
+      type: object
+      required: [id, user_id, area, roles, permissions, scope, from, granted_by]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        area:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        scope:
+          type: array
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        granted_by:
+          type: string

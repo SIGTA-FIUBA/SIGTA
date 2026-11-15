@@ -24,20 +24,20 @@ Instancia concreta de un tipo de trámite, iniciada por un titular. Tiene un tit
 Forma general que toma la secuencia de pasos de un tipo de trámite. **Ninguno de los cinco trámites se resuelve íntegramente dentro del área**: todos salen hacia al menos un evaluador externo y vuelven. Lo que diferencia un circuito de otro es cuántos evaluadores intervienen y cuántas idas y vueltas hay.
 
 **Paso**
-Unidad mínima de avance dentro de un trámite. Tiene un área responsable, un perfil salvo en los pasos del titular, una acción y lo que se registró al cumplirlo. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
+Unidad mínima de avance dentro de un trámite. Es del titular o del personal; los del personal tienen un área y los permisos de esa área que exigen. Tiene una acción y lo que se registró al cumplirlo. Un paso no se considera cumplido hasta que alguien lo confirma en la plataforma.
 
 **Acción de un paso**
 Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuitos:
 - *Cargar dato* (`enter_data`): alguien completa uno o más datos.
 - *Cargar documento* (`upload_document`): alguien adjunta uno o más archivos.
 - *Confirmar hecho externo* (`confirm_external_fact`): alguien declara que algo pasó fuera de la plataforma, como una carátula, una firma o una carga en SIU Guaraní. Queda registrada la declaración, no el hecho. **La plataforma no implementa firma digital con validez legal.**
-- *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso con perfil de aprobación: lo que la distingue es el perfil, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
+- *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso que exige un permiso de aprobación: lo que la distingue es el permiso, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
 
 **Salida** (`outcome`)
 Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
-Quien tiene a cargo un paso: el titular (`applicant`), un área de la facultad (`office`), como la Dirección de Alumnos o Intercambios Académicos, o un evaluador externo (`external`), como una Comisión Curricular. Las áreas son comunes a todos los tipos de trámite.
+Parte de la organización a la que pertenece el personal, como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas existen solo para el personal: el titular no tiene área. Salvo la **Secretaría**, que trae SIGTA con el identificador `secretariat` y sus permisos de plataforma, no son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-020). Cada paso dice su rol: los del titular (`applicant`) no tienen área, y los del personal (`staff`) son de un área. Las versiones publicadas antes del formato 3 modelaban al titular como un área de tipo `applicant`, y se convierten al leerlas.
 
 **Pase**
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
@@ -52,7 +52,7 @@ Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. 
 Actor ajeno a la Secretaría que dictamina sobre el contenido académico del trámite: comisión curricular, departamento u otra unidad académica, según el trámite. No usa la plataforma (duda pendiente, ver alcance).
 
 **Derivación**
-Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de un área `external`, que registra el destino, la fecha y, si corresponde, el número de expediente. La acción ocurre afuera.
+Salida del trámite hacia un evaluador externo. En el modelo es pasar a un paso de otra área, que registra el destino, la fecha y, si corresponde, el número de expediente. Si el evaluador no usa SIGTA, el paso es del área que registra su dictamen.
 
 **Retorno**
 Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009).
@@ -66,17 +66,26 @@ Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reinic
 **Puente humano**
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).
 
-**Rol**
-Conjunto de permisos que se asigna a una persona usuaria. El **titular del trámite** es un rol fijo. Los roles del personal los define y asigna el administrador (ADR-017).
-
-**Perfil**
-Cada uno de los dos roles iniciales del personal (ADR-017): el **perfil operativo** recibe, verifica, deriva y registra; el **perfil de aprobación** además aprueba y firma. El **administrador** los asigna y puede cambiarlos, y cada uno es un conjunto de **permisos**. En el mapa de usuario son una sola persona usuaria. Hasta que se implementen los roles configurables, el código los tiene fijos como `staff_operative` y `staff_approver`.
+**Personal**
+Quien tiene al menos una membresía vigente (`staff`, el Secretario del mapa de usuario). No se guarda: se deriva de las membresías (ADR-020). El personal también puede iniciar trámites, porque puede ser alumno, pero no actúa como personal en los pasos de sus propios trámites.
 
 **Permiso**
-Habilitación para ejecutar una acción del modelo de dominio, como avanzar un paso, derivar, aprobar o editar un tipo de trámite. El administrador agrupa permisos en roles y asigna esos roles al personal (ADR-017).
+Habilitación que pertenece a un área del personal y que exigen los pasos de esa área, como "Verificar documentación" o "Aprobar dictamen". El administrador los crea a gusto en cada área y los asigna en las membresías, sueltos o agrupados en roles; ningún permiso cubre a otro (ADR-020). Reemplaza a los perfiles fijos operativo y de aprobación. La excepción son los **permisos de plataforma** de la Secretaría.
+
+**Permiso de plataforma**
+Cada uno de los dos permisos que trae la Secretaría y que habilitan una función de SIGTA en lugar de un paso: `edit_procedure_types` (proponer versiones de un tipo de trámite) y `publish_procedure_types` (aprobarlas). No se dan de baja y ningún paso los puede exigir (ADR-020).
+
+**Rol**
+Grupo de permisos de un área, que el administrador crea para asignarlos juntos. Una membresía referencia el rol: si cambian los permisos del rol, cambia lo que puede hacer cada persona que lo tiene, y el cambio queda registrado. Los pasos exigen permisos, nunca roles (ADR-020). No confundir con el `role` de un paso (`applicant` o `staff`), que dice si lo hace el titular o el personal.
+
+**Membresía**
+Pertenencia de una persona a un área, con algunos roles y permisos de esa área. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-020).
+
+**Administrador**
+Marca sobre una persona que le permite crear áreas, permisos y roles, y otorgar y dar de baja membresías. No da acceso a los trámites: para actuar sobre ellos necesita una membresía.
 
 **Titular del trámite**
-Persona que inicia y a cuyo nombre corre el trámite. Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.
+Persona que inicia y a cuyo nombre corre el trámite (`applicant`). Es una relación con el trámite, no una condición de la persona: cualquiera que ingresa puede iniciar trámites, sea o no del personal (ADR-020). Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.
 
 ## Documentos
 
