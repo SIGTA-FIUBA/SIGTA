@@ -1,0 +1,71 @@
+# The database of SIGTA, apart from the application: deploy.sh brings it up
+# and runs the migrations before updating the application (ADR-022). Swarm
+# reads the passwords from its secrets, created once on the manager (see
+# docs/13-despliegue.md).
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_DB: sigta
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      SIGTA_BACKEND_DB_PASSWORD_FILE: /run/secrets/backend_db_password
+      SIGTA_BACKEND_MIGRATIONS_DB_PASSWORD_FILE: /run/secrets/backend_migrations_db_password
+      SIGTA_AI_DB_PASSWORD_FILE: /run/secrets/ai_db_password
+    secrets:
+      - postgres_password
+      - backend_db_password
+      - backend_migrations_db_password
+      - ai_db_password
+    configs:
+      - source: init
+        target: /docker-entrypoint-initdb.d/init.sh
+        mode: 0555
+      - source: roles
+        target: /docker-entrypoint-initdb.d/sql/roles.sql
+    volumes:
+      - db-data:/var/lib/postgresql
+    networks:
+      - db
+    healthcheck:
+      # Over TCP: while init.sh runs, the temporary server only listens on the
+      # socket, so this is not ready until the roles exist.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d sigta"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      # The volume is on one node: the database runs where it is.
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  # Attachable, so the migrations run as a one-off service next to the
+  # database before each update of the application.
+  db:
+    driver: overlay
+    attachable: true
+
+volumes:
+  db-data:
+
+# A config cannot change once created: its name carries the digest of both
+# files (deploy.sh), so a change creates a new one. They only run when the
+# volume is empty.
+configs:
+  init:
+    name: sigta-db-init-${DB_INIT_DIGEST}
+    file: ../postgres/init.sh
+  roles:
+    name: sigta-db-roles-${DB_INIT_DIGEST}
+    file: ../postgres/sql/roles.sql
+
+secrets:
+  postgres_password:
+    external: true
+  backend_db_password:
+    external: true
+  backend_migrations_db_password:
+    external: true
+  ai_db_password:
+    external: true
