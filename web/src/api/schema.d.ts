@@ -114,6 +114,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{id}/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Registrar que quien mira vio el trámite
+         * @description Solo para el personal. Guarda cuándo la persona vio el trámite por última vez, para que el listado deje de marcarlo con novedades hasta que vuelva a moverse.
+         */
+        put: operations["markProcedureSeen"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -184,8 +204,16 @@ export interface components {
             procedure_type: number;
             procedure_type_name: string;
             applicant_name: string;
+            /** @description Carrera del titular, si la declaró */
+            applicant_program?: string;
+            /** @description Número del expediente electrónico, una vez que el personal lo registró. SIGTA no lo genera: se carga como hecho externo. */
+            file_number?: string;
             /** @description Paso abierto, el que se espera ahora */
             step_name: string;
+            /** @description Posición del paso abierto entre los pasos del tipo de trámite, en el orden de la versión publicada */
+            step_number: number;
+            /** @description Cantidad de pasos del tipo de trámite */
+            step_count: number;
             /** @description Área responsable del paso abierto */
             area: string;
             area_name: string;
@@ -203,8 +231,12 @@ export interface components {
             age_days: number;
             /** @description Solo si está derivado: días que lleva en el evaluador externo sin retorno */
             days_referred?: number;
+            /** @description Si el trámite se movió después de la última vez que quien mira lo vio, o si nunca lo vio */
+            has_news: boolean;
         };
         ProcedureList: {
+            /** @description Trámites que quien mira puede ver y que se cerraron desde el primer día del mes en curso. Cerrar no dice el resultado, que no se modela. */
+            closed_this_month: number;
             items: components["schemas"]["ProcedureListItem"][];
             /** @description Tipos de trámite presentes en la vista, para filtrar */
             procedure_types: components["schemas"]["NamedOption"][];
@@ -240,6 +272,15 @@ export interface components {
         };
         /** @description La sesión es válida, pero su rol no puede hacer esto */
         Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description No existe o quien mira no lo puede ver */
+        NotFound: {
             headers: {
                 [name: string]: unknown;
             };
@@ -406,6 +447,31 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    markProcedureSeen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quedó registrado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

@@ -176,6 +176,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /procedures/{id}/seen:
+    put:
+      operationId: markProcedureSeen
+      summary: Registrar que quien mira vio el trámite
+      description: >
+        Solo para el personal. Guarda cuándo la persona vio el trámite por
+        última vez, para que el listado deje de marcarlo con novedades hasta
+        que vuelva a moverse.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Quedó registrado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     SessionCookie:
@@ -199,6 +223,12 @@ components:
             $ref: "#/components/schemas/Error"
     Forbidden:
       description: La sesión es válida, pero su rol no puede hacer esto
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No existe o quien mira no lo puede ver
       content:
         application/json:
           schema:
@@ -318,6 +348,8 @@ components:
         - procedure_type_name
         - applicant_name
         - step_name
+        - step_number
+        - step_count
         - area
         - area_name
         - state
@@ -325,6 +357,7 @@ components:
         - started_at
         - last_moved_at
         - age_days
+        - has_news
       properties:
         id:
           type: string
@@ -335,9 +368,27 @@ components:
           type: string
         applicant_name:
           type: string
+        applicant_program:
+          type: string
+          description: Carrera del titular, si la declaró
+        file_number:
+          type: string
+          description: >
+            Número del expediente electrónico, una vez que el personal lo
+            registró. SIGTA no lo genera: se carga como hecho externo.
         step_name:
           type: string
           description: Paso abierto, el que se espera ahora
+        step_number:
+          type: integer
+          minimum: 1
+          description: >
+            Posición del paso abierto entre los pasos del tipo de trámite, en el
+            orden de la versión publicada
+        step_count:
+          type: integer
+          minimum: 1
+          description: Cantidad de pasos del tipo de trámite
         area:
           type: string
           description: Área responsable del paso abierto
@@ -363,10 +414,20 @@ components:
           description: >
             Solo si está derivado: días que lleva en el evaluador externo sin
             retorno
+        has_news:
+          type: boolean
+          description: >
+            Si el trámite se movió después de la última vez que quien mira lo
+            vio, o si nunca lo vio
     ProcedureList:
       type: object
-      required: [items, procedure_types, areas]
+      required: [items, procedure_types, areas, closed_this_month]
       properties:
+        closed_this_month:
+          type: integer
+          description: >
+            Trámites que quien mira puede ver y que se cerraron desde el primer
+            día del mes en curso. Cerrar no dice el resultado, que no se modela.
         items:
           type: array
           items:

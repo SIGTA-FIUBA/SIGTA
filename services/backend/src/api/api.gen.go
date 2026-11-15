@@ -166,8 +166,11 @@ type NamedOption struct {
 // ProcedureList defines model for ProcedureList.
 type ProcedureList struct {
 	// Areas Áreas responsables presentes en la vista, para filtrar
-	Areas []NamedOption       `json:"areas"`
-	Items []ProcedureListItem `json:"items"`
+	Areas []NamedOption `json:"areas"`
+
+	// ClosedThisMonth Trámites que quien mira puede ver y que se cerraron desde el primer día del mes en curso. Cerrar no dice el resultado, que no se modela.
+	ClosedThisMonth int                 `json:"closed_this_month"`
+	Items           []ProcedureListItem `json:"items"`
 
 	// ProcedureTypes Tipos de trámite presentes en la vista, para filtrar
 	ProcedureTypes []NamedOption `json:"procedure_types"`
@@ -182,13 +185,22 @@ type ProcedureListItem struct {
 	AgeDays       int    `json:"age_days"`
 	ApplicantName string `json:"applicant_name"`
 
+	// ApplicantProgram Carrera del titular, si la declaró
+	ApplicantProgram *string `json:"applicant_program,omitempty"`
+
 	// Area Área responsable del paso abierto
 	Area     string `json:"area"`
 	AreaName string `json:"area_name"`
 
 	// DaysReferred Solo si está derivado: días que lleva en el evaluador externo sin retorno
-	DaysReferred *int   `json:"days_referred,omitempty"`
-	Id           string `json:"id"`
+	DaysReferred *int `json:"days_referred,omitempty"`
+
+	// FileNumber Número del expediente electrónico, una vez que el personal lo registró. SIGTA no lo genera: se carga como hecho externo.
+	FileNumber *string `json:"file_number,omitempty"`
+
+	// HasNews Si el trámite se movió después de la última vez que quien mira lo vio, o si nunca lo vio
+	HasNews bool   `json:"has_news"`
+	Id      string `json:"id"`
 
 	// LastMovedAt Cuándo el trámite llegó al paso abierto
 	LastMovedAt       time.Time `json:"last_moved_at"`
@@ -199,8 +211,14 @@ type ProcedureListItem struct {
 	// State Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
+	// StepCount Cantidad de pasos del tipo de trámite
+	StepCount int `json:"step_count"`
+
 	// StepName Paso abierto, el que se espera ahora
 	StepName string `json:"step_name"`
+
+	// StepNumber Posición del paso abierto entre los pasos del tipo de trámite, en el orden de la versión publicada
+	StepNumber int `json:"step_number"`
 }
 
 // ProcedureListSort oldest: primero los que empezaron hace más tiempo. last_moved: primero los que se movieron más recientemente.
@@ -231,6 +249,9 @@ type BadRequest = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -274,6 +295,11 @@ type ListProceduresParams struct {
 	SigtaSession *SessionCookie     `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// MarkProcedureSeenParams defines parameters for MarkProcedureSeen.
+type MarkProcedureSeenParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -294,6 +320,9 @@ type ServerInterface interface {
 	// ListProcedures Bandeja y listado de trámites del personal
 	// (GET /procedures)
 	ListProcedures(w http.ResponseWriter, r *http.Request, params ListProceduresParams)
+	// MarkProcedureSeen Registrar que quien mira vio el trámite
+	// (PUT /procedures/{id}/seen)
+	MarkProcedureSeen(w http.ResponseWriter, r *http.Request, id string, params MarkProcedureSeenParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -596,6 +625,50 @@ func (siw *ServerInterfaceWrapper) ListProcedures(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// MarkProcedureSeen operation middleware
+func (siw *ServerInterfaceWrapper) MarkProcedureSeen(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MarkProcedureSeenParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkProcedureSeen(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -722,6 +795,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures", wrapper.ListProcedures)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/procedures/{id}/seen", wrapper.MarkProcedureSeen)
 
 	return m
 }
@@ -729,6 +803,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 type BadRequestJSONResponse Error
 
 type ForbiddenJSONResponse Error
+
+type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -947,6 +1023,65 @@ func (response ListProcedures403JSONResponse) VisitListProceduresResponse(w http
 	return err
 }
 
+type MarkProcedureSeenRequestObject struct {
+	Id     string `json:"id"`
+	Params MarkProcedureSeenParams
+}
+
+type MarkProcedureSeenResponseObject interface {
+	VisitMarkProcedureSeenResponse(w http.ResponseWriter) error
+}
+
+type MarkProcedureSeen204Response struct {
+}
+
+func (response MarkProcedureSeen204Response) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type MarkProcedureSeen401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response MarkProcedureSeen401JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MarkProcedureSeen403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response MarkProcedureSeen403JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MarkProcedureSeen404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response MarkProcedureSeen404JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
@@ -967,6 +1102,9 @@ type StrictServerInterface interface {
 	// ListProcedures Bandeja y listado de trámites del personal
 	// (GET /procedures)
 	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
+	// MarkProcedureSeen Registrar que quien mira vio el trámite
+	// (PUT /procedures/{id}/seen)
+	MarkProcedureSeen(ctx context.Context, request MarkProcedureSeenRequestObject) (MarkProcedureSeenResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1155,6 +1293,33 @@ func (sh *strictHandler) ListProcedures(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProceduresResponseObject); ok {
 		if err := validResponse.VisitListProceduresResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MarkProcedureSeen operation middleware
+func (sh *strictHandler) MarkProcedureSeen(w http.ResponseWriter, r *http.Request, id string, params MarkProcedureSeenParams) {
+	var request MarkProcedureSeenRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MarkProcedureSeen(ctx, request.(MarkProcedureSeenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MarkProcedureSeen")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MarkProcedureSeenResponseObject); ok {
+		if err := validResponse.VisitMarkProcedureSeenResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

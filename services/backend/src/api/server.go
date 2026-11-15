@@ -27,6 +27,7 @@ type CatalogServer interface {
 // the procedure module.
 type InboxServer interface {
 	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
+	MarkProcedureSeen(ctx context.Context, request MarkProcedureSeenRequestObject) (MarkProcedureSeenResponseObject, error)
 }
 
 // Server joins what each module answers into the one interface the contract
