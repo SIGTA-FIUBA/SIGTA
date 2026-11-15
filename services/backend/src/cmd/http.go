@@ -131,6 +131,7 @@ func run(logger *slog.Logger) error {
 		Addr:              ":8080",
 		Handler:           api.Mount(http.NewServeMux(), app, logger),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       api.ReadTimeout,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
 	return serve(stop, server, server.ListenAndServe)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 const InvalidRequestMessage = "El pedido no es válido."
@@ -51,6 +52,11 @@ func NewServer(auth AuthServer, catalog CatalogServer, administration Administra
 // MaxRequestBytes bounds the body of every request, so an upload is cut there
 // even if its document allows a larger file.
 const MaxRequestBytes = 25 << 20
+
+// ReadTimeout bounds how long the server reads a request, body included, so
+// a client that sends an upload a byte at a time does not hold the connection
+// forever. Five minutes let MaxRequestBytes through at about 0.7 Mbit/s.
+const ReadTimeout = 5 * time.Minute
 
 // Mount registers the API on mux. Errors raised outside the handlers answer
 // with the contract's Error too, without exposing their internal message.
