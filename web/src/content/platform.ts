@@ -44,8 +44,8 @@ export const principles: Entry[] = [
     text: 'Cada acción queda registrada con su autor y su fecha, y puede consultarse en el historial del trámite.',
   },
   {
-    title: 'Integración con los sistemas institucionales',
-    text: 'SIGTA registra lo actuado en el SIU Guaraní y en el expediente electrónico. No los reemplaza.',
+    title: 'Registro de lo actuado en otros sistemas',
+    text: 'El personal confirma en SIGTA lo que hizo en el SIU Guaraní y en el expediente electrónico. SIGTA no se conecta con ellos ni los reemplaza.',
   },
 ]
 
