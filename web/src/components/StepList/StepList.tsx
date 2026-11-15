@@ -9,10 +9,10 @@ export function StepList({ steps }: { steps: Step[] }) {
     <List type="ordered" variant="steps">
       {steps.map((step, index) => (
         <List.Item key={step.title}>
-          <Text fw={700} c="fiuba.7">
+          <Text fw={600} c="fiuba.7">
             {index + 1}
           </Text>
-          <Text fw={700} mt="xxs">
+          <Text fw={600} mt="xxs">
             {step.title}
           </Text>
           <Text size="sm" c="dimmed" mt="xxs">

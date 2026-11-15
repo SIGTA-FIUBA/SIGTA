@@ -13,7 +13,7 @@ type EmptyStateProps = {
 export function EmptyState({ title, text, action }: EmptyStateProps) {
   return (
     <Stack gap="xxs" align="flex-start">
-      <Text fw={700}>{title}</Text>
+      <Text fw={600}>{title}</Text>
       <Text size="sm" c="dimmed" maw="var(--sigta-measure)">
         {text}
       </Text>

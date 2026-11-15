@@ -15,7 +15,7 @@ export function ActionCard({ to, title, description }: ActionCardProps) {
     <Paper component={Link} to={to} variant="interactive" withBorder p="lg" td="none" c="inherit">
       <Group justify="space-between" gap="md" wrap="nowrap">
         <Stack gap="xxs">
-          <Text fw={700}>{title}</Text>
+          <Text fw={600}>{title}</Text>
           <Text size="sm" c="dimmed">
             {description}
           </Text>
