@@ -1,6 +1,4 @@
-import { Anchor, Button, Collapse, Group, Loader, Stack, Text, Title } from '@mantine/core'
-import { useLocalStorage } from '@mantine/hooks'
-import { useEffect, useState } from 'react'
+import { Anchor, Button, Loader, Stack, Title } from '@mantine/core'
 import { Link, useOutletContext } from 'react-router'
 import { useProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
@@ -9,7 +7,7 @@ import { PageHeader } from '../components/PageHeader/PageHeader'
 import { ProcedureRow, ProcedureRows } from '../components/ProcedureRow/ProcedureRow'
 import type { StatusTone } from '../components/StatusBadge/StatusBadge'
 import { StepList } from '../components/StepList/StepList'
-import { applicantSteps, staffSteps } from '../content/platform'
+import { applicantSteps } from '../content/platform'
 
 type User = components['schemas']['User']
 type Item = components['schemas']['ProcedureListItem']
@@ -78,36 +76,10 @@ function Pending() {
   )
 }
 
-// Steps shows how SIGTA is used: open on the first visit, folded afterwards.
-function Steps({ staff }: { staff: boolean }) {
-  const [seen, setSeen] = useLocalStorage({
-    key: 'sigta.home.steps-seen',
-    defaultValue: false,
-    getInitialValueInEffect: false,
-  })
-  const [open, setOpen] = useState(!seen)
-  useEffect(() => setSeen(true), [setSeen])
-
-  return (
-    <Stack component="section" aria-labelledby="how" gap="md">
-      <Group justify="space-between" gap="sm">
-        <Title order={2} id="how">
-          {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
-        </Title>
-        <Button variant="subtle" aria-expanded={open} aria-controls="how-steps" onClick={() => setOpen(!open)}>
-          {open ? 'Ocultar los pasos' : 'Mostrar los pasos'}
-        </Button>
-      </Group>
-      <Collapse expanded={open} id="how-steps">
-        <StepList steps={staff ? staffSteps : applicantSteps} />
-      </Collapse>
-    </Stack>
-  )
-}
-
-// HomePage shows the person where they are and what to do next: the primary
-// action on top, the procedures that need action for the staff, and how
-// SIGTA is used. What SIGTA is lives in "Acerca de SIGTA".
+// HomePage shows the person what to do next. The staff gets the inbox as the
+// primary action and the procedures that need action; the applicant, the way
+// to start a procedure and how it is done. What SIGTA is lives in "Acerca de
+// SIGTA", at the foot of the menu.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -137,15 +109,14 @@ export function HomePage() {
           <Pending />
         </Stack>
       )}
-      <Steps staff={staff} />
-      <Group component="footer" gap="md">
-        <Text size="xs" c="gray.6">
-          Secretaría de Gestión Académica, Facultad de Ingeniería
-        </Text>
-        <Anchor component={Link} to="/about" size="xs">
-          Acerca de SIGTA
-        </Anchor>
-      </Group>
+      {!staff && (
+        <Stack component="section" aria-labelledby="how" gap="md">
+          <Title order={2} id="how">
+            Cómo se realiza un trámite
+          </Title>
+          <StepList steps={applicantSteps} />
+        </Stack>
+      )}
     </Stack>
   )
 }

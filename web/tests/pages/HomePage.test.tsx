@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../render'
@@ -44,7 +43,6 @@ function renderAs(role: string) {
 describe('HomePage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
-    localStorage.clear()
   })
 
   it('offers an applicant to start a procedure, and how it is done', () => {
@@ -54,12 +52,6 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'Iniciar un trámite' })).toHaveAttribute('href', '/catalog')
     expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Requieren acción' })).not.toBeInTheDocument()
-  })
-
-  it('links to the page about SIGTA from the footer', () => {
-    renderAs('applicant')
-
-    expect(screen.getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
   })
 
   it('lists for the staff the procedures that need action, the latest news first', async () => {
@@ -86,15 +78,10 @@ describe('HomePage', () => {
     expect(await screen.findByText('No hay trámites pendientes')).toBeVisible()
   })
 
-  it('shows the steps on the first visit and folds them afterwards', async () => {
-    const first = renderAs('applicant')
-    expect(screen.getByRole('button', { name: 'Ocultar los pasos' })).toHaveAttribute('aria-expanded', 'true')
-    first.unmount()
+  it('shows the staff no steps, only what needs action', () => {
+    stubProcedures([])
+    renderAs('staff_operative')
 
-    renderAs('applicant')
-    const toggle = screen.getByRole('button', { name: 'Mostrar los pasos' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await userEvent.click(toggle)
-    expect(screen.getByRole('button', { name: 'Ocultar los pasos' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('heading', { name: 'Cómo se realiza un trámite' })).not.toBeInTheDocument()
   })
 })
