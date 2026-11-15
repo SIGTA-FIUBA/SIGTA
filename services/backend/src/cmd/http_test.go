@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"testing"
@@ -139,7 +140,7 @@ func TestDevProcedureGoesToTheFirstSignUpWithGoogle(t *testing.T) {
 	versions := memory.NewProcedureVersions()
 	procedureTypes := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	procedures := memory.NewProcedureRepository()
-	users, err := addDevExample(ctx, config{identityProvider: identityGoogle}, versions, procedureTypes, procedures, authmem.NewUserRepository(devPeople().users...))
+	users, err := addDevExample(ctx, config{identityProvider: identityGoogle}, slog.New(slog.DiscardHandler), versions, procedureTypes, procedures, authmem.NewUserRepository(devPeople().users...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +159,34 @@ func TestDevProcedureGoesToTheFirstSignUpWithGoogle(t *testing.T) {
 	got, err := procedures.Get(ctx, devProcedureID)
 	if err != nil || got.Applicant != "first" {
 		t.Errorf("the example is of %q, %v; want the first account", got.Applicant, err)
+	}
+}
+
+func TestFailingToGiveTheExampleDoesNotStopTheSignUp(t *testing.T) {
+	ctx := t.Context()
+	var given []string
+	users := &exampleForFirstSignUp{
+		UserRepository: authmem.NewUserRepository(),
+		logger:         slog.New(slog.DiscardHandler),
+		give: func(_ context.Context, applicant string) error {
+			if applicant == "first" {
+				return errors.New("the example type is not published")
+			}
+			given = append(given, applicant)
+			return nil
+		},
+	}
+	for _, user := range []authdomain.User{
+		{ID: "first", Email: "primera@fi.uba.ar"},
+		{ID: "second", Email: "segunda@fi.uba.ar"},
+		{ID: "third", Email: "tercera@fi.uba.ar"},
+	} {
+		if registered, err := users.Register(ctx, user); err != nil || registered.ID != user.ID {
+			t.Fatalf("register %s: %+v, %v", user.ID, registered, err)
+		}
+	}
+	if len(given) != 1 || given[0] != "second" {
+		t.Errorf("the example went to %v, want only the second account", given)
 	}
 }
 

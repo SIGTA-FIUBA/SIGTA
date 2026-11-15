@@ -94,7 +94,7 @@ func run(logger *slog.Logger) error {
 	procedureRepository := proceduremem.NewProcedureRepository()
 	users := out.UserRepository(memory.NewUserRepository(directory.users...))
 	if cfg.development() {
-		users, err = addDevExample(startup, cfg, versions, procedureTypes, procedureRepository, users)
+		users, err = addDevExample(startup, cfg, logger, versions, procedureTypes, procedureRepository, users)
 		if err != nil {
 			return stoppedDuringStartup(stop, err)
 		}
@@ -263,12 +263,12 @@ func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersi
 // it for an applicant. With the identity of development the procedure is of
 // the test applicant. With Google nobody signs in as that applicant, so it is
 // of the first account that registers, which the returned users hand it to.
-func addDevExample(ctx context.Context, cfg config, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
+func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
 	if err := publishDevProcedureType(ctx, versions, procedureTypes); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type: %w", err)
 	}
 	if cfg.identityProvider != identityDev {
-		return &exampleForFirstSignUp{UserRepository: users, give: func(ctx context.Context, applicant string) error {
+		return &exampleForFirstSignUp{UserRepository: users, logger: logger, give: func(ctx context.Context, applicant string) error {
 			return addDevProcedure(ctx, versions, procedures, applicant)
 		}}, nil
 	}
@@ -279,10 +279,12 @@ func addDevExample(ctx context.Context, cfg config, versions output.ProcedureVer
 }
 
 // exampleForFirstSignUp gives the example procedure to the first account that
-// registers. A failed attempt leaves it for the next one.
+// registers. If giving it fails, the account still signs in, without it, and
+// the example is left for the next account.
 type exampleForFirstSignUp struct {
 	out.UserRepository
-	give func(ctx context.Context, applicant string) error
+	give   func(ctx context.Context, applicant string) error
+	logger *slog.Logger
 
 	mu    sync.Mutex
 	given bool
@@ -299,7 +301,8 @@ func (r *exampleForFirstSignUp) Register(ctx context.Context, user domain.User) 
 		return registered, nil
 	}
 	if err := r.give(ctx, registered.ID); err != nil {
-		return domain.User{}, fmt.Errorf("give the example procedure: %w", err)
+		r.logger.Warn("could not give the example procedure", "user", registered.ID, "error", err)
+		return registered, nil
 	}
 	r.given = true
 	return registered, nil
