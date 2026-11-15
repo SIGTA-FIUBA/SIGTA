@@ -8,7 +8,6 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 )
@@ -94,7 +93,7 @@ func (w *documentWorld) thenShowsFile(requirement, name string) error {
 	}
 	asked := false
 	for _, s := range w.view.Steps {
-		if !slices.ContainsFunc(s.Documents, func(r catalog.DocumentRequirement) bool { return r.Document.ID == requirement }) {
+		if !slices.ContainsFunc(s.Documents, func(r definition.DocumentRequirement) bool { return r.Document.ID == requirement }) {
 			continue
 		}
 		asked = true

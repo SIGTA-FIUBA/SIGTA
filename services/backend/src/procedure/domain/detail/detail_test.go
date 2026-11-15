@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"backend/src/procedure/domain"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/domain/version"
@@ -55,10 +54,10 @@ func TestSteps(t *testing.T) {
 }
 
 func TestWithFiles(t *testing.T) {
-	asks := func(ids ...string) []catalog.DocumentRequirement {
-		var r []catalog.DocumentRequirement
+	asks := func(ids ...string) []definition.DocumentRequirement {
+		var r []definition.DocumentRequirement
 		for _, id := range ids {
-			r = append(r, catalog.DocumentRequirement{Document: definition.Document{ID: id}})
+			r = append(r, definition.DocumentRequirement{Document: definition.Document{ID: id}})
 		}
 		return r
 	}

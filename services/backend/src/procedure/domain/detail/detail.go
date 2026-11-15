@@ -2,7 +2,6 @@ package detail
 
 import (
 	"backend/src/procedure/domain"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 )
@@ -13,7 +12,7 @@ type Step struct {
 	Step definition.Step
 	// AreaName is empty on the steps of the applicant.
 	AreaName  string
-	Documents []catalog.DocumentRequirement
+	Documents []definition.DocumentRequirement
 	// Files holds the current file of each document that has one, in the
 	// order of Documents.
 	Files []domain.Document
@@ -45,7 +44,7 @@ func Steps(c version.Content) []Step {
 		}
 		for _, d := range c.Definition.Documents {
 			if r, asked := required[d.ID]; asked {
-				step.Documents = append(step.Documents, catalog.DocumentRequirement{Document: d, Required: r})
+				step.Documents = append(step.Documents, definition.DocumentRequirement{Document: d, Required: r})
 			}
 		}
 		steps = append(steps, step)

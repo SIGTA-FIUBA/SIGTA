@@ -5,21 +5,11 @@ import (
 	"backend/src/procedure/domain/version"
 )
 
-type FieldRequirement struct {
-	Field    definition.Field
-	Required bool
-}
-
-type DocumentRequirement struct {
-	Document definition.Document
-	Required bool
-}
-
 // ApplicantRequirements returns what the applicant has to provide, in the order
 // the definition declares it. What staff steps record is left out. Something
 // mandatory in any applicant step is mandatory, even if another makes it
 // optional.
-func ApplicantRequirements(c version.Content) ([]FieldRequirement, []DocumentRequirement) {
+func ApplicantRequirements(c version.Content) ([]definition.FieldRequirement, []definition.DocumentRequirement) {
 	// Fields and documents keep separate ids, so they are tracked apart.
 	fields, documents := mandatoryByID{}, mandatoryByID{}
 	for _, step := range c.Definition.Steps {
@@ -29,16 +19,16 @@ func ApplicantRequirements(c version.Content) ([]FieldRequirement, []DocumentReq
 		}
 	}
 
-	var fieldRequirements []FieldRequirement
+	var fieldRequirements []definition.FieldRequirement
 	for _, field := range c.Definition.Fields {
 		if required, asked := fields[field.ID]; asked {
-			fieldRequirements = append(fieldRequirements, FieldRequirement{Field: field, Required: required})
+			fieldRequirements = append(fieldRequirements, definition.FieldRequirement{Field: field, Required: required})
 		}
 	}
-	var documentRequirements []DocumentRequirement
+	var documentRequirements []definition.DocumentRequirement
 	for _, document := range c.Definition.Documents {
 		if required, asked := documents[document.ID]; asked {
-			documentRequirements = append(documentRequirements, DocumentRequirement{Document: document, Required: required})
+			documentRequirements = append(documentRequirements, definition.DocumentRequirement{Document: document, Required: required})
 		}
 	}
 	return fieldRequirements, documentRequirements

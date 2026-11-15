@@ -13,7 +13,6 @@ import (
 	authdomain "backend/src/auth/domain"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
@@ -248,17 +247,17 @@ func (w *catalogWorld) thenField(name, id, kind string) error {
 	return fmt.Errorf("field %q is not shown", id)
 }
 
-func (w *catalogWorld) document(name, id string) (catalog.DocumentRequirement, bool, error) {
+func (w *catalogWorld) document(name, id string) (definition.DocumentRequirement, bool, error) {
 	entry, err := w.entry(name)
 	if err != nil {
-		return catalog.DocumentRequirement{}, false, err
+		return definition.DocumentRequirement{}, false, err
 	}
 	for _, requirement := range entry.Documents {
 		if requirement.Document.ID == id {
 			return requirement, true, nil
 		}
 	}
-	return catalog.DocumentRequirement{}, false, nil
+	return definition.DocumentRequirement{}, false, nil
 }
 
 func (w *catalogWorld) thenDocument(name, id, kind string) error {

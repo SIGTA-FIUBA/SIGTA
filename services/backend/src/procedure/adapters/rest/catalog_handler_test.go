@@ -12,7 +12,6 @@ import (
 
 	"backend/src/api"
 	"backend/src/procedure/adapters/rest"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/ports/input"
 )
@@ -42,8 +41,8 @@ func TestListProcedureTypesNeedsNoSession(t *testing.T) {
 		Version:       2,
 		Name:          "Trámite",
 		Description:   "Descripción",
-		Fields:        []catalog.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: true}},
-		Documents: []catalog.DocumentRequirement{{
+		Fields:        []definition.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: true}},
+		Documents: []definition.DocumentRequirement{{
 			Document: definition.Document{ID: "letter", Name: "Carta", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024},
 		}},
 	}}})

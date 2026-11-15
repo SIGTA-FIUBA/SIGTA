@@ -11,7 +11,6 @@ import (
 	"backend/src/api"
 	"backend/src/procedure/adapters/rest"
 	"backend/src/procedure/domain"
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/ports/input"
@@ -34,7 +33,7 @@ func openedView(actions ...string) input.ProcedureView {
 		Steps: []detail.Step{
 			{
 				Step:      definition.Step{ID: "documents", Name: "Adjuntar documentos", Action: definition.ActionUploadDocument, Role: definition.RoleApplicant, Next: "review"},
-				Documents: []catalog.DocumentRequirement{{Document: definition.Document{ID: "transcript", Name: "Historia académica"}, Required: true}},
+				Documents: []definition.DocumentRequirement{{Document: definition.Document{ID: "transcript", Name: "Historia académica"}, Required: true}},
 				Files:     []domain.Document{{ID: "D-1", Requirement: "transcript", Step: "documents", FileName: "historia.pdf", MediaType: "application/pdf", Size: 3, UploadedBy: "ana"}},
 			},
 			{

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"backend/src/api"
-	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
 	ports "backend/src/procedure/ports/input"
 )
 
@@ -49,7 +49,7 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 	}
 }
 
-func documentRequirement(r catalog.DocumentRequirement) api.DocumentRequirement {
+func documentRequirement(r definition.DocumentRequirement) api.DocumentRequirement {
 	return api.DocumentRequirement{
 		Id:            r.Document.ID,
 		Name:          r.Document.Name,
