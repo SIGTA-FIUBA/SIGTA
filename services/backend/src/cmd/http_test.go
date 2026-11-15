@@ -172,3 +172,17 @@ func TestServeLetsTheRequestsInFlightFinish(t *testing.T) {
 		t.Errorf("serve() = %v, want nil", err)
 	}
 }
+
+// TestStoppedDuringStartup checks that a start interrupted by a signal ends
+// without an error, and that one that fails on its own keeps it.
+func TestStoppedDuringStartup(t *testing.T) {
+	failed := errors.New("the database did not answer")
+	if err := stoppedDuringStartup(t.Context(), failed); !errors.Is(err, failed) {
+		t.Errorf("without a signal = %v, want %v", err, failed)
+	}
+	stop, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := stoppedDuringStartup(stop, failed); err != nil {
+		t.Errorf("after a signal = %v, want nil", err)
+	}
+}

@@ -45,6 +45,10 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
+	// Taken before anything else, so that a SIGTERM while the server waits for
+	// the database also runs the deferred functions instead of killing it.
+	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancelStop()
 	cfg, err := loadConfig(os.Getenv)
 	if err != nil {
 		return err
@@ -86,17 +90,17 @@ func run(logger *slog.Logger) error {
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	// Bounds the start against the database, so one that does not answer
 	// stops it.
-	startup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	startup, cancel := context.WithTimeout(stop, 30*time.Second)
 	defer cancel()
 	versions, closeVersions, err := openProcedureVersions(startup, cfg, logger)
 	if err != nil {
-		return err
+		return stoppedDuringStartup(stop, err)
 	}
 	defer closeVersions()
 	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
 	if cfg.development() {
 		if err := publishDevProcedureType(startup, versions, procedureTypes); err != nil {
-			return fmt.Errorf("publish the example procedure type: %w", err)
+			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
 		}
 	}
 	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
@@ -110,9 +114,16 @@ func run(logger *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
-	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancelStop()
 	return serve(stop, server, server.ListenAndServe)
+}
+
+// stoppedDuringStartup returns nil instead of err if the server was asked to
+// stop while it started, since then err is only the interrupted wait.
+func stoppedDuringStartup(stop context.Context, err error) error {
+	if stop.Err() != nil {
+		return nil
+	}
+	return err
 }
 
 // shutdownTimeout is how long the requests in flight have to finish once the

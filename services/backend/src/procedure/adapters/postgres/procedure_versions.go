@@ -200,7 +200,9 @@ func (s *ProcedureVersions) one(ctx context.Context, what, sql string, args ...a
 
 func scanVersion(row pgx.CollectableRow) (version.ProcedureTypeVersion, error) {
 	var v version.ProcedureTypeVersion
-	err := row.Scan(&v.ProcedureTypeID, &v.Number, &v.Digest, &v.EncodedContent, &v.Authorship.ProposedBy, &v.Authorship.ApprovedBy, &v.PublishedAt)
+	if err := row.Scan(&v.ProcedureTypeID, &v.Number, &v.Digest, &v.EncodedContent, &v.Authorship.ProposedBy, &v.Authorship.ApprovedBy, &v.PublishedAt); err != nil {
+		return version.ProcedureTypeVersion{}, err
+	}
 	v.PublishedAt = v.PublishedAt.UTC()
-	return v, err
+	return v, nil
 }
