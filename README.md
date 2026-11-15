@@ -256,7 +256,8 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 ### Despliegue
 
 - Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
-- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose. Al integrar en `main` se construyen las imágenes.
+- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose.
+- Cada push a `develop` construye las imágenes, las publica en GHCR y las despliega en el entorno de prueba, una máquina de Google Cloud con Docker Swarm y Traefik, como la infraestructura de FIUBA. Detalle en [docs/15-despliegue.md](docs/15-despliegue.md).
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
 
@@ -274,6 +275,8 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 | `SIGTA_MIGRATIONS_DATABASE_URL` | Solo para el comando `migrate`: conexión con el rol dueño de las tablas (`backend_migrations`). Es un secreto del despliegue y el servidor no la usa | `migrate` no corre |
 | `SIGTA_DOCUMENTS_DIR` | Carpeta donde se guardan los archivos que se adjuntan a los trámites, fuera de la base y de lo que sirve el proxy. Tiene que existir y el servidor tiene que poder escribir en ella. Es la carpeta que hay que respaldar | En la imagen, `/var/lib/sigta/documents`. Fuera de ella, en desarrollo una carpeta temporal, y lo avisa en el log; en producción no arranca |
 | `SIGTA_USERS_FILE` | Archivo JSON con las personas que SIGTA ya conoce, como el personal: una lista de objetos con `id`, `email`, `name` y, si corresponde, `administrator` (`true`) y `memberships`, una lista de `{"area", "roles", "permissions", "scope"}` con al menos un rol o un permiso del área y `scope` opcional, con los identificadores de los tipos de trámite. El área `secretariat` existe siempre, con los permisos `edit_procedure_types` y `publish_procedure_types`. Quien no tiene membresías no es personal. Tiene datos personales, así que se guarda con los secretos del despliegue y nunca en el repositorio. Una entrada inválida impide arrancar | En desarrollo, los usuarios sintéticos; en producción no arranca |
+
+Las variables secretas (`SIGTA_GOOGLE_CLIENT_ID`, `SIGTA_GOOGLE_CLIENT_SECRET`, `SIGTA_DATABASE_URL` y `SIGTA_MIGRATIONS_DATABASE_URL`) también se pueden dar como archivo, como los secretos de Docker Swarm: `<VARIABLE>_FILE` nombra el archivo con el valor. Dar las dos formas impide arrancar.
 
 Las migraciones de la base (ADR-022) se aplican con el mismo binario, `backend migrate`, antes de arrancar el servidor. Cómo se aplican y qué roles crea `deploy/postgres/sql/roles.sql` está en "Base de datos" en [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -14,7 +14,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | Trabajar en un componente de IA | ADR-002, ADR-018, riesgos R-06 y R-07, y la estrategia de pruebas del [proceso](09-proceso-y-metricas.md) |
 | Decidir si algo entra en el alcance | [Alcance](03-scope.md): si no está en el alcance positivo, está fuera |
 | Saber qué toca ahora | [Plan de sprints](11-plan-de-sprints.md) y [roadmap](10-roadmap.md) |
-| Preparar el despliegue | [Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) |
+| Preparar el despliegue | [Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) y [despliegue](15-despliegue.md) |
 | Configurar un tipo de trámite | [Relevamiento](13-relevamiento-de-tramites.md) y sus [dudas abiertas](14-dudas-abiertas.md) |
 
 ## Índice
@@ -37,3 +37,4 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [12 · Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) | Qué cumple SIGTA de los requisitos de la Subsecretaría de TICs para desplegar en la infraestructura de FIUBA |
 | [13 · Relevamiento de los trámites](13-relevamiento-de-tramites.md) | Actores, acciones y circuito de los cinco trámites, y cómo queda la equivalencia en SIGTA |
 | [14 · Dudas abiertas](14-dudas-abiertas.md) | Lo que todavía no se sabe y cómo se avanza mientras tanto |
+| [15 · Despliegue](15-despliegue.md) | El entorno de prueba en Google Cloud con Docker Swarm, cómo se despliega en cada push a `develop`, sus secretos y su operación |
