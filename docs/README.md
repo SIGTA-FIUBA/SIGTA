@@ -8,7 +8,7 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | --- | --- |
 | Implementar una historia | Su ticket en Linear (criterios de aceptación), que se ubica desde el [backlog](08-backlog.md), y el [glosario](01-glosario.md) |
 | Tocar el modelo de dominio o la configuración de trámites | [Glosario](01-glosario.md), [alcance](03-scope.md) y ADR-004, ADR-006, ADR-009, ADR-012 y ADR-013 |
-| Tocar permisos o autenticación | [Personas y actores](02-personas-y-actores.md), ADR-010, ADR-017 y ADR-020 |
+| Tocar permisos o autenticación | [Personas y actores](02-personas-y-actores.md), ADR-010 y ADR-020 |
 | Tocar la interfaz | [Reglas de diseño](../web/DESIGN.md) y ADR-015 |
 | Trabajar en un componente de IA | ADR-002, ADR-018, riesgos R-06 y R-07, y la estrategia de pruebas del [proceso](09-proceso-y-metricas.md) |
 | Decidir si algo entra en el alcance | [Alcance](03-scope.md): si no está en el alcance positivo, está fuera |
