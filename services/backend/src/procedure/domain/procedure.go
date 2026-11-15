@@ -45,6 +45,7 @@ type State string
 const (
 	StateWithApplicant State = "with_applicant"
 	StateInOffice      State = "in_office"
+	StateReferred      State = "referred"
 	StateClosed        State = "closed"
 )
 
@@ -64,6 +65,9 @@ func StateOf(p Procedure, def definition.ProcedureTypeDefinition) (State, error)
 	}
 	if def.Steps[i].Role == definition.RoleApplicant {
 		return StateWithApplicant, nil
+	}
+	if p.Referral != nil {
+		return StateReferred, nil
 	}
 	return StateInOffice, nil
 }

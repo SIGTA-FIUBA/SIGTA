@@ -45,6 +45,7 @@ func (e LoginError) Valid() bool {
 const (
 	Closed        ProcedureState = "closed"
 	InOffice      ProcedureState = "in_office"
+	Referred      ProcedureState = "referred"
 	WithApplicant ProcedureState = "with_applicant"
 )
 
@@ -54,6 +55,8 @@ func (e ProcedureState) Valid() bool {
 	case Closed:
 		return true
 	case InOffice:
+		return true
+	case Referred:
 		return true
 	case WithApplicant:
 		return true
@@ -246,7 +249,7 @@ type ProcedureDetail struct {
 	OpenStep      *string `json:"open_step,omitempty"`
 	ProcedureType int64   `json:"procedure_type"`
 
-	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
 	// Steps Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso.
@@ -278,7 +281,7 @@ type ProcedureDocument struct {
 	UploadedBy Person    `json:"uploaded_by"`
 }
 
-// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 type ProcedureState string
 
 // ProcedureStep defines model for ProcedureStep.

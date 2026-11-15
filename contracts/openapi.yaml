@@ -502,10 +502,11 @@ components:
       type: string
       description: >
         Se deriva del paso abierto. with_applicant: espera al titular.
-        in_office: lo tiene el personal. closed: no tiene paso abierto. No es
-        el resultado del trámite, que no se modela. Falta referred, derivado a
-        un evaluador externo, que se agrega cuando se defina de dónde sale.
-      enum: [with_applicant, in_office, closed]
+        in_office: lo tiene el personal. referred: lo tiene el personal de
+        otra área, a la que se derivó, y todavía no volvió al área de la que
+        salió (ADR-020). closed: no tiene paso abierto. No es el resultado del
+        trámite, que no se modela.
+      enum: [with_applicant, in_office, referred, closed]
     NamedOption:
       type: object
       required: [id, name]

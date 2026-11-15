@@ -24,7 +24,8 @@ var errRecording = errors.New("recording confirmations fails")
 
 type confirmationWorld struct {
 	*authorizationWorld
-	err error
+	flow []definition.Step
+	err  error
 }
 
 type failingAdvance struct {
@@ -57,6 +58,7 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 	sc.Then(`^the procedure is referred to "([^"]*)"$`, w.thenReferredTo)
 	sc.Then(`^the procedure is referred to "([^"]*)" for (\d+) days without return$`, w.thenReferredFor)
 	sc.Then(`^the procedure is not referred$`, w.thenNotReferred)
+	sc.Then(`^its state is (with the applicant|in an office|referred|closed)$`, w.thenState)
 	sc.Then(`^the referral is recorded by "([^"]*)" on "([^"]*)" to "([^"]*)" with the external file number "([^"]*)"$`, w.thenReferralRecorded)
 	sc.Then(`^the referral is recorded without an external file number$`, w.thenReferralWithoutNumber)
 }
@@ -88,6 +90,7 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 		steps = append(steps, step)
 	}
 	w.steps[name] = steps
+	w.flow = steps
 
 	typeID, known := w.typeIDs[name]
 	if !known {
@@ -315,6 +318,27 @@ func (w *confirmationWorld) thenReferralWithoutNumber() error {
 	}
 	if e.Referral.ExternalFileNumber != "" {
 		return fmt.Errorf("external file number = %q, want none", e.Referral.ExternalFileNumber)
+	}
+	return nil
+}
+
+func (w *confirmationWorld) thenState(state string) error {
+	want := map[string]domain.State{
+		"with the applicant": domain.StateWithApplicant,
+		"in an office":       domain.StateInOffice,
+		"referred":           domain.StateReferred,
+		"closed":             domain.StateClosed,
+	}[state]
+	p, err := w.procedure()
+	if err != nil {
+		return err
+	}
+	got, err := domain.StateOf(p, definition.ProcedureTypeDefinition{Steps: w.flow})
+	if err != nil {
+		return err
+	}
+	if got != want {
+		return fmt.Errorf("state = %s, want %s", got, want)
 	}
 	return nil
 }

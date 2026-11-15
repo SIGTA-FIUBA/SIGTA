@@ -126,6 +126,7 @@ Feature: Step confirmation
     And it is "2026-11-16"
     When "operative@fi.uba.ar" confirms the "check" step choosing "accept" with the external file number "EX-2026-00001"
     Then the procedure is referred to "curricular commission"
+    And its state is referred
     And the referral is recorded by "operative@fi.uba.ar" on "2026-11-16" to "curricular commission" with the external file number "EX-2026-00001"
 
   Scenario: a referral does not need an external file number
@@ -153,3 +154,4 @@ Feature: Step confirmation
     When "commission@fi.uba.ar" confirms the "evaluate" step
     Then the procedure moves to the "file" step
     And the procedure is not referred
+    And its state is in an office

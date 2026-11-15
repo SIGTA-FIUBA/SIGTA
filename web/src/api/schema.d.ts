@@ -276,10 +276,10 @@ export interface components {
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
         /**
-         * @description Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+         * @description Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
          * @enum {string}
          */
-        ProcedureState: "with_applicant" | "in_office" | "closed";
+        ProcedureState: "with_applicant" | "in_office" | "referred" | "closed";
         NamedOption: {
             id: string;
             name: string;

@@ -26,6 +26,20 @@ func TestStateOf(t *testing.T) {
 			t.Errorf("open step %q: state = %q, %v, want %q", c.openStep, got, err, c.want)
 		}
 	}
+	referral := &domain.Referral{From: "office", To: "commission"}
+	for _, c := range []struct {
+		openStep string
+		want     domain.State
+	}{
+		{"review", domain.StateReferred},
+		{"documents", domain.StateWithApplicant},
+		{"", domain.StateClosed},
+	} {
+		got, err := domain.StateOf(domain.Procedure{ID: "P-1", OpenStep: c.openStep, Referral: referral}, def)
+		if err != nil || got != c.want {
+			t.Errorf("referred, open step %q: state = %q, %v, want %q", c.openStep, got, err, c.want)
+		}
+	}
 	if _, err := domain.StateOf(domain.Procedure{ID: "P-1", OpenStep: "gone"}, def); err == nil {
 		t.Error("an open step that is not in the definition has a state")
 	}
