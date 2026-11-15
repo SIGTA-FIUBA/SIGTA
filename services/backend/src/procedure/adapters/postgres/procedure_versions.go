@@ -25,6 +25,10 @@ const (
 	// the authors with lower(), which depends on the locale of the database.
 	approverIsNotProposer = "approver_is_not_proposer"
 
+	// digestIsOfContent is the constraint of src/migrations that recomputes
+	// the digest of the content.
+	digestIsOfContent = "digest_is_of_content"
+
 	// attempts bounds how many times Add tries a version whose number is
 	// still free after a serialization failure.
 	attempts = 3
@@ -119,6 +123,8 @@ func insertError(v version.ProcedureTypeVersion, err error) error {
 		// Authorship.Validate compares with strings.EqualFold, so this is a
 		// name that the locale of the database folds otherwise.
 		return fmt.Errorf("%w: the database takes approver %q for proposer %q: %w", version.ErrInvalidAuthorship, v.Authorship.ApprovedBy, v.Authorship.ProposedBy, err)
+	case violatesCheck(err, digestIsOfContent):
+		return fmt.Errorf("%w: version %d of procedure type %d: %w", version.ErrAlteredContent, v.Number, v.ProcedureTypeID, err)
 	case hasCode(err, uniqueViolation):
 		return versionError(output.ErrVersionExists, v, err)
 	}

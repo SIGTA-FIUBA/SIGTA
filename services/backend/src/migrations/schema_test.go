@@ -306,11 +306,13 @@ func TestConstraints(t *testing.T) {
 		{"an event number 0",
 			"INSERT INTO procedure_events (procedure_id, number) VALUES ('p1', 0)", checkViolation},
 		{"a version of a procedure type that does not exist",
-			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (2, 1, 'sha256:0000', '{}', 'ana', 'beto', now())", foreignKeyViolation},
+			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (2, 1, 'sha256:' || encode(sha256('{}'), 'hex'), '{}', 'ana', 'beto', now())", foreignKeyViolation},
 		{"a version number 0",
-			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (1, 0, 'sha256:0000', '{}', 'ana', 'beto', now())", checkViolation},
+			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (1, 0, 'sha256:' || encode(sha256('{}'), 'hex'), '{}', 'ana', 'beto', now())", checkViolation},
 		{"a version approved by whoever proposed it, in other case",
-			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (1, 2, 'sha256:0000', '{}', 'ana', 'ANA', now())", checkViolation},
+			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (1, 2, 'sha256:' || encode(sha256('{}'), 'hex'), '{}', 'ana', 'ANA', now())", checkViolation},
+		{"a version whose digest is not the one of its content",
+			"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) VALUES (1, 2, 'sha256:0000', '{}', 'ana', 'beto', now())", checkViolation},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := app.Exec(ctx, tc.statement)

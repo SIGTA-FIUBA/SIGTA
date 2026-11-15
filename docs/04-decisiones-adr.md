@@ -493,7 +493,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Dejar al rol de la aplicación como dueño y confiar en el código: un error o una credencial filtrada alcanzan para alterar una versión.
 
 **Consecuencias.**
-- Cambiar una versión o un evento exige la credencial del rol de migraciones. Eso avanza la decisión abierta "Integridad del historial" sin cerrarla: el dueño de las tablas todavía puede alterarlas, y el hash solo detecta un cambio que no lo recalculó.
+- Cambiar una versión o un evento exige la credencial del rol de migraciones. Eso avanza la decisión abierta "Integridad del historial" sin cerrarla: el dueño de las tablas todavía puede alterarlas. La base rechaza una versión cuyo hash no es el de su contenido, pero el dueño puede quitar esa restricción, y el hash solo detecta un cambio que no lo recalculó.
 - El despliegue tiene que correr `migrate` antes de cada versión nueva del servidor, con una credencial que el servidor no recibe.
 - `roles.sql` corre solo al crear el volumen de la base, así que una base de desarrollo creada antes de este cambio se recrea con `docker compose down --volumes`.
 - Un error en una migración aplicada se corrige con otra migración.

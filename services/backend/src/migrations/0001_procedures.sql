@@ -3,7 +3,9 @@
 -- application role only gets the privileges it needs, and none to change a
 -- published version, the version a procedure follows or an event. Nothing
 -- updates these tables yet, so the application role cannot update any of
--- them.
+-- them. A migration that grants UPDATE on a column later must not touch the
+-- columns listed in immutable, in schema.go: the server checks them when it
+-- starts.
 -- Only what PostgreSQL 11 has is used, since the faculty runs that version.
 
 GRANT SELECT ON schema_migrations TO backend;
@@ -25,6 +27,9 @@ CREATE TABLE procedure_type_versions (
     approved_by       text NOT NULL,
     published_at      timestamptz NOT NULL,
     PRIMARY KEY (procedure_type_id, number),
+    -- The same digest that version.Digest computes, so that not even an
+    -- INSERT by hand leaves a version whose content does not match it.
+    CONSTRAINT digest_is_of_content CHECK (digest = 'sha256:' || encode(sha256(content), 'hex')),
     -- Lets procedures reference the digest they pinned along with the number.
     UNIQUE (procedure_type_id, number, digest),
     -- lower() because Authorship.Validate compares without case. lower()
@@ -34,8 +39,12 @@ CREATE TABLE procedure_type_versions (
     CONSTRAINT approver_is_not_proposer CHECK (lower(approved_by) <> lower(proposed_by))
 );
 
+-- The columns are named so that the view says what it returns: PostgreSQL
+-- expands * once, when it creates the view, so a column added later would not
+-- show up anyway.
 CREATE VIEW current_procedure_type_versions AS
-SELECT DISTINCT ON (procedure_type_id) *
+SELECT DISTINCT ON (procedure_type_id)
+    procedure_type_id, number, digest, content, proposed_by, approved_by, published_at
 FROM procedure_type_versions
 ORDER BY procedure_type_id, number DESC;
 

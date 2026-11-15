@@ -140,7 +140,9 @@ func TestDigestFromSQL(t *testing.T) {
 }
 
 // TestServiceOnAnAlteredVersion alters a row as the owner of the table, the
-// only role that can, and expects the service to refuse it.
+// only role that can, and expects the service to refuse it. The owner has to
+// drop the check of the digest first: with it, the database refuses the
+// change.
 func TestServiceOnAnAlteredVersion(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewSchema(t)
@@ -156,7 +158,14 @@ func TestServiceOnAnAlteredVersion(t *testing.T) {
 	}
 
 	owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
-	if _, err := owner.Exec(ctx, "UPDATE procedure_type_versions SET content = content || ' '::bytea"); err != nil {
+	const alter = "UPDATE procedure_type_versions SET content = content || ' '::bytea"
+	if _, err := owner.Exec(ctx, alter); !violatesDigestCheck(err) {
+		t.Fatalf("%s with the check of the digest = %v, want a check violation", alter, err)
+	}
+	if _, err := owner.Exec(ctx, "ALTER TABLE procedure_type_versions DROP CONSTRAINT digest_is_of_content"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := owner.Exec(ctx, alter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -241,6 +250,24 @@ func TestRivalOfAnotherProcedureType(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDigestThatIsNotOfTheContent checks that the database refuses a version
+// whose digest does not match its content, and that Add reports it as an
+// altered content.
+func TestDigestThatIsNotOfTheContent(t *testing.T) {
+	store := postgres.NewProcedureVersions(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
+	v := outputtest.Version(1, 1, "Primera")
+	v.Digest = outputtest.Version(1, 1, "Otra").Digest
+	err := store.Add(t.Context(), v)
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); !errors.Is(err, version.ErrAlteredContent) || !ok || pgErr.Code != "23514" {
+		t.Errorf("Add() = %v, want ErrAlteredContent with SQLSTATE 23514", err)
+	}
+}
+
+func violatesDigestCheck(err error) bool {
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	return ok && pgErr.Code == "23514" && pgErr.ConstraintName == "digest_is_of_content"
 }
 
 // TestApproverThatTheDatabaseFolds checks that the constraint on the authors
