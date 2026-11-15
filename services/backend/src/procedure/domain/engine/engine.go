@@ -19,6 +19,7 @@ var (
 	ErrNoObservation       = fmt.Errorf("%w: an observation is required", ErrInvalidConfirmation)
 	ErrInvalidOutcome      = fmt.Errorf("%w: the outcome is not one of the step", ErrInvalidConfirmation)
 	ErrNotAReferral        = fmt.Errorf("%w: an external file number goes only with a referral", ErrInvalidConfirmation)
+	ErrApplicantStep       = fmt.Errorf("%w: the applicant completes their steps, staff confirms theirs", ErrInvalidConfirmation)
 )
 
 type Confirmation struct {
@@ -57,6 +58,9 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	step, ok := find(d.Steps, c.Step)
 	if !ok {
 		return p, Event{}, fmt.Errorf("procedure %s: open step %q is not in its version", p.ID, c.Step)
+	}
+	if step.Role == definition.RoleApplicant {
+		return p, Event{}, ErrApplicantStep
 	}
 	if strings.TrimSpace(c.Observation) == "" {
 		return p, Event{}, ErrNoObservation

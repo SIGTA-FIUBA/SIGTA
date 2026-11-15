@@ -151,7 +151,7 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, clock)
 	return nil
 }
 

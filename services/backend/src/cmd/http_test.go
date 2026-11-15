@@ -114,7 +114,7 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memberships, func() string { return "id" })
+	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memberships, func() string { return "id" }, time.Now)
 
 	for _, tc := range []struct {
 		user   string

@@ -116,7 +116,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, memberships, newID)
+	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, memberships, newID, time.Now)
 	documentRepository := proceduremem.NewDocumentRepository()
 	documents := procedureapp.NewDocumentService(procedures, documentRepository, files, newID, time.Now)
 	people := application.NewPeopleService(users)

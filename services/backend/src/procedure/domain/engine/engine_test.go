@@ -100,6 +100,7 @@ func TestConfirmRejects(t *testing.T) {
 		{"an unknown outcome", on("check"), confirm("check", "fast_track"), engine.ErrInvalidOutcome},
 		{"an outcome outside a decision", on("file"), confirm("file", "accept"), engine.ErrInvalidOutcome},
 		{"a file number without referral", on("file"), engine.Confirmation{Step: "file", Observation: "done", ExternalFileNumber: "EX-1"}, engine.ErrNotAReferral},
+		{"a step of the applicant", on("request"), confirm("request", ""), engine.ErrApplicantStep},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
