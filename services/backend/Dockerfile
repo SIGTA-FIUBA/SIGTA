@@ -12,5 +12,6 @@ RUN mkdir -p /out/documents
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /out/backend /backend
 COPY --from=build --chown=65532:65532 /out/documents /var/lib/sigta/documents
+ENV SIGTA_DOCUMENTS_DIR=/var/lib/sigta/documents
 EXPOSE 8080
 ENTRYPOINT ["/backend"]
