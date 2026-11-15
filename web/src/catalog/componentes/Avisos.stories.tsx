@@ -26,7 +26,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'Toda pantalla que muestra datos contempla cuatro estados: cargando (`Loader`, `Skeleton`), vacío (`EmptyState`), error (`Alert color="red"`) y con datos. El rojo se usa solo para errores.',
+          'Toda pantalla que muestra datos contempla cuatro estados: cargando (`Skeleton`, con la forma de lo que viene; nunca un spinner), vacío (`EmptyState`), error (`Alert color="red"`) y con datos. El rojo se usa solo para errores.',
       },
     },
   },
@@ -115,7 +115,7 @@ export const LoaderStory: StoryObj = {
     docs: {
       description: {
         story:
-          'El estado de carga de una pantalla, como en la bandeja. Lleva `aria-label` con lo que se está cargando.',
+          'Solo dentro de un control que espera, como `Button loading`. Una pantalla o una lista que carga muestra `Skeleton`, no un spinner.',
       },
     },
   },
@@ -158,7 +158,7 @@ export const RingProgressStory: StoryObj = {
         { value: 20, color: 'gray', tooltip: 'Pendiente del titular' },
       ]}
       label={
-        <Text ta="center" size="sm" fw={700}>
+        <Text ta="center" size="sm" fw={600}>
           24 trámites
         </Text>
       }

@@ -1,5 +1,6 @@
 import {
   Anchor,
+  Badge,
   Breadcrumbs,
   Container,
   getTreeExpandedState,
@@ -31,7 +32,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El menú lateral es `NavLink variant="menu"` sobre azul marino; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
+          'El menú lateral es `NavLink variant="menu"` sobre blanco; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
       },
     },
   },
@@ -67,7 +68,7 @@ export const NavLinkMenu: StoryObj = {
   name: 'NavLink, menú lateral',
   render: () => (
     <Container size="xs" mx={0} px={0}>
-      <Paper p="sm" bg="var(--sigta-nav-background)">
+      <Paper p="sm" withBorder>
         <Stack gap={0}>
           <NavLink href="#" label="Inicio" leftSection={<Icon name="home" />} variant="menu" />
           <NavLink
@@ -75,9 +76,9 @@ export const NavLinkMenu: StoryObj = {
             label="Bandeja de trámites"
             leftSection={<Icon name="inbox" />}
             rightSection={
-              <Text component="span" size="xs" fw={700}>
+              <Badge variant="counter" aria-hidden>
                 3
-              </Text>
+              </Badge>
             }
             active
             aria-current="page"
@@ -92,7 +93,7 @@ export const NavLinkMenu: StoryObj = {
     docs: {
       description: {
         story:
-          'El menú de las pantallas con sesión (`AppLayout`), sobre el azul marino del logo de SIGTA (`color.nav`). En reposo, transparente con texto claro; con el puntero, un azul más claro. La página actual es la única forma blanca del panel, con el texto en azul marino y en negrita, y se anuncia con `aria-current="page"`. Los ítems van seguidos, sin separación.',
+          'El menú de las pantallas con sesión (`AppLayout`), sobre `surface-raised` con un borde de 1 a la derecha (`color.nav`). En reposo, `ink-600` a 500; con el puntero, `surface-hover`. La página actual tiene fondo `brand-50`, texto e ícono en `action-600` a 600 y una barra de 3 a la izquierda en `brand-500`, y se anuncia con `aria-current="page"`. El contador de la bandeja es un `Badge variant="counter"` de 20 de alto, en `action-600` con caption blanco a 600. Los ítems van seguidos, sin separación.',
       },
     },
   },

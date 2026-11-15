@@ -7,13 +7,15 @@ import { FontFamilies, Headings, TextStyles, TokenTable } from '../blocks'
 
 ## Familias
 
-La tipografía institucional de la FIUBA es Helvetica Neue, y su reemplazo aceptado es Arial (Manual de Identidad Visual, A.6 y B.4). La interfaz no carga una fuente web: usa Helvetica Neue donde el sistema la tiene (macOS, iOS) y Arial en el resto. Montserrat queda solo en el logo, ya convertida en curvas.
+La interfaz usa Inter en su versión variable, servida desde el propio sitio (`@fontsource-variable/inter`): se ve igual en cualquier sistema y no se descarga nada de terceros. Las cifras son tabulares en toda la interfaz, así que las fechas y los contadores se alinean. Helvetica Neue, la tipografía institucional de la FIUBA (Manual de Identidad Visual, A.6), queda para la firma de marca y las piezas institucionales (`font.family.brand`). Montserrat queda solo en el logo, ya convertida en curvas.
+
+Usar Inter en la interfaz es una excepción al manual que falta acordar con Comunicación Institucional; la alternativa es licenciar Helvetica Neue para la web.
 
 <FontFamilies />
 
 ## Estilos de texto
 
-Hay seis estilos y no hay otros. Dos pesos: regular (400) y negrita (700).
+Hay siete estilos y no hay otros. Tres pesos: regular (400) para el texto, medio (500) para etiquetas y el menú, y semibold (600) para títulos, estados y lo que se destaca. El 700 no se usa: entre 12 y 16 se lee pesado. Los títulos de 20 o más llevan un espaciado de -0,01em.
 
 <TextStyles />
 

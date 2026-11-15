@@ -97,7 +97,7 @@ export const TableStory: StoryObj = {
             <Table.Tr key={item.id}>
               <Table.Td>
                 <Stack gap={0}>
-                  <Text fw={700}>{item.applicant}</Text>
+                  <Text fw={600}>{item.applicant}</Text>
                   <Text size="sm" c="dimmed">
                     {item.type}
                   </Text>
@@ -205,7 +205,7 @@ export const CardStory: StoryObj = {
   render: () => (
     <Card withBorder padding="lg" maw="50%">
       <Card.Section withBorder inheritPadding py="sm">
-        <Text fw={700}>Equivalencia entre asignaturas</Text>
+        <Text fw={600}>Equivalencia entre asignaturas</Text>
       </Card.Section>
       <Text size="sm" c="dimmed" mt="sm">
         Reconoce una asignatura aprobada en otra carrera o institución como equivalente a una del plan de estudios.
@@ -230,7 +230,7 @@ export const PaperStory: StoryObj = {
     <SimpleGrid cols={2} spacing="sm">
       <Paper withBorder p="md">
         <Stack gap="xs">
-          <Text fw={700}>Análisis Matemático II</Text>
+          <Text fw={600}>Análisis Matemático II</Text>
           <Text size="sm" c="dimmed">
             Asignatura de origen aprobada el 12 de marzo de 2025.
           </Text>
@@ -241,7 +241,7 @@ export const PaperStory: StoryObj = {
           <Text size="sm" c="dimmed">
             Acción requerida
           </Text>
-          <Text fz="xl" fw={700}>
+          <Text fz="xl" fw={600}>
             7
           </Text>
           <Text size="xs" c="dimmed">
@@ -396,7 +396,7 @@ export const BackgroundImageStory: StoryObj = {
   name: 'BackgroundImage',
   render: () => (
     <BackgroundImage src="brand/sigta-isotipo-color.svg" p="xl">
-      <Text fw={700}>Sistema Integral de Gestión de Trámites Académicos</Text>
+      <Text fw={600}>Sistema Integral de Gestión de Trámites Académicos</Text>
     </BackgroundImage>
   ),
   parameters: {
@@ -435,7 +435,7 @@ export const ThemeIconStory: StoryObj = {
     <Group>
       {[1, 2, 3].map((step) => (
         <ThemeIcon key={step} variant="light" radius="xl" aria-hidden>
-          <Text size="sm" fw={700}>
+          <Text size="sm" fw={600}>
             {step}
           </Text>
         </ThemeIcon>
@@ -490,7 +490,7 @@ function RollingNumberDemo() {
   const [count, setCount] = useState(7)
   return (
     <Group>
-      <RollingNumber value={count} fz="xl" fw={700} />
+      <RollingNumber value={count} fz="xl" fw={600} />
       <Button variant="default" onClick={() => setCount((value) => value + 1)}>
         Sumar un trámite
       </Button>

@@ -55,7 +55,7 @@ function Swatch({ color, label, note }: { color: string; label: string; note?: s
   return (
     <Paper withBorder radius="sm" style={{ overflow: 'hidden' }}>
       <Box p="sm" style={{ background: color, color: ink, minHeight: 72 }}>
-        <Text fw={700} size="sm">
+        <Text fw={600} size="sm">
           {label}
         </Text>
         <Text size="xs" ff="monospace">
@@ -160,14 +160,15 @@ export function FontFamilies() {
     { name: 'sans', stack: tokens.font.sans, note: families.sans.$description },
     { name: 'mono', stack: tokens.font.mono, note: families.mono.$description },
     { name: 'brand', stack: tokens.font.brand, note: families.brand.$description },
+    { name: 'logo', stack: tokens.font.logo, note: families.logo.$description },
   ]
   return (
     <Frame>
       <Stack gap="sm">
         {rows.map((row) => (
           <Paper key={row.name} withBorder p="md">
-            <Text size="xl" style={{ fontFamily: row.name === 'brand' ? undefined : row.stack }}>
-              {row.name === 'brand' ? 'Montserrat, dibujada en el logo' : 'Equivalencia entre asignaturas 0123456789'}
+            <Text size="xl" style={{ fontFamily: row.name === 'logo' ? undefined : row.stack }}>
+              {row.name === 'logo' ? 'Montserrat, dibujada en el logo' : 'Equivalencia entre asignaturas 0123456789'}
             </Text>
             <Text size="sm" mt="xs">
               <Code>font.family.{row.name}</Code> {row.note}
@@ -185,13 +186,22 @@ export function FontFamilies() {
 const TEXT_STYLES = [
   { name: 'title-page', use: 'Title order={1}', sample: (t: string) => <Title order={1}>{t}</Title> },
   { name: 'title-section', use: 'Title order={2}', sample: (t: string) => <Title order={2}>{t}</Title> },
-  { name: 'title-item', use: 'Title order={3}, Text fw={700}', sample: (t: string) => <Text fw={700}>{t}</Text> },
+  { name: 'title-item', use: 'Title order={3}, Text fw={600}', sample: (t: string) => <Text fw={600}>{t}</Text> },
   { name: 'body', use: 'Text', sample: (t: string) => <Text>{t}</Text> },
   { name: 'body-sm', use: 'Text size="sm"', sample: (t: string) => <Text size="sm">{t}</Text> },
+  {
+    name: 'label',
+    use: 'Text size="sm" fw={500}',
+    sample: (t: string) => (
+      <Text size="sm" fw={500}>
+        {t}
+      </Text>
+    ),
+  },
   { name: 'caption', use: 'Text size="xs"', sample: (t: string) => <Text size="xs">{t}</Text> },
 ]
 
-// TextStyles shows the six text styles, the only ones, as the screens write
+// TextStyles shows the seven text styles, the only ones, as the screens write
 // them.
 export function TextStyles() {
   return (
@@ -405,7 +415,7 @@ export function LogoGallery({ piece }: { piece?: string }) {
                       />
                     </Box>
                     <Stack gap={2} p="xs">
-                      <Text size="sm" fw={700}>
+                      <Text size="sm" fw={600}>
                         {v.name}
                       </Text>
                       <Text size="xs" c="dimmed">

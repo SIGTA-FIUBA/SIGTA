@@ -361,7 +361,7 @@ export const AppShellStory: StoryObj = {
     <AspectRatio ratio={16 / 7}>
       <AppShell mode="static" header={{ height: 56 }} navbar={{ width: 220, breakpoint: 'xs' }} padding="md">
         <AppShell.Header p="md">
-          <Text fw={700}>SIGTA</Text>
+          <Text fw={600}>SIGTA</Text>
         </AppShell.Header>
         <AppShell.Navbar p="sm" aria-label="Menú principal">
           <Stack gap={0}>

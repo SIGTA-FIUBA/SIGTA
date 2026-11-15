@@ -152,7 +152,7 @@ export const PopoverStory: StoryObj = {
       </Popover.Target>
       <Popover.Dropdown>
         <Stack gap="xs">
-          <Text size="sm" fw={700}>
+          <Text size="sm" fw={600}>
             Requisitos
           </Text>
           <Text size="sm">Certificado analítico y programa de la asignatura.</Text>
@@ -180,7 +180,7 @@ export const HoverCardStory: StoryObj = {
         <Group gap="sm" wrap="nowrap">
           <Avatar name="Martina Ferreyra" color="fiuba" aria-hidden />
           <Stack gap={0}>
-            <Text size="sm" fw={700}>
+            <Text size="sm" fw={600}>
               Martina Ferreyra
             </Text>
             <Text size="xs" c="dimmed">
@@ -287,7 +287,7 @@ function LoadingOverlayDemo() {
       <Paper withBorder p="lg" pos="relative">
         <LoadingOverlay visible={visible} />
         <Stack gap="xs">
-          <Text size="sm" fw={700}>
+          <Text size="sm" fw={600}>
             Pase de carrera
           </Text>
           <Text size="sm" c="dimmed">
@@ -412,7 +412,7 @@ function FloatingWindowDemo() {
         >
           <Stack gap="xs">
             <Group justify="space-between" wrap="nowrap" data-drag-handle>
-              <Text size="sm" fw={700}>
+              <Text size="sm" fw={600}>
                 Notas de la revisión
               </Text>
               <CloseButton aria-label="Cerrar las notas" onClick={close} />
