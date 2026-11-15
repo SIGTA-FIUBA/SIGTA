@@ -133,7 +133,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
-		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository)),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedures),
 	)
 
 	server := &http.Server{
@@ -312,27 +312,37 @@ func (r *exampleForFirstSignUp) Register(ctx context.Context, user domain.User) 
 
 // devProcedureID names the example procedure, so that its detail is always
 // at the same address in local development. It waits on devDocumentsStep.
+// devReviewProcedureID waits on devReviewStep, for staff to confirm.
 const (
-	devProcedureID   = "dev-example"
-	devDocumentsStep = "documents"
+	devProcedureID       = "dev-example"
+	devDocumentsStep     = "documents"
+	devReviewProcedureID = "dev-review"
+	devReviewStep        = "review"
 )
 
-// addDevProcedure leaves a procedure of the example type waiting on the
-// documents of the applicant, so that its detail has something to show until
-// procedures can be started and moved from the interface.
+// addDevProcedure leaves two procedures of the example type, one waiting on
+// the documents of the applicant and one on the review of staff, so that
+// there is something to show and to confirm until procedures can be started
+// and moved from the interface.
 func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, procedures output.ProcedureRepository, applicant string) error {
 	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil {
 		return err
 	}
-	return procedures.Add(ctx, proceduredomain.Procedure{
-		ID:            devProcedureID,
-		ProcedureType: latest.ProcedureTypeID,
-		Version:       latest.Number,
-		VersionDigest: latest.Digest,
-		Applicant:     applicant,
-		OpenStep:      devDocumentsStep,
-	})
+	for id, step := range map[string]string{devProcedureID: devDocumentsStep, devReviewProcedureID: devReviewStep} {
+		err := procedures.Add(ctx, proceduredomain.Procedure{
+			ID:            id,
+			ProcedureType: latest.ProcedureTypeID,
+			Version:       latest.Number,
+			VersionDigest: latest.Digest,
+			Applicant:     applicant,
+			OpenStep:      step,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // devProcedureType is a made-up procedure type, so that the catalog has
@@ -356,7 +366,7 @@ func devProcedureType() input.Publication {
 			Steps: []definition.Step{
 				{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: devDocumentsStep},
 				{ID: devDocumentsStep, Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
+				{ID: devReviewStep, Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 			},
 		},
 	}

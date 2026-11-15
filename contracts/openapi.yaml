@@ -326,6 +326,46 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}/steps/{stepId}/confirmation:
+    post:
+      operationId: confirmStep
+      summary: Confirma el paso abierto de un trámite
+      description: >
+        Lo confirma quien tiene, en el área del paso, los permisos que el paso
+        exige, con una observación. Quién confirma y cuándo los pone el
+        servidor. El trámite pasa al paso siguiente: el configurado o, en una
+        decisión, el de la salida elegida. Pasar a un paso de otra área lo
+        deriva, y volver al área de la que salió es el retorno (ADR-020). Un
+        paso que ocurrió fuera de SIGTA queda registrado como declarado por
+        quien lo confirma (ADR-004). Los pasos del titular no se confirman: los
+        completa el titular.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepConfirmation"
+      responses:
+        "201":
+          description: Confirmación registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /procedures/{procedureId}/documents:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"
@@ -456,6 +496,12 @@ components:
       required: true
       schema:
         type: string
+    StepId:
+      name: stepId
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
     NotFound:
       description: >
@@ -479,6 +525,12 @@ components:
             $ref: "#/components/schemas/Error"
     Forbidden:
       description: La persona no tiene permiso para esta acción
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: El trámite cambió mientras tanto, por ejemplo porque otra persona ya confirmó el paso
       content:
         application/json:
           schema:
@@ -769,6 +821,62 @@ components:
           type: string
           format: date-time
         granted_by:
+          type: string
+    StepConfirmation:
+      type: object
+      required: [observation]
+      properties:
+        observation:
+          type: string
+          description: Qué se hizo o se verificó. No puede quedar vacía
+        outcome:
+          type: string
+          description: Identificador de la salida elegida; solo en un paso decide
+        external_file_number:
+          type: string
+          description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
+    ProcedureEvent:
+      type: object
+      required: [step, by, at, observation, declared, returned]
+      properties:
+        step:
+          type: string
+          description: Paso confirmado
+        by:
+          $ref: "#/components/schemas/Person"
+        at:
+          type: string
+          format: date-time
+        observation:
+          type: string
+        outcome:
+          type: string
+          description: Salida elegida; ausente si el paso no es decide
+        declared:
+          type: boolean
+          description: >
+            Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo
+            confirmó, no el hecho (ADR-004)
+        next:
+          type: string
+          description: Paso que abre; ausente si cierra el trámite
+        referral:
+          $ref: "#/components/schemas/Referral"
+        returned:
+          type: boolean
+          description: Si devuelve el trámite al área de la que se había derivado
+    Referral:
+      type: object
+      description: Paso del trámite a otra área (ADR-020)
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          description: Identificador del área de la que sale
+        to:
+          type: string
+          description: Identificador del área a la que se deriva
+        external_file_number:
           type: string
     ProcedureDetail:
       type: object

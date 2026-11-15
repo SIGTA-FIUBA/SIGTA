@@ -16,6 +16,7 @@ import (
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/adapters/postgres"
 	"backend/src/procedure/application"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -130,6 +131,33 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 		if view.Procedure.OpenStep != devDocumentsStep || view.CanAct() != tc.canAct {
 			t.Errorf("%s sees the open step %s and can act: %t, want documents and %t", tc.user, view.Procedure.OpenStep, view.CanAct(), tc.canAct)
 		}
+	}
+}
+
+func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
+	ctx := t.Context()
+	versions := memory.NewProcedureVersions()
+	if err := publishDevProcedureType(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)); err != nil {
+		t.Fatal(err)
+	}
+	procedures := memory.NewProcedureRepository()
+	if err := addDevProcedure(ctx, versions, procedures, devApplicantID); err != nil {
+		t.Fatal(err)
+	}
+	directory := devPeople()
+	areas := authmem.NewAreaRepository(devAreas()...)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memberships, func() string { return "id" }, time.Now)
+	confirmation := input.StepConfirmation{Step: devReviewStep, Observation: "Revisado"}
+
+	if _, err := service.Confirm(ctx, devApplicantID, devReviewProcedureID, confirmation); !errors.Is(err, proceduredomain.ErrAccessDenied) {
+		t.Errorf("the applicant confirms the review: %v, want ErrAccessDenied", err)
+	}
+	if _, err := service.Confirm(ctx, "dev-operative", devReviewProcedureID, confirmation); err != nil {
+		t.Fatalf("the operative confirms the review: %v", err)
+	}
+	if got, _ := procedures.Get(ctx, devReviewProcedureID); !got.Closed() {
+		t.Errorf("open step = %q, want the example closed", got.OpenStep)
 	}
 }
 

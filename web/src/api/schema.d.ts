@@ -214,6 +214,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/steps/{stepId}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirma el paso abierto de un trámite
+         * @description Lo confirma quien tiene, en el área del paso, los permisos que el paso exige, con una observación. Quién confirma y cuándo los pone el servidor. El trámite pasa al paso siguiente: el configurado o, en una decisión, el de la salida elegida. Pasar a un paso de otra área lo deriva, y volver al área de la que salió es el retorno (ADR-020). Un paso que ocurrió fuera de SIGTA queda registrado como declarado por quien lo confirma (ADR-004). Los pasos del titular no se confirman: los completa el titular.
+         */
+        post: operations["confirmStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}/documents": {
         parameters: {
             query?: never;
@@ -413,6 +433,39 @@ export interface components {
             until?: string;
             granted_by: string;
         };
+        StepConfirmation: {
+            /** @description Qué se hizo o se verificó. No puede quedar vacía */
+            observation: string;
+            /** @description Identificador de la salida elegida; solo en un paso decide */
+            outcome?: string;
+            /** @description Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite */
+            external_file_number?: string;
+        };
+        ProcedureEvent: {
+            /** @description Paso confirmado */
+            step: string;
+            by: components["schemas"]["Person"];
+            /** Format: date-time */
+            at: string;
+            observation: string;
+            /** @description Salida elegida; ausente si el paso no es decide */
+            outcome?: string;
+            /** @description Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004) */
+            declared: boolean;
+            /** @description Paso que abre; ausente si cierra el trámite */
+            next?: string;
+            referral?: components["schemas"]["Referral"];
+            /** @description Si devuelve el trámite al área de la que se había derivado */
+            returned: boolean;
+        };
+        /** @description Paso del trámite a otra área (ADR-020) */
+        Referral: {
+            /** @description Identificador del área de la que sale */
+            from: string;
+            /** @description Identificador del área a la que se deriva */
+            to: string;
+            external_file_number?: string;
+        };
         ProcedureDetail: {
             id: string;
             /** Format: int64 */
@@ -513,10 +566,20 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description El trámite cambió mientras tanto, por ejemplo porque otra persona ya confirmó el paso */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
         SessionCookie: string;
         ProcedureId: string;
+        StepId: string;
     };
     requestBodies: never;
     headers: never;
@@ -828,6 +891,40 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    confirmStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                stepId: components["parameters"]["StepId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Confirmación registrada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listProcedureDocuments: {

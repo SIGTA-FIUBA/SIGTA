@@ -19,10 +19,11 @@ type ProcedureHandler struct {
 	auth       authinput.Authenticator
 	people     authinput.People
 	procedures ports.ProcedureDetails
+	steps      ports.Procedures
 }
 
-func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures ports.ProcedureDetails) *ProcedureHandler {
-	return &ProcedureHandler{auth: auth, people: people, procedures: procedures}
+func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures ports.ProcedureDetails, steps ports.Procedures) *ProcedureHandler {
+	return &ProcedureHandler{auth: auth, people: people, procedures: procedures, steps: steps}
 }
 
 func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedureRequestObject) (api.GetProcedureResponseObject, error) {
