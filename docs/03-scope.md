@@ -87,7 +87,7 @@ Orden de prioridad decidido por el equipo. El orden de recorte es el inverso.
 
 ### 2.5 Configuración
 
-- Definición de tipos de trámite (datos, documentos, pasos, y el área de cada paso con los permisos que exige, salvo en los del titular), que se va a editar desde la interfaz de SIGTA. A confirmar con los directores, porque contradice el anteproyecto, y todavía sin historia en el backlog (ADR-013). Cada publicación es una versión nueva que no se modifica, propuesta por una persona y aprobada por otra (ADR-012, ADR-013).
+- Definición de tipos de trámite (datos, documentos, pasos, y el área de cada paso con los permisos que exige, salvo en los del titular), que se va a editar desde la interfaz de SIGTA. A confirmar con los directores, porque contradice el anteproyecto (ADR-013). La historia es "Edición y publicación de tipos de trámite" (US72). Cada publicación es una versión nueva que no se modifica, propuesta por una persona y aprobada por otra (ADR-012, ADR-013).
 - Incorporar un trámite nuevo consiste en agregar configuración, sin tocar el código.
 - Áreas comunes a todos los trámites de la familia; los datos y documentos son de cada tipo de trámite.
 

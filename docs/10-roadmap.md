@@ -6,6 +6,8 @@
 **Sprint 1:** arranca el lunes 21 de septiembre de 2026.
 **Cierre del trabajo:** 30 de mayo de 2027 (sprint 18). Defensa en junio y julio.
 
+> **Historias agregadas el 14/11.** Las cinco historias de US72 a US76 (29 SP, con estimación provisoria) todavía no están en los bloques ni en el calendario de este documento. Con ellas el backlog pasa a 58 historias y 293 SP, y la carga cambia en cuatro sprints: el 4 de 30 a 38 SP (US72), el 5 de 29 a 34 (US73), el 6 de 17 a 30 (US74 y US75) y el 16 de 14 a 17 (US76). La curva queda en 17, 19, 26, 38, 34, 30 y 13, 11, 18, 24, 24, 14, 17, 8. El bloque 1 pasa de 138 a 164 SP y el bloque 3 de 94 a 97. El índice por épica, con el sprint de cada historia, está en el backlog.
+
 ---
 
 ## 1. La secuencia
