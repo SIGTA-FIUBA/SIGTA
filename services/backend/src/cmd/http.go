@@ -34,25 +34,37 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	if len(os.Args) > 1 && os.Args[1] == "probe" {
+		if err := probe(probeURL); err != nil {
+			logger.Error("probe failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+	getenv, err := environment()
+	if err != nil {
+		logger.Error("configuration failed", "error", err)
+		os.Exit(1)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := migrateCommand(os.Getenv, logger); err != nil {
+		if err := migrateCommand(getenv, logger); err != nil {
 			logger.Error("migrations failed", "error", err)
 			os.Exit(1)
 		}
 		return
 	}
-	if err := run(logger); err != nil {
+	if err := run(getenv, logger); err != nil {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger) error {
+func run(getenv func(string) string, logger *slog.Logger) error {
 	// Taken before anything else, so that a SIGTERM while the server waits for
 	// the database also runs the deferred functions instead of killing it.
 	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancelStop()
-	cfg, err := loadConfig(os.Getenv)
+	cfg, err := loadConfig(getenv)
 	if err != nil {
 		return err
 	}
