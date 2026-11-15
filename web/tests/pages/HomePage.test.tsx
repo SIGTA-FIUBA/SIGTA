@@ -9,7 +9,11 @@ const item = {
   procedure_type: '2',
   procedure_type_name: 'Equivalencia',
   applicant_name: 'Titular Uno',
+  applicant_program: 'Ingeniería Civil',
+  file_number: 'EX-2026-00000001',
   step_name: 'Registrar expediente',
+  step_number: 2,
+  step_count: 5,
   area: 'office',
   area_name: 'Dirección de Alumnos',
   state: 'in_office',
@@ -17,10 +21,13 @@ const item = {
   started_at: '2026-11-01T10:00:00Z',
   last_moved_at: '2026-11-03T10:00:00Z',
   age_days: 3,
+  has_news: false,
 }
 
 function stubProcedures(items: unknown[]) {
-  const fetch = vi.fn(async (_request: Request) => Response.json({ items, procedure_types: [], areas: [] }))
+  const fetch = vi.fn(async (_request: Request) =>
+    Response.json({ items, closed_this_month: 7, procedure_types: [], areas: [] }),
+  )
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
@@ -45,11 +52,11 @@ describe('HomePage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('offers an applicant to start a procedure, and how it is done', () => {
+  it('greets an applicant and shows how a procedure is done, with no button that repeats the menu', () => {
     renderAs('applicant')
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Iniciar un trámite' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('heading', { level: 1, name: 'Hola, Persona' })).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Iniciar un trámite' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Requieren acción' })).not.toBeInTheDocument()
   })
@@ -62,13 +69,66 @@ describe('HomePage', () => {
     ])
     renderAs('staff_operative')
 
-    expect(screen.getByRole('link', { name: 'Ir a la bandeja' })).toHaveAttribute('href', '/inbox')
+    expect(screen.queryByRole('link', { name: 'Ir a la bandeja' })).not.toBeInTheDocument()
     const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
     const links = within(list).getAllByRole('link')
     expect(links.map((link) => link.getAttribute('href'))).toEqual(['/procedures/new', '/procedures/old'])
-    expect(within(links[0]!).getByText('Titular Dos')).toBeVisible()
+    expect(within(links[0]!).getByText('Equivalencia')).toBeVisible()
+    expect(within(links[0]!).getByText('EX-2026-00000001')).toBeVisible()
+    expect(within(links[0]!).getByText('Titular Dos, Ingeniería Civil')).toBeVisible()
+    expect(within(links[0]!).getByText('Etapa 2 de 5')).toBeInTheDocument()
     expect(within(links[0]!).getByText('En la Secretaría')).toBeVisible()
-    expect(within(links[0]!).getByText('Próximo paso: Registrar expediente')).toBeVisible()
+    expect(within(links[0]!).getByText('A cargo de Dirección de Alumnos')).toBeVisible()
+    expect(within(links[0]!).queryByText(/Próximo paso/)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/inbox')
+  })
+
+  it('shows at most five procedures that need action', async () => {
+    stubProcedures(Array.from({ length: 7 }, (_, index) => ({ ...item, id: `p${index}` })))
+    renderAs('staff_operative')
+
+    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    expect(within(list).getAllByRole('link')).toHaveLength(5)
+  })
+
+  it('marks the procedures with news', async () => {
+    stubProcedures([
+      { ...item, id: 'news', has_news: true },
+      { ...item, id: 'seen', last_moved_at: '2026-11-02T10:00:00Z' },
+    ])
+    renderAs('staff_operative')
+
+    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    const [news, seen] = within(list).getAllByRole('link')
+    expect(within(news!).getByText('Con novedades')).toBeInTheDocument()
+    expect(within(seen!).queryByText('Con novedades')).not.toBeInTheDocument()
+  })
+
+  it('sums up what needs action, what is in progress and what closed this month', async () => {
+    stubProcedures([
+      { ...item, id: 'a' },
+      { ...item, id: 'b', actionable: false },
+    ])
+    renderAs('staff_operative')
+
+    const summary = await screen.findByLabelText('Resumen')
+    expect(within(summary).getByRole('link', { name: '1 Requieren acción' })).toHaveAttribute('href', '/inbox')
+    expect(within(summary).getByRole('link', { name: '2 En curso' })).toHaveAttribute('href', '/inbox?view=all')
+    expect(within(summary).getByText('7')).toBeVisible()
+    expect(within(summary).getByText('Cerrados este mes')).toBeVisible()
+  })
+
+  it('lists the latest moves, one line each', async () => {
+    stubProcedures([
+      { ...item, id: 'a', actionable: false, applicant_name: 'Titular Uno' },
+      { ...item, id: 'b', applicant_name: 'Titular Dos', last_moved_at: '2026-11-05T10:00:00Z' },
+    ])
+    renderAs('staff_operative')
+
+    const activity = await screen.findByRole('list', { name: 'Movimientos recientes' })
+    const lines = within(activity).getAllByRole('listitem')
+    expect(lines[0]).toHaveTextContent('Equivalencia de Titular Dos pasó a Registrar expediente')
+    expect(lines[1]).toHaveTextContent('Equivalencia de Titular Uno pasó a Registrar expediente')
   })
 
   it('says so when no procedure needs action', async () => {

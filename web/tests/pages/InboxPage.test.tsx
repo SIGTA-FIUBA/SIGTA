@@ -25,6 +25,10 @@ const pending = {
   started_at: daysAgo(3),
   last_moved_at: daysAgo(3),
   age_days: 3,
+  step_number: 2,
+  step_count: 5,
+  has_news: true,
+  file_number: 'EX-2026-00000001',
 }
 const referred = {
   ...pending,
@@ -39,6 +43,8 @@ const referred = {
   last_moved_at: daysAgo(12),
   age_days: 30,
   days_referred: 12,
+  has_news: false,
+  file_number: undefined,
 }
 const waiting = {
   ...pending,
@@ -214,6 +220,23 @@ describe('InboxPage', () => {
     await tableRows()
     expect(router.state.location.search).toBe('?view=all&area=office')
     expect(listedNames()).toEqual(['Titular Uno'])
+  })
+
+  it('marks what moved since the last view and records the view when a procedure opens', async () => {
+    const fetch = stubApi(200, { items: [pending, referred], ...options })
+    renderInbox('/inbox?view=all')
+
+    // Oldest first: the referred one, then the pending one.
+    const [second, first] = await tableRows()
+    expect(within(first!).getByText('Con novedades')).toBeInTheDocument()
+    expect(within(first!).getByText('EX-2026-00000001')).toBeVisible()
+    expect(within(second!).queryByText('Con novedades')).not.toBeInTheDocument()
+
+    await userEvent.click(within(first!).getByRole('link', { name: 'Titular Uno' }))
+    await vi.waitFor(() => {
+      const seen = fetch.mock.calls.map(([request]) => request).find((request) => request.method === 'PUT')
+      expect(seen?.url).toMatch(/\/api\/procedures\/p-1\/seen$/)
+    })
   })
 
   it('says when nothing needs action', async () => {

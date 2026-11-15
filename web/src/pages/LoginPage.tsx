@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Container,
+  Divider,
   Group,
   Paper,
   SimpleGrid,
@@ -16,6 +17,7 @@ import {
 } from '@mantine/core'
 import { Link, useSearchParams } from 'react-router'
 import type { components } from '../api/schema'
+import { BrandSignature } from '../components/BrandSignature/BrandSignature'
 import { GoogleSignInButton } from '../components/GoogleSignInButton/GoogleSignInButton'
 import { applicantSteps, pillars, principles } from '../content/platform'
 import { AppHeader } from '../layout/AppHeader'
@@ -45,7 +47,7 @@ function TrackingPreview() {
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" gap="xs">
           <Stack gap={0}>
-            <Text fw={700}>Equivalencia entre asignaturas</Text>
+            <Text fw={600}>Equivalencia entre asignaturas</Text>
             <Text size="sm" c="dimmed">
               Iniciado hace 24 días
             </Text>
@@ -84,9 +86,10 @@ export function LoginPage() {
   const message = messageFor(params.get('error'))
 
   return (
-    <AppShell header={{ height: 64 }}>
+    <AppShell header={{ height: 64 }} variant="landing">
       <AppShell.Header>
         <AppHeader
+          signature
           end={
             <Button component={Link} to="/catalog" variant="subtle">
               Catálogo de trámites
@@ -100,7 +103,7 @@ export function LoginPage() {
           <Container size="lg" py="xl" mih="calc(100dvh - var(--app-shell-header-height))" display="flex">
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" py="xl" my="auto" w="100%">
               <Stack gap="lg" justify="center">
-                <Text size="sm" fw={700} tt="uppercase">
+                <Text size="sm" fw={600} tt="uppercase">
                   Secretaría de Gestión Académica · FIUBA
                 </Text>
                 <Title order={1} id="hero" variant="display">
@@ -166,7 +169,7 @@ export function LoginPage() {
                 {applicantSteps.map((step, index) => (
                   <Stack key={step.title} gap="sm">
                     <ThemeIcon variant="filled" radius="xl" size="lg" aria-hidden>
-                      <Text fw={700}>{index + 1}</Text>
+                      <Text fw={600}>{index + 1}</Text>
                     </ThemeIcon>
                     <Title order={3} size="h4">
                       {step.title}
@@ -201,11 +204,16 @@ export function LoginPage() {
           </Container>
         </Box>
 
-        <Box component="footer" bg="fiuba.9" c="white">
+        {/* The footer is white: the FIUBA logo is lost on cyan or navy. */}
+        <Box component="footer" bg="white">
+          <Divider />
           <Container size="lg" py="lg">
-            <Text size="sm">
-              Secretaría de Gestión Académica · Facultad de Ingeniería · Universidad de Buenos Aires
-            </Text>
+            <Group justify="space-between" gap="md">
+              <BrandSignature />
+              <Text size="sm" c="gray.7">
+                Secretaría de Gestión Académica, Facultad de Ingeniería, Universidad de Buenos Aires
+              </Text>
+            </Group>
           </Container>
         </Box>
       </AppShell.Main>

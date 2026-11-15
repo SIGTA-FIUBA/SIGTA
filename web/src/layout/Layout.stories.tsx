@@ -25,7 +25,10 @@ function procedures(actionable: number): ProcedureList {
     procedure_type: 1,
     procedure_type_name: 'Equivalencia entre asignaturas',
     applicant_name: 'Martín Sosa',
+    applicant_program: 'Ingeniería en Informática',
     step_name: 'Revisión de la Secretaría',
+    step_number: 3,
+    step_count: 9,
     area: 'secretaria',
     area_name: 'Secretaría Académica',
     started_at: '2026-11-02T10:00:00Z',
@@ -38,7 +41,10 @@ function procedures(actionable: number): ProcedureList {
       state: states[index % states.length]!,
       last_moved_at: `2026-11-${String(10 - index).padStart(2, '0')}T10:00:00Z`,
       actionable: true,
+      has_news: index === 0,
+      file_number: `EX-2026-${String(12345 + index).padStart(8, '0')}`,
     })),
+    closed_this_month: 4,
     procedure_types: [],
     areas: [],
   }
@@ -65,7 +71,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El marco de todas las páginas (`src/layout/`): con sesión, un menú lateral azul marino de 240 de arriba abajo, con el logo de SIGTA, las opciones y, al pie, Acerca de SIGTA y la cuenta. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón, en una barra superior blanca. Sin sesión, solo la barra superior con el ingreso.',
+          'El marco de todas las páginas (`src/layout/`): con sesión, un menú lateral blanco de 240 de arriba abajo, con un borde a la derecha, con el logo de SIGTA, las opciones y, al pie, Acerca de SIGTA y la cuenta. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón, en una barra superior blanca. Sin sesión, solo la barra superior con el ingreso.',
       },
     },
   },
@@ -109,7 +115,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: la bandeja como acción principal y los trámites que requieren acción, por última novedad.',
+          'El Inicio del personal: el saludo con la fecha, el resumen en tres cifras (cada una lleva a la bandeja filtrada, salvo los cerrados), hasta cinco trámites que requieren acción y la actividad reciente, una línea por movimiento.',
       },
     },
   },
@@ -126,7 +132,7 @@ export const HomeApplicant: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del titular: iniciar un trámite como acción principal y los pasos de un trámite. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
+          'El Inicio del titular: el saludo y los pasos de un trámite. El catálogo está en el menú, así que ningún botón lo repite. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
       },
     },
   },
@@ -163,7 +169,7 @@ export const AppHeaderStory: StoryObj = {
 export const UserMenuStory: StoryObj = {
   name: 'UserMenu',
   render: () => (
-    <Paper p="sm" w={tokens.layout.nav} bg="var(--sigta-nav-background)">
+    <Paper p="sm" w={tokens.layout.nav} withBorder>
       <UserMenu user={staff} onLogout={() => {}} />
     </Paper>
   ),

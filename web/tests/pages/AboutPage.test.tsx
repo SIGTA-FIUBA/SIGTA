@@ -11,4 +11,11 @@ describe('AboutPage', () => {
     expect(screen.getByText(/Sistema Integral de Gestión de Trámites Académicos/)).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Criterios de la plataforma' })).toBeVisible()
   })
+
+  it('signs with FIUBA', () => {
+    render(<AboutPage />)
+
+    expect(screen.getByRole('img', { name: 'SIGTA' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Facultad de Ingeniería, Universidad de Buenos Aires' })).toBeVisible()
+  })
 })

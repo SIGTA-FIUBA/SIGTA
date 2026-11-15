@@ -66,7 +66,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).toHaveTextContent('AT')
     expect(router.state.location.pathname).toBe('/')
   })
@@ -75,7 +75,7 @@ describe('routes', () => {
     stubApi({ session: true })
     renderAt('/')
 
-    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
+    await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
@@ -111,7 +111,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
   })
 

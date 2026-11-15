@@ -2,6 +2,7 @@ import {
   Alert,
   Anchor,
   AppShell,
+  Badge,
   Burger,
   Button,
   Container,
@@ -9,7 +10,6 @@ import {
   Indicator,
   NavLink,
   Stack,
-  Text,
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
@@ -27,7 +27,7 @@ type MenuLink = { to: string; label: string; icon: IconName; active: boolean; pe
 // Between breakpoint.sm and breakpoint.md the menu shows only its icons.
 const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
 
-// AppLayout frames every page. With a session, a navy side navigation runs
+// AppLayout frames every page. With a session, a white side navigation runs
 // from top to bottom: the SIGTA logo, the menu, and at the foot the page
 // about SIGTA and the account. From breakpoint.md it is 240 wide; on a tablet
 // it narrows to its icons; on a phone it folds behind a button in a white top
@@ -88,7 +88,7 @@ export function AppLayout() {
             {...common}
             variant="menu-icon"
             leftSection={
-              <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.3">
+              <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.5">
                 <Icon name={link.icon} />
               </Indicator>
             }
@@ -105,9 +105,9 @@ export function AppLayout() {
         leftSection={<Icon name={link.icon} />}
         rightSection={
           count !== undefined && (
-            <Text component="span" size="xs" fw={700} aria-hidden>
+            <Badge variant="counter" aria-hidden>
               {count}
-            </Text>
+            </Badge>
           )
         }
       />
@@ -168,7 +168,7 @@ export function AppLayout() {
         <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="xl">
           <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
             <Image
-              src={compact ? '/brand/sigta-isotipo-white.svg' : '/brand/sigta-horizontal-white.svg'}
+              src={compact ? '/brand/sigta-isotipo-color.svg' : '/brand/sigta-horizontal-color.svg'}
               alt=""
               h="var(--sigta-logo-height)"
               w="auto"

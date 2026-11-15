@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 
 // ForbiddenError means the person is not part of the staff.
@@ -20,5 +20,20 @@ export function useProcedures(enabled = true) {
       }
       return data
     },
+  })
+}
+
+// useMarkSeen records that the person opened a procedure, so the lists stop
+// marking it as news until it moves again.
+export function useMarkSeen() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { response } = await api.PUT('/procedures/{id}/seen', { params: { path: { id } } })
+      if (!response.ok) {
+        throw new Error(`PUT /procedures/${id}/seen answered ${response.status}`)
+      }
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ['procedures'] }),
   })
 }

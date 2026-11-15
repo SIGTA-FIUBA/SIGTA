@@ -3,11 +3,11 @@ import {
   Anchor,
   Badge,
   Group,
-  Loader,
   Paper,
   SegmentedControl,
   Select,
   SimpleGrid,
+  Skeleton,
   Stack,
   Table,
   Text,
@@ -16,6 +16,7 @@ import {
 import { Link, useLocation, useOutletContext, useSearchParams } from 'react-router'
 import { ForbiddenError, useProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { NewsDot } from '../components/NewsDot/NewsDot'
 
 type Item = components['schemas']['ProcedureListItem']
 type State = components['schemas']['ProcedureState']
@@ -135,7 +136,7 @@ function SummaryTile({ tile }: { tile: Tile }) {
         <Text size="sm" fw={500} c="dimmed">
           {tile.label}
         </Text>
-        <Text fz="xl" fw={700}>
+        <Text fz="xl" fw={600}>
           {tile.count}
         </Text>
         <Text size="xs" c="dimmed">
@@ -163,9 +164,12 @@ function StateCell({ item }: { item: Item }) {
 
 function ItemLink({ item, from }: { item: Item; from: string }) {
   return (
-    <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
-      {item.applicant_name}
-    </Anchor>
+    <Group gap="xs" wrap="nowrap">
+      {item.has_news && <NewsDot />}
+      <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
+        {item.applicant_name}
+      </Anchor>
+    </Group>
   )
 }
 
@@ -199,6 +203,11 @@ function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; 
                   <Text size="sm" c="dimmed">
                     {item.procedure_type_name}
                   </Text>
+                  {item.file_number && (
+                    <Text size="xs" c="gray.6">
+                      {item.file_number}
+                    </Text>
+                  )}
                 </Stack>
               </Table.Td>
               <Table.Td>
@@ -328,7 +337,13 @@ export function InboxPage() {
         {user != null && profileNames[user.role] !== undefined && <Text c="dimmed">{profileNames[user.role]}</Text>}
       </Stack>
 
-      {list.isPending && <Loader aria-label="Cargando los trámites" />}
+      {list.isPending && (
+        <Stack gap="sm" aria-label="Cargando los trámites">
+          <Skeleton h="var(--sigta-figures-height)" />
+          <Skeleton h="var(--sigta-row-height)" />
+          <Skeleton h="var(--sigta-row-height)" />
+        </Stack>
+      )}
       {list.isError && list.error instanceof ForbiddenError && (
         <Alert role="alert">La bandeja de trámites está disponible solo para el personal de la Secretaría.</Alert>
       )}

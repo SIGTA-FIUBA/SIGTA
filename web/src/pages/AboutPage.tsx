@@ -1,4 +1,5 @@
-import { List, Stack, Text, Title } from '@mantine/core'
+import { List, Paper, Stack, Text, Title } from '@mantine/core'
+import { BrandSignature } from '../components/BrandSignature/BrandSignature'
 import { PageHeader } from '../components/PageHeader/PageHeader'
 import { type Entry, pillars, principles } from '../content/platform'
 
@@ -11,7 +12,7 @@ function Entries({ id, title, entries }: { id: string; title: string; entries: E
       <List listStyleType="none" spacing="md" p={0}>
         {entries.map((entry) => (
           <List.Item key={entry.title}>
-            <Text fw={700}>{entry.title}</Text>
+            <Text fw={600}>{entry.title}</Text>
             <Text size="sm" c="dimmed" maw="var(--sigta-measure)">
               {entry.text}
             </Text>
@@ -27,6 +28,10 @@ function Entries({ id, title, entries }: { id: string; title: string; entries: E
 export function AboutPage() {
   return (
     <Stack gap="xxl">
+      {/* The joint signature goes on white; the page behind is gray. */}
+      <Paper withBorder p="lg" w="fit-content">
+        <BrandSignature />
+      </Paper>
       <PageHeader
         title="Acerca de SIGTA"
         description="SIGTA, el Sistema Integral de Gestión de Trámites Académicos, es la plataforma de la Secretaría de Gestión Académica para iniciar, gestionar y seguir los trámites académicos de la facultad, del inicio a la resolución."

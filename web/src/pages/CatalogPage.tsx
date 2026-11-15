@@ -1,4 +1,4 @@
-import { Alert, List, Loader, Stack, Text, Title } from '@mantine/core'
+import { Alert, List, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
@@ -89,7 +89,12 @@ export function CatalogPage() {
         <Title order={1}>Catálogo de trámites</Title>
         <Text c="dimmed">Requisitos, plazos y documentación de cada trámite disponible.</Text>
       </Stack>
-      {catalog.isPending && <Loader aria-label="Cargando los trámites" />}
+      {catalog.isPending && (
+        <Stack gap="sm" aria-label="Cargando los trámites">
+          <Skeleton h="var(--sigta-row-height)" />
+          <Skeleton h="var(--sigta-row-height)" />
+        </Stack>
+      )}
       {catalog.isError && (
         <Alert color="red" role="alert">
           No pudimos cargar los trámites. Volvé a intentarlo más tarde.

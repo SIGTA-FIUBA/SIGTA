@@ -44,4 +44,10 @@ describe('LoginPage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('El ingreso no se pudo completar.')
   })
+
+  it('signs with FIUBA in the top bar and in the footer', () => {
+    renderAt('/login')
+
+    expect(screen.getAllByRole('img', { name: 'Facultad de Ingeniería, Universidad de Buenos Aires' })).toHaveLength(2)
+  })
 })
