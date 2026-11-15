@@ -334,6 +334,8 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Un paquete del dominio no puede usar lo no exportado de otro: lo que se comparta entre ellos tiene que exportarse o quedarse en `definition/`.
 - El módulo `auth/` mantiene un solo `domain/`. Si crece de la misma forma, se divide con el mismo criterio.
 
+**Nota.** Los paquetes nuevos de `procedure/domain/` siguen el mismo criterio: uno por lo que se muestra o se calcula, que importa `definition/` y `version/` y no los otros paquetes hermanos. `detail/` arma los pasos que muestra el detalle de un trámite y les pone al lado sus archivos. Lo que comparten el catálogo y el detalle, como los requisitos de un paso (`FieldRequirement`, `DocumentRequirement`), va en `definition/`. El estado del trámite (`State`) va en `domain/`, junto al trámite, para que el detalle y la bandeja lo calculen igual; la bandeja suma su paquete con esta misma nota.
+
 ---
 
 ## ADR-017: Los permisos del personal se asignan con roles configurables, administrados en SIGTA
