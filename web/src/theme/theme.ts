@@ -1,4 +1,5 @@
 import {
+  AppShell,
   Avatar,
   Badge,
   Button,
@@ -73,9 +74,9 @@ export const theme = createTheme({
   headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.weights.bold, sizes: tokens.headings },
   variantColorResolver,
   components: {
-    // An item of the side navigation (variant="menu"): transparent at rest,
-    // gray under the pointer, and the current page in the cyan tint with a
-    // bar on the left (interactions.module.css). On a tablet, variant
+    // An item of the side navigation (variant="menu"), on the navy of the
+    // logo: light text at rest, a lighter navy under the pointer and the
+    // current page in white (interactions.module.css). On a tablet, variant
     // "menu-icon" shows only the icon.
     NavLink: NavLink.extend({
       classNames: (_theme, props) => ({
@@ -86,8 +87,11 @@ export const theme = createTheme({
               ? `${classes.touch} ${classes.navItem} ${classes.navIcon}`
               : classes.touch,
         label: props.variant === 'menu' ? classes.navLabel : '',
+        description: props.variant === 'menu' ? classes.navDescription : '',
       }),
     }),
+    // The side navigation is navy, from top to bottom.
+    AppShell: AppShell.extend({ classNames: { navbar: classes.sideNav } }),
     // A panel with a border and a background of its own is a control: the
     // action card and the rows use variant="interactive", which answers the
     // pointer; the container of rows uses variant="rows". Any other panel has
@@ -158,11 +162,12 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {
     '--container-size-content': tokens.layout.content,
     '--sigta-measure': tokens.layout.measure,
-    '--sigta-logo-width': tokens.layout.logo,
-    '--sigta-top-bar-divider': tokens.layout.topBarDivider,
+    '--sigta-logo-height': tokens.layout.logo,
     '--sigta-nav-item-height': tokens.component.navItem.height,
     '--sigta-nav-item-radius': `var(--mantine-radius-${tokens.component.navItem.radius})`,
-    '--sigta-nav-marker': tokens.component.navItem.marker,
+    '--sigta-nav-background': tokens.color.nav.background,
+    '--sigta-nav-text': tokens.color.nav.text,
+    '--sigta-nav-hover': tokens.color.nav.hover,
     '--sigta-focus-width': tokens.focus.width,
     '--sigta-focus-offset': tokens.focus.offset,
     '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),

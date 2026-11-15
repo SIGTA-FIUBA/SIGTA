@@ -1,4 +1,17 @@
-import { Alert, AppShell, Badge, Burger, Button, Container, Indicator, NavLink, Stack, Tooltip } from '@mantine/core'
+import {
+  Alert,
+  Anchor,
+  AppShell,
+  Burger,
+  Button,
+  Container,
+  Image,
+  Indicator,
+  NavLink,
+  Stack,
+  Text,
+  Tooltip,
+} from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
@@ -14,11 +27,12 @@ type MenuLink = { to: string; label: string; icon: IconName; active: boolean; pe
 // Between breakpoint.sm and breakpoint.md the menu shows only its icons.
 const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
 
-// AppLayout frames every page: the SIGTA signature and the account menu on
-// top, the menu on the left and the page beside it. From breakpoint.md the
-// menu is 240 wide; on a tablet it narrows to its icons; on a phone it folds
-// behind a button. A visitor without a session, who can only read the
-// catalog, gets no menu and a way to log in.
+// AppLayout frames every page. With a session, a navy side navigation runs
+// from top to bottom: the SIGTA logo, the menu, and at the foot the page
+// about SIGTA and the account. From breakpoint.md it is 240 wide; on a tablet
+// it narrows to its icons; on a phone it folds behind a button in a white top
+// bar. A visitor without a session, who can only read the catalog, gets the
+// top bar with a way to log in and no menu.
 export function AppLayout() {
   const user = useLoaderData<typeof optionalSession>()
   const navigate = useNavigate()
@@ -58,23 +72,23 @@ export function AppLayout() {
 
   function menuItem(link: MenuLink) {
     const count = link.pending !== undefined && link.pending > 0 ? link.pending : undefined
+    const label = count === undefined ? link.label : `${link.label}, ${count} con acción requerida`
     const common = {
       component: Link,
       to: link.to,
       active: link.active,
       'aria-current': link.active ? ('page' as const) : undefined,
+      'aria-label': label,
       onClick: closeMenu,
     }
     if (compact) {
-      const label = count === undefined ? link.label : `${link.label}, ${count} con acción requerida`
       return (
         <Tooltip key={link.to} label={label} position="right">
           <NavLink
             {...common}
             variant="menu-icon"
-            aria-label={label}
             leftSection={
-              <Indicator disabled={count === undefined} size={tokens.component.navItem.dot}>
+              <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.3">
                 <Icon name={link.icon} />
               </Indicator>
             }
@@ -91,46 +105,23 @@ export function AppLayout() {
         leftSection={<Icon name={link.icon} />}
         rightSection={
           count !== undefined && (
-            <Badge variant="filled" size="sm" circle aria-label={`${count} con acción requerida`}>
+            <Text component="span" size="xs" fw={700} aria-hidden>
               {count}
-            </Badge>
+            </Text>
           )
         }
       />
     )
   }
 
-  return (
-    <AppShell
-      header={{ height: tokens.layout.topBar }}
-      navbar={
-        user === null
-          ? undefined
-          : {
-              width: { sm: tokens.layout.navCompact, md: tokens.layout.nav },
-              breakpoint: 'sm',
-              collapsed: { mobile: !menuOpen },
-            }
-      }
-      padding={{ base: 'md', sm: 'xl' }}
-    >
-      <AppShell.Header>
-        <AppHeader
-          start={
-            user !== null && (
-              <Burger
-                opened={menuOpen}
-                onClick={toggleMenu}
-                hiddenFrom="sm"
-                size="sm"
-                aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
-              />
-            )
-          }
-          end={
-            user !== null ? (
-              <UserMenu user={user} onLogout={() => void handleLogout()} />
-            ) : (
+  const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
+
+  if (user === null) {
+    return (
+      <AppShell header={{ height: tokens.layout.topBar }} padding={{ base: 'md', sm: 'xl' }}>
+        <AppShell.Header>
+          <AppHeader
+            end={
               <>
                 <Button component={Link} to="/login" variant="subtle">
                   Volver al inicio
@@ -139,16 +130,63 @@ export function AppLayout() {
                   Iniciar sesión
                 </Button>
               </>
-            )
+            }
+          />
+        </AppShell.Header>
+        <AppShell.Main>
+          <Container px={0}>
+            <Outlet context={user} />
+          </Container>
+        </AppShell.Main>
+      </AppShell>
+    )
+  }
+
+  return (
+    <AppShell
+      header={{ height: { base: tokens.layout.topBar, sm: 0 } }}
+      navbar={{
+        width: { sm: tokens.layout.navCompact, md: tokens.layout.nav },
+        breakpoint: 'sm',
+        collapsed: { mobile: !menuOpen },
+      }}
+      padding={{ base: 'md', sm: 'xl' }}
+    >
+      <AppShell.Header hiddenFrom="sm">
+        <AppHeader
+          start={
+            <Burger
+              opened={menuOpen}
+              onClick={toggleMenu}
+              size="sm"
+              aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
+            />
           }
         />
       </AppShell.Header>
-      {user !== null && (
-        <AppShell.Navbar p="sm" aria-label="Menú principal">
-          <Stack gap="xxs">{links.map(menuItem)}</Stack>
-        </AppShell.Navbar>
-      )}
-      <AppShell.Main bg="gray.0">
+      <AppShell.Navbar p={compact ? 'xs' : 'sm'} aria-label="Menú principal">
+        <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="xl">
+          <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
+            <Image
+              src={compact ? '/brand/sigta-isotipo-white.svg' : '/brand/sigta-horizontal-white.svg'}
+              alt=""
+              h="var(--sigta-logo-height)"
+              w="auto"
+              mx={compact ? 'auto' : 0}
+            />
+          </Anchor>
+        </AppShell.Section>
+        <AppShell.Section grow>
+          <Stack gap={0}>{links.map(menuItem)}</Stack>
+        </AppShell.Section>
+        <AppShell.Section>
+          <Stack gap="xs">
+            {menuItem(about)}
+            <UserMenu user={user} compact={compact} onLogout={() => void handleLogout()} />
+          </Stack>
+        </AppShell.Section>
+      </AppShell.Navbar>
+      <AppShell.Main>
         <Container px={0}>
           {logoutFailed && (
             <Alert color="red" mb="md">

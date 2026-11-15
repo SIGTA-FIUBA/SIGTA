@@ -1,4 +1,4 @@
-import { AppShell, Button } from '@mantine/core'
+import { AppShell, Button, Paper } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -65,7 +65,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El marco de todas las páginas (`src/layout/`): la barra superior con la firma SIGTA y el menú de la cuenta, el único lugar donde figura la persona, y el menú lateral blanco de 240. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón.',
+          'El marco de todas las páginas (`src/layout/`): con sesión, un menú lateral azul marino de 240 de arriba abajo, con el logo de SIGTA, las opciones y, al pie, Acerca de SIGTA y la cuenta. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón, en una barra superior blanca. Sin sesión, solo la barra superior con el ingreso.',
       },
     },
   },
@@ -109,7 +109,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: la bandeja como acción principal, los trámites que requieren acción por última novedad y cómo se trabaja, abierto la primera vez y plegado después.',
+          'El Inicio del personal: la bandeja como acción principal y los trámites que requieren acción, por última novedad.',
       },
     },
   },
@@ -126,7 +126,7 @@ export const HomeApplicant: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del titular: iniciar un trámite como acción principal y cómo se realiza. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
+          'El Inicio del titular: iniciar un trámite como acción principal y los pasos de un trámite. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
       },
     },
   },
@@ -162,6 +162,10 @@ export const AppHeaderStory: StoryObj = {
 
 export const UserMenuStory: StoryObj = {
   name: 'UserMenu',
-  render: () => <UserMenu user={staff} onLogout={() => {}} />,
+  render: () => (
+    <Paper p="sm" w={tokens.layout.nav} bg="var(--sigta-nav-background)">
+      <UserMenu user={staff} onLogout={() => {}} />
+    </Paper>
+  ),
   parameters: { layout: 'centered' },
 }

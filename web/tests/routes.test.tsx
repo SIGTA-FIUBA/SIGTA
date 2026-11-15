@@ -39,7 +39,6 @@ function renderAt(path: string) {
 describe('routes', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
-    localStorage.clear()
   })
 
   it('sends a visitor without a session to the login page', async () => {
@@ -77,16 +76,17 @@ describe('routes', () => {
     renderAt('/')
 
     await screen.findByRole('heading', { level: 1, name: 'Inicio' })
-    expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
+    expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
-    // The applicant has no inbox, and only the account menu says who has the
-    // session.
+    expect(within(menu).getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
+    // The applicant has no inbox, and the account closes the menu.
     expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
-    expect(within(menu).queryByText('Ana Titular')).not.toBeInTheDocument()
-    expect(within(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).getByText('Titular')).toBeVisible()
+    expect(
+      within(within(menu).getByRole('button', { name: 'Cuenta de Ana Titular' })).getByText('Titular'),
+    ).toBeVisible()
   })
 
   it('shows the page about SIGTA to a visitor without a session', async () => {

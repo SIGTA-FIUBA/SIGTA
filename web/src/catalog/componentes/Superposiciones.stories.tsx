@@ -243,7 +243,7 @@ export const MenuStory: StoryObj = {
   parameters: {
     docs: {
       description: {
-        story: 'El menú de la cuenta en el encabezado (`UserMenu`): quién tiene la sesión y cómo cerrarla.',
+        story: 'El menú de la cuenta al pie del menú lateral (`UserMenu`): quién tiene la sesión y cómo cerrarla.',
       },
     },
   },

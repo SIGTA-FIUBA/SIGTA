@@ -1,4 +1,4 @@
-import { Avatar, Group, Menu, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Avatar, Menu, NavLink, Text, Tooltip } from '@mantine/core'
 import type { components } from '../api/schema'
 import { Icon } from '../components/Icon/Icon'
 
@@ -7,6 +7,8 @@ type User = components['schemas']['User']
 type UserMenuProps = {
   user: User
   onLogout: () => void
+  // compact shows only the initials, as the menu does on a tablet.
+  compact?: boolean
 }
 
 const profileNames: Record<User['role'], string> = {
@@ -15,36 +17,37 @@ const profileNames: Record<User['role'], string> = {
   staff_approver: 'Perfil de aprobación',
 }
 
-// UserMenu is the only place that says who has the session: the initials, the
-// name and the profile, and, unfolded, the full name, the email and the way to
-// close the session. On a phone only the initials show.
-export function UserMenu({ user, onLogout }: UserMenuProps) {
+// UserMenu closes the side navigation: the initials, the name and the
+// profile of whoever has the session. Unfolded, it shows the email and the
+// way to close the session.
+export function UserMenu({ user, onLogout, compact = false }: UserMenuProps) {
+  const label = `Cuenta de ${user.name}`
+  const avatar = <Avatar name={user.name} aria-hidden />
   return (
-    <Menu position="bottom-end">
+    <Menu position={compact ? 'right-end' : 'top-start'} width={compact ? undefined : 'target'}>
       <Menu.Target>
-        <UnstyledButton aria-label={`Cuenta de ${user.name}`}>
-          <Group gap="xs" wrap="nowrap">
-            <Avatar name={user.name} aria-hidden />
-            <Stack gap={0} miw={0} visibleFrom="sm">
-              <Text size="sm" truncate="end">
-                {user.name}
-              </Text>
-              <Text size="xs" c="gray.6">
-                {profileNames[user.role]}
-              </Text>
-            </Stack>
-            <Text component="span" c="gray.6" display="flex" visibleFrom="sm">
-              <Icon name="chevron-down" size={16} />
-            </Text>
-          </Group>
-        </UnstyledButton>
+        {compact ? (
+          <Tooltip label={user.name} position="right">
+            <NavLink component="button" variant="menu-icon" aria-label={label} leftSection={avatar} />
+          </Tooltip>
+        ) : (
+          <NavLink
+            component="button"
+            variant="menu"
+            aria-label={label}
+            leftSection={avatar}
+            label={user.name}
+            description={profileNames[user.role]}
+            rightSection={<Icon name="selector" size={16} />}
+          />
+        )}
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>
-          <Text size="sm" c="bright">
+          <Text size="sm" c="bright" truncate="end">
             {user.name}
           </Text>
-          <Text size="xs" c="dimmed">
+          <Text size="xs" c="dimmed" truncate="end">
             {user.email}
           </Text>
         </Menu.Label>

@@ -1,6 +1,5 @@
 import {
   Anchor,
-  Badge,
   Breadcrumbs,
   Container,
   getTreeExpandedState,
@@ -32,7 +31,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El menú lateral es `NavLink variant="menu"` sobre blanco; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
+          'El menú lateral es `NavLink variant="menu"` sobre azul marino; el resto de los links usan `Anchor`. Ninguna historia navega: los links apuntan a `#`.',
       },
     },
   },
@@ -68,17 +67,17 @@ export const NavLinkMenu: StoryObj = {
   name: 'NavLink, menú lateral',
   render: () => (
     <Container size="xs" mx={0} px={0}>
-      <Paper withBorder p="sm">
-        <Stack gap="xxs">
+      <Paper p="sm" bg="var(--sigta-nav-background)">
+        <Stack gap={0}>
           <NavLink href="#" label="Inicio" leftSection={<Icon name="home" />} variant="menu" />
           <NavLink
             href="#"
             label="Bandeja de trámites"
             leftSection={<Icon name="inbox" />}
             rightSection={
-              <Badge variant="filled" size="sm" circle aria-label="3 con acción requerida">
+              <Text component="span" size="xs" fw={700}>
                 3
-              </Badge>
+              </Text>
             }
             active
             aria-current="page"
@@ -93,7 +92,7 @@ export const NavLinkMenu: StoryObj = {
     docs: {
       description: {
         story:
-          'El menú de las pantallas con sesión (`AppLayout`). En reposo, transparente con el texto atenuado; con el puntero, `surface-hover`. La página actual lleva el tinte `brand.50`, el texto `action.600` en negrita y una barra de 3 en el cian institucional, y se anuncia con `aria-current="page"`: la barra refuerza, no es la única señal.',
+          'El menú de las pantallas con sesión (`AppLayout`), sobre el azul marino del logo de SIGTA (`color.nav`). En reposo, transparente con texto claro; con el puntero, un azul más claro. La página actual es la única forma blanca del panel, con el texto en azul marino y en negrita, y se anuncia con `aria-current="page"`. Los ítems van seguidos, sin separación.',
       },
     },
   },

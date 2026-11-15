@@ -52,6 +52,7 @@ export const tokens = {
       raised: text('color.surface.raised'),
       hover: text('color.surface.hover'),
     },
+    nav: { background: text('color.nav.background'), text: text('color.nav.text'), hover: text('color.nav.hover') },
     border: { subtle: text('color.border.subtle'), control: text('color.border.control') },
     scales: Object.fromEntries(SCALES.map((name) => [name, scale(`color.${name}`)])) as Record<
       (typeof SCALES)[number],
@@ -94,7 +95,6 @@ export const tokens = {
     nav: Number.parseFloat(text('layout.nav')),
     navCompact: Number.parseFloat(text('layout.navCompact')),
     topBar: Number.parseFloat(text('layout.topBar')),
-    topBarDivider: scaled('layout.topBarDivider'),
     logo: scaled('layout.logo'),
     measure: text('layout.measure'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
@@ -106,7 +106,6 @@ export const tokens = {
     navItem: {
       radius: text('component.navItem.radius'),
       height: scaled('component.navItem.height'),
-      marker: scaled('component.navItem.marker'),
       dot: Number.parseFloat(text('component.navItem.dot')),
     },
     avatar: { size: scaled('component.avatar.size') },

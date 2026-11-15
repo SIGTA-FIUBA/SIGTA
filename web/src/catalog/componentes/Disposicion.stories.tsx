@@ -364,13 +364,13 @@ export const AppShellStory: StoryObj = {
           <Text fw={700}>SIGTA</Text>
         </AppShell.Header>
         <AppShell.Navbar p="sm" aria-label="Menú principal">
-          <Stack gap="xxs">
+          <Stack gap={0}>
             <NavLink variant="menu" label="Inicio" leftSection={<Icon name="home" />} />
             <NavLink variant="menu" label="Bandeja de trámites" leftSection={<Icon name="inbox" />} active />
             <NavLink variant="menu" label="Catálogo de trámites" leftSection={<Icon name="catalog" />} />
           </Stack>
         </AppShell.Navbar>
-        <AppShell.Main bg="gray.0">
+        <AppShell.Main>
           <Item>El contenido de la página.</Item>
         </AppShell.Main>
       </AppShell>

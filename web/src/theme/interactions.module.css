@@ -59,39 +59,40 @@
   border-top: 1px solid var(--mantine-color-gray-3);
 }
 
+/* The side navigation (AppShell navbar), in the navy of the SIGTA logo from
+ * top to bottom, with no border: the color already separates it. */
+.sideNav {
+  background-color: var(--sigta-nav-background);
+  border: 0;
+  color: var(--sigta-nav-text);
+}
+
 /* An item of the side navigation (NavLink variant="menu"). At rest it is
- * transparent with ink.600 text; under the pointer, surface.hover with
- * ink.900. The current page has the cyan tint, action.600 text in bold and a
- * bar of brand.500 on the left: the bar reinforces, the background, the weight
- * and the color already say it. */
+ * transparent with light text; under the pointer, a lighter navy with white
+ * text. The current page is white with navy text in bold: the only white
+ * shape in the panel. */
 .navItem {
-  position: relative;
   min-height: var(--sigta-nav-item-height);
   border-radius: var(--sigta-nav-item-radius);
   padding-inline: var(--mantine-spacing-sm);
-  color: var(--mantine-color-gray-7);
+  color: var(--sigta-nav-text);
   background-color: transparent;
 }
 
 .navItem:hover {
-  color: var(--mantine-color-black);
-  background-color: var(--mantine-color-gray-1);
+  color: var(--mantine-color-white);
+  background-color: var(--sigta-nav-hover);
 }
 
 .navItem[data-active],
 .navItem[data-active]:hover {
-  color: var(--mantine-color-fiuba-7);
-  background-color: var(--mantine-color-fiuba-0);
+  color: var(--sigta-nav-background);
+  background-color: var(--mantine-color-white);
 }
 
-.navItem[data-active]::before {
-  content: '';
-  position: absolute;
-  inset-block: var(--mantine-spacing-xs);
-  inset-inline-start: 0;
-  width: var(--sigta-nav-marker);
-  border-radius: var(--sigta-nav-marker);
-  background-color: var(--mantine-color-fiuba-5);
+.navItem:focus-visible {
+  outline: var(--sigta-focus-width) solid var(--mantine-color-white);
+  outline-offset: var(--sigta-focus-offset);
 }
 
 .navItem :global(.mantine-NavLink-section[data-position='left']) {
@@ -116,6 +117,10 @@
 .navLabel {
   font-size: var(--mantine-font-size-sm);
   line-height: var(--mantine-line-height-sm);
+}
+
+.navDescription {
+  color: var(--sigta-nav-text);
 }
 
 .navItem[data-active] .navLabel {

@@ -9,6 +9,8 @@ const paths = {
   catalog: 'M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0 M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0 M3 6l0 13 M12 6l0 13 M21 6l0 13',
   'chevron-right': 'M9 6l6 6l-6 6',
   'chevron-down': 'M6 9l6 6l6 -6',
+  selector: 'M8 9l4 -4l4 4 M16 15l-4 4l-4 -4',
+  info: 'M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 9h.01 M11 12h1v4h1',
 }
 
 export type IconName = keyof typeof paths
