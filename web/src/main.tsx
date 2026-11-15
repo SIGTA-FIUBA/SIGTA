@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter/wght.css'
 import '@mantine/core/styles.css'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -5,6 +6,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { cssVariablesResolver, theme } from './theme/theme'
+import './theme/global.css'
 
 const queryClient = new QueryClient()
 

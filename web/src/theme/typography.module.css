@@ -3,6 +3,11 @@
  * inline. Only theme.ts uses these classes.
  */
 
+/* Titles of 20px or more (order 1 and 2) are set a little tighter. */
+.title:where([data-order='1'], [data-order='2']) {
+  letter-spacing: var(--sigta-tracking-title);
+}
+
 /* The headline of the landing page (Title variant="display"). */
 .display {
   font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);

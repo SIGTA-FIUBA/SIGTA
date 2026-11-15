@@ -1,0 +1,18 @@
+/*
+ * What applies to the whole document. main.tsx and the catalog import it with
+ * the Inter files; screens never import CSS.
+ */
+
+/* Dates and counters line up: Inter's tabular figures everywhere. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* With reduced motion every transition takes 0ms. The selector repeats :root
+ * to win over the variables Mantine writes. */
+@media (prefers-reduced-motion: reduce) {
+  :root:root {
+    --sigta-duration-fast: 0ms;
+    --sigta-duration-base: 0ms;
+  }
+}

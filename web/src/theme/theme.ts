@@ -15,6 +15,7 @@ import {
   Popover,
   rem,
   SegmentedControl,
+  Skeleton,
   Title,
   Tooltip,
   type VariantColorsResolver,
@@ -27,6 +28,9 @@ import typography from './typography.module.css'
 // components with theme values (sizes such as "md", colors such as "dimmed"),
 // never raw colors or measures; the lint rules in lint/ enforce it. The values
 // come from tokens.json, so a design decision is changed there and nowhere else.
+
+// Menus, popovers and panels open in motion.base, on the standard curve.
+const transitionProps = { duration: tokens.motion.base, timingFunction: tokens.motion.easing }
 
 const shadows = { xs: tokens.shadow, sm: tokens.shadow, md: tokens.shadow, lg: tokens.shadow, xl: tokens.shadow }
 
@@ -69,14 +73,18 @@ export const theme = createTheme({
   fontWeights: tokens.font.weights,
   breakpoints: tokens.breakpoints,
   cursorType: 'pointer',
+  // Pressed, a control shrinks to motion.press; with reduced motion Mantine
+  // drops its own transitions.
+  activeClassName: classes.pressed,
+  respectReducedMotion: true,
   fontFamily: tokens.font.sans,
   fontFamilyMonospace: tokens.font.mono,
   headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.weights.bold, sizes: tokens.headings },
   variantColorResolver,
   components: {
-    // An item of the side navigation (variant="menu"), on the navy of the
-    // logo: light text at rest, a lighter navy under the pointer and the
-    // current page in white (interactions.module.css). On a tablet, variant
+    // An item of the side navigation (variant="menu"), on white: ink.600 at
+    // rest, surface.hover under the pointer and the current page in brand.50
+    // with a bar on its left (interactions.module.css). On a tablet, variant
     // "menu-icon" shows only the icon.
     NavLink: NavLink.extend({
       classNames: (_theme, props) => ({
@@ -90,16 +98,30 @@ export const theme = createTheme({
         description: props.variant === 'menu' ? classes.navDescription : '',
       }),
     }),
-    // The side navigation is navy, from top to bottom.
-    AppShell: AppShell.extend({ classNames: { navbar: classes.sideNav } }),
+    // The side navigation is white with a border on its right; the page is
+    // gray, except on the landing page (variant="landing").
+    AppShell: AppShell.extend({
+      defaultProps: { transitionDuration: tokens.motion.base, transitionTimingFunction: tokens.motion.easing },
+      classNames: (_theme, props) => ({
+        navbar: classes.sideNav,
+        main: props.variant === 'landing' ? '' : classes.page,
+      }),
+    }),
     // A panel with a border and a background of its own is a control: the
     // action card and the rows use variant="interactive", which answers the
-    // pointer; the container of rows uses variant="rows". Any other panel has
-    // neither border nor background.
+    // pointer; the container of rows uses variant="rows" and the summary of
+    // figures variant="figures".
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
       classNames: (_theme, props) => ({
-        root: props.variant === 'interactive' ? classes.interactive : props.variant === 'rows' ? classes.rows : '',
+        root:
+          props.variant === 'interactive'
+            ? classes.interactive
+            : props.variant === 'rows'
+              ? classes.rows
+              : props.variant === 'figures'
+                ? classes.figures
+                : '',
       }),
     }),
     // The steps of a procedure: an ordered list in columns (StepList).
@@ -119,22 +141,34 @@ export const theme = createTheme({
       vars: (_theme, props) => ({
         root: controlHeight(props.size, tokens.component.button.height, '--button-height'),
       }),
-      classNames: { root: classes.touch },
+      classNames: { root: `${classes.touch} ${classes.control}` },
     }),
-    // A state reads in its text: no capitals, caption in bold, 700 on 50.
+    // A state reads in its text: no capitals, caption at 600, 700 on 50.
+    // variant="counter" is the count of the inbox in the menu.
     Badge: Badge.extend({
       defaultProps: { variant: 'light' },
       vars: (_theme, props) => ({
         root:
-          props.size === undefined || props.size === 'md'
+          props.variant === 'counter'
             ? {
-                '--badge-height': tokens.component.badge.height,
+                '--badge-height': tokens.component.counter.height,
                 '--badge-fz': 'var(--mantine-font-size-xs)',
-                '--badge-padding-x': 'var(--mantine-spacing-xs)',
+                '--badge-padding-x': 'var(--mantine-spacing-xxs)',
+                '--badge-bg': 'var(--mantine-primary-color-filled)',
+                '--badge-color': 'var(--mantine-color-white)',
+                '--badge-bd': '0',
               }
-            : {},
+            : props.size === undefined || props.size === 'md'
+              ? {
+                  '--badge-height': tokens.component.badge.height,
+                  '--badge-fz': 'var(--mantine-font-size-xs)',
+                  '--badge-padding-x': 'var(--mantine-spacing-xs)',
+                }
+              : {},
       }),
-      classNames: { root: classes.badge },
+      classNames: (_theme, props) => ({
+        root: props.variant === 'counter' ? `${classes.badge} ${classes.counter}` : classes.badge,
+      }),
     }),
     Avatar: Avatar.extend({
       defaultProps: { color: tokens.primaryColor, variant: 'light' },
@@ -143,12 +177,17 @@ export const theme = createTheme({
     }),
     Container: Container.extend({ defaultProps: { size: 'content' } }),
     SegmentedControl: SegmentedControl.extend({ classNames: { control: classes.touch } }),
-    Menu: Menu.extend({ defaultProps: { shadow: 'md' } }),
-    Popover: Popover.extend({ defaultProps: { shadow: 'md' } }),
-    Tooltip: Tooltip.extend({ defaultProps: { openDelay: 300 } }),
-    // The headline of the landing page grows with the screen.
+    Menu: Menu.extend({ defaultProps: { shadow: 'md', transitionProps } }),
+    Popover: Popover.extend({ defaultProps: { shadow: 'md', transitionProps } }),
+    Tooltip: Tooltip.extend({ defaultProps: { openDelay: 300, transitionProps } }),
+    // Loading shows the shape of what comes, never a spinner.
+    Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
+    // Titles of 20px or more are tighter; the headline of the landing page
+    // grows with the screen.
     Title: Title.extend({
-      classNames: (_theme, props) => ({ root: props.variant === 'display' ? typography.display : '' }),
+      classNames: (_theme, props) => ({
+        root: props.variant === 'display' ? `${typography.title} ${typography.display}` : typography.title,
+      }),
     }),
   },
 })
@@ -163,11 +202,29 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--container-size-content': tokens.layout.content,
     '--sigta-measure': tokens.layout.measure,
     '--sigta-logo-height': tokens.layout.logo,
+    '--sigta-signature-height': tokens.layout.signature,
     '--sigta-nav-item-height': tokens.component.navItem.height,
     '--sigta-nav-item-radius': `var(--mantine-radius-${tokens.component.navItem.radius})`,
     '--sigta-nav-background': tokens.color.nav.background,
     '--sigta-nav-text': tokens.color.nav.text,
     '--sigta-nav-hover': tokens.color.nav.hover,
+    '--sigta-nav-active-background': tokens.color.nav.activeBackground,
+    '--sigta-nav-active-text': tokens.color.nav.activeText,
+    '--sigta-nav-active-bar': tokens.color.nav.activeBar,
+    '--sigta-nav-border': tokens.color.nav.border,
+    '--sigta-nav-bar': tokens.component.navItem.bar,
+    '--sigta-counter-height': tokens.component.counter.height,
+    '--sigta-step-bar-height': tokens.component.stepBar.height,
+    '--sigta-step-bar-gap': tokens.component.stepBar.gap,
+    '--sigta-news-dot': tokens.component.newsDot.size,
+    '--sigta-row-height': tokens.component.skeleton.row,
+    '--sigta-figures-height': tokens.component.skeleton.figures,
+    '--sigta-tracking-title': tokens.font.trackingTitle,
+    '--sigta-duration-fast': `${tokens.motion.fast}ms`,
+    '--sigta-duration-base': `${tokens.motion.base}ms`,
+    '--sigta-ease': tokens.motion.easing,
+    '--sigta-nudge': tokens.motion.nudge,
+    '--sigta-press': String(tokens.motion.press),
     '--sigta-focus-width': tokens.focus.width,
     '--sigta-focus-offset': tokens.focus.offset,
     '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),

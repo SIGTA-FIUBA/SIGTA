@@ -5,11 +5,12 @@
 
 /* A panel that is a control (Paper variant="interactive"): the action card
  * and the rows. Under the pointer the background turns gray and the border
- * darkens; nothing moves. */
+ * darkens; pressed, one shade darker. A chevron inside ([data-chevron])
+ * moves 2px and takes the action color. */
 .interactive {
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
+    background-color var(--sigta-duration-fast) var(--sigta-ease),
+    border-color var(--sigta-duration-fast) var(--sigta-ease);
 }
 
 .interactive:hover {
@@ -17,11 +18,42 @@
   border-color: var(--mantine-color-gray-4);
 }
 
+.interactive:active {
+  background-color: var(--mantine-color-gray-2);
+}
+
+.interactive [data-chevron] {
+  display: flex;
+  color: var(--mantine-color-gray-6);
+  transition:
+    transform var(--sigta-duration-fast) var(--sigta-ease),
+    color var(--sigta-duration-fast) var(--sigta-ease);
+}
+
+.interactive:hover [data-chevron] {
+  color: var(--mantine-primary-color-filled);
+  transform: translateX(var(--sigta-nudge));
+}
+
 /* Mantine draws its focus ring only on its own controls; a panel turned into
  * a link needs the same ring for whoever moves with the keyboard. */
 .interactive:focus-visible {
   outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
   outline-offset: var(--sigta-focus-offset);
+}
+
+/* A button: its color changes in motion.fast and, pressed, it shrinks a
+ * little (the theme's activeClassName, on every Mantine control). */
+.control {
+  transition:
+    background-color var(--sigta-duration-fast) var(--sigta-ease),
+    border-color var(--sigta-duration-fast) var(--sigta-ease),
+    color var(--sigta-duration-fast) var(--sigta-ease),
+    transform var(--sigta-duration-fast) var(--sigta-ease);
+}
+
+.pressed:active {
+  transform: scale(var(--sigta-press));
 }
 
 /* The container of rows (Paper variant="rows"), a list: its corners clip the
@@ -59,48 +91,57 @@
   border-top: 1px solid var(--mantine-color-gray-3);
 }
 
-/* The side navigation (AppShell navbar), in the navy of the SIGTA logo from
- * top to bottom, with no border: the color already separates it. */
+/* The page (AppShell main) is gray, so the lists and cards on it read
+ * white. The landing page (variant="landing") paints its own sections. */
+.page {
+  background-color: var(--mantine-color-gray-0);
+}
+
+/* The side navigation (AppShell navbar), the tablet rail and the phone menu:
+ * white, with a border on the right. The panel opens in motion.base. */
 .sideNav {
   background-color: var(--sigta-nav-background);
-  border: 0;
+  border-inline-end: 1px solid var(--sigta-nav-border);
   color: var(--sigta-nav-text);
 }
 
-/* An item of the side navigation (NavLink variant="menu"). At rest it is
- * transparent with light text; under the pointer, a lighter navy with white
- * text. The current page is white with navy text in bold: the only white
- * shape in the panel. */
+/* An item of the side navigation (NavLink variant="menu"). At rest, ink.600
+ * in the label weight; under the pointer, surface.hover. The current page is
+ * the only tinted shape: brand.50 with the text and icon in action.600 at
+ * 600, and a 3px bar in brand.500 on its left. */
 .navItem {
   min-height: var(--sigta-nav-item-height);
   border-radius: var(--sigta-nav-item-radius);
   padding-inline: var(--mantine-spacing-sm);
   color: var(--sigta-nav-text);
   background-color: transparent;
+  transition:
+    background-color var(--sigta-duration-fast) var(--sigta-ease),
+    color var(--sigta-duration-fast) var(--sigta-ease);
 }
 
 .navItem:hover {
-  color: var(--mantine-color-white);
   background-color: var(--sigta-nav-hover);
 }
 
 .navItem[data-active],
 .navItem[data-active]:hover {
-  color: var(--sigta-nav-background);
-  background-color: var(--mantine-color-white);
+  color: var(--sigta-nav-active-text);
+  background-color: var(--sigta-nav-active-background);
+  box-shadow: inset var(--sigta-nav-bar) 0 0 var(--sigta-nav-active-bar);
 }
 
 .navItem:focus-visible {
-  outline: var(--sigta-focus-width) solid var(--mantine-color-white);
-  outline-offset: var(--sigta-focus-offset);
+  outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
+  outline-offset: calc(var(--sigta-focus-width) * -1);
 }
 
 .navItem :global(.mantine-NavLink-section[data-position='left']) {
   margin-inline-end: var(--mantine-spacing-sm);
 }
 
-/* The item of the compact navigation (variant="menu-icon"), on a tablet: only
- * the icon, centered; the label goes in a tooltip. */
+/* The item of the tablet rail (variant="menu-icon"): only the icon,
+ * centered; the label goes in a tooltip. */
 .navIcon {
   justify-content: center;
   padding-inline: 0;
@@ -117,17 +158,25 @@
 .navLabel {
   font-size: var(--mantine-font-size-sm);
   line-height: var(--mantine-line-height-sm);
+  font-weight: var(--mantine-font-weight-medium);
 }
 
 .navDescription {
-  color: var(--sigta-nav-text);
+  color: var(--mantine-color-gray-6);
 }
 
 .navItem[data-active] .navLabel {
   font-weight: var(--mantine-font-weight-bold);
 }
 
-/* A status badge: the state reads in its text, in caption bold, without
+/* The count of the inbox in the menu (Badge variant="counter"): 20 tall,
+ * white caption at 600 on action.600, so it reads at a glance. */
+.counter {
+  min-width: var(--sigta-counter-height);
+  justify-content: center;
+}
+
+/* A status badge: the state reads in its text, in caption at 600, without
  * capitals. */
 .badge {
   text-transform: none;
@@ -135,10 +184,33 @@
   letter-spacing: normal;
 }
 
-/* The initials of the avatar, in caption bold. */
+/* The initials of the avatar, in caption at 600. */
 .avatar {
   font-size: var(--mantine-font-size-xs);
   font-weight: var(--mantine-font-weight-bold);
+}
+
+/* A row of figures (Paper variant="figures"), the summary of the home page:
+ * one cell per figure, with a vertical divider between them, two columns
+ * apart on a phone. The figures fade in, in motion.base. */
+.figures {
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.figures > * + * {
+  border-inline-start: 1px solid var(--mantine-color-gray-3);
+}
+
+.figures [data-figure] {
+  animation: fade-in var(--sigta-duration-base) var(--sigta-ease);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* On a phone every control is at least 44px tall (component.touchTarget in
@@ -150,8 +222,14 @@
   }
 }
 
+/* With reduced motion the durations are already 0ms (global.css); the
+ * loading placeholders (Skeleton) stop pulsing too. */
 @media (prefers-reduced-motion: reduce) {
-  .interactive {
-    transition: none;
+  .skeleton::after {
+    animation: none;
+  }
+
+  .figures [data-figure] {
+    animation: none;
   }
 }

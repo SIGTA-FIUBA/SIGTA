@@ -41,6 +41,7 @@ const headingFor = (style: string) => ({
   lineHeight: scaled(`textStyle.${style}.lineHeight`),
   fontWeight: text(`textStyle.${style}.weight`),
 })
+const ms = (path: string) => Number.parseFloat(text(path))
 
 export const tokens = {
   color: {
@@ -52,7 +53,15 @@ export const tokens = {
       raised: text('color.surface.raised'),
       hover: text('color.surface.hover'),
     },
-    nav: { background: text('color.nav.background'), text: text('color.nav.text'), hover: text('color.nav.hover') },
+    nav: {
+      background: text('color.nav.background'),
+      text: text('color.nav.text'),
+      hover: text('color.nav.hover'),
+      activeBackground: text('color.nav.activeBackground'),
+      activeText: text('color.nav.activeText'),
+      activeBar: text('color.nav.activeBar'),
+      border: text('color.nav.border'),
+    },
     border: { subtle: text('color.border.subtle'), control: text('color.border.control') },
     scales: Object.fromEntries(SCALES.map((name) => [name, scale(`color.${name}`)])) as Record<
       (typeof SCALES)[number],
@@ -67,7 +76,14 @@ export const tokens = {
     sans: stack('font.family.sans'),
     mono: stack('font.family.mono'),
     brand: stack('font.family.brand'),
-    weights: { regular: text('font.weight.regular'), medium: text('font.weight.bold'), bold: text('font.weight.bold') },
+    logo: stack('font.family.logo'),
+    // Mantine's bold is the semibold: no component draws a 700.
+    weights: {
+      regular: text('font.weight.regular'),
+      medium: text('font.weight.medium'),
+      bold: text('font.weight.semibold'),
+    },
+    trackingTitle: text('font.tracking.title'),
     sizes: sizes('font.size', scaled),
     lineHeights: sizes('font.lineHeight', scaled),
   },
@@ -89,6 +105,13 @@ export const tokens = {
   defaultRadius: text('radius.default'),
   shadow: text('shadow.overlay'),
   focus: { width: scaled('focus.width'), offset: scaled('focus.offset') },
+  motion: {
+    fast: ms('motion.fast'),
+    base: ms('motion.base'),
+    easing: `cubic-bezier(${(value('motion.easing') as number[]).join(', ')})`,
+    nudge: scaled('motion.nudge'),
+    press: value('motion.press') as number,
+  },
   breakpoints: sizes('breakpoint'),
   layout: {
     content: scaled('layout.content'),
@@ -96,6 +119,7 @@ export const tokens = {
     navCompact: Number.parseFloat(text('layout.navCompact')),
     topBar: Number.parseFloat(text('layout.topBar')),
     logo: scaled('layout.logo'),
+    signature: scaled('layout.signature'),
     measure: text('layout.measure'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
   },
@@ -107,7 +131,12 @@ export const tokens = {
       radius: text('component.navItem.radius'),
       height: scaled('component.navItem.height'),
       dot: Number.parseFloat(text('component.navItem.dot')),
+      bar: scaled('component.navItem.bar'),
     },
+    counter: { height: scaled('component.counter.height') },
+    stepBar: { height: scaled('component.stepBar.height'), gap: scaled('component.stepBar.gap') },
+    newsDot: { size: scaled('component.newsDot.size') },
+    skeleton: { row: scaled('component.skeleton.row'), figures: scaled('component.skeleton.figures') },
     avatar: { size: scaled('component.avatar.size') },
     badge: { height: scaled('component.badge.height') },
     touchTarget: { minHeight: scaled('component.touchTarget.minHeight') },
