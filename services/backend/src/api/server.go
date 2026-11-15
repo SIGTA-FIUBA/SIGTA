@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 const InvalidRequestMessage = "El pedido no es válido."
@@ -28,18 +29,34 @@ type AdministrationServer interface {
 	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
 }
 
+type DocumentServer interface {
+	ListProcedureDocuments(ctx context.Context, request ListProcedureDocumentsRequestObject) (ListProcedureDocumentsResponseObject, error)
+	AttachProcedureDocument(ctx context.Context, request AttachProcedureDocumentRequestObject) (AttachProcedureDocumentResponseObject, error)
+	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
+}
+
 // A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
 	CatalogServer
 	AdministrationServer
+	DocumentServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents}
 }
+
+// MaxRequestBytes bounds the body of every request, so an upload is cut there
+// even if its document allows a larger file.
+const MaxRequestBytes = 25 << 20
+
+// ReadTimeout bounds how long the server reads a request, body included, so
+// a client that sends an upload a byte at a time does not hold the connection
+// forever. Five minutes let MaxRequestBytes through at about 0.7 Mbit/s.
+const ReadTimeout = 5 * time.Minute
 
 // Mount registers the API on mux. Errors raised outside the handlers answer
 // with the contract's Error too, without exposing their internal message.
@@ -55,7 +72,7 @@ func Mount(mux *http.ServeMux, server StrictServerInterface, logger *slog.Logger
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError,
 	})
-	return HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})
+	return http.MaxBytesHandler(HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest}), MaxRequestBytes)
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

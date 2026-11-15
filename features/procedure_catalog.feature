@@ -62,9 +62,10 @@ Feature: Browse the catalog of procedure types
     Then the publication is rejected with the code "<code>"
 
     Examples:
-      | problem                         | code                   |
-      | no description                  | no_description         |
-      | a document without formats      | no_accepted_types      |
-      | a document with a wrong format  | invalid_accepted_type  |
-      | a document without a size limit | no_max_size            |
-      | a blank deadline                | blank_text             |
+      | problem                                              | code                     |
+      | no description                                       | no_description           |
+      | a document without formats                           | no_accepted_types        |
+      | a document with a wrong format                       | invalid_accepted_type    |
+      | a document with a format the upload cannot recognize | undetected_accepted_type |
+      | a document without a size limit                      | no_max_size              |
+      | a blank deadline                                     | blank_text               |

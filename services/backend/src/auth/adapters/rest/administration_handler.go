@@ -37,7 +37,7 @@ const (
 
 func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAreaRequestObject) (api.CreateAreaResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.CreateArea401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -57,7 +57,7 @@ func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAr
 
 func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.GrantMembershipRequestObject) (api.GrantMembershipResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.GrantMembership401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -98,7 +98,7 @@ func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.Gra
 
 func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.CreatePermissionRequestObject) (api.CreatePermissionResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.CreatePermission401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -120,7 +120,7 @@ func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.Cr
 
 func (h *AdministrationHandler) CreateRole(ctx context.Context, req api.CreateRoleRequestObject) (api.CreateRoleResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.CreateRole401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -142,7 +142,7 @@ func (h *AdministrationHandler) CreateRole(ctx context.Context, req api.CreateRo
 
 func (h *AdministrationHandler) UpdateRolePermissions(ctx context.Context, req api.UpdateRolePermissionsRequestObject) (api.UpdateRolePermissionsResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.UpdateRolePermissions401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {

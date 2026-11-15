@@ -21,6 +21,7 @@ import (
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	out "backend/src/auth/ports/output"
+	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
 	"backend/src/procedure/domain/definition"
@@ -103,15 +104,34 @@ func run(logger *slog.Logger) error {
 			return stoppedDuringStartup(stop, fmt.Errorf("publish the example procedure type: %w", err))
 		}
 	}
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), authrest.NewAdministrationHandler(auth, areaService, memberships))
-
-	router := http.NewServeMux()
-	api.Mount(router, app, logger)
+	files, err := openFiles(cfg, logger)
+	if err != nil {
+		return err
+	}
+	// The procedures and what is recorded about their documents stay in
+	// memory until they are stored in PostgreSQL.
+	procedures := procedureapp.NewProcedureService(procedureTypes, proceduremem.NewProcedureRepository(), memberships, newID)
+	documents := procedureapp.NewDocumentService(procedures, proceduremem.NewDocumentRepository(), files, newID, time.Now)
+	// Once, at startup: the server assumes it is the only instance.
+	removed, err := documents.RemoveUnreferencedFiles(startup)
+	if err != nil {
+		return fmt.Errorf("remove the files that no document names: %w", err)
+	}
+	if removed > 0 {
+		logger.Info("removed the files that no document names", "files", removed)
+	}
+	app := api.NewServer(
+		authHandler,
+		procedurerest.NewCatalogHandler(procedureTypes),
+		authrest.NewAdministrationHandler(auth, areaService, memberships),
+		procedurerest.NewDocumentHandler(auth, documents),
+	)
 
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           router,
+		Handler:           api.Mount(http.NewServeMux(), app, logger),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       api.ReadTimeout,
 	}
 	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
 	return serve(stop, server, server.ListenAndServe)

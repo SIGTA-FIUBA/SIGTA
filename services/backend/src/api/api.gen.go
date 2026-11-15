@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -152,6 +154,28 @@ type Permission struct {
 	Name string `json:"name"`
 }
 
+// ProcedureDocument defines model for ProcedureDocument.
+type ProcedureDocument struct {
+	// Current Si es el último que se adjuntó para ese documento; los anteriores quedan registrados
+	Current bool `json:"current"`
+
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document string `json:"document"`
+	FileName string `json:"file_name"`
+	Id       string `json:"id"`
+
+	// MediaType Tipo que reconoció el servidor por el contenido
+	MediaType string `json:"media_type"`
+
+	// Size Tamaño en bytes
+	Size int64 `json:"size"`
+
+	// Step Paso en el que se adjuntó
+	Step       string    `json:"step"`
+	UploadedAt time.Time `json:"uploaded_at"`
+	UploadedBy string    `json:"uploaded_by"`
+}
+
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
 type Role struct {
 	Id   string `json:"id"`
@@ -179,6 +203,9 @@ type User struct {
 	Staff bool `json:"staff"`
 }
 
+// ProcedureId defines model for ProcedureId.
+type ProcedureId = string
+
 // SessionCookie defines model for SessionCookie.
 type SessionCookie = string
 
@@ -187,6 +214,9 @@ type BadRequest = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -243,6 +273,28 @@ type GrantMembershipParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// ListProcedureDocumentsParams defines parameters for ListProcedureDocuments.
+type ListProcedureDocumentsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// AttachProcedureDocumentMultipartBody defines parameters for AttachProcedureDocument.
+type AttachProcedureDocumentMultipartBody struct {
+	// Document Identificador del documento que pide el paso. Va antes que file
+	Document string             `json:"document"`
+	File     openapi_types.File `json:"file"`
+}
+
+// AttachProcedureDocumentParams defines parameters for AttachProcedureDocument.
+type AttachProcedureDocumentParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// DownloadProcedureDocumentParams defines parameters for DownloadProcedureDocument.
+type DownloadProcedureDocumentParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
 type CreateAreaJSONRequestBody = NewArea
 
@@ -257,6 +309,9 @@ type UpdateRolePermissionsJSONRequestBody = RolePermissions
 
 // GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
 type GrantMembershipJSONRequestBody = NewMembership
+
+// AttachProcedureDocumentMultipartRequestBody defines body for AttachProcedureDocument for multipart/form-data ContentType.
+type AttachProcedureDocumentMultipartRequestBody AttachProcedureDocumentMultipartBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -290,6 +345,15 @@ type ServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
+	// ListProcedureDocuments Documentos adjuntos a un trámite
+	// (GET /procedures/{procedureId}/documents)
+	ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams)
+	// AttachProcedureDocument Adjunta un documento a un trámite
+	// (POST /procedures/{procedureId}/documents)
+	AttachProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AttachProcedureDocumentParams)
+	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -703,6 +767,147 @@ func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ListProcedureDocuments operation middleware
+func (siw *ServerInterfaceWrapper) ListProcedureDocuments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProcedureDocumentsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProcedureDocuments(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttachProcedureDocument operation middleware
+func (siw *ServerInterfaceWrapper) AttachProcedureDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AttachProcedureDocumentParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttachProcedureDocument(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadProcedureDocument operation middleware
+func (siw *ServerInterfaceWrapper) DownloadProcedureDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadProcedureDocumentParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadProcedureDocument(w, r, procedureId, documentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -833,6 +1038,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/roles", wrapper.CreateRole)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}/permissions", wrapper.UpdateRolePermissions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.DownloadProcedureDocument)
 
 	return m
 }
@@ -840,6 +1048,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 type BadRequestJSONResponse Error
 
 type ForbiddenJSONResponse Error
+
+type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -1337,6 +1547,208 @@ func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesRespons
 	return err
 }
 
+type ListProcedureDocumentsRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      ListProcedureDocumentsParams
+}
+
+type ListProcedureDocumentsResponseObject interface {
+	VisitListProcedureDocumentsResponse(w http.ResponseWriter) error
+}
+
+type ListProcedureDocuments200JSONResponse []ProcedureDocument
+
+func (response ListProcedureDocuments200JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureDocuments401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListProcedureDocuments401JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureDocuments404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListProcedureDocuments404JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocumentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      AttachProcedureDocumentParams
+	Body        *multipart.Reader
+}
+
+type AttachProcedureDocumentResponseObject interface {
+	VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error
+}
+
+type AttachProcedureDocument201JSONResponse ProcedureDocument
+
+func (response AttachProcedureDocument201JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AttachProcedureDocument400JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AttachProcedureDocument401JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AttachProcedureDocument403JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AttachProcedureDocument404JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadProcedureDocumentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	DocumentId  string      `json:"documentId"`
+	Params      DownloadProcedureDocumentParams
+}
+
+type DownloadProcedureDocumentResponseObject interface {
+	VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error
+}
+
+type DownloadProcedureDocument200ResponseHeaders struct {
+	CacheControl          string
+	ContentDisposition    string
+	ContentSecurityPolicy string
+	XContentTypeOptions   string
+}
+
+type DownloadProcedureDocument200AsteriskResponse struct {
+	Body          io.Reader
+	Headers       DownloadProcedureDocument200ResponseHeaders
+	ContentType   string
+	ContentLength int64
+}
+
+func (response DownloadProcedureDocument200AsteriskResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", response.ContentType)
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.Header().Set("Content-Security-Policy", fmt.Sprint(response.Headers.ContentSecurityPolicy))
+	w.Header().Set("X-Content-Type-Options", fmt.Sprint(response.Headers.XContentTypeOptions))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadProcedureDocument401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DownloadProcedureDocument401JSONResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadProcedureDocument404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DownloadProcedureDocument404JSONResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CreateArea Crea un área del personal
@@ -1369,6 +1781,15 @@ type StrictServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
+	// ListProcedureDocuments Documentos adjuntos a un trámite
+	// (GET /procedures/{procedureId}/documents)
+	ListProcedureDocuments(ctx context.Context, request ListProcedureDocumentsRequestObject) (ListProcedureDocumentsResponseObject, error)
+	// AttachProcedureDocument Adjunta un documento a un trámite
+	// (POST /procedures/{procedureId}/documents)
+	AttachProcedureDocument(ctx context.Context, request AttachProcedureDocumentRequestObject) (AttachProcedureDocumentResponseObject, error)
+	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1700,6 +2121,95 @@ func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProcedureTypesResponseObject); ok {
 		if err := validResponse.VisitListProcedureTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProcedureDocuments operation middleware
+func (sh *strictHandler) ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams) {
+	var request ListProcedureDocumentsRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProcedureDocuments(ctx, request.(ListProcedureDocumentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProcedureDocuments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProcedureDocumentsResponseObject); ok {
+		if err := validResponse.VisitListProcedureDocumentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttachProcedureDocument operation middleware
+func (sh *strictHandler) AttachProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AttachProcedureDocumentParams) {
+	var request AttachProcedureDocumentRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttachProcedureDocument(ctx, request.(AttachProcedureDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttachProcedureDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttachProcedureDocumentResponseObject); ok {
+		if err := validResponse.VisitAttachProcedureDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadProcedureDocument operation middleware
+func (sh *strictHandler) DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams) {
+	var request DownloadProcedureDocumentRequestObject
+
+	request.ProcedureId = procedureId
+	request.DocumentId = documentId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadProcedureDocument(ctx, request.(DownloadProcedureDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadProcedureDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadProcedureDocumentResponseObject); ok {
+		if err := validResponse.VisitDownloadProcedureDocumentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

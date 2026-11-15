@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/src/migrations"
+	"backend/src/procedure/adapters/disk"
 	proceduremem "backend/src/procedure/adapters/memory"
 	"backend/src/procedure/adapters/postgres"
 	"backend/src/procedure/ports/output"
@@ -35,6 +37,22 @@ func openProcedureVersions(ctx context.Context, cfg config, logger *slog.Logger)
 		return nil, nil, err
 	}
 	return postgres.NewProcedureVersions(pool), pool.Close, nil
+}
+
+// openFiles returns where the files of the procedures are kept.
+func openFiles(cfg config, logger *slog.Logger) (output.Files, error) {
+	dir := cfg.documentsDir
+	if dir == "" {
+		// loadConfig asks for a directory everywhere but development. A new
+		// one each time, since the records of the documents are in memory and
+		// another user of the machine could have created a fixed one.
+		var err error
+		if dir, err = os.MkdirTemp("", "sigta-documents-"); err != nil {
+			return nil, fmt.Errorf("documents directory: %w", err)
+		}
+		logger.Warn("SIGTA_DOCUMENTS_DIR is not set: the documents go to a temporary directory", "dir", dir)
+	}
+	return disk.NewFiles(dir)
 }
 
 // checkDatabase refuses a schema that is not migrated, and a role that can

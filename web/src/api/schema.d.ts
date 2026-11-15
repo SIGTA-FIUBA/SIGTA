@@ -194,6 +194,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Documentos adjuntos a un trámite
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó.
+         */
+        get: operations["listProcedureDocuments"];
+        put?: never;
+        /**
+         * Adjunta un documento a un trámite
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento.
+         */
+        post: operations["attachProcedureDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Descarga el archivo de un documento adjunto
+         * @description Para quien puede ver el trámite. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
+         */
+        get: operations["downloadProcedureDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -318,8 +367,37 @@ export interface components {
             until?: string;
             granted_by: string;
         };
+        ProcedureDocument: {
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            /** @description Paso en el que se adjuntó */
+            step: string;
+            file_name: string;
+            /** @description Tipo que reconoció el servidor por el contenido */
+            media_type: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes
+             */
+            size: number;
+            uploaded_by: string;
+            /** Format: date-time */
+            uploaded_at: string;
+            /** @description Si es el último que se adjuntó para ese documento; los anteriores quedan registrados */
+            current: boolean;
+        };
     };
     responses: {
+        /** @description No existe, o la persona no lo puede ver: la respuesta es la misma, para no revelar si existe */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Pedido inválido */
         BadRequest: {
             headers: {
@@ -350,6 +428,7 @@ export interface components {
     };
     parameters: {
         SessionCookie: string;
+        ProcedureId: string;
     };
     requestBodies: never;
     headers: never;
@@ -635,6 +714,104 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listProcedureDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documentos del trámite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDocument"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachProcedureDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description Identificador del documento que pide el paso. Va antes que file */
+                    document: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Documento adjunto */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadProcedureDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                documentId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El archivo, con el tipo que reconoció el servidor */
+            200: {
+                headers: {
+                    /** @description Siempre attachment, con el nombre del archivo */
+                    "Content-Disposition": string;
+                    /** @description Siempre nosniff, para que el navegador use el tipo que reconoció el servidor en vez de deducirlo del contenido */
+                    "X-Content-Type-Options": string;
+                    /** @description Siempre sandbox, para que un archivo abierto en el navegador no ejecute código con la sesión */
+                    "Content-Security-Policy": string;
+                    /** @description Siempre no-store, para que el archivo no quede guardado en cachés compartidas ni del navegador */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

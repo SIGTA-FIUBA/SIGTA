@@ -510,7 +510,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 |---|---|---|---|
 | D-04 | Infraestructura de despliegue y su financiamiento | Fin de la fase de diseño | Equipo |
 | D-08 | A quién se le otorgan los permisos de la Secretaría para proponer y aprobar versiones de los tipos de trámite, y si el equipo de proyecto tiene una membresía en ella (ADR-020) | La interfaz de edición de tipos de trámite | Equipo y canal con la Secretaría |
-| D-09 | Cuánto tiempo se conservan los documentos de un trámite cerrado | La estimación de almacenamiento para TICs | Secretaría |
+| D-09 | Cuánto tiempo se conservan los documentos de un trámite cerrado. Mientras tanto, tres reglas provisorias tocan la retención: un trámite guarda hasta 20 archivos por documento, el servidor borra al arrancar los archivos que ningún documento nombra, y un mismo contenido se guarda una sola vez aunque lo adjunten trámites de titulares distintos, así que suprimir el de uno no puede borrar el archivo si otro documento lo nombra (CONTRIBUTING, sección Documentos) | La estimación de almacenamiento para TICs | Secretaría |
 | D-10 | Qué ve el personal: todos los trámites que pasan por su área o solo los que tienen abierto un paso suyo (ADR-020) | La bandeja del personal | Canal con la Secretaría |
 | D-11 | Si hay un administrador global o un responsable por área que da de alta a su propio personal (ADR-020) | La gestión de membresías | Canal con la Secretaría |
 | D-12 | Si el alcance por tipo de trámite se usa o alcanza con áreas más finas. Agrupar permisos ya se resolvió con roles (ADR-020) | La gestión de membresías | Canal con la Secretaría |

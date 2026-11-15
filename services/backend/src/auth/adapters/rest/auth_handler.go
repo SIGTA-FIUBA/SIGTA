@@ -112,7 +112,7 @@ func (h *AuthHandler) Logout(ctx context.Context, req api.LogoutRequestObject) (
 
 func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
+	if ports.Unauthenticated(err) {
 		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized("Iniciá sesión para continuar.")}, nil
 	}
 	if err != nil {
@@ -152,12 +152,6 @@ func (h *AuthHandler) cookie(name, value string, maxAge int) string {
 		SameSite: http.SameSiteLaxMode,
 	}
 	return c.String()
-}
-
-func isUnauthenticated(err error) bool {
-	return errors.Is(err, domain.ErrSessionNotFound) ||
-		errors.Is(err, domain.ErrSessionExpired) ||
-		errors.Is(err, domain.ErrUnknownUser)
 }
 
 func unauthorized(message string) api.UnauthorizedJSONResponse {
