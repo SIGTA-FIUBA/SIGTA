@@ -116,7 +116,7 @@ func (w *documentWorld) setUp() error {
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	w.documents = memory.NewDocumentRepository()
-	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, time.Now)
+	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)
 	w.service = application.NewDocumentService(procedures, w.documents, files, w.newID, time.Now)
 	return nil
 }

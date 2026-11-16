@@ -20,7 +20,24 @@ var (
 	ErrInvalidOutcome      = fmt.Errorf("%w: the outcome is not one of the step", ErrInvalidConfirmation)
 	ErrNotAReferral        = fmt.Errorf("%w: an external file number goes only with a referral", ErrInvalidConfirmation)
 	ErrApplicantStep       = fmt.Errorf("%w: the applicant completes their steps, staff confirms theirs", ErrInvalidConfirmation)
+	ErrMissingDocuments    = fmt.Errorf("%w: the step asks for documents that are not attached", ErrInvalidConfirmation)
 )
+
+// MissingDocumentsError names the mandatory documents of a step that have no
+// file attached to it, in the order the step asks for them.
+type MissingDocumentsError struct {
+	Documents []definition.Document
+}
+
+func (e *MissingDocumentsError) Error() string {
+	ids := make([]string, 0, len(e.Documents))
+	for _, d := range e.Documents {
+		ids = append(ids, d.ID)
+	}
+	return fmt.Sprintf("%v: %s", ErrMissingDocuments, strings.Join(ids, ", "))
+}
+
+func (e *MissingDocumentsError) Unwrap() error { return ErrMissingDocuments }
 
 type Confirmation struct {
 	Step               string
@@ -29,6 +46,9 @@ type Confirmation struct {
 	Observation        string
 	Outcome            string
 	ExternalFileNumber string
+	// Attached holds the documents of the procedure type that have a file
+	// attached to the step being confirmed.
+	Attached []string
 }
 
 func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirmation) (domain.Procedure, domain.Event, error) {
@@ -44,6 +64,9 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	}
 	if strings.TrimSpace(c.Observation) == "" {
 		return p, domain.Event{}, ErrNoObservation
+	}
+	if err := MissingDocuments(d, step, c.Attached); err != nil {
+		return p, domain.Event{}, err
 	}
 	nextID, err := next(step, c.Outcome)
 	if err != nil {
@@ -88,6 +111,28 @@ func Open(p domain.Procedure, opening []definition.Step, by string, at time.Time
 		events = append(events, domain.Event{ProcedureID: p.ID, Step: s.ID, Action: s.Action, By: by, At: at, Next: s.Next})
 	}
 	return events
+}
+
+// MissingDocuments fails with a MissingDocumentsError if a mandatory document
+// of the step is not among the attached ones. Optional documents do not count.
+// Submitting a procedure checks the same for the opening steps of the
+// applicant (submission.MissingDocuments).
+func MissingDocuments(d definition.ProcedureTypeDefinition, step definition.Step, attached []string) error {
+	var missing []definition.Document
+	for _, id := range step.Documents {
+		if slices.Contains(attached, id) {
+			continue
+		}
+		doc := definition.Document{ID: id}
+		if i := slices.IndexFunc(d.Documents, func(candidate definition.Document) bool { return candidate.ID == id }); i >= 0 {
+			doc = d.Documents[i]
+		}
+		missing = append(missing, doc)
+	}
+	if len(missing) > 0 {
+		return &MissingDocumentsError{Documents: missing}
+	}
+	return nil
 }
 
 func find(steps []definition.Step, id string) (definition.Step, bool) {

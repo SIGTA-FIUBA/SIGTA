@@ -33,6 +33,7 @@ type authorizationWorld struct {
 	administrators    *authmem.Administrators
 	storedMemberships *authmem.MembershipRepository
 	procedures        *memory.ProcedureRepository
+	documents         *memory.DocumentRepository
 	now               time.Time
 
 	typeIDs map[string]int64
@@ -54,6 +55,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 		administrators:    authmem.NewAdministrators("admin@fi.uba.ar"),
 		storedMemberships: authmem.NewMembershipRepository(),
 		procedures:        memory.NewProcedureRepository(),
+		documents:         memory.NewDocumentRepository(),
 		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:           map[string]int64{},
 		steps:             map[string][]definition.Step{},
@@ -152,7 +154,7 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, clock)
-	w.service = application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, clock)
+	w.service = application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, clock)
 	return nil
 }
 

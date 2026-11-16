@@ -3,6 +3,8 @@ package rest
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -62,6 +64,10 @@ func confirmationError(err error) (api.ConfirmStepResponseObject, error) {
 	case errors.Is(err, engine.ErrStepNotOpen):
 		return api.ConfirmStep409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageStepNotOpen}}, nil
 	}
+	var missing *engine.MissingDocumentsError
+	if errors.As(err, &missing) {
+		return api.ConfirmStep400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: missingDocumentsMessage(missing)}}, nil
+	}
 	for _, invalid := range invalidConfirmations {
 		if errors.Is(err, invalid.err) {
 			return api.ConfirmStep400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: invalid.message}}, nil
@@ -92,4 +98,21 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 		}
 	}
 	return event
+}
+
+// missingDocumentsMessage names each missing document, so that whoever
+// confirms knows what to attach.
+func missingDocumentsMessage(e *engine.MissingDocumentsError) string {
+	names := make([]string, 0, len(e.Documents))
+	for _, d := range e.Documents {
+		name := d.Name
+		if name == "" {
+			name = d.ID
+		}
+		names = append(names, fmt.Sprintf("%q", name))
+	}
+	if len(names) == 1 {
+		return "Falta adjuntar el documento " + names[0] + "."
+	}
+	return "Falta adjuntar los documentos " + strings.Join(names[:len(names)-1], ", ") + " y " + names[len(names)-1] + "."
 }
