@@ -1,6 +1,3 @@
-# The entry shared by the environments of SIGTA: Traefik, which routes each
-# host to the proxy of its environment (app.yml), and the Cloudflare tunnel,
-# the only way in. No service publishes a port on the host.
 services:
   traefik:
     image: traefik:v3.7.19
@@ -9,14 +6,20 @@ services:
       - --providers.swarm.exposedByDefault=false
       - --providers.swarm.network=sigta-edge
       - --entryPoints.web.address=:80
-      # Port 80 is only reachable from the edge network, where the tunnel
-      # sets the client address.
-      - --entryPoints.web.forwardedHeaders.insecure=true
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.websecure.address=:443
+      - --entryPoints.websecure.http.tls.certResolver=letsencrypt
+      - --certificatesResolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesResolvers.letsencrypt.acme.httpChallenge.entryPoint=web
       - --ping=true
       - --global.checkNewVersion=false
       - --global.sendAnonymousUsage=false
+    ports:
+      - { target: 80, published: 80, mode: host }
+      - { target: 443, published: 443, mode: host }
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme:/acme
     networks:
       - edge
     healthcheck:
@@ -28,25 +31,10 @@ services:
       placement:
         constraints: [node.role == manager]
 
-  cloudflared:
-    image: cloudflare/cloudflared:2026.11.0
-    command:
-      - tunnel
-      - --no-autoupdate
-      - --credentials-file=/run/secrets/cloudflared_credentials
-      - --url=http://traefik:80
-      - run
-      - ${CLOUDFLARE_TUNNEL_ID}
-    secrets:
-      - cloudflared_credentials
-    networks:
-      - edge
+volumes:
+  acme:
 
 networks:
   edge:
     name: sigta-edge
     driver: overlay
-
-secrets:
-  cloudflared_credentials:
-    external: true

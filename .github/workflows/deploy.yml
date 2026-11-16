@@ -1,10 +1,6 @@
 name: Deploy
 
-# Each push to main or develop builds the images, publishes them in GHCR and
-# deploys them on the VM in Google Cloud: main in prod and develop in dev
-# (docs/15-despliegue.md). GitHub keeps no key of Google Cloud: the job gets a
-# short-lived token through Workload Identity Federation, which only accepts
-# runs of those two branches.
+# main to prod and develop to dev (docs/15-despliegue.md).
 on:
   push:
     branches: [main, develop]
@@ -13,8 +9,7 @@ on:
 permissions:
   contents: read
 
-# One deploy at a time, since both environments share the entry, and none
-# is cancelled halfway.
+# Both environments share the entry.
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -26,9 +21,8 @@ env:
   GCP_PROJECT: summer-function-513519-a1
   GCP_ZONE: southamerica-east1-b
   GCP_VM: sigta
-  # main is prod; develop, dev.
   ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
-  SIGTA_URL: ${{ github.ref_name == 'main' && 'https://sigta.lopeztancredi.com.ar' || 'https://sigta-dev.lopeztancredi.com.ar' }}
+  SIGTA_HOST: ${{ github.ref_name == 'main' && 'sigta.lopeztancredi.com.ar' || 'sigta-dev.lopeztancredi.com.ar' }}
 
 jobs:
   images:
@@ -73,6 +67,9 @@ jobs:
     needs: images
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      url: https://${{ env.SIGTA_HOST }}
     permissions:
       contents: read
       id-token: write
@@ -91,16 +88,23 @@ jobs:
           gcloud compute scp --recurse deploy/swarm deploy/postgres "$GCP_VM:~/" \
             --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet
       - name: Deploy
-        # The registry login lasts what this job: the token of the run goes in
-        # through standard input and is removed after the deploy.
         env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          BACKEND_DB_PASSWORD: ${{ secrets.BACKEND_DB_PASSWORD }}
+          BACKEND_MIGRATIONS_DB_PASSWORD: ${{ secrets.BACKEND_MIGRATIONS_DB_PASSWORD }}
+          AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
-          printf %s "$TOKEN" | gcloud compute ssh "$GCP_VM" \
+          for name in GHCR_USER GHCR_TOKEN POSTGRES_PASSWORD BACKEND_DB_PASSWORD BACKEND_MIGRATIONS_DB_PASSWORD \
+            AI_DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+            printf '%s=%s\n' "$name" "$(printenv "$name")"
+          done | gcloud compute ssh "$GCP_VM" \
             --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet \
-            --command "sudo docker login ghcr.io --username '${{ github.actor }}' --password-stdin \
-              && { sudo sh swarm/deploy.sh \"$ENVIRONMENT\" '${{ github.sha }}'; status=\$?; sudo docker logout ghcr.io; exit \$status; }"
-      - name: Check SIGTA through the tunnel
+            --command "sudo sh swarm/deploy.sh $ENVIRONMENT $GITHUB_SHA $SIGTA_HOST"
+      - name: Check SIGTA
         run: |
-          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "$SIGTA_URL/"
-          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "$SIGTA_URL/api/procedure-types"
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "https://$SIGTA_HOST/"
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "https://$SIGTA_HOST/api/procedure-types"

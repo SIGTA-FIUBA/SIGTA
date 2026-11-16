@@ -1,19 +1,14 @@
 #!/bin/sh
-# Deploys a version of SIGTA in one environment of the Swarm manager, prod or
-# dev, in four steps: updates the shared entry (edge.yml), brings up the
-# database of the environment, applies the migrations of the new version and
-# updates the application. A failed step leaves the previous version online.
-# The images are ghcr.io/sigta-fiuba/sigta/{backend,proxy}:TAG, and the
-# registry login is the caller's (docker login ghcr.io).
+# sudo sh deploy.sh ENVIRONMENT TAG HOST < secrets
 #
-#   sudo sh deploy.sh ENVIRONMENT TAG
-#
-# /etc/sigta/edge.env sets CLOUDFLARE_TUNNEL_ID, and /etc/sigta/ENVIRONMENT.env
-# sets SIGTA_HOST and SIGTA_ENV (docs/15-despliegue.md).
+# secrets has one NAME=value per line: GHCR_USER, GHCR_TOKEN, POSTGRES_PASSWORD,
+# BACKEND_DB_PASSWORD, BACKEND_MIGRATIONS_DB_PASSWORD, AI_DB_PASSWORD,
+# GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
 set -eu
 
 environment=$1
-tag=$2
+SIGTA_TAG=$2
+SIGTA_HOST=$3
 case "$environment" in
 prod | dev) ;;
 *)
@@ -21,14 +16,17 @@ prod | dev) ;;
     exit 2
     ;;
 esac
+while IFS='=' read -r name value; do
+    [ -n "$name" ] && export "$name=$value"
+done
 here=$(cd "$(dirname "$0")" && pwd)
-. /etc/sigta/edge.env
-. "/etc/sigta/$environment.env"
 ENVIRONMENT=$environment
-SIGTA_TAG=$tag
 DB_INIT_DIGEST=$(cat "$here/../postgres/init.sh" "$here/../postgres/sql/roles.sql" | sha256sum | cut -c1-12)
-export ENVIRONMENT SIGTA_TAG SIGTA_HOST SIGTA_ENV CLOUDFLARE_TUNNEL_ID DB_INIT_DIGEST
+export ENVIRONMENT SIGTA_TAG SIGTA_HOST DB_INIT_DIGEST
 stack=sigta-$environment
+
+printf %s "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin >/dev/null
+trap 'docker logout ghcr.io >/dev/null' EXIT
 
 echo "Entry"
 docker stack deploy --detach=false --prune -c "$here/edge.yml" sigta-edge
@@ -47,17 +45,16 @@ if ! healthy; then
     exit 1
 fi
 
-# Swarm has no one-off containers with secrets: the migrations run as a
-# service that does not restart, and its final state says how they went.
+# Swarm has no one-off containers: the migrations run as a service that does
+# not restart (ADR-022).
 echo "Migrations"
 migrate=$stack-migrate
 docker service rm "$migrate" >/dev/null 2>&1 || true
 docker service create --detach --quiet --name "$migrate" --with-registry-auth \
     --restart-condition none --network "$stack-db" \
-    --secret "source=${environment}_migrations_database_url,target=migrations_database_url" \
-    --env SIGTA_ENV="$SIGTA_ENV" \
-    --env SIGTA_MIGRATIONS_DATABASE_URL_FILE=/run/secrets/migrations_database_url \
-    "ghcr.io/sigta-fiuba/sigta/backend:$tag" migrate >/dev/null
+    --env SIGTA_ENV=development \
+    --env "SIGTA_MIGRATIONS_DATABASE_URL=postgres://backend_migrations:$BACKEND_MIGRATIONS_DB_PASSWORD@db:5432/sigta?sslmode=disable" \
+    "ghcr.io/sigta-fiuba/sigta/backend:$SIGTA_TAG" migrate >/dev/null
 state=
 for _ in $(seq 150); do
     state=$(docker service ps --format '{{.CurrentState}}' "$migrate" | head -n 1)
@@ -76,8 +73,8 @@ Complete*) ;;
     ;;
 esac
 
-# Compose does not interpolate keys, and the labels of Traefik name the
-# router and the service after the environment: they are filled in here.
+# Compose does not interpolate keys, and the Traefik labels carry the
+# environment in theirs.
 echo "Application"
 sed "s/[$]{ENVIRONMENT}/$environment/g" "$here/app.yml" |
     timeout 600 docker stack deploy --detach=false --prune --with-registry-auth -c - "$stack"
@@ -90,4 +87,4 @@ for service in "${stack}_backend" "${stack}_proxy"; do
         ;;
     esac
 done
-echo "Deployed $tag in $environment"
+echo "Deployed $SIGTA_TAG in $environment"
