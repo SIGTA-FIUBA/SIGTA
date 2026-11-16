@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -161,8 +162,9 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	recorder := getProcedure(t, fakeProcedures{detail: openedDetail(false)}, session)
 
 	var got struct {
-		CanAct bool `json:"can_act"`
-		Steps  []struct {
+		CanAct  bool            `json:"can_act"`
+		History json.RawMessage `json:"history"`
+		Steps   []struct {
 			Fields    json.RawMessage `json:"fields"`
 			Documents json.RawMessage `json:"documents"`
 			Outcomes  json.RawMessage `json:"outcomes"`
@@ -183,6 +185,31 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	}
 	if string(got.Steps[1].Files) != "[]" {
 		t.Errorf("files of a step that asks no document = %s, want []", got.Steps[1].Files)
+	}
+	if string(got.History) != "[]" {
+		t.Errorf("history of a procedure with no steps done = %s, want []", got.History)
+	}
+}
+
+func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
+	at := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	d := openedDetail(false)
+	d.History = []domain.Event{
+		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at, Next: "review"},
+		{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide, By: "staff-1", At: at.Add(time.Hour), Observation: "completo", Outcome: "accept", Next: "documents",
+			Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
+	}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	next, outcome, fileNumber, back := "review", "accept", "EX-1", "documents"
+	want := []api.ProcedureEvent{
+		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at, Next: &next},
+		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, Next: &back,
+			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
+	}
+	if !reflect.DeepEqual(got.History, want) {
+		t.Errorf("history = %+v, want %+v", got.History, want)
 	}
 }
 

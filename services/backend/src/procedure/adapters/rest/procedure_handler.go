@@ -49,6 +49,9 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 			people = append(people, d.UploadedBy)
 		}
 	}
+	for _, e := range detail.History {
+		people = append(people, e.By)
+	}
 	names, err := h.people.Names(ctx, people)
 	if err != nil {
 		return nil, err
@@ -62,6 +65,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		Applicant:     person(p.Applicant, names),
 		CanAct:        detail.CanAct,
 		Steps:         make([]api.ProcedureStep, 0, len(detail.Steps)),
+		History:       make([]api.ProcedureEvent, 0, len(detail.History)),
 	}
 	if !p.Closed() {
 		response.OpenStep = &p.OpenStep
@@ -75,6 +79,9 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	}
 	for _, s := range detail.Steps {
 		response.Steps = append(response.Steps, procedureStep(s, names))
+	}
+	for _, e := range detail.History {
+		response.History = append(response.History, procedureEvent(e, names))
 	}
 	return response, nil
 }

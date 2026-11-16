@@ -223,7 +223,7 @@ export interface paths {
         };
         /**
          * Detalle de un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas. Para quien no lo ve, el trámite no existe.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Para quien no lo ve, el trámite no existe.
          */
         get: operations["getProcedure"];
         put?: never;
@@ -498,7 +498,7 @@ export interface components {
             external_file_number?: string;
         };
         ProcedureEvent: {
-            /** @description Paso confirmado */
+            /** @description Paso hecho */
             step: string;
             by: components["schemas"]["Person"];
             /** Format: date-time */
@@ -542,6 +542,8 @@ export interface components {
             referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
+            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite y cada confirmación. No se puede cambiar ni borrar. */
+            history: components["schemas"]["ProcedureEvent"][];
         };
         /** @description Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área. */
         ProcedureReferral: {
