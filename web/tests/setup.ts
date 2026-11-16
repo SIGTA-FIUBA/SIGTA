@@ -31,3 +31,8 @@ window.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 }
+
+// Textarea with autosize measures again once the fonts load.
+Object.defineProperty(document, 'fonts', {
+  value: { addEventListener: vi.fn(), removeEventListener: vi.fn(), ready: Promise.resolve() },
+})

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CatalogPage } from '../../src/pages/CatalogPage'
 import { render } from '../render'
@@ -34,7 +35,9 @@ function renderCatalog(status: number, body: unknown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <CatalogPage />
+      <MemoryRouter>
+        <CatalogPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -54,6 +57,12 @@ describe('CatalogPage', () => {
     expect(screen.getByText('Carta (Obligatorio). Formatos: PDF, WEBP. Tamaño máximo: 10 MB.')).toBeInTheDocument()
     expect(screen.getByText('Hasta 30 días antes')).toBeInTheDocument()
     expect(screen.getByText('Ser regular')).toBeInTheDocument()
+  })
+
+  it('links each procedure type to the form that starts it', async () => {
+    renderCatalog(200, [equivalence])
+
+    expect(await screen.findByRole('link', { name: 'Iniciar Trámite B' })).toHaveAttribute('href', '/catalog/1/start')
   })
 
   it('sorts the procedure types by name', async () => {
