@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../../src/api/schema'
@@ -232,5 +233,123 @@ describe('ProcedurePage', () => {
     renderPage()
 
     expect((await screen.findByRole('link', { name: 'Volver al inicio' })).getAttribute('href')).toBe('/')
+  })
+})
+
+describe('ProcedurePage confirmation', () => {
+  const referable: Detail = {
+    ...detail,
+    steps: [
+      detail.steps[0]!,
+      {
+        ...detail.steps[1]!,
+        outcomes: [
+          { id: 'accept', name: 'Aceptar', next: 'evaluate' },
+          { id: 'send_back', name: 'Devolver al titular', next: 'documents' },
+        ],
+      },
+      {
+        ...detail.steps[1]!,
+        id: 'evaluate',
+        name: 'Dictamen',
+        action: 'confirm_external_fact',
+        area: { id: 'committee', name: 'Comisión Curricular' },
+        outcomes: [],
+      },
+    ],
+  }
+
+  // stubConfirmation answers the detail, and the confirmation with status.
+  function stubConfirmation(status: number, body: unknown, current: Detail = referable) {
+    const fetch = vi.fn(async (request: Request) =>
+      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
+    )
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  async function sent(fetch: ReturnType<typeof stubConfirmation>) {
+    const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+    return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('offers to confirm only an open step of the staff that the person can do', async () => {
+    stubConfirmation(201, {})
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Confirmar Revisar la solicitud' })).toBeDefined()
+  })
+
+  it.each([
+    ['who cannot act', { ...referable, can_act: false }],
+    ['a step of the applicant', { ...referable, open_step: 'documents', state: 'with_applicant' as const }],
+  ])('does not offer to confirm to %s', async (_, current) => {
+    stubConfirmation(201, {}, current)
+    renderPage()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('button', { name: 'Confirmar el paso' })).toBeNull()
+  })
+
+  it('asks for an outcome and an observation before sending', async () => {
+    const fetch = stubConfirmation(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirmar el paso' }))
+
+    expect(screen.getByText('Elegí una salida.')).toBeDefined()
+    expect(screen.getByText('Escribí una observación.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([])
+  })
+
+  it('asks for the external file number only when the outcome refers the procedure', async () => {
+    stubConfirmation(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
+    expect(screen.queryByLabelText('Número de expediente externo')).toBeNull()
+
+    await userEvent.click(screen.getByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Aceptar' }))
+    expect(screen.getByLabelText('Número de expediente externo')).toBeDefined()
+  })
+
+  it('sends the confirmation and says it is in the history', async () => {
+    const fetch = stubConfirmation(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Aceptar' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /Observación/ }), ' Documentación completa ')
+    await userEvent.type(screen.getByLabelText('Número de expediente externo'), 'EX-2026-00001')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
+
+    expect(await screen.findByText('Paso confirmado. Quedó en el historial.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([
+      {
+        url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/confirmation$/),
+        body: { observation: 'Documentación completa', outcome: 'accept', external_file_number: 'EX-2026-00001' },
+      },
+    ])
+    const reads = fetch.mock.calls.filter(([request]) => request.method === 'GET')
+    expect(reads.length).toBeGreaterThan(1)
+  })
+
+  it('shows why the server did not take the confirmation', async () => {
+    stubConfirmation(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' })
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /Observación/ }), 'Falta la firma')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'El paso ya no está abierto: el trámite cambió mientras tanto.',
+    )
+    expect(screen.queryByText('Paso confirmado. Quedó en el historial.')).toBeNull()
   })
 })

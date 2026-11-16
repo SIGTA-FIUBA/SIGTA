@@ -2,18 +2,25 @@ import {
   Alert,
   Anchor,
   Badge,
+  Button,
   Code,
   Group,
   Loader,
   Paper,
+  Select,
   SimpleGrid,
   Stack,
   Text,
+  Textarea,
+  TextInput,
   Timeline,
   Title,
 } from '@mantine/core'
-import type { ReactNode } from 'react'
+import { isNotEmpty, useForm } from '@mantine/form'
+import { useQueryClient } from '@tanstack/react-query'
+import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
+import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
 import { sizeText } from '../documentFormats'
@@ -167,7 +174,112 @@ function History({ detail }: { detail: Detail }) {
   )
 }
 
+// leadsElsewhere says whether moving from the step to the one that follows it
+// refers the procedure: only then can the confirmation carry a file number.
+function leadsElsewhere(detail: Detail, step: Step, outcome: string | null) {
+  const next = step.action === 'decide' ? step.outcomes.find((o) => o.id === outcome)?.next : step.next
+  const area = detail.steps.find((candidate) => candidate.id === next)?.area
+  return area !== undefined && area.id !== step.area?.id
+}
+
+function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step; onConfirmed: () => void }) {
+  const queryClient = useQueryClient()
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const decide = step.action === 'decide'
+  const form = useForm({
+    mode: 'uncontrolled',
+    initialValues: { observation: '', outcome: null as string | null, externalFileNumber: '' },
+    validate: {
+      observation: isNotEmpty('Escribí una observación.'),
+      outcome: (value) => (decide && !value ? 'Elegí una salida.' : null),
+    },
+  })
+  const outcome = form.useWatchValue('outcome')
+  const refers = leadsElsewhere(detail, step, outcome)
+
+  async function confirm(values: typeof form.values) {
+    setFailure(null)
+    setSending(true)
+    try {
+      const { response, error } = await api.POST('/procedures/{procedureId}/steps/{stepId}/confirmation', {
+        params: { path: { procedureId: detail.id, stepId: step.id } },
+        body: {
+          observation: values.observation.trim(),
+          outcome: decide ? (values.outcome ?? undefined) : undefined,
+          external_file_number:
+            refers && values.externalFileNumber.trim() ? values.externalFileNumber.trim() : undefined,
+        },
+      })
+      if (response.ok) {
+        onConfirmed()
+      } else {
+        setFailure(error && 'message' in error ? error.message : 'No pudimos confirmar el paso. Volvé a intentarlo.')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['procedure', detail.id] })
+      await queryClient.invalidateQueries({ queryKey: ['procedures'] })
+    } catch {
+      setFailure('No pudimos confirmar el paso. Revisá tu conexión y volvé a intentarlo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Paper withBorder p="md">
+      <form onSubmit={form.onSubmit((values) => void confirm(values))} noValidate>
+        <Stack gap="md">
+          <Title order={2}>Confirmar {step.name}</Title>
+          {step.action === 'confirm_external_fact' && (
+            <Text size="sm" c="dimmed">
+              Se registra que declarás que el paso se hizo fuera de SIGTA.
+            </Text>
+          )}
+          {decide && (
+            <Select
+              label="Salida"
+              withAsterisk
+              placeholder="Elegí una salida…"
+              data={step.outcomes.map((o) => ({ value: o.id, label: o.name }))}
+              key={form.key('outcome')}
+              {...form.getInputProps('outcome')}
+            />
+          )}
+          <Textarea
+            label="Observación"
+            withAsterisk
+            autosize
+            minRows={3}
+            key={form.key('observation')}
+            {...form.getInputProps('observation')}
+          />
+          {refers && (
+            <TextInput
+              label="Número de expediente externo"
+              description="Si el trámite tiene expediente en otro sistema."
+              key={form.key('externalFileNumber')}
+              {...form.getInputProps('externalFileNumber')}
+            />
+          )}
+          {failure && (
+            <Alert color="red" role="alert">
+              {failure}
+            </Alert>
+          )}
+          <Group>
+            <Button type="submit" loading={sending}>
+              Confirmar el paso
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Paper>
+  )
+}
+
 function ProcedureDetail({ detail }: { detail: Detail }) {
+  const [confirmed, setConfirmed] = useState(false)
+  const open = detail.steps.find((step) => step.id === detail.open_step)
   return (
     <Stack gap="lg">
       <Stack gap="xs">
@@ -198,6 +310,14 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
           )}
         </SimpleGrid>
       </Paper>
+      {confirmed && (
+        <Alert withCloseButton onClose={() => setConfirmed(false)} closeButtonLabel="Cerrar el aviso">
+          Paso confirmado. Quedó en el historial.
+        </Alert>
+      )}
+      {detail.can_act && open?.role === 'staff' && (
+        <ConfirmStep key={open.id} detail={detail} step={open} onConfirmed={() => setConfirmed(true)} />
+      )}
       <Stack gap="sm">
         <Title order={2}>Historial</Title>
         <History detail={detail} />
