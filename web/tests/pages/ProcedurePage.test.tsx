@@ -145,6 +145,72 @@ describe('ProcedurePage', () => {
     expect(screen.getByText('Sin paso abierto')).toBeDefined()
   })
 
+  it('shows the history in the order it was recorded, with who, when and what', async () => {
+    stubApi(200, {
+      ...detail,
+      steps: [
+        ...detail.steps,
+        {
+          ...detail.steps[1]!,
+          id: 'evaluate',
+          name: 'Dictamen',
+          action: 'confirm_external_fact',
+          area: { id: 'committee', name: 'Comisión Curricular' },
+          outcomes: [],
+        },
+      ],
+      history: [
+        {
+          step: 'documents',
+          by: { id: 'a-1', name: 'Titular Uno' },
+          at: '2026-11-16T15:00:00Z',
+          observation: '',
+          declared: false,
+          returned: false,
+        },
+        {
+          step: 'review',
+          by: { id: 's-1', name: 'Operativa Dos' },
+          at: '2026-11-17T15:30:00Z',
+          observation: 'Documentación completa',
+          outcome: 'accept',
+          declared: false,
+          returned: false,
+          referral: { from: 'office', to: 'committee', external_file_number: 'EX-2026-00001' },
+        },
+        {
+          step: 'evaluate',
+          by: { id: 's-2', name: '' },
+          at: '2026-11-20T13:00:00Z',
+          observation: 'Dictamen recibido',
+          declared: true,
+          returned: true,
+        },
+      ],
+    })
+    renderPage()
+
+    await screen.findByRole('heading', { level: 2, name: 'Historial' })
+    const items = screen.getAllByText(/ · \d{2}\/\d{2}\/\d{4}/).map((item) => item.textContent)
+    expect(items).toEqual([
+      'Titular Uno · 16/11/2026, 12:00',
+      'Operativa Dos · 17/11/2026, 12:30',
+      's-2 · 20/11/2026, 10:00',
+    ])
+    expect(screen.getByText('Salida: Aceptar')).toBeDefined()
+    expect(screen.getByText('Documentación completa')).toBeDefined()
+    expect(screen.getByText('Derivado a Comisión Curricular, expediente EX-2026-00001')).toBeDefined()
+    expect(screen.getByText('Volvió al área de la que se derivó')).toBeDefined()
+    expect(screen.getByText('Hecho fuera de SIGTA, declarado por quien lo confirmó')).toBeDefined()
+  })
+
+  it('says when no step has been done yet', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    expect(await screen.findByText('Todavía no hay pasos hechos.')).toBeDefined()
+  })
+
   it('says when the procedure does not exist or is not theirs', async () => {
     stubApi(404, { message: 'No existe el trámite.' })
     renderPage()

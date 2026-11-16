@@ -1,4 +1,17 @@
-import { Alert, Anchor, Badge, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import {
+  Alert,
+  Anchor,
+  Badge,
+  Code,
+  Group,
+  Loader,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  Timeline,
+  Title,
+} from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { NotFoundError, useProcedure } from '../api/procedures'
@@ -8,6 +21,17 @@ import { stateColors, stateNames } from '../procedureState'
 
 type Detail = components['schemas']['ProcedureDetail']
 type Step = components['schemas']['ProcedureStep']
+type Event = components['schemas']['ProcedureEvent']
+
+const dateTime = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+  timeZone: 'America/Argentina/Buenos_Aires',
+})
 
 function BackLink() {
   const state: unknown = useLocation().state
@@ -98,6 +122,51 @@ function StepCard({ procedureId, step, open }: { procedureId: string; step: Step
   )
 }
 
+function areaName(detail: Detail, id: string) {
+  return detail.steps.find((step) => step.area?.id === id)?.area?.name ?? id
+}
+
+function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
+  const step = detail.steps.find((candidate) => candidate.id === event.step)
+  const outcome = step?.outcomes.find((candidate) => candidate.id === event.outcome)
+  return (
+    <Stack gap="xs">
+      <Text size="sm" c="dimmed">
+        {personName(event.by)} · {dateTime.format(new Date(event.at))}
+      </Text>
+      {outcome && <Text size="sm">Salida: {outcome.name}</Text>}
+      {event.observation && <Text size="sm">{event.observation}</Text>}
+      {event.referral && (
+        <Text size="sm">
+          Derivado a {areaName(detail, event.referral.to)}
+          {event.referral.external_file_number && `, expediente ${event.referral.external_file_number}`}
+        </Text>
+      )}
+      {event.returned && <Text size="sm">Volvió al área de la que se derivó</Text>}
+      {event.declared && (
+        <Text size="xs" c="dimmed">
+          Hecho fuera de SIGTA, declarado por quien lo confirmó
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+function History({ detail }: { detail: Detail }) {
+  if (detail.history.length === 0) {
+    return <Text c="dimmed">Todavía no hay pasos hechos.</Text>
+  }
+  return (
+    <Timeline active={detail.history.length - 1} bulletSize={20} lineWidth={2}>
+      {detail.history.map((event, i) => (
+        <Timeline.Item key={i} title={detail.steps.find((step) => step.id === event.step)?.name ?? event.step}>
+          <HistoryItem detail={detail} event={event} />
+        </Timeline.Item>
+      ))}
+    </Timeline>
+  )
+}
+
 function ProcedureDetail({ detail }: { detail: Detail }) {
   return (
     <Stack gap="lg">
@@ -129,6 +198,10 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
           )}
         </SimpleGrid>
       </Paper>
+      <Stack gap="sm">
+        <Title order={2}>Historial</Title>
+        <History detail={detail} />
+      </Stack>
       <Stack gap="sm">
         <Title order={2}>Pasos</Title>
         <Text size="sm" c="dimmed">
