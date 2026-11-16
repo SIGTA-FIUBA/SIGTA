@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"backend/src/api"
@@ -49,7 +50,7 @@ func openedDetail(canAct bool) input.ProcedureDetail {
 		Steps: []detail.Step{
 			{
 				Step:      definition.Step{ID: "documents", Name: "Adjuntar documentos", Action: definition.ActionUploadDocument, Role: definition.RoleApplicant, Next: "review"},
-				Fields:    []definition.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo"}, Required: false}},
+				Fields:    []definition.FieldRequirement{{Field: definition.Field{ID: "reason", Name: "Motivo", Type: definition.FieldLongText}, Required: false}},
 				Documents: []definition.DocumentRequirement{{Document: definition.Document{ID: "transcript", Name: "Historia académica"}, Required: true}},
 				Files: []domain.Document{
 					{ID: "D-1", Requirement: "transcript", Step: "documents", FileName: "historia.pdf", MediaType: "application/pdf", Size: 3, UploadedBy: "staff-1"},
@@ -68,7 +69,7 @@ func openedDetail(canAct bool) input.ProcedureDetail {
 
 func getProcedure(t *testing.T, procedures fakeProcedures, cookie string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, procedures))
+	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, procedures, nil))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1", nil)
 	r.Header.Set("Cookie", "sigta_session="+cookie)
@@ -108,7 +109,7 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	if first.Id != "documents" || first.Action != api.UploadDocument || first.Role != api.Applicant || first.Area != nil || first.Next == nil || *first.Next != "review" {
 		t.Errorf("first step = %+v", first)
 	}
-	if len(first.Fields) != 1 || first.Fields[0] != (api.FieldRequirement{Id: "reason", Name: "Motivo", Required: false}) {
+	if len(first.Fields) != 1 || !reflect.DeepEqual(first.Fields[0], api.FieldRequirement{Id: "reason", Name: "Motivo", Required: false, Type: api.LongText, Options: []api.NamedOption{}}) {
 		t.Errorf("fields of the first step = %+v", first.Fields)
 	}
 	if len(first.Documents) != 1 || first.Documents[0].Id != "transcript" || !first.Documents[0].Required {

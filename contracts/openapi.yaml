@@ -302,6 +302,62 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /procedures:
+    post:
+      operationId: submitProcedure
+      summary: Inicia un trámite
+      description: >
+        Inicia un trámite a nombre de quien tiene la sesión, sea o no del
+        personal, con la última versión del tipo de trámite. Lleva los datos y
+        documentos que piden los pasos del titular antes del primer paso del
+        personal (submission en el catálogo), y deja el trámite en el paso
+        siguiente. Se crea todo o nada. El servidor reconoce el tipo de cada
+        archivo por su contenido y lo compara con los tipos y el tamaño máximo
+        del documento.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [procedure_type, values]
+              properties:
+                procedure_type:
+                  type: integer
+                  format: int64
+                  description: Va primero
+                values:
+                  type: string
+                  description: >
+                    JSON con un valor por campo: un texto, o una lista de textos
+                    para subject_list. Un campo que falta no se envía. Va
+                    después de procedure_type
+                document:
+                  type: string
+                  description: Identificador del documento del archivo que le sigue. Se repite, una vez por archivo
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo del document anterior
+      responses:
+        "201":
+          description: Trámite iniciado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedProcedure"
+        "400":
+          description: El envío no cumple con lo que piden los pasos iniciales, o está mal formado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionRejected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /procedures/{procedureId}:
     get:
       operationId: getProcedure
@@ -542,7 +598,7 @@ components:
       enum: [applicant, staff]
     FieldRequirement:
       type: object
-      required: [id, name, required]
+      required: [id, name, required, type, options]
       properties:
         id:
           type: string
@@ -550,6 +606,21 @@ components:
           type: string
         required:
           type: boolean
+        type:
+          $ref: "#/components/schemas/FieldType"
+        options:
+          type: array
+          description: Opciones de un campo option, vacío en los demás tipos. Se envía el id
+          items:
+            $ref: "#/components/schemas/NamedOption"
+    FieldType:
+      type: string
+      description: >
+        Tipo de un campo. text: texto corto. long_text: texto largo. number:
+        número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus
+        opciones, por su id. degree: carrera, como texto. subject_list: lista
+        de asignaturas, como textos.
+      enum: [text, long_text, number, date, option, degree, subject_list]
     DocumentRequirement:
       type: object
       required: [id, name, required, accepted_types, max_size]
@@ -572,7 +643,7 @@ components:
     CatalogEntry:
       type: object
       required:
-        [id, version, name, description, deadlines, admissibility, fields, documents]
+        [id, version, name, description, deadlines, admissibility, fields, documents, submission]
       properties:
         id:
           type: integer
@@ -601,6 +672,65 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentRequirement"
+        submission:
+          $ref: "#/components/schemas/SubmissionForm"
+    SubmissionForm:
+      type: object
+      description: >
+        Lo que se envía para iniciar el trámite: los datos y documentos de los
+        pasos del titular antes del primer paso del personal. fields y
+        documents del catálogo suman los de pasos del titular posteriores,
+        como una subsanación.
+      required: [fields, documents]
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
+    StartedProcedure:
+      type: object
+      required: [id, state]
+      properties:
+        id:
+          type: string
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        open_step:
+          type: string
+          description: Paso que espera el trámite; falta si quedó cerrado
+    SubmissionProblem:
+      type: object
+      required: [code, kind, id]
+      properties:
+        code:
+          type: string
+          description: >
+            missing: falta un dato o documento obligatorio. invalid: el dato no
+            es del tipo del campo. not_asked: los pasos iniciales no lo piden.
+            repeated: el documento vino más de una vez. type_not_accepted,
+            too_large, empty: el archivo no cumple con el documento.
+          enum: [missing, invalid, not_asked, repeated, type_not_accepted, too_large, empty]
+        kind:
+          type: string
+          enum: [field, document]
+        id:
+          type: string
+          description: Identificador del campo o del documento
+    SubmissionRejected:
+      type: object
+      required: [message, problems]
+      properties:
+        message:
+          type: string
+        problems:
+          type: array
+          description: Vacío si el pedido está mal formado
+          items:
+            $ref: "#/components/schemas/SubmissionProblem"
     User:
       type: object
       required: [id, email, name, staff, administrator]

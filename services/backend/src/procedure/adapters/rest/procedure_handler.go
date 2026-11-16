@@ -16,13 +16,14 @@ var _ api.ProcedureServer = (*ProcedureHandler)(nil)
 // The use case decides who sees a procedure: this handler only finds who is
 // behind the session and the names of the people it shows.
 type ProcedureHandler struct {
-	auth       authinput.Authenticator
-	people     authinput.People
-	procedures ports.ProcedureDetails
+	auth        authinput.Authenticator
+	people      authinput.People
+	procedures  ports.ProcedureDetails
+	submissions ports.Submissions
 }
 
-func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures ports.ProcedureDetails) *ProcedureHandler {
-	return &ProcedureHandler{auth: auth, people: people, procedures: procedures}
+func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures ports.ProcedureDetails, submissions ports.Submissions) *ProcedureHandler {
+	return &ProcedureHandler{auth: auth, people: people, procedures: procedures, submissions: submissions}
 }
 
 func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedureRequestObject) (api.GetProcedureResponseObject, error) {

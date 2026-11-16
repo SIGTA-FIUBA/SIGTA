@@ -168,6 +168,11 @@ func uploadParts(body *multipart.Reader) (string, *multipart.Part, error) {
 	}
 	file, err := body.NextPart()
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			// io.EOF is not wrapped: a request that ends here is malformed,
+			// while one that ends before a document has no more files.
+			return "", nil, fmt.Errorf("%w: no file after the document", errMalformedUpload)
+		}
 		return "", nil, fmt.Errorf("%w: %w", errMalformedUpload, err)
 	}
 	if file.FormName() != formFile {

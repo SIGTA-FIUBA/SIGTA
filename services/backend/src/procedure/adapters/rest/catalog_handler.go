@@ -29,14 +29,6 @@ func (h *CatalogHandler) ListProcedureTypes(ctx context.Context, _ api.ListProce
 }
 
 func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
-	fields := make([]api.FieldRequirement, 0, len(entry.Fields))
-	for _, field := range entry.Fields {
-		fields = append(fields, fieldRequirement(field))
-	}
-	documents := make([]api.DocumentRequirement, 0, len(entry.Documents))
-	for _, document := range entry.Documents {
-		documents = append(documents, documentRequirement(document))
-	}
 	return api.CatalogEntry{
 		Id:            entry.ProcedureType,
 		Version:       int64(entry.Version),
@@ -44,13 +36,37 @@ func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
 		Description:   entry.Description,
 		Deadlines:     orEmpty(entry.Deadlines),
 		Admissibility: orEmpty(entry.Admissibility),
-		Fields:        fields,
-		Documents:     documents,
+		Fields:        fieldRequirements(entry.Fields),
+		Documents:     documentRequirements(entry.Documents),
+		Submission: api.SubmissionForm{
+			Fields:    fieldRequirements(entry.SubmissionFields),
+			Documents: documentRequirements(entry.SubmissionDocuments),
+		},
 	}
 }
 
+func fieldRequirements(requirements []definition.FieldRequirement) []api.FieldRequirement {
+	fields := make([]api.FieldRequirement, 0, len(requirements))
+	for _, r := range requirements {
+		fields = append(fields, fieldRequirement(r))
+	}
+	return fields
+}
+
+func documentRequirements(requirements []definition.DocumentRequirement) []api.DocumentRequirement {
+	documents := make([]api.DocumentRequirement, 0, len(requirements))
+	for _, r := range requirements {
+		documents = append(documents, documentRequirement(r))
+	}
+	return documents
+}
+
 func fieldRequirement(r definition.FieldRequirement) api.FieldRequirement {
-	return api.FieldRequirement{Id: r.Field.ID, Name: r.Field.Name, Required: r.Required}
+	options := make([]api.NamedOption, 0, len(r.Field.Options))
+	for _, o := range r.Field.Options {
+		options = append(options, api.NamedOption{Id: o.ID, Name: o.Name})
+	}
+	return api.FieldRequirement{Id: r.Field.ID, Name: r.Field.Name, Required: r.Required, Type: api.FieldType(r.Field.Type), Options: options}
 }
 
 func documentRequirement(r definition.DocumentRequirement) api.DocumentRequirement {

@@ -20,6 +20,39 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for FieldType.
+const (
+	Date        FieldType = "date"
+	Degree      FieldType = "degree"
+	LongText    FieldType = "long_text"
+	Number      FieldType = "number"
+	Option      FieldType = "option"
+	SubjectList FieldType = "subject_list"
+	Text        FieldType = "text"
+)
+
+// Valid indicates whether the value is a known member of the FieldType enum.
+func (e FieldType) Valid() bool {
+	switch e {
+	case Date:
+		return true
+	case Degree:
+		return true
+	case LongText:
+		return true
+	case Number:
+		return true
+	case Option:
+		return true
+	case SubjectList:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LoginError.
 const (
 	DomainNotAllowed LoginError = "domain_not_allowed"
@@ -104,6 +137,57 @@ func (e StepRole) Valid() bool {
 	}
 }
 
+// Defines values for SubmissionProblemCode.
+const (
+	Empty           SubmissionProblemCode = "empty"
+	Invalid         SubmissionProblemCode = "invalid"
+	Missing         SubmissionProblemCode = "missing"
+	NotAsked        SubmissionProblemCode = "not_asked"
+	Repeated        SubmissionProblemCode = "repeated"
+	TooLarge        SubmissionProblemCode = "too_large"
+	TypeNotAccepted SubmissionProblemCode = "type_not_accepted"
+)
+
+// Valid indicates whether the value is a known member of the SubmissionProblemCode enum.
+func (e SubmissionProblemCode) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case Invalid:
+		return true
+	case Missing:
+		return true
+	case NotAsked:
+		return true
+	case Repeated:
+		return true
+	case TooLarge:
+		return true
+	case TypeNotAccepted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SubmissionProblemKind.
+const (
+	Document SubmissionProblemKind = "document"
+	Field    SubmissionProblemKind = "field"
+)
+
+// Valid indicates whether the value is a known member of the SubmissionProblemKind enum.
+func (e SubmissionProblemKind) Valid() bool {
+	switch e {
+	case Document:
+		return true
+	case Field:
+		return true
+	default:
+		return false
+	}
+}
+
 // Area defines model for Area.
 type Area struct {
 	Id          string       `json:"id"`
@@ -122,7 +206,10 @@ type CatalogEntry struct {
 	Fields        []FieldRequirement    `json:"fields"`
 	Id            int64                 `json:"id"`
 	Name          string                `json:"name"`
-	Version       int64                 `json:"version"`
+
+	// Submission Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación.
+	Submission SubmissionForm `json:"submission"`
+	Version    int64          `json:"version"`
 }
 
 // DocumentRequirement defines model for DocumentRequirement.
@@ -144,10 +231,19 @@ type Error struct {
 
 // FieldRequirement defines model for FieldRequirement.
 type FieldRequirement struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	Required bool   `json:"required"`
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Options Opciones de un campo option, vacío en los demás tipos. Se envía el id
+	Options  []NamedOption `json:"options"`
+	Required bool          `json:"required"`
+
+	// Type Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+	Type FieldType `json:"type"`
 }
+
+// FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+type FieldType string
 
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
@@ -328,6 +424,17 @@ type RolePermissions struct {
 	Permissions []string `json:"permissions"`
 }
 
+// StartedProcedure defines model for StartedProcedure.
+type StartedProcedure struct {
+	Id string `json:"id"`
+
+	// OpenStep Paso que espera el trámite; falta si quedó cerrado
+	OpenStep *string `json:"open_step,omitempty"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+	State ProcedureState `json:"state"`
+}
+
 // StepOutcome defines model for StepOutcome.
 type StepOutcome struct {
 	Id   string `json:"id"`
@@ -339,6 +446,36 @@ type StepOutcome struct {
 
 // StepRole Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
 type StepRole string
+
+// SubmissionForm Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación.
+type SubmissionForm struct {
+	Documents []DocumentRequirement `json:"documents"`
+	Fields    []FieldRequirement    `json:"fields"`
+}
+
+// SubmissionProblem defines model for SubmissionProblem.
+type SubmissionProblem struct {
+	// Code missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+	Code SubmissionProblemCode `json:"code"`
+
+	// Id Identificador del campo o del documento
+	Id   string                `json:"id"`
+	Kind SubmissionProblemKind `json:"kind"`
+}
+
+// SubmissionProblemCode missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+type SubmissionProblemCode string
+
+// SubmissionProblemKind defines model for SubmissionProblem.Kind.
+type SubmissionProblemKind string
+
+// SubmissionRejected defines model for SubmissionRejected.
+type SubmissionRejected struct {
+	Message string `json:"message"`
+
+	// Problems Vacío si el pedido está mal formado
+	Problems []SubmissionProblem `json:"problems"`
+}
 
 // User defines model for User.
 type User struct {
@@ -422,6 +559,26 @@ type GrantMembershipParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// SubmitProcedureMultipartBody defines parameters for SubmitProcedure.
+type SubmitProcedureMultipartBody struct {
+	// Document Identificador del documento del archivo que le sigue. Se repite, una vez por archivo
+	Document *string `json:"document,omitempty"`
+
+	// File Archivo del document anterior
+	File *openapi_types.File `json:"file,omitempty"`
+
+	// ProcedureType Va primero
+	ProcedureType int64 `json:"procedure_type"`
+
+	// Values JSON con un valor por campo: un texto, o una lista de textos para subject_list. Un campo que falta no se envía. Va después de procedure_type
+	Values string `json:"values"`
+}
+
+// SubmitProcedureParams defines parameters for SubmitProcedure.
+type SubmitProcedureParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // GetProcedureParams defines parameters for GetProcedure.
 type GetProcedureParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
@@ -464,6 +621,9 @@ type UpdateRolePermissionsJSONRequestBody = RolePermissions
 // GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
 type GrantMembershipJSONRequestBody = NewMembership
 
+// SubmitProcedureMultipartRequestBody defines body for SubmitProcedure for multipart/form-data ContentType.
+type SubmitProcedureMultipartRequestBody SubmitProcedureMultipartBody
+
 // AttachProcedureDocumentMultipartRequestBody defines body for AttachProcedureDocument for multipart/form-data ContentType.
 type AttachProcedureDocumentMultipartRequestBody AttachProcedureDocumentMultipartBody
 
@@ -499,6 +659,9 @@ type ServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
+	// SubmitProcedure Inicia un trámite
+	// (POST /procedures)
+	SubmitProcedure(w http.ResponseWriter, r *http.Request, params SubmitProcedureParams)
 	// GetProcedure Detalle de un trámite
 	// (GET /procedures/{procedureId})
 	GetProcedure(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params GetProcedureParams)
@@ -924,6 +1087,41 @@ func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// SubmitProcedure operation middleware
+func (siw *ServerInterfaceWrapper) SubmitProcedure(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SubmitProcedureParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitProcedure(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetProcedure operation middleware
 func (siw *ServerInterfaceWrapper) GetProcedure(w http.ResponseWriter, r *http.Request) {
 
@@ -1239,6 +1437,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/roles", wrapper.CreateRole)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}/permissions", wrapper.UpdateRolePermissions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
@@ -1749,6 +1948,71 @@ func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesRespons
 	return err
 }
 
+type SubmitProcedureRequestObject struct {
+	Params SubmitProcedureParams
+	Body   *multipart.Reader
+}
+
+type SubmitProcedureResponseObject interface {
+	VisitSubmitProcedureResponse(w http.ResponseWriter) error
+}
+
+type SubmitProcedure201JSONResponse StartedProcedure
+
+func (response SubmitProcedure201JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitProcedure400JSONResponse SubmissionRejected
+
+func (response SubmitProcedure400JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitProcedure401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SubmitProcedure401JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitProcedure404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SubmitProcedure404JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetProcedureRequestObject struct {
 	ProcedureId ProcedureId `json:"procedureId"`
 	Params      GetProcedureParams
@@ -2034,6 +2298,9 @@ type StrictServerInterface interface {
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
+	// SubmitProcedure Inicia un trámite
+	// (POST /procedures)
+	SubmitProcedure(ctx context.Context, request SubmitProcedureRequestObject) (SubmitProcedureResponseObject, error)
 	// GetProcedure Detalle de un trámite
 	// (GET /procedures/{procedureId})
 	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
@@ -2377,6 +2644,39 @@ func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProcedureTypesResponseObject); ok {
 		if err := validResponse.VisitListProcedureTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitProcedure operation middleware
+func (sh *strictHandler) SubmitProcedure(w http.ResponseWriter, r *http.Request, params SubmitProcedureParams) {
+	var request SubmitProcedureRequestObject
+
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitProcedure(ctx, request.(SubmitProcedureRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitProcedure")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitProcedureResponseObject); ok {
+		if err := validResponse.VisitSubmitProcedureResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

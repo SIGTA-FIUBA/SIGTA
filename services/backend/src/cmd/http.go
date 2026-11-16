@@ -133,7 +133,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
-		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository)),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now)),
 	)
 
 	server := &http.Server{
