@@ -52,7 +52,7 @@ func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 
 	replaced := started
 	replaced.ID, replaced.VersionDigest = "replaced", "sha256:00"
-	if err := procedures.Add(ctx, replaced); err != nil {
+	if err := procedures.Add(ctx, replaced, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Open(ctx, "ana", replaced.ID); !errors.Is(err, version.ErrNotPinnedVersion) {
@@ -122,7 +122,7 @@ func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepo
 	}
 	procedures := memory.NewProcedureRepository()
 	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, staff, func() string { return "P-1" }, func() time.Time { return confirmedAt })
-	if err := procedures.Add(context.Background(), procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}); err != nil {
+	if err := procedures.Add(context.Background(), procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	return service, procedures
@@ -185,7 +185,7 @@ func TestConfirmRejectsAndChangesNothing(t *testing.T) {
 			ctx := context.Background()
 			service, procedures := confirmationFixture(t)
 			if tt.openStep != "file" {
-				if err := procedures.Add(ctx, procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: tt.openStep}); err != nil {
+				if err := procedures.Add(ctx, procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: tt.openStep}, nil); err != nil {
 					t.Fatal(err)
 				}
 			}

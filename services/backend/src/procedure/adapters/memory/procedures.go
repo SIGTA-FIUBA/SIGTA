@@ -29,10 +29,13 @@ func NewProcedureRepository() *ProcedureRepository {
 	}
 }
 
-func (s *ProcedureRepository) Add(_ context.Context, p domain.Procedure, values ...domain.FieldValue) error {
+func (s *ProcedureRepository) Add(_ context.Context, p domain.Procedure, events []domain.Event, values ...domain.FieldValue) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.procedures[p.ID] = cloneProcedure(p)
+	for _, e := range events {
+		s.events[p.ID] = append(s.events[p.ID], cloneEvent(e))
+	}
 	s.values[p.ID] = append(s.values[p.ID], cloneValues(values)...)
 	return nil
 }

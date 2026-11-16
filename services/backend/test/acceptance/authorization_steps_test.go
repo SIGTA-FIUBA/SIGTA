@@ -308,7 +308,7 @@ func (w *authorizationWorld) givenOwnProcedureOn(applicant, name, step string) e
 		Applicant:     applicant,
 		OpenStep:      step,
 	}
-	if err := w.procedures.Add(context.Background(), p); err != nil {
+	if err := w.procedures.Add(context.Background(), p, nil); err != nil {
 		return err
 	}
 	w.current = p.ID

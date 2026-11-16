@@ -2,6 +2,7 @@ package engine_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -35,6 +36,22 @@ func on(step string) domain.Procedure {
 
 func confirm(step, outcome string) engine.Confirmation {
 	return engine.Confirmation{Step: step, By: "staff@fi.uba.ar", At: monday, Observation: "done", Outcome: outcome}
+}
+
+func TestOpenRecordsEachOpeningStepAsDoneByTheApplicant(t *testing.T) {
+	opening := equivalence.Steps[:1]
+	events := engine.Open(on("check"), opening, "applicant@fi.uba.ar", monday)
+	want := []domain.Event{{
+		ProcedureID: "P-1",
+		Step:        "request",
+		Action:      definition.ActionEnterData,
+		By:          "applicant@fi.uba.ar",
+		At:          monday,
+		Next:        "check",
+	}}
+	if !slices.Equal(events, want) {
+		t.Errorf("events = %+v, want %+v", events, want)
+	}
 }
 
 func TestConfirmRecordsWhoWhenAndObservation(t *testing.T) {

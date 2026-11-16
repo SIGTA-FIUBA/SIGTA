@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func confirmed(step, next string) (domain.Procedure, domain.Event) {
 func TestAdvanceStoresTheProcedureAndAppendsTheEvent(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureRepository()
-	if err := s.Add(ctx, onStep("file")); err != nil {
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,10 +50,38 @@ func TestAdvanceStoresTheProcedureAndAppendsTheEvent(t *testing.T) {
 	}
 }
 
+func TestAddRecordsTheEventsOfTheStartBeforeLaterOnes(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	start := []domain.Event{
+		{ProcedureID: "P-1", Step: "request", By: "applicant@fi.uba.ar", Next: "attach"},
+		{ProcedureID: "P-1", Step: "attach", By: "applicant@fi.uba.ar", Next: "file"},
+	}
+	if err := s.Add(ctx, onStep("file"), start); err != nil {
+		t.Fatal(err)
+	}
+	p, e := confirmed("file", "approve")
+	if err := s.Advance(ctx, p, e); err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := s.Events(ctx, "P-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var steps []string
+	for _, e := range events {
+		steps = append(steps, e.Step)
+	}
+	if !slices.Equal(steps, []string{"request", "attach", "file"}) {
+		t.Errorf("steps = %v, want request, attach and file", steps)
+	}
+}
+
 func TestAdvanceFromAStepThatIsNotOpenChangesNothing(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureRepository()
-	if err := s.Add(ctx, onStep("file")); err != nil {
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,7 +115,7 @@ func TestAdvanceAnUnknownProcedure(t *testing.T) {
 func TestConcurrentConfirmationsOfTheSameStepAdvanceOnce(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureRepository()
-	if err := s.Add(ctx, onStep("file")); err != nil {
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -122,7 +151,7 @@ func TestConcurrentConfirmationsOfTheSameStepAdvanceOnce(t *testing.T) {
 func TestStoredReferralsCannotBeChangedFromOutside(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureRepository()
-	if err := s.Add(ctx, onStep("check")); err != nil {
+	if err := s.Add(ctx, onStep("check"), nil); err != nil {
 		t.Fatal(err)
 	}
 	since := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)

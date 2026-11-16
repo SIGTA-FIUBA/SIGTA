@@ -56,7 +56,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 		Applicant:     userID,
 		OpenStep:      content.Definition.Steps[0].ID,
 	}
-	if err := s.procedures.Add(ctx, p); err != nil {
+	if err := s.procedures.Add(ctx, p, nil); err != nil {
 		return domain.Procedure{}, fmt.Errorf("start procedure: %w", err)
 	}
 	return p, nil

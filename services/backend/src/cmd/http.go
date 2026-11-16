@@ -337,7 +337,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 			VersionDigest: latest.Digest,
 			Applicant:     applicant,
 			OpenStep:      step,
-		})
+		}, nil)
 		if err != nil {
 			return err
 		}

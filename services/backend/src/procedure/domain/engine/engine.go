@@ -79,6 +79,16 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	return moved, event, nil
 }
 
+// Open records the opening steps, which the applicant completes by submitting
+// the procedure.
+func Open(p domain.Procedure, opening []definition.Step, by string, at time.Time) []domain.Event {
+	events := make([]domain.Event, 0, len(opening))
+	for _, s := range opening {
+		events = append(events, domain.Event{ProcedureID: p.ID, Step: s.ID, Action: s.Action, By: by, At: at, Next: s.Next})
+	}
+	return events
+}
+
 func find(steps []definition.Step, id string) (definition.Step, bool) {
 	i := slices.IndexFunc(steps, func(s definition.Step) bool { return s.ID == id })
 	if i < 0 {
