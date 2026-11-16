@@ -41,6 +41,11 @@ type ProcedureServer interface {
 	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
 }
 
+// InboxServer answers the staff's inbox.
+type InboxServer interface {
+	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
+}
+
 // A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
@@ -48,12 +53,13 @@ type Server struct {
 	AdministrationServer
 	DocumentServer
 	ProcedureServer
+	InboxServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer, procedures ProcedureServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents, ProcedureServer: procedures}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer, procedures ProcedureServer, inbox InboxServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents, ProcedureServer: procedures, InboxServer: inbox}
 }
 
 // MaxRequestBytes bounds the body of every request, so an upload is cut there

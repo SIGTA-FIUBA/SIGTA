@@ -69,7 +69,7 @@ func openedDetail(canAct bool) input.ProcedureDetail {
 
 func getProcedure(t *testing.T, procedures fakeProcedures, cookie string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, procedures, nil, nil))
+	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, procedures, nil, nil), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1", nil)
 	r.Header.Set("Cookie", "sigta_session="+cookie)

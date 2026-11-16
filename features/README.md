@@ -18,4 +18,6 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US13 | SIG-16 | [procedure_catalog.feature](procedure_catalog.feature) | 10 |
 | US14 | SIG-17 | [procedure_start.feature](procedure_start.feature) | 24 |
 | US15 | SIG-18 | [document_upload.feature](document_upload.feature) | 9 |
+| US17 | SIG-22 | [procedure_inbox.feature](procedure_inbox.feature) | 14 |
 | US19 | SIG-23 | [procedure_detail.feature](procedure_detail.feature) | 5 |
+| US37 | SIG-25 | [procedure_list_filters.feature](procedure_list_filters.feature) | 7 |

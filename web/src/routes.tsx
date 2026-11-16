@@ -2,15 +2,18 @@ import type { RouteObject } from 'react-router'
 import { AppLayout } from './layout/AppLayout'
 import { CatalogPage } from './pages/CatalogPage'
 import { HomePage } from './pages/HomePage'
+import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
+import { ProcedurePage } from './pages/ProcedurePage'
 import { StartProcedurePage } from './pages/StartProcedurePage'
 import { StartProcedurePreview } from './dev/StartProcedurePreview'
-import { requireSession, skipLoginWithSession } from './session'
+import { optionalSession, requireSession, skipLoginWithSession } from './session'
 
 export const routes: RouteObject[] = [
   { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },
-  // The catalog asks for no session, so it can be read before logging in.
-  { path: '/catalog', element: <CatalogPage /> },
+  // The catalog asks for no session, so it can be read before logging in. It
+  // keeps the same frame, with the menu for whoever has a session.
+  { loader: optionalSession, element: <AppLayout />, children: [{ path: '/catalog', element: <CatalogPage /> }] },
   // Only the dev server has the preview with worst-case data.
   ...(import.meta.env.DEV
     ? [{ path: '/dev/start-procedure/:procedureTypeId', element: <StartProcedurePreview /> }]
@@ -21,6 +24,8 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/catalog/:procedureTypeId/start', element: <StartProcedurePage /> },
+      { path: '/inbox', element: <InboxPage /> },
+      { path: '/procedures/:id', element: <ProcedurePage /> },
     ],
   },
 ]

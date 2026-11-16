@@ -54,11 +54,12 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 		Applicant:     userID,
 		OpenStep:      submission.OpenStep(def),
 	}
+	now := s.now()
+	p.StartedAt, p.MovedAt = now, now
 	state, err := domain.StateOf(p, def)
 	if err != nil {
 		return input.Started{}, err
 	}
-	now := s.now()
 	documents, err := s.storeFiles(ctx, p.ID, userID, now, def, sub)
 	if err != nil {
 		return input.Started{}, err

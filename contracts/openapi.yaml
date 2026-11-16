@@ -303,6 +303,60 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
   /procedures:
+    get:
+      operationId: listProcedures
+      summary: Bandeja y listado de trámites del personal
+      description: >
+        Solo para el personal, quien tiene al menos una membresía vigente
+        (ADR-020). Con view=mine devuelve los trámites cuyo paso abierto puede
+        hacer quien mira; con view=all, todos los trámites en curso que puede
+        ver: los de los tipos de trámite que cubren sus membresías y que pasan
+        por sus áreas. Los trámites cerrados no aparecen. Los filtros se
+        combinan. Las opciones de filtro salen de todos los trámites de la
+        vista, sin filtrar, para que elegir un filtro no haga desaparecer los
+        demás.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: view
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureListView"
+        - name: procedure_type
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureState"
+        - name: area
+          in: query
+          required: false
+          description: Área responsable del paso abierto
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProcedureListSort"
+      responses:
+        "200":
+          description: Trámites y opciones de filtro
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       operationId: submitProcedure
       summary: Inicia un trámite
@@ -784,6 +838,83 @@ components:
           description: Vacío si el pedido está mal formado
           items:
             $ref: "#/components/schemas/SubmissionProblem"
+    ProcedureListView:
+      type: string
+      description: >
+        mine: los trámites cuyo paso abierto puede hacer quien mira. all: todos
+        los trámites en curso que puede ver.
+      enum: [mine, all]
+      default: mine
+    ProcedureListSort:
+      type: string
+      description: >
+        oldest: primero los que empezaron hace más tiempo. last_moved: primero
+        los que se movieron más recientemente.
+      enum: [oldest, last_moved]
+      default: oldest
+    ProcedureListItem:
+      type: object
+      required:
+        - id
+        - procedure_type
+        - procedure_type_name
+        - applicant
+        - step_name
+        - state
+        - actionable
+        - started_at
+        - last_moved_at
+        - age_days
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        procedure_type_name:
+          type: string
+        applicant:
+          $ref: "#/components/schemas/Person"
+        step_name:
+          type: string
+          description: Paso abierto, el que se espera ahora
+        area:
+          description: Área del paso abierto; ausente si lo hace el titular
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        actionable:
+          type: boolean
+          description: Si quien mira tiene los permisos que exige el paso abierto
+        started_at:
+          type: string
+          format: date-time
+        last_moved_at:
+          type: string
+          format: date-time
+          description: Cuándo el trámite llegó al paso abierto
+        age_days:
+          type: integer
+          description: Días desde que empezó el trámite
+    ProcedureList:
+      type: object
+      required: [items, procedure_types, areas]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcedureListItem"
+        procedure_types:
+          type: array
+          description: Tipos de trámite presentes en la vista, para filtrar
+          items:
+            $ref: "#/components/schemas/NamedOption"
+        areas:
+          type: array
+          description: Áreas responsables presentes en la vista, para filtrar
+          items:
+            $ref: "#/components/schemas/NamedOption"
     User:
       type: object
       required: [id, email, name, staff, administrator]
