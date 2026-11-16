@@ -210,7 +210,7 @@ func (w *documentWorld) givenProcedure(applicant, step string) error {
 		return err
 	}
 	w.procedure = domain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, VersionDigest: published.Digest, Applicant: applicant, OpenStep: step}
-	return w.procedures.Add(context.Background(), w.procedure)
+	return w.procedures.Add(context.Background(), w.procedure, nil)
 }
 
 func (w *documentWorld) givenMovedOn(step string) error {

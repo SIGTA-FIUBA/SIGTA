@@ -420,8 +420,8 @@ paths:
         Para quien puede ver el trámite: su titular y el personal de las áreas
         por las que pasa. Muestra su estado, su titular, el paso abierto y los
         pasos de la versión con la que se inició, con quién hace cada uno, los
-        datos y documentos que pide y sus salidas. Para quien no lo ve, el
-        trámite no existe.
+        datos y documentos que pide y sus salidas, y el historial de los pasos
+        hechos. Para quien no lo ve, el trámite no existe.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/ProcedureId"
@@ -1102,7 +1102,7 @@ components:
       properties:
         step:
           type: string
-          description: Paso confirmado
+          description: Paso hecho
         by:
           $ref: "#/components/schemas/Person"
         at:
@@ -1141,7 +1141,7 @@ components:
           type: string
     ProcedureDetail:
       type: object
-      required: [id, procedure_type, version, name, state, applicant, can_act, steps]
+      required: [id, procedure_type, version, name, state, applicant, can_act, steps, history]
       properties:
         id:
           type: string
@@ -1175,6 +1175,14 @@ components:
             anterior: el recorrido lo dicen next y las salidas de cada paso.
           items:
             $ref: "#/components/schemas/ProcedureStep"
+        history:
+          type: array
+          description: >
+            Los pasos hechos, en el orden en que se registraron: los del
+            titular al iniciar el trámite y cada confirmación. No se puede
+            cambiar ni borrar.
+          items:
+            $ref: "#/components/schemas/ProcedureEvent"
     ProcedureReferral:
       type: object
       description: >

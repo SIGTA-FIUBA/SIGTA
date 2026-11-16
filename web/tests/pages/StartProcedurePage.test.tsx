@@ -235,6 +235,7 @@ describe('StartProcedurePage', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar el trámite' }))
 
     expect(await screen.findByText('P-42')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ver el trámite' })).toHaveAttribute('href', '/procedures/P-42')
     expect(sent).toHaveLength(1)
     const parts = parse(sent[0])
     expect(parts.map((part) => part.name)).toEqual(['procedure_type', 'values', 'document', 'file'])

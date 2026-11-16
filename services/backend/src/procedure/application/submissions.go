@@ -8,6 +8,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -92,7 +93,7 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 			return input.Started{}, fmt.Errorf("record document: %w", err)
 		}
 	}
-	if err := s.procedures.procedures.Add(ctx, p, entered...); err != nil {
+	if err := s.procedures.procedures.Add(ctx, p, engine.Open(p, submission.OpeningSteps(def), userID, now), entered...); err != nil {
 		return input.Started{}, fmt.Errorf("start procedure: %w", err)
 	}
 	return input.Started{Procedure: p, State: state}, nil

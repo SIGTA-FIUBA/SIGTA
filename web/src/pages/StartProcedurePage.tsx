@@ -214,7 +214,10 @@ function Started({ procedure }: { procedure: StartedProcedure }) {
         <Text>Guardalo para seguirlo. Ya quedó para que el personal lo revise.</Text>
       </Alert>
       <Group>
-        <Button component={Link} to="/">
+        <Button component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`}>
+          Ver el trámite
+        </Button>
+        <Button component={Link} to="/" variant="default">
           Volver al inicio
         </Button>
       </Group>

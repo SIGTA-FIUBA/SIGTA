@@ -219,7 +219,7 @@ const (
 
 // devPeople are synthetic accounts for local development: an applicant, a
 // member who reviews and edits procedure types, one who also approves and
-// publishes them, and an administrator.
+// publishes them, a member of the committee and an administrator.
 func devPeople() people {
 	return people{
 		users: []domain.User{
@@ -232,12 +232,14 @@ func devPeople() people {
 			{ID: "dev-applicant-06", Email: "joaquin.ejemplo@fi.uba.ar", Name: "Joaquín Ejemplo"},
 			{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba"},
 			{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba"},
+			{ID: "dev-committee", Email: "comision@fi.uba.ar", Name: "Comisión de prueba"},
 			{ID: "dev-admin", Email: "admin@fi.uba.ar", Name: "Administración de prueba"},
 		},
 		administrators: []string{"dev-admin"},
 		memberships: []domain.Membership{
 			{ID: "dev-operative-1", UserID: "dev-operative", Area: "office", Permissions: []string{"review"}, GrantedBy: "dev-admin"},
 			{ID: "dev-approver-1", UserID: "dev-approver", Area: "office", Permissions: []string{"review", "approve"}, GrantedBy: "dev-admin"},
+			{ID: "dev-committee-1", UserID: "dev-committee", Area: devCommitteeArea, Permissions: []string{"evaluate"}, GrantedBy: "dev-admin"},
 			{ID: "dev-operative-2", UserID: "dev-operative", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}, GrantedBy: "dev-admin"},
 			{ID: "dev-approver-2", UserID: "dev-approver", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}, GrantedBy: "dev-admin"},
 		},
@@ -247,19 +249,26 @@ func devPeople() people {
 // devAreas are the areas of staff until they are stored in PostgreSQL, besides
 // the Secretariat, which EnsureSecretariat adds.
 func devAreas() []domain.Area {
-	return []domain.Area{{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
-		{ID: "review", Name: "Revisar"},
-		{ID: "approve", Name: "Aprobar"},
-	}}}
+	return []domain.Area{
+		{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
+			{ID: "review", Name: "Revisar"},
+			{ID: "approve", Name: "Aprobar"},
+		}},
+		{ID: devCommitteeArea, Name: "Comisión de prueba", Permissions: []domain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
+	}
 }
 
-// publishDevProcedureType publishes the example only if its procedure type
-// has no version. A database that has one keeps it even if the example
-// changed since, so editing the example does not add a version on every
-// start. If another start publishes first, publishing again finds the same
-// content and returns the stored version; another content is an error.
 func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes) error {
-	publication := devProcedureType()
+	return publishIfMissing(ctx, versions, procedureTypes, devProcedureType())
+}
+
+// publishIfMissing publishes an example only if its procedure type has no
+// version. A database that has one keeps it even if the example changed
+// since, so editing the example does not add a version on every start: a new
+// flow goes in a new procedure type, as devReferralProcedureType. If another
+// start publishes first, publishing again finds the same content and returns
+// the stored version; another content is an error.
+func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, publication input.Publication) error {
 	_, err := versions.Latest(ctx, publication.ProcedureType)
 	if !errors.Is(err, output.ErrNoVersion) {
 		return err
@@ -278,6 +287,9 @@ func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersi
 func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
 	if err := publishDevProcedureType(ctx, versions, procedureTypes); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type: %w", err)
+	}
+	if err := publishIfMissing(ctx, versions, procedureTypes, devReferralProcedureType()); err != nil {
+		return nil, fmt.Errorf("publish the example procedure type with a referral: %w", err)
 	}
 	if cfg.identityProvider != identityDev {
 		return &exampleForFirstSignUp{UserRepository: users, logger: logger, give: func(ctx context.Context, applicant string) error {
@@ -350,7 +362,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 			OpenStep:      step,
 			StartedAt:     now,
 			MovedAt:       now,
-		})
+		}, nil)
 		if err != nil {
 			return err
 		}
@@ -383,4 +395,30 @@ func devProcedureType() input.Publication {
 			},
 		},
 	}
+}
+
+const (
+	devCommitteeArea = "committee"
+	devEvaluateStep  = "evaluate"
+)
+
+// devReferralProcedureType is a second made-up procedure type whose review is
+// a decision that refers it to the committee, and whose last step returns it.
+func devReferralProcedureType() input.Publication {
+	example := devProcedureType()
+	example.ProcedureType = 2
+	d := &example.Definition
+	d.Name = "Trámite de ejemplo con derivación"
+	d.Description = "Un trámite inventado para probar la derivación y el retorno en desarrollo."
+	d.Steps = []definition.Step{
+		d.Steps[0],
+		d.Steps[1],
+		{ID: devReviewStep, Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
+			{ID: "accept", Name: "Aceptar y derivar a la comisión", Next: devEvaluateStep},
+			{ID: "send_back", Name: "Devolver al titular", Next: devDocumentsStep},
+		}},
+		{ID: devEvaluateStep, Name: "Dictamen de la comisión", Role: definition.RoleStaff, Area: devCommitteeArea, Permissions: []string{"evaluate"}, Action: definition.ActionConfirmExternalFact, Next: "communicate"},
+		{ID: "communicate", Name: "Comunicación del dictamen", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
+	}
+	return example
 }

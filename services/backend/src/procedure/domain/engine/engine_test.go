@@ -2,6 +2,7 @@ package engine_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -37,12 +38,28 @@ func confirm(step, outcome string) engine.Confirmation {
 	return engine.Confirmation{Step: step, By: "staff@fi.uba.ar", At: monday, Observation: "done", Outcome: outcome}
 }
 
+func TestOpenRecordsEachOpeningStepAsDoneByTheApplicant(t *testing.T) {
+	opening := equivalence.Steps[:1]
+	events := engine.Open(on("check"), opening, "applicant@fi.uba.ar", monday)
+	want := []domain.Event{{
+		ProcedureID: "P-1",
+		Step:        "request",
+		Action:      definition.ActionEnterData,
+		By:          "applicant@fi.uba.ar",
+		At:          monday,
+		Next:        "check",
+	}}
+	if !slices.Equal(events, want) {
+		t.Errorf("events = %+v, want %+v", events, want)
+	}
+}
+
 func TestConfirmRecordsWhoWhenAndObservation(t *testing.T) {
 	_, event, err := engine.Confirm(on("file"), equivalence, confirm("file", ""))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := engine.Event{
+	want := domain.Event{
 		ProcedureID: "P-1",
 		Step:        "file",
 		Action:      definition.ActionConfirmExternalFact,
@@ -155,7 +172,7 @@ func TestMovingToAnotherAreaRefers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRecord := engine.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-2026-00001"}
+	wantRecord := domain.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-2026-00001"}
 	if event.Referral == nil || *event.Referral != wantRecord {
 		t.Errorf("event referral = %+v, want %+v", event.Referral, wantRecord)
 	}

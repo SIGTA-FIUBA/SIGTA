@@ -31,46 +31,26 @@ type Confirmation struct {
 	ExternalFileNumber string
 }
 
-type Event struct {
-	ProcedureID string
-	Step        string
-	Action      definition.Action
-	By          string
-	At          time.Time
-	Observation string
-	Outcome     string
-	Declared    bool
-	Next        string
-	Referral    *ReferralRecord
-	Returned    bool
-}
-
-type ReferralRecord struct {
-	From               string
-	To                 string
-	ExternalFileNumber string
-}
-
-func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirmation) (domain.Procedure, Event, error) {
+func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirmation) (domain.Procedure, domain.Event, error) {
 	if p.Closed() || c.Step != p.OpenStep {
-		return p, Event{}, ErrStepNotOpen
+		return p, domain.Event{}, ErrStepNotOpen
 	}
 	step, ok := find(d.Steps, c.Step)
 	if !ok {
-		return p, Event{}, fmt.Errorf("procedure %s: open step %q is not in its version", p.ID, c.Step)
+		return p, domain.Event{}, fmt.Errorf("procedure %s: open step %q is not in its version", p.ID, c.Step)
 	}
 	if step.Role == definition.RoleApplicant {
-		return p, Event{}, ErrApplicantStep
+		return p, domain.Event{}, ErrApplicantStep
 	}
 	if strings.TrimSpace(c.Observation) == "" {
-		return p, Event{}, ErrNoObservation
+		return p, domain.Event{}, ErrNoObservation
 	}
 	nextID, err := next(step, c.Outcome)
 	if err != nil {
-		return p, Event{}, err
+		return p, domain.Event{}, err
 	}
 
-	event := Event{
+	event := domain.Event{
 		ProcedureID: p.ID,
 		Step:        step.ID,
 		Action:      step.Action,
@@ -90,14 +70,24 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	} else {
 		nextStep, ok := find(d.Steps, nextID)
 		if !ok {
-			return p, Event{}, fmt.Errorf("procedure %s: step %q leads to %q, which is not in its version", p.ID, step.ID, nextID)
+			return p, domain.Event{}, fmt.Errorf("procedure %s: step %q leads to %q, which is not in its version", p.ID, step.ID, nextID)
 		}
 		moved.Referral, event.Referral, event.Returned = refer(p.Referral, step.Area, nextStep.Area, c)
 	}
 	if c.ExternalFileNumber != "" && event.Referral == nil {
-		return p, Event{}, ErrNotAReferral
+		return p, domain.Event{}, ErrNotAReferral
 	}
 	return moved, event, nil
+}
+
+// Open records the opening steps, which the applicant completes by submitting
+// the procedure.
+func Open(p domain.Procedure, opening []definition.Step, by string, at time.Time) []domain.Event {
+	events := make([]domain.Event, 0, len(opening))
+	for _, s := range opening {
+		events = append(events, domain.Event{ProcedureID: p.ID, Step: s.ID, Action: s.Action, By: by, At: at, Next: s.Next})
+	}
+	return events
 }
 
 func find(steps []definition.Step, id string) (definition.Step, bool) {
@@ -125,14 +115,14 @@ func next(step definition.Step, outcome string) (string, error) {
 // refer follows ADR-020: moving to a step of another area refers the
 // procedure, and moving back to the area it first left returns it. Applicant
 // steps have no area, so they neither refer nor return.
-func refer(current *domain.Referral, fromArea, toArea string, c Confirmation) (*domain.Referral, *ReferralRecord, bool) {
+func refer(current *domain.Referral, fromArea, toArea string, c Confirmation) (*domain.Referral, *domain.ReferralRecord, bool) {
 	if fromArea == "" || toArea == "" || fromArea == toArea {
 		return current, nil, false
 	}
 	if current != nil && toArea == current.From {
 		return nil, nil, true
 	}
-	record := &ReferralRecord{From: fromArea, To: toArea, ExternalFileNumber: c.ExternalFileNumber}
+	record := &domain.ReferralRecord{From: fromArea, To: toArea, ExternalFileNumber: c.ExternalFileNumber}
 	if current != nil {
 		return &domain.Referral{From: current.From, To: toArea, Since: current.Since}, record, false
 	}

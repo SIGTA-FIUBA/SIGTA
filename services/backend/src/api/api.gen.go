@@ -371,8 +371,11 @@ type ProcedureDetail struct {
 	Applicant Person `json:"applicant"`
 
 	// CanAct Si quien mira puede hacer el paso abierto
-	CanAct bool   `json:"can_act"`
-	Id     string `json:"id"`
+	CanAct bool `json:"can_act"`
+
+	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite y cada confirmación. No se puede cambiar ni borrar.
+	History []ProcedureEvent `json:"history"`
+	Id      string           `json:"id"`
 
 	// Name Nombre del tipo de trámite
 	Name string `json:"name"`
@@ -437,7 +440,7 @@ type ProcedureEvent struct {
 	// Returned Si devuelve el trámite al área de la que se había derivado
 	Returned bool `json:"returned"`
 
-	// Step Paso confirmado
+	// Step Paso hecho
 	Step string `json:"step"`
 }
 

@@ -269,7 +269,7 @@ func (w *inboxWorld) addProcedure(id, procedureType, applicant, step string, sta
 		ID: id, ProcedureType: typeID, Version: 1, VersionDigest: published.Digest,
 		Applicant: applicant, OpenStep: slug(step),
 		StartedAt: daysAgo(startedDaysAgo), MovedAt: daysAgo(movedDaysAgo),
-	})
+	}, nil)
 }
 
 // ask uses the user as the session token, as sessionIsUser reads it; an

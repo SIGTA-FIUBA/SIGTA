@@ -156,7 +156,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 func (f documentsFixture) on(t *testing.T, procedureID, step string) {
 	t.Helper()
 	p := domain.Procedure{ID: procedureID, ProcedureType: 1, Version: 1, VersionDigest: f.digest, Applicant: applicant, OpenStep: step}
-	if err := f.procedures.Add(t.Context(), p); err != nil {
+	if err := f.procedures.Add(t.Context(), p, nil); err != nil {
 		t.Fatal(err)
 	}
 }
