@@ -34,13 +34,6 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	if len(os.Args) > 1 && os.Args[1] == "probe" {
-		if err := probe(probeURL); err != nil {
-			logger.Error("probe failed", "error", err)
-			os.Exit(1)
-		}
-		return
-	}
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		if err := migrateCommand(os.Getenv, logger); err != nil {
 			logger.Error("migrations failed", "error", err)

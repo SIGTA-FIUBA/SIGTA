@@ -19,7 +19,7 @@ La infraestructura de FIUBA corre sobre Docker Swarm, con Traefik como proxy rev
 | Configuración por variables de entorno, sin valores de entorno escritos en la imagen | Cumple | Todo el backend se configura con variables `SIGTA_*` (ver "Configuración del servicio de trámites" en el README) |
 | Contraseñas y claves como secretos del despliegue, nunca en el repositorio | Cumple | Las credenciales de Google, el archivo de usuarios y las dos conexiones a la base (`SIGTA_DATABASE_URL` y `SIGTA_MIGRATIONS_DATABASE_URL`) son secretos del despliegue. Las contraseñas de `compose.yaml` son solo de desarrollo |
 | Servicios sin estado, con sesiones, caché y colas en la base o en Redis, para correr más de una réplica | No cumple | Las sesiones y las cuentas registradas se guardan en memoria del backend: se pierden al reiniciar y no se comparten entre réplicas. Se resuelve al guardar usuarios y sesiones en PostgreSQL |
-| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hay dos volúmenes: el de la base y el de los documentos (`/var/lib/sigta/documents`, `SIGTA_DOCUMENTS_DIR`). En los entornos de prueba son `sigta-<entorno>-db_db-data` y `sigta-<entorno>_documents`. Los trámites y el registro de sus documentos todavía están en memoria. Al arrancar, el backend borra los archivos que ningún documento registrado nombra y que tienen más de una hora: mientras el registro esté en memoria, son los de la ejecución anterior. Por eso hoy supone una sola instancia |
+| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hay dos volúmenes: el de la base y el de los documentos (`/var/lib/sigta/documents`, `SIGTA_DOCUMENTS_DIR`). En los entornos de prueba, la base es Cloud SQL y los documentos van a un bucket de Cloud Storage por entorno, montado en esa ruta. Los trámites y el registro de sus documentos todavía están en memoria. Al arrancar, el backend borra los archivos que ningún documento registrado nombra y que tienen más de una hora: mientras el registro esté en memoria, son los de la ejecución anterior. Por eso hoy supone una sola instancia |
 | La SPA no tiene la URL del backend fija en la imagen | Cumple | El frontend llama a la API por la ruta relativa `/api` (la opción que prefiere la Subsecretaría de TICs) |
 
 ## Base de datos
@@ -93,7 +93,7 @@ No son condiciones excluyentes.
 | --- | --- | --- |
 | Imágenes oficiales con versión fija y multi-stage build | Cumple | `golang:1.26-alpine`, `node:24-alpine`, `nginx:1.30-alpine` y `distroless/static-debian13` |
 | Procesos sin privilegios | No cumple | El backend corre como `nonroot`. El proxy usa la imagen de nginx por defecto, que corre como root |
-| Endpoint de salud que verifique la conexión a la base | No cumple | No hay endpoint de salud. El chequeo de salud del contenedor es `backend probe`, que pide el catálogo, que lee la base |
+| Endpoint de salud que verifique la conexión a la base | No cumple | No hay endpoint de salud. Cloud Run da por levantado el backend cuando responde `/procedure-types`, que lee la base |
 | Logs a la salida estándar | Cumple | El backend escribe con `slog` en stdout |
 | Tareas programadas y workers como servicios separados | No aplica | Todavía no hay tareas programadas ni colas |
 | Sin secretos en el repositorio ni en el historial | A confirmar | Falta revisar el historial antes de entregarlo |
