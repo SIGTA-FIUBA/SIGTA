@@ -26,17 +26,19 @@ type Sort = components['schemas']['ProcedureListSort']
 // name is there because the contract shares the state with the detail.
 const stateNames: Record<State, string> = {
   in_office: 'En un área',
+  referred: 'Derivado',
   with_applicant: 'Pendiente del titular',
   closed: 'Cerrado',
 }
 
 const stateColors: Record<State, string> = {
   in_office: 'fiuba',
+  referred: 'orange',
   with_applicant: 'gray',
   closed: 'gray',
 }
 
-const inboxStates: State[] = ['in_office', 'with_applicant']
+const inboxStates: State[] = ['in_office', 'referred', 'with_applicant']
 
 const sortOptions = [
   { value: 'oldest', label: 'Mayor antigüedad' },
@@ -307,6 +309,7 @@ export function InboxPage() {
       onSelect: () => update({ view: null, state: null, type: null, area: null }),
     },
     stateTile('in_office', 'En las áreas del personal'),
+    stateTile('referred', 'En otra área, sin volver todavía al área de la que salió'),
     stateTile('with_applicant', 'Documentación o datos solicitados'),
   ]
 
