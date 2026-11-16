@@ -22,3 +22,23 @@ export function useProcedures(enabled = true) {
     },
   })
 }
+
+// NotFoundError means the procedure does not exist or the person cannot see it:
+// the API answers both the same.
+export class NotFoundError extends Error {}
+
+export function useProcedure(id: string) {
+  return useQuery({
+    queryKey: ['procedure', id],
+    queryFn: async () => {
+      const { data, response } = await api.GET('/procedures/{procedureId}', { params: { path: { procedureId: id } } })
+      if (response.status === 404) {
+        throw new NotFoundError()
+      }
+      if (data === undefined) {
+        throw new Error(`GET /procedures/${id} answered ${response.status}`)
+      }
+      return data
+    },
+  })
+}

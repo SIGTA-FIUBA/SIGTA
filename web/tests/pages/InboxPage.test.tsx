@@ -204,7 +204,14 @@ describe('InboxPage', () => {
   })
 
   it('keeps the filters when coming back from a procedure', async () => {
-    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (request: Request) =>
+        new URL(request.url).pathname.endsWith('/procedures/p-1')
+          ? Response.json({ message: 'No existe el trámite.' }, { status: 404 })
+          : Response.json({ items: [pending, evaluating, waiting], ...options }),
+      ),
+    )
     const router = renderInbox('/inbox?view=all&area=office')
 
     const [row] = await tableRows()

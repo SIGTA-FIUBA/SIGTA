@@ -16,27 +16,12 @@ import {
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { ForbiddenError, useProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { stateColors, stateNames } from '../procedureState'
 
 type Item = components['schemas']['ProcedureListItem']
 type State = components['schemas']['ProcedureState']
 type View = components['schemas']['ProcedureListView']
 type Sort = components['schemas']['ProcedureListSort']
-
-// The inbox holds procedures in progress, so it never shows a closed one; the
-// name is there because the contract shares the state with the detail.
-const stateNames: Record<State, string> = {
-  in_office: 'En un área',
-  referred: 'Derivado',
-  with_applicant: 'Pendiente del titular',
-  closed: 'Cerrado',
-}
-
-const stateColors: Record<State, string> = {
-  in_office: 'fiuba',
-  referred: 'orange',
-  with_applicant: 'gray',
-  closed: 'gray',
-}
 
 const inboxStates: State[] = ['in_office', 'referred', 'with_applicant']
 
