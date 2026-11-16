@@ -1,6 +1,6 @@
 name: Deploy
 
-# main to prod and develop to dev (docs/15-despliegue.md).
+# main to prod and develop to dev, on Cloud Run (docs/15-despliegue.md).
 on:
   push:
     branches: [main, develop]
@@ -9,62 +9,22 @@ on:
 permissions:
   contents: read
 
-# Both environments share the entry.
 concurrency:
-  group: deploy
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
-  REGISTRY: ghcr.io/sigta-fiuba/sigta
   GCP_WORKLOAD_IDENTITY_PROVIDER: projects/928624274175/locations/global/workloadIdentityPools/github/providers/sigta
   GCP_SERVICE_ACCOUNT: sigta-deploy@summer-function-513519-a1.iam.gserviceaccount.com
   GCP_PROJECT: summer-function-513519-a1
-  GCP_ZONE: southamerica-east1-b
-  GCP_VM: sigta
+  GCP_REGION: us-east1
   ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
   SIGTA_HOST: ${{ github.ref_name == 'main' && 'sigta.lopeztancredi.com.ar' || 'sigta-dev.lopeztancredi.com.ar' }}
+  SQL_INSTANCE: ${{ github.ref_name == 'main' && 'sigta' || 'sigta-dev' }}
 
 jobs:
-  images:
-    name: Image ${{ matrix.image }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - image: backend
-            context: services/backend
-            file: services/backend/Dockerfile
-          - image: proxy
-            context: .
-            file: deploy/nginx/Dockerfile
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.ref_name }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
-
   deploy:
     name: Deploy to ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
-    needs: images
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -73,7 +33,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -83,27 +42,44 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      - name: Copy the stack to the VM
+      - name: Build and push the images
         run: |
-          gcloud compute scp --recurse deploy/swarm deploy/postgres "$GCP_VM:~/" \
-            --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet
+          registry=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT/sigta
+          echo "REGISTRY=$registry" >>"$GITHUB_ENV"
+          gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+          docker build -t "$registry/backend:$GITHUB_SHA" services/backend
+          docker build -t "$registry/proxy:$GITHUB_SHA" -f deploy/nginx/Dockerfile .
+          docker push "$registry/backend:$GITHUB_SHA"
+          docker push "$registry/proxy:$GITHUB_SHA"
+      # The migrations only move forward and run before the new version
+      # (ADR-022): if they fail, the previous one stays online.
+      - name: Migrate
+        run: |
+          gcloud run jobs deploy "sigta-$ENVIRONMENT-migrate" --region "$GCP_REGION" --quiet \
+            --image "$REGISTRY/backend:$GITHUB_SHA" --args migrate \
+            --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
+            --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
+            --set-env-vars SIGTA_ENV=development \
+            --set-secrets "SIGTA_MIGRATIONS_DATABASE_URL=sigta-$ENVIRONMENT-migrations-database-url:latest" \
+            --max-retries 0 --execute-now --wait
+      # One instance: sessions, procedures and documents are still kept in
+      # memory, and the server assumes it is the only one.
       - name: Deploy
-        env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          BACKEND_DB_PASSWORD: ${{ secrets.BACKEND_DB_PASSWORD }}
-          BACKEND_MIGRATIONS_DB_PASSWORD: ${{ secrets.BACKEND_MIGRATIONS_DB_PASSWORD }}
-          AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
-          for name in GHCR_USER GHCR_TOKEN POSTGRES_PASSWORD BACKEND_DB_PASSWORD BACKEND_MIGRATIONS_DB_PASSWORD \
-            AI_DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
-            printf '%s=%s\n' "$name" "$(printenv "$name")"
-          done | gcloud compute ssh "$GCP_VM" \
-            --project "$GCP_PROJECT" --zone "$GCP_ZONE" --tunnel-through-iap --quiet \
-            --command "sudo sh swarm/deploy.sh $ENVIRONMENT $GITHUB_SHA $SIGTA_HOST"
+          gcloud run deploy "sigta-$ENVIRONMENT" --region "$GCP_REGION" --quiet \
+            --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
+            --allow-unauthenticated --execution-environment gen2 --min-instances 1 --max-instances 1 \
+            --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
+            --add-volume "name=documents,type=cloud-storage,bucket=$GCP_PROJECT-sigta-$ENVIRONMENT-documents,mount-options=uid=65532;gid=65532" \
+            --container proxy --image "$REGISTRY/proxy:$GITHUB_SHA" --port 80 --depends-on backend \
+            --cpu 0.25 --memory 128Mi \
+            --set-env-vars SIGTA_BACKEND=127.0.0.1:8080 \
+            --container backend --image "$REGISTRY/backend:$GITHUB_SHA" \
+            --cpu 0.75 --memory 512Mi \
+            --startup-probe "httpGet.port=8080,httpGet.path=/procedure-types,periodSeconds=2,failureThreshold=30" \
+            --add-volume-mount "volume=documents,mount-path=/var/lib/sigta/documents" \
+            --set-env-vars "SIGTA_ENV=development,SIGTA_IDENTITY_PROVIDER=google,SIGTA_ALLOWED_DOMAIN=fi.uba.ar,SIGTA_PUBLIC_URL=https://$SIGTA_HOST/api,SIGTA_APP_URL=https://$SIGTA_HOST/" \
+            --set-secrets "SIGTA_DATABASE_URL=sigta-$ENVIRONMENT-database-url:latest,SIGTA_GOOGLE_CLIENT_ID=sigta-google-client-id:latest,SIGTA_GOOGLE_CLIENT_SECRET=sigta-google-client-secret:latest"
       - name: Check SIGTA
         run: |
           curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "https://$SIGTA_HOST/"
