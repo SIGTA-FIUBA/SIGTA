@@ -78,33 +78,21 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		return domain.Document{}, err
 	}
 
-	file := bufio.NewReaderSize(u.Content, sniffLength)
-	head, err := file.Peek(sniffLength)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return domain.Document{}, fmt.Errorf("read the upload: %w", err)
-	}
-	if len(head) == 0 {
-		return domain.Document{}, domain.ErrEmptyDocument
-	}
-	mediaType := detectType(head)
-	if !slices.Contains(requirement.AcceptedTypes, mediaType) {
-		return domain.Document{}, fmt.Errorf("%s for %s: %w", mediaType, requirement.ID, domain.ErrDocumentType)
-	}
 	// If recording the document fails after this, no record names the stored
 	// file: it is harmless, and a retry with the same content reuses it.
-	digest, size, err := s.files.Put(ctx, &sizeLimit{reader: file, left: requirement.MaxSizeBytes})
+	stored, err := storeFile(ctx, s.files, requirement, u.FileName, u.Content)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("store the file: %w", err)
+		return domain.Document{}, err
 	}
 	d := domain.Document{
 		ID:          s.newID(),
 		Procedure:   p.ID,
 		Requirement: requirement.ID,
 		Step:        p.OpenStep,
-		FileName:    withExtension(cleanFileName(u.FileName), mediaType),
-		MediaType:   mediaType,
-		Size:        size,
-		Digest:      digest,
+		FileName:    stored.fileName,
+		MediaType:   stored.mediaType,
+		Size:        stored.size,
+		Digest:      stored.digest,
 		UploadedBy:  userID,
 		UploadedAt:  s.now(),
 	}
@@ -218,6 +206,41 @@ func requested(def definition.ProcedureTypeDefinition, stepID, documentID string
 		return definition.Document{}, fmt.Errorf("step %q asks for %q, which is not in the definition", stepID, documentID)
 	}
 	return def.Documents[j], nil
+}
+
+type storedFile struct {
+	fileName  string
+	mediaType string
+	digest    string
+	size      int64
+}
+
+// storeFile checks the file against the document it covers, by the type read
+// from its content and its size, and keeps it in the store. It fails with
+// domain.ErrEmptyDocument, domain.ErrDocumentType or domain.ErrDocumentTooLarge.
+func storeFile(ctx context.Context, files output.Files, requirement definition.Document, fileName string, content io.Reader) (storedFile, error) {
+	file := bufio.NewReaderSize(content, sniffLength)
+	head, err := file.Peek(sniffLength)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return storedFile{}, fmt.Errorf("read the upload: %w", err)
+	}
+	if len(head) == 0 {
+		return storedFile{}, domain.ErrEmptyDocument
+	}
+	mediaType := detectType(head)
+	if !slices.Contains(requirement.AcceptedTypes, mediaType) {
+		return storedFile{}, fmt.Errorf("%s for %s: %w", mediaType, requirement.ID, domain.ErrDocumentType)
+	}
+	digest, size, err := files.Put(ctx, &sizeLimit{reader: file, left: requirement.MaxSizeBytes})
+	if err != nil {
+		return storedFile{}, fmt.Errorf("store the file: %w", err)
+	}
+	return storedFile{
+		fileName:  withExtension(cleanFileName(fileName), mediaType),
+		mediaType: mediaType,
+		digest:    digest,
+		size:      size,
+	}, nil
 }
 
 // detectType reads the type from the content, without the parameters such as

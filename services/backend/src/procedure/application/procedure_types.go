@@ -10,6 +10,7 @@ import (
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -141,15 +142,18 @@ func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntr
 			return nil, fmt.Errorf("procedure type %d version %d: %w", v.ProcedureTypeID, v.Number, err)
 		}
 		fields, documents := catalog.ApplicantRequirements(content)
+		submissionFields, submissionDocuments := submission.Requirements(content.Definition)
 		entries = append(entries, input.CatalogEntry{
-			ProcedureType: v.ProcedureTypeID,
-			Version:       v.Number,
-			Name:          content.Definition.Name,
-			Description:   content.Definition.Description,
-			Deadlines:     content.Definition.Deadlines,
-			Admissibility: content.Definition.Admissibility,
-			Fields:        fields,
-			Documents:     documents,
+			ProcedureType:       v.ProcedureTypeID,
+			Version:             v.Number,
+			Name:                content.Definition.Name,
+			Description:         content.Definition.Description,
+			Deadlines:           content.Definition.Deadlines,
+			Admissibility:       content.Definition.Admissibility,
+			Fields:              fields,
+			Documents:           documents,
+			SubmissionFields:    submission.Fields(submissionFields),
+			SubmissionDocuments: submission.Documents(submissionDocuments),
 		})
 	}
 	return entries, nil

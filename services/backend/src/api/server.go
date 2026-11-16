@@ -37,6 +37,7 @@ type DocumentServer interface {
 
 type ProcedureServer interface {
 	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
+	SubmitProcedure(ctx context.Context, request SubmitProcedureRequestObject) (SubmitProcedureResponseObject, error)
 	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
 }
 

@@ -17,17 +17,23 @@ var _ output.ProcedureRepository = (*ProcedureRepository)(nil)
 type ProcedureRepository struct {
 	mu         sync.Mutex
 	procedures map[string]domain.Procedure
+	values     map[string][]domain.FieldValue
 	events     map[string][]engine.Event
 }
 
 func NewProcedureRepository() *ProcedureRepository {
-	return &ProcedureRepository{procedures: map[string]domain.Procedure{}, events: map[string][]engine.Event{}}
+	return &ProcedureRepository{
+		procedures: map[string]domain.Procedure{},
+		values:     map[string][]domain.FieldValue{},
+		events:     map[string][]engine.Event{},
+	}
 }
 
-func (s *ProcedureRepository) Add(_ context.Context, p domain.Procedure) error {
+func (s *ProcedureRepository) Add(_ context.Context, p domain.Procedure, values ...domain.FieldValue) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.procedures[p.ID] = cloneProcedure(p)
+	s.values[p.ID] = append(s.values[p.ID], cloneValues(values)...)
 	return nil
 }
 
@@ -50,6 +56,22 @@ func (s *ProcedureRepository) List(context.Context) ([]domain.Procedure, error) 
 	}
 	slices.SortFunc(all, func(a, b domain.Procedure) int { return cmp.Compare(a.ID, b.ID) })
 	return all, nil
+}
+
+func (s *ProcedureRepository) Values(_ context.Context, procedureID string) ([]domain.FieldValue, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return cloneValues(s.values[procedureID]), nil
+}
+
+// cloneValues keeps the caller from changing the stored items.
+func cloneValues(values []domain.FieldValue) []domain.FieldValue {
+	cloned := make([]domain.FieldValue, len(values))
+	for i, v := range values {
+		v.Items = slices.Clone(v.Items)
+		cloned[i] = v
+	}
+	return cloned
 }
 
 func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e engine.Event) error {

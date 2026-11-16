@@ -194,6 +194,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inicia un trámite
+         * @description Inicia un trámite a nombre de quien tiene la sesión, sea o no del personal, con la última versión del tipo de trámite. Lleva los datos y documentos que piden los pasos del titular antes del primer paso del personal (submission en el catálogo), y deja el trámite en el paso siguiente. Se crea todo o nada. El servidor reconoce el tipo de cada archivo por su contenido y lo compara con los tipos y el tamaño máximo del documento.
+         */
+        post: operations["submitProcedure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}": {
         parameters: {
             query?: never;
@@ -324,7 +344,15 @@ export interface components {
             id: string;
             name: string;
             required: boolean;
+            type: components["schemas"]["FieldType"];
+            /** @description Opciones de un campo option, vacío en los demás tipos. Se envía el id */
+            options: components["schemas"]["NamedOption"][];
         };
+        /**
+         * @description Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+         * @enum {string}
+         */
+        FieldType: "text" | "long_text" | "number" | "date" | "option" | "degree" | "subject_list";
         DocumentRequirement: {
             id: string;
             name: string;
@@ -349,6 +377,34 @@ export interface components {
             admissibility: string[];
             fields: components["schemas"]["FieldRequirement"][];
             documents: components["schemas"]["DocumentRequirement"][];
+            submission: components["schemas"]["SubmissionForm"];
+        };
+        /** @description Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación. */
+        SubmissionForm: {
+            fields: components["schemas"]["FieldRequirement"][];
+            documents: components["schemas"]["DocumentRequirement"][];
+        };
+        StartedProcedure: {
+            id: string;
+            state: components["schemas"]["ProcedureState"];
+            /** @description Paso que espera el trámite; falta si quedó cerrado */
+            open_step?: string;
+        };
+        SubmissionProblem: {
+            /**
+             * @description missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+             * @enum {string}
+             */
+            code: "missing" | "invalid" | "not_asked" | "repeated" | "type_not_accepted" | "too_large" | "empty";
+            /** @enum {string} */
+            kind: "field" | "document";
+            /** @description Identificador del campo o del documento */
+            id: string;
+        };
+        SubmissionRejected: {
+            message: string;
+            /** @description Vacío si el pedido está mal formado */
+            problems: components["schemas"]["SubmissionProblem"][];
         };
         User: {
             id: string;
@@ -874,6 +930,58 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    submitProcedure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: int64
+                     * @description Va primero
+                     */
+                    procedure_type: number;
+                    /** @description JSON con un valor por campo: un texto, o una lista de textos para subject_list. Un campo que falta no se envía. Va después de procedure_type */
+                    values: string;
+                    /** @description Identificador del documento del archivo que le sigue. Se repite, una vez por archivo */
+                    document?: string;
+                    /**
+                     * Format: binary
+                     * @description Archivo del document anterior
+                     */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Trámite iniciado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedProcedure"];
+                };
+            };
+            /** @description El envío no cumple con lo que piden los pasos iniciales, o está mal formado */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionRejected"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getProcedure: {

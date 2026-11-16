@@ -46,6 +46,12 @@ type CatalogEntry struct {
 	Admissibility []string
 	Fields        []definition.FieldRequirement
 	Documents     []definition.DocumentRequirement
+	// SubmissionFields and SubmissionDocuments are what is sent to start the
+	// procedure: those of the steps of the applicant before the first step
+	// of the staff. Fields and Documents add those of later steps of the
+	// applicant.
+	SubmissionFields    []definition.FieldRequirement
+	SubmissionDocuments []definition.DocumentRequirement
 }
 
 type ProcedureTypes interface {

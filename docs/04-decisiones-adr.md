@@ -334,7 +334,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Un paquete del dominio no puede usar lo no exportado de otro: lo que se comparta entre ellos tiene que exportarse o quedarse en `definition/`.
 - El módulo `auth/` mantiene un solo `domain/`. Si crece de la misma forma, se divide con el mismo criterio.
 
-**Nota.** Los paquetes nuevos de `procedure/domain/` siguen el mismo criterio: uno por lo que se muestra o se calcula, que importa `definition/` y `version/` y no los otros paquetes hermanos. `detail/` arma los pasos que muestra el detalle de un trámite y les pone al lado sus archivos, y dónde está un trámite derivado. `engine/` decide el paso siguiente de una confirmación y arma el evento que la registra (ADR-023). Lo que comparten el catálogo y el detalle, como los requisitos de un paso (`FieldRequirement`, `DocumentRequirement`), va en `definition/`. El estado del trámite (`State`) va en `domain/`, junto al trámite, para que el detalle y la bandeja lo calculen igual; la bandeja suma su paquete con esta misma nota.
+**Nota.** Los paquetes nuevos de `procedure/domain/` siguen el mismo criterio: uno por lo que se muestra o se calcula, que importa `definition/` y `version/` y no los otros paquetes hermanos. `detail/` arma los pasos que muestra el detalle de un trámite y les pone al lado sus archivos, y dónde está un trámite derivado. `engine/` decide el paso siguiente de una confirmación y arma el evento que la registra (ADR-023). `submission/` define los pasos iniciales de un trámite, lo que piden y cómo se validan los datos que envía el titular. Lo que comparten el catálogo y el detalle, como los requisitos de un paso (`FieldRequirement`, `DocumentRequirement`), va en `definition/`. El estado del trámite (`State`) va en `domain/`, junto al trámite, para que el detalle y la bandeja lo calculen igual; la bandeja suma su paquete con esta misma nota.
 
 ---
 
@@ -532,6 +532,37 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Registrar el dictamen que trae el retorno queda para "Registrar retorno de la evaluación externa" (US21): acá el retorno solo termina la derivación.
 - Los trámites y sus eventos todavía están en memoria. Cuando pasen a PostgreSQL, `procedure_events` suma sus columnas, y la migración otorga `UPDATE` solo sobre las columnas del paso abierto y de la derivación (ADR-022).
 - La bandeja del personal tiene que calcular el estado con `domain.StateOf`, para que `referred` signifique lo mismo en el detalle y en la bandeja.
+
+## ADR-024: Un trámite y sus datos y documentos se registran en una transacción, y un storage aparte se coordina con outbox y saga
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** Iniciar un trámite (`SubmissionService.Submit`) escribe en tres lugares sin una transacción que los abarque: los archivos en disco (`output.Files`), el registro de cada documento, con un `Add` por documento, y el trámite con los valores de sus campos, que es lo único que se registra junto. Un documento es la fila que describe lo que se adjuntó (trámite, requisito, paso, nombre, tipo, tamaño y el hash de su archivo); el archivo son los bytes, guardados aparte con el hash como nombre. Si el inicio falla después de registrar algún documento y antes de registrar el trámite, queda un documento de un trámite que no existe, que nadie ve y nada borra: `RemoveUnreferencedFiles` solo borra los archivos que ningún documento nombra. Hoy no se nota porque los registros están en memoria, pero pasa a importar cuando se guarden en PostgreSQL (SIG-75). Además, el disparador de "Almacenamiento compatible con S3" (README, "Evolución") puede llevar los archivos a un servicio aparte, que tampoco entra en una transacción de la base.
+
+**Decisión.**
+- **Una transacción.** Iniciar un trámite registra en una sola transacción el trámite, los valores de sus campos y el registro de cada documento. Adjuntar un documento registra el documento y su evento del historial en otra.
+  - El mecanismo lo define SIG-75: un puerto de unidad de trabajo en `ports/output`, o un método del repositorio que registra el inicio completo. La aplicación no abre transacciones con `pgx`, y el adaptador en memoria da la misma garantía, probada con la suite de contrato de `ports/output/outputtest`.
+  - Los archivos se escriben antes de la transacción. Con el disco local, lo único que puede sobrar es un archivo sin documento, que `RemoveUnreferencedFiles` borra al arrancar.
+- **Con un storage aparte, outbox y saga, subiendo antes de confirmar.**
+  1. Reserva: una transacción corta registra cada archivo a subir, con su clave en el storage y el estado `pending`. Esa tabla es el log de la saga y la outbox.
+  2. Subida del archivo con esa clave. La clave es propia de la reserva y no solo el hash, así compensar no borra un archivo que nombra el documento de otro trámite (D-09).
+  3. Confirmación: la transacción del trámite registra trámite, valores y documentos, y cierra las reservas.
+  4. Compensación: si el envío se rechaza o algo falla antes de confirmar, se borran del storage los archivos de sus reservas y las reservas quedan `compensated`. El titular recibe el error en el momento.
+  5. Recuperación: si el servidor se cae a mitad de camino, un proceso que corre al arrancar y cada cierto tiempo toma las reservas `pending` más viejas que un plazo con `FOR UPDATE SKIP LOCKED`, para que dos instancias no compensen la misma, y las compensa.
+  6. Si una compensación falla, la reserva sigue abierta y se reintenta. Es el único caso en que algo queda pendiente, y queda registrado.
+
+  Así nunca hay un trámite con un documento sin archivo ni un archivo sin reserva. No hace falta la cola de trabajos; cuando exista, la recuperación puede pasar a ser uno de sus trabajos.
+
+**Alternativas descartadas.**
+- Confirmar y después subir, con los documentos "pendientes de subir" desde una copia local: el inicio no depende del storage, pero el trámite existe un tiempo con documentos sin archivo, y si la subida falla para siempre hay que deshacer un trámite ya iniciado.
+- Recolectar por referencia también en el storage aparte: acepta huérfanos, recorre todo el storage y, con varias instancias, puede borrar un archivo que otra todavía no confirmó.
+- Transacción distribuida (2PC, `PREPARE TRANSACTION`): necesita un coordinador, bloquea si el coordinador cae, requiere `max_prepared_transactions`, que la infraestructura de destino no garantiza, y un storage de objetos no participa.
+- Guardar los archivos en PostgreSQL: entrarían en la transacción, pero agrandan la base y su respaldo, y contradicen el puerto `Files`.
+
+**Consecuencias.**
+- SIG-75 cambia los puertos de salida para que el inicio de un trámite se registre junto, y adjuntar registre documento y evento juntos.
+- La saga se implementa con el adaptador del storage aparte, cuando se cumpla su disparador: suma la tabla de reservas, con su migración y sus permisos según ADR-022, y la recuperación, y para ese storage retira `RemoveUnreferencedFiles`.
+- Con el storage aparte, cada envío con archivos suma una transacción corta, la de la reserva.
 
 ---
 
