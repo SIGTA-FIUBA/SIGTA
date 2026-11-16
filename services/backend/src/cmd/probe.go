@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-// probeURL is the catalog, which is public and reads the database.
+// The catalog is public and reads the database, so the probe also fails when
+// the database does not answer.
 const probeURL = "http://127.0.0.1:8080/procedure-types"
 
-// probe asks the server in this container for the catalog, so a container
-// whose server or database does not answer is unhealthy. The image has neither
-// a shell nor curl: the healthcheck of the deployment runs "backend probe".
+// probe is the container healthcheck: the image has no shell nor curl.
 func probe(url string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
