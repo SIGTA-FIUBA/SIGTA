@@ -8,6 +8,8 @@
 
 > **Historias agregadas el 14/11.** Las cinco historias de US72 a US76 (29 SP, con estimación provisoria) todavía no están repartidas en este documento. Con ellas el backlog pasa a 58 historias y 293 SP, y la carga cambia en cuatro sprints: el 4 de 30 a 38 SP (US72), el 5 de 29 a 34 (US73), el 6 de 17 a 30 (US74 y US75) y el 16 de 14 a 17 (US76). La curva queda en 17, 19, 26, 38, 34, 30 y 13, 11, 18, 24, 24, 14, 17, 8. El índice por épica, con el sprint de cada historia, está en el backlog.
 
+> **Replanificación del 16/11.** Al cerrar el sprint 4 quedaron sin terminar el historial (US11), el segundo trámite (US25), los datos sintéticos (US04) y el trámite ancla (US09), que venía del sprint 3. El equipo decidió que el sprint 5 tenga un solo objetivo: recorrer un trámite de punta a punta. Para eso trae del sprint 6 el seguimiento del titular (US22 y US23) y del 15 la subsanación (US33 y US34), y pasa al sprint 6 el asistente (US27 y US28), el segundo trámite y los datos sintéticos. El detalle está en cada sprint. La curva de arriba queda como referencia de la planificación original.
+
 ---
 
 ## Sprint 1 · 21 sep – 4 oct 2026 · 17 SP
@@ -67,30 +69,51 @@
 
 > Sprint más cargado del proyecto, **30 SP**. **Orden interno:** avance por confirmación → historial → detalle → bandeja y listado → segundo trámite; datos sintéticos en paralelo. Avance por confirmación incluye la derivación al evaluador.
 
-## Sprint 5 · 16 nov – 29 nov · 29 SP
+> **Cómo cerró.** Se integraron el avance por confirmación con la derivación (US10), el detalle (US19, sin pantalla todavía), la bandeja (US17) y los filtros (US37), además de lo que venía del sprint 3: perfiles y autorización (US07), documentos (US15) e iniciar una solicitud (US14). Pasaron al sprint 5 el historial (US11) y el trámite ancla (US09), y al sprint 6 el segundo trámite (US25) y los datos sintéticos (US04).
 
-**Objetivo:** La base del asistente y el entorno desplegado.
+## Sprint 5 · 16 nov – 29 nov · 49 SP, 8 ya integrados, más tres tareas sin estimar
 
-| ID | Historia | SP |
-|---|---|---|
-| US27 | Ingesta y versionado de la base de conocimiento | 8 |
-| US28 | Recuperación de contexto relevante para la consulta | 8 |
-| US68 | Despliegue automático | 8 |
-| US16 | Visualización y descarga de documentos del trámite | 5 |
+**Objetivo:** Un trámite de equivalencia recorrido de punta a punta: lo inicia el titular, pasa por todas las áreas, incluida una subsanación, y se cierra con su documentación.
 
-> Dos frentes en paralelo: el asistente y la infraestructura. El despliegue automático llega acá y no antes: nada necesita un entorno desplegado hasta la demo de diciembre, y TICs tiene dos meses para definir el destino. **El último día del sprint, el 29/11 a las 21 h, vence la entrega intermedia de la cátedra** (ver el roadmap, sección 6 bis): un video que incluye una demostración del producto, así que lo que se muestre tiene que estar mergeado antes.
+| ID | Historia | SP | Prioridad |
+|---|---|---|---|
+| US72 | Edición y publicación de tipos de trámite | 8 | Urgente |
+| US09 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | Urgente |
+| — | Áreas y personal del trámite ancla en el entorno de prueba | — | Urgente |
+| — | Pantalla del trámite para el personal | — | Urgente |
+| US73 | Persistencia de personas, áreas, trámites y documentos | 5 | Alta |
+| US16 | Visualización y descarga de documentos del trámite | 5 | Alta |
+| US23 | Detalle de mi trámite | 2 | Alta |
+| US11 | Historial de pasos de un trámite | 5 | Alta |
+| US22 | Mis trámites en curso | 2 | Media |
+| — | No avanzar un paso sin su documento | — | Media |
+| US33 | Pedido de subsanación al titular | 3 | Media |
+| US34 | El titular completa una subsanación | 3 | Media |
+| US68 | Despliegue automático | 8 | Integrado el 16/11 |
 
-## Sprint 6 · 30 nov – 13 dic · 17 SP
+> **Por qué este objetivo.** Al cerrar el sprint 4, el sistema ya inicia un trámite, lo avanza, lo deriva entre áreas y guarda sus documentos, pero el personal no tiene pantalla para moverlo, el titular no puede seguirlo, la equivalencia no está cargada con sus pasos reales y cada actualización del entorno de prueba borra los trámites. Sin eso no hay recorrido completo que mostrar. Las tres tareas sin código de historia salen de historias ya integradas y no tienen estimación: se estiman en la planificación.
+
+> **Carga.** 49 SP más tres tareas sin estimar, contra unos 26 SP cerrados por sprint. Es más de lo que entra. **Orden:** primero lo urgente, que es el camino crítico (cargar el trámite, darle personal y la pantalla del personal), después lo de prioridad alta. Si no se llega, se caen primero las de prioridad media: la subsanación vuelve a su sprint y el resto pasa al 6. Si a mitad de la segunda semana la edición y publicación (US72) no llega, la equivalencia se carga a mano para no frenar el recorrido, y la publicación se termina en el sprint 6.
+
+> **Entrega intermedia.** El último día del sprint, el 29/11 a las 21 h, vence la entrega de la cátedra (ver el roadmap, sección 6 bis): un video que incluye una demostración del producto, así que lo que se muestre tiene que estar integrado antes. Mientras se graba, conviene no integrar cambios: cada integración actualiza el entorno de prueba, y hasta que llegue la persistencia (US73) eso borra los trámites cargados.
+
+## Sprint 6 · 30 nov – 13 dic · 55 SP, a replanificar
 
 **Objetivo:** Cerrar 2026 con dos trámites y el agente respondiendo.
 
 | ID | Historia | SP |
 |---|---|---|
 | US69 | Respuesta conversacional sobre el contexto recuperado | 13 |
-| US23 | Detalle de mi trámite | 2 |
-| US22 | Mis trámites en curso | 2 |
+| US27 | Ingesta y versionado de la base de conocimiento | 8 |
+| US28 | Recuperación de contexto relevante para la consulta | 8 |
+| US25 | Configuración del segundo trámite: reconocimiento de créditos | 8 |
+| US04 | Generador de datos sintéticos | 5 |
+| US74 | Administración de áreas, permisos y membresías | 5 |
+| US75 | Quitar los datos identificatorios antes de llamar al modelo | 8 |
 
 > Carga reducida por diciembre. **Demo ante los directores:** dos trámites configurados y el agente respondiendo con fuentes. La respuesta conversacional lleva 13 SP, fuera de la escala habitual.
+
+> **Después de la replanificación del 16/11** recibe del sprint 5 el asistente (US27 y US28) y del 4 el segundo trámite (US25) y los datos sintéticos (US04), y entrega al sprint 5 el seguimiento del titular (US22 y US23). Suma 55 SP de historias más el catálogo de identidad visual, sin estimar, y no entra: se replanifica al cerrar el sprint 5, según lo que haya quedado.
 
 ---
 
@@ -161,7 +184,7 @@ Once semanas sin compromiso de entrega. Antes de irse hay que dejar agendada la 
 
 > **Segunda validación con la Secretaría**, y la instancia donde se agendan las pruebas de aceptación del sprint 17. El pase extranjero va primero en la cobertura: si la abstracción no lo cubre, quedan dos sprints para corregir.
 
-## Sprint 15 · 5 abr – 18 abr · 14 SP
+## Sprint 15 · 5 abr – 18 abr · 8 SP
 
 **Objetivo:** Subsanaciones y el cuarto trámite.
 
@@ -169,10 +192,8 @@ Once semanas sin compromiso de entrega. Antes de irse hay que dejar agendada la 
 |---|---|---|
 | US50 | Configuración de cobertura: intercambios académicos | 5 |
 | US67 | Plazos próximos a vencer | 3 |
-| US33 | Pedido de subsanación al titular | 3 |
-| US34 | El titular completa una subsanación | 3 |
 
-> La subsanación aparece recién acá, siendo el caso más frecuente en trámites documentales.
+> La subsanación (US33 y US34) pasó al sprint 5 en la replanificación del 16/11: el recorrido de punta a punta la necesita, y es el caso más frecuente en trámites documentales.
 
 ## Sprint 16 · 19 abr – 2 may · 14 SP
 
