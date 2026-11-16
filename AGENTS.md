@@ -60,6 +60,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 - **Entre módulos, la API pública** (ADR-021). Un módulo del backend usa a otro solo por su `ports/input/`, recibida por constructor, sin puerto ni adaptador propio; nunca importa su `domain/`, `application/` ni `adapters/` (lo rechaza `depguard`). `procedure` usa `auth`, nunca al revés.
 - **Contrato primero.** Todo cambio de API empieza en `contracts/openapi.yaml`. Después se regenera con `make contracts`; la CI falla si el código generado no coincide con el contrato. No editar a mano `api.gen.go` ni `schema.d.ts`.
 - **Historial de acciones** en una tabla que solo crece, escrita en la misma transacción que el estado. Sin event sourcing.
+- **Un trámite se registra en una transacción** (ADR-023): trámite, valores y documentos van juntos. Con un storage de archivos aparte, outbox y saga: se reserva, se sube y después se confirma, y si algo falla se compensa.
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
 - **Cada servicio es dueño de sus datos.** Comparten la instancia de PostgreSQL pero no los esquemas; ninguno lee las tablas del otro.
 - **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; áreas, permisos y membresías se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.

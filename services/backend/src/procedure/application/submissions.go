@@ -77,9 +77,11 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 			EnteredAt: now,
 		})
 	}
-	// The procedure is recorded last: until then no one can see it, so a
-	// failure leaves at most documents and files that nothing reaches, which
-	// RemoveUnreferencedFiles clears.
+	// The procedure is recorded last: until then no one can see it. A failure
+	// before that leaves files that no document names, which
+	// RemoveUnreferencedFiles removes at startup, and documents of a procedure
+	// that does not exist, which nothing removes yet: they are to be recorded
+	// together with the procedure in one transaction (ADR-023).
 	for _, d := range documents {
 		if err := s.documents.Add(ctx, d); err != nil {
 			return domain.Procedure{}, fmt.Errorf("record document: %w", err)

@@ -136,7 +136,7 @@ Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su d
 | Componente | Se suma cuando | Hasta entonces |
 | --- | --- | --- |
 | Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
-| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos |
+| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos. Al sumarlo, cada archivo se reserva antes de subirse y se confirma o se compensa con una saga (ADR-023) |
 | Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
 | API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
 
@@ -370,6 +370,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
 - **Monolito modular y un solo servicio aparte:** el de inteligencia artificial se separa desde el inicio porque usa otro lenguaje y tiene su propio ciclo de evaluación. Cualquier otra separación espera a que se cumpla su disparador.
 - **Historial de acciones sin event sourcing:** un trámite se audita, no solo se consulta. El historial se escribe en la misma transacción que el estado, y eso alcanza para auditar.
+- **Un trámite se registra en una transacción:** el trámite, sus datos y sus documentos se guardan juntos, así un inicio que falla no deja documentos de un trámite que no existe. Si los archivos pasan a un storage aparte, se reservan antes de subirse y se confirman o se compensan con una saga (ADR-023).
 - **Cola en PostgreSQL:** encolar en la misma transacción que el cambio garantiza que ningún trabajo se pierda, sin otro servicio que operar.
 - **Una sola base relacional:** PostgreSQL con pgvector cubre estado, historial, cola, búsqueda de texto en español y vectores.
 - **Contrato primero:** el frontend, el servicio de trámites y el de inteligencia artificial están en lenguajes distintos; OpenAPI genera el código de cada lado para que no se desfasen.
