@@ -103,6 +103,16 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | --- | --- | --- | --- |
 | DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 
+## 5. Del inicio de un trámite
+
+Salen de "Iniciar una solicitud" (SIG-17).
+
+| ID | Duda | Por ahora | Cómo |
+| --- | --- | --- | --- |
+| DU-35 | ¿Cómo se carga la carrera (`degree`) y las asignaturas (`subject_list`)? ¿Hay un listado para elegir? | Texto libre: la carrera, un texto; las asignaturas, una lista de textos. No se controla contra ningún plan de estudios | Supuesto; a confirmar con la Secretaría |
+| DU-36 | ¿Cuánto puede ocupar un dato de texto? | 200 caracteres para un texto corto y 5000 para uno largo; hasta 100 asignaturas | Decidido por el equipo |
+| DU-37 | ¿Un número admite decimales y negativos, como un promedio o un ajuste? | Sí: un decimal con signo. La web acepta coma o punto y envía punto. Un tipo de trámite todavía no puede pedir solo enteros ni un rango | Supuesto; a confirmar con la Secretaría |
+
 ---
 
 ## Cerradas
