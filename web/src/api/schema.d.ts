@@ -74,6 +74,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trámites en curso de la persona con sesión abierta
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, que todavía no se cerraron. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         */
+        get: operations["listMyProcedures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedure-types": {
         parameters: {
             query?: never;
@@ -568,6 +588,22 @@ export interface components {
             to: string;
             external_file_number?: string;
         };
+        MyProcedure: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            procedure_type_name: string;
+            /** @description Paso abierto, el que se espera ahora */
+            step_name: string;
+            state: components["schemas"]["ProcedureState"];
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description Cuándo el trámite llegó al paso abierto
+             */
+            last_moved_at: string;
+        };
         ProcedureDetail: {
             id: string;
             /** Format: int64 */
@@ -794,6 +830,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listMyProcedures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trámites en curso, vacío si no hay ninguno */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProcedure"][];
                 };
             };
             401: components["responses"]["Unauthorized"];

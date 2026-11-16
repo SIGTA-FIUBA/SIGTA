@@ -22,11 +22,16 @@ import (
 // fakeProcedures opens detail, or answers err.
 type fakeProcedures struct {
 	detail input.ProcedureDetail
+	mine   []input.MyProcedure
 	err    error
 }
 
 func (f fakeProcedures) Detail(context.Context, string, string) (input.ProcedureDetail, error) {
 	return f.detail, f.err
+}
+
+func (f fakeProcedures) Mine(context.Context, string) ([]input.MyProcedure, error) {
+	return f.mine, f.err
 }
 
 // fakePeople knows the names of ana and of the staff member staff-1.

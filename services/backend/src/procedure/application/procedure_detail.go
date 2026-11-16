@@ -1,10 +1,13 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -57,4 +60,35 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 		Referral:  detail.ReferralOf(p, content, s.procedures.now()),
 		History:   history,
 	}, nil
+}
+
+// Mine leaves out the closed procedures and those of others, also for staff:
+// what goes through their areas is in the inbox. It fails, as the detail
+// does, if the open step of a procedure is not in its version.
+func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]input.MyProcedure, error) {
+	all, err := s.procedures.procedures.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list procedures: %w", err)
+	}
+	mine := []input.MyProcedure{}
+	for _, p := range all {
+		if p.Applicant != userID || p.Closed() {
+			continue
+		}
+		content, err := s.procedures.content(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		state, err := domain.StateOf(p, content.Definition)
+		if err != nil {
+			return nil, err
+		}
+		// StateOf already found the open step in the definition.
+		step := content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })]
+		mine = append(mine, input.MyProcedure{Procedure: p, Name: content.Definition.Name, StepName: step.Name, State: state})
+	}
+	slices.SortFunc(mine, func(a, b input.MyProcedure) int {
+		return cmp.Or(b.Procedure.MovedAt.Compare(a.Procedure.MovedAt), cmp.Compare(a.Procedure.ID, b.Procedure.ID))
+	})
+	return mine, nil
 }

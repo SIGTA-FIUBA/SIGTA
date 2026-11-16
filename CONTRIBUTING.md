@@ -119,6 +119,12 @@ En desarrollo el servidor deja además dos trámites de ejemplo (`addDevExample`
 
 En desarrollo se publica además un segundo tipo de ejemplo, "Trámite de ejemplo con derivación" (`devReferralProcedureType`, tipo 2): su revisión es una decisión que deriva el trámite a la "Comisión de prueba" o lo devuelve al titular, el dictamen de la comisión lo devuelve al área de prueba (el retorno) y la comunicación del dictamen lo cierra. La comisión confirma con `comision@fi.uba.ar`. Es un tipo aparte, y no un cambio al primero, porque un ejemplo solo se publica si su tipo no tiene versiones (`publishIfMissing`): una base que ya tiene el primero lo conserva.
 
+### Mis trámites en curso
+
+`GET /me/procedures` devuelve los trámites que inició quien tiene la sesión y que todavía no se cerraron, primero los que se movieron más recientemente. Vale también para el personal, que inicia trámites como cualquiera: ve los suyos, no los de sus áreas, que están en la bandeja. Cada uno dice su tipo de trámite, el paso abierto, el estado y cuándo empezó y se movió por última vez, y nada de lo que pasó dentro de cada área. Lo arma `ProcedureDetailService.Mine`, con el mismo estado (`domain.StateOf`) que el detalle y la bandeja.
+
+En la web, es la primera sección del inicio (`pages/HomePage.tsx`), adonde se llega al ingresar. Cada trámite lleva a su detalle.
+
 ## Base de datos
 
 Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.
