@@ -37,4 +37,4 @@ Artefactos de gestión de SIGTA. La arquitectura y el stack están en el [README
 | [12 · Requisitos de infraestructura de FIUBA](12-requisitos-infraestructura-fiuba.md) | Qué cumple SIGTA de los requisitos de la Subsecretaría de TICs para desplegar en la infraestructura de FIUBA |
 | [13 · Relevamiento de los trámites](13-relevamiento-de-tramites.md) | Actores, acciones y circuito de los cinco trámites, y cómo queda la equivalencia en SIGTA |
 | [14 · Dudas abiertas](14-dudas-abiertas.md) | Lo que todavía no se sabe y cómo se avanza mientras tanto |
-| [15 · Despliegue](15-despliegue.md) | Los entornos de prueba en Google Cloud con Docker Swarm (`prod` con `main` y `dev` con `develop`), cómo se despliegan en cada push, sus secretos y su operación |
+| [15 · Despliegue](15-despliegue.md) | Los entornos de prueba en Cloud Run y Cloud SQL (`prod` con `main` y `dev` con `develop`), cómo se despliegan en cada push, sus secretos y su operación |
