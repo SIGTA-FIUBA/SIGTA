@@ -1,6 +1,8 @@
 package detail
 
 import (
+	"time"
+
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
@@ -30,18 +32,12 @@ type Area struct {
 // one. Each step lists its fields and documents in the order the definition
 // declares them; one the step asks for both ways is mandatory.
 func Steps(c version.Content) []Step {
-	areas := map[string]string{}
-	for _, a := range c.Areas {
-		areas[a.ID] = a.Name
-	}
 	steps := make([]Step, 0, len(c.Definition.Steps))
 	for _, s := range c.Definition.Steps {
 		step := Step{Step: s}
 		if s.Area != "" {
-			step.Area = &Area{ID: s.Area, Name: areas[s.Area]}
-			if step.Area.Name == "" {
-				step.Area.Name = s.Area
-			}
+			area := areaOf(c, s.Area)
+			step.Area = &area
 		}
 		fields := asked(s.Fields, s.OptionalFields)
 		for _, f := range c.Definition.Fields {
@@ -88,4 +84,30 @@ func WithFiles(steps []Step, attached []domain.Document) []Step {
 		}
 	}
 	return steps
+}
+
+// areaOf names an area as the version keeps it, or by its ID if the version
+// does not have it.
+func areaOf(c version.Content, id string) Area {
+	for _, a := range c.Areas {
+		if a.ID == id && a.Name != "" {
+			return Area{ID: id, Name: a.Name}
+		}
+	}
+	return Area{ID: id, Name: id}
+}
+
+type Referral struct {
+	Area              Area
+	From              Area
+	DaysWithoutReturn int
+}
+
+// ReferralOf is nil when the procedure is not referred.
+func ReferralOf(p domain.Procedure, c version.Content, now time.Time) *Referral {
+	days, referred := p.DaysWithoutReturn(now)
+	if !referred {
+		return nil
+	}
+	return &Referral{Area: areaOf(c, p.Referral.To), From: areaOf(c, p.Referral.From), DaysWithoutReturn: days}
 }

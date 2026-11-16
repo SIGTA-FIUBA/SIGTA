@@ -37,6 +37,7 @@ type DocumentServer interface {
 
 type ProcedureServer interface {
 	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
+	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
 }
 
 // A test that only calls one module can leave the others nil.

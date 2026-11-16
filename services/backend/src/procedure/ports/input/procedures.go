@@ -6,6 +6,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/domain/engine"
 )
 
 // ProcedureView is a procedure with the steps the person can act on now.
@@ -28,6 +29,7 @@ type ProcedureDetail struct {
 	State     domain.State
 	Steps     []detail.Step
 	CanAct    bool
+	Referral  *detail.Referral
 }
 
 // ProcedureDetails answers domain.ErrProcedureNotFound to whoever cannot see
@@ -36,9 +38,17 @@ type ProcedureDetails interface {
 	Detail(ctx context.Context, userID, procedureID string) (ProcedureDetail, error)
 }
 
+type StepConfirmation struct {
+	Step               string
+	Observation        string
+	Outcome            string
+	ExternalFileNumber string
+}
+
 type Procedures interface {
 	Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error)
 	Open(ctx context.Context, userID, procedureID string) (ProcedureView, error)
 	List(ctx context.Context, userID string) ([]domain.Procedure, error)
 	Act(ctx context.Context, userID, procedureID, stepID string) error
+	Confirm(ctx context.Context, userID, procedureID string, c StepConfirmation) (engine.Event, error)
 }
