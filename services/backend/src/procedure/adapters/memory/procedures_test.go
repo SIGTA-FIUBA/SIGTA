@@ -15,8 +15,8 @@ func onStep(step string) domain.Procedure {
 	return domain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: step}
 }
 
-func confirmed(step, next string) (domain.Procedure, engine.Event) {
-	return onStep(next), engine.Event{ProcedureID: "P-1", Step: step, By: "staff@fi.uba.ar", Observation: "done", Next: next}
+func confirmed(step, next string) (domain.Procedure, domain.Event) {
+	return onStep(next), domain.Event{ProcedureID: "P-1", Step: step, By: "staff@fi.uba.ar", Observation: "done", Next: next}
 }
 
 func TestAdvanceStoresTheProcedureAndAppendsTheEvent(t *testing.T) {
@@ -128,7 +128,7 @@ func TestStoredReferralsCannotBeChangedFromOutside(t *testing.T) {
 	since := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
 	p := onStep("evaluate")
 	p.Referral = &domain.Referral{From: "affairs", To: "commission", Since: since}
-	e := engine.Event{ProcedureID: "P-1", Step: "check", Next: "evaluate", Referral: &engine.ReferralRecord{From: "affairs", To: "commission"}}
+	e := domain.Event{ProcedureID: "P-1", Step: "check", Next: "evaluate", Referral: &domain.ReferralRecord{From: "affairs", To: "commission"}}
 	if err := s.Advance(ctx, p, e); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestStoredReferralsCannotBeChangedFromOutside(t *testing.T) {
 		t.Errorf("stored referral = %+v, want it unchanged", *stored.Referral)
 	}
 	storedEvents, _ := s.Events(ctx, "P-1")
-	if *storedEvents[0].Referral != (engine.ReferralRecord{From: "affairs", To: "commission"}) {
+	if *storedEvents[0].Referral != (domain.ReferralRecord{From: "affairs", To: "commission"}) {
 		t.Errorf("stored event referral = %+v, want it unchanged", *storedEvents[0].Referral)
 	}
 }

@@ -6,7 +6,6 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
-	"backend/src/procedure/domain/engine"
 )
 
 // ProcedureView is a procedure with the steps the person can act on now.
@@ -50,5 +49,5 @@ type Procedures interface {
 	Open(ctx context.Context, userID, procedureID string) (ProcedureView, error)
 	List(ctx context.Context, userID string) ([]domain.Procedure, error)
 	Act(ctx context.Context, userID, procedureID, stepID string) error
-	Confirm(ctx context.Context, userID, procedureID string, c StepConfirmation) (engine.Event, error)
+	Confirm(ctx context.Context, userID, procedureID string, c StepConfirmation) (domain.Event, error)
 }

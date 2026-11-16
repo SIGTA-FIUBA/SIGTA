@@ -22,13 +22,13 @@ import (
 
 type fakeSteps struct {
 	input.Procedures
-	event    engine.Event
+	event    domain.Event
 	err      error
 	user     string
 	received input.StepConfirmation
 }
 
-func (f *fakeSteps) Confirm(_ context.Context, userID, _ string, c input.StepConfirmation) (engine.Event, error) {
+func (f *fakeSteps) Confirm(_ context.Context, userID, _ string, c input.StepConfirmation) (domain.Event, error) {
 	f.user, f.received = userID, c
 	return f.event, f.err
 }
@@ -47,7 +47,7 @@ func confirmStep(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.
 
 func TestConfirmStepAnswersTheRecordedEvent(t *testing.T) {
 	at := time.Date(2026, 11, 16, 10, 30, 0, 0, time.UTC)
-	steps := &fakeSteps{event: engine.Event{
+	steps := &fakeSteps{event: domain.Event{
 		ProcedureID: "P-1",
 		Step:        "check",
 		Action:      definition.ActionDecide,
@@ -56,7 +56,7 @@ func TestConfirmStepAnswersTheRecordedEvent(t *testing.T) {
 		Observation: "Documentación completa",
 		Outcome:     "accept",
 		Next:        "evaluate",
-		Referral:    &engine.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-1"},
+		Referral:    &domain.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-1"},
 	}}
 
 	recorder := confirmStep(t, steps, session, `{"observation":"Documentación completa","outcome":"accept","external_file_number":"EX-1"}`)
@@ -81,7 +81,7 @@ func TestConfirmStepAnswersTheRecordedEvent(t *testing.T) {
 }
 
 func TestConfirmStepThatClosesOmitsNext(t *testing.T) {
-	steps := &fakeSteps{event: engine.Event{Step: "approve", Action: definition.ActionConfirmExternalFact, By: "staff-1", Observation: "ok", Declared: true}}
+	steps := &fakeSteps{event: domain.Event{Step: "approve", Action: definition.ActionConfirmExternalFact, By: "staff-1", Observation: "ok", Declared: true}}
 
 	recorder := confirmStep(t, steps, session, `{"observation":"ok"}`)
 

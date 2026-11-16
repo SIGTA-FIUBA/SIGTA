@@ -120,20 +120,20 @@ func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID 
 	return nil
 }
 
-func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID string, c input.StepConfirmation) (engine.Event, error) {
+func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID string, c input.StepConfirmation) (domain.Event, error) {
 	p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
-		return engine.Event{}, err
+		return domain.Event{}, err
 	}
 	if p.Closed() || c.Step != p.OpenStep {
-		return engine.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, engine.ErrStepNotOpen)
+		return domain.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, engine.ErrStepNotOpen)
 	}
 	allowed, err := s.canAct(ctx, userID, p, content, c.Step)
 	if err != nil {
-		return engine.Event{}, err
+		return domain.Event{}, err
 	}
 	if !allowed {
-		return engine.Event{}, denied(userID, actionConfirm+" "+c.Step)
+		return domain.Event{}, denied(userID, actionConfirm+" "+c.Step)
 	}
 	moved, event, err := engine.Confirm(p, content.Definition, engine.Confirmation{
 		Step:               c.Step,
@@ -144,10 +144,10 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 		ExternalFileNumber: c.ExternalFileNumber,
 	})
 	if err != nil {
-		return engine.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, err)
+		return domain.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, err)
 	}
 	if err := s.procedures.Advance(ctx, moved, event); err != nil {
-		return engine.Event{}, fmt.Errorf("advance procedure %s: %w", p.ID, err)
+		return domain.Event{}, fmt.Errorf("advance procedure %s: %w", p.ID, err)
 	}
 	return event, nil
 }

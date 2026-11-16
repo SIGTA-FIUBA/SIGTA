@@ -42,7 +42,7 @@ func TestConfirmRecordsWhoWhenAndObservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := engine.Event{
+	want := domain.Event{
 		ProcedureID: "P-1",
 		Step:        "file",
 		Action:      definition.ActionConfirmExternalFact,
@@ -139,7 +139,7 @@ func TestMovingToAnotherAreaRefers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRecord := engine.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-2026-00001"}
+	wantRecord := domain.ReferralRecord{From: "affairs", To: "commission", ExternalFileNumber: "EX-2026-00001"}
 	if event.Referral == nil || *event.Referral != wantRecord {
 		t.Errorf("event referral = %+v, want %+v", event.Referral, wantRecord)
 	}

@@ -32,7 +32,7 @@ type failingAdvance struct {
 	*memory.ProcedureRepository
 }
 
-func (failingAdvance) Advance(context.Context, domain.Procedure, engine.Event) error {
+func (failingAdvance) Advance(context.Context, domain.Procedure, domain.Event) error {
 	return errRecording
 }
 
@@ -178,12 +178,12 @@ func (w *confirmationWorld) thenNotOpen() error {
 	return nil
 }
 
-func (w *confirmationWorld) eventsOf(step string) ([]engine.Event, error) {
+func (w *confirmationWorld) eventsOf(step string) ([]domain.Event, error) {
 	all, err := w.procedures.Events(context.Background(), w.current)
 	if err != nil {
 		return nil, err
 	}
-	var events []engine.Event
+	var events []domain.Event
 	for _, e := range all {
 		if e.Step == step {
 			events = append(events, e)
@@ -192,13 +192,13 @@ func (w *confirmationWorld) eventsOf(step string) ([]engine.Event, error) {
 	return events, nil
 }
 
-func (w *confirmationWorld) onlyEventOf(step string) (engine.Event, error) {
+func (w *confirmationWorld) onlyEventOf(step string) (domain.Event, error) {
 	events, err := w.eventsOf(step)
 	if err != nil {
-		return engine.Event{}, err
+		return domain.Event{}, err
 	}
 	if len(events) != 1 {
-		return engine.Event{}, fmt.Errorf("the %q step has %d confirmations, want 1", step, len(events))
+		return domain.Event{}, fmt.Errorf("the %q step has %d confirmations, want 1", step, len(events))
 	}
 	return events[0], nil
 }
@@ -287,17 +287,17 @@ func (w *confirmationWorld) thenNotReferred() error {
 	return nil
 }
 
-func (w *confirmationWorld) lastReferral() (engine.Event, error) {
+func (w *confirmationWorld) lastReferral() (domain.Event, error) {
 	all, err := w.procedures.Events(context.Background(), w.current)
 	if err != nil {
-		return engine.Event{}, err
+		return domain.Event{}, err
 	}
 	for i := len(all) - 1; i >= 0; i-- {
 		if all[i].Referral != nil {
 			return all[i], nil
 		}
 	}
-	return engine.Event{}, errors.New("no referral was recorded")
+	return domain.Event{}, errors.New("no referral was recorded")
 }
 
 func (w *confirmationWorld) thenReferralRecorded(user, date, area, fileNumber string) error {

@@ -98,7 +98,7 @@ type failingAdvance struct {
 	*memory.ProcedureRepository
 }
 
-func (failingAdvance) Advance(context.Context, procdomain.Procedure, engine.Event) error {
+func (failingAdvance) Advance(context.Context, procdomain.Procedure, procdomain.Event) error {
 	return errStore
 }
 

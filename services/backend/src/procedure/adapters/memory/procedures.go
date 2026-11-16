@@ -18,14 +18,14 @@ type ProcedureRepository struct {
 	mu         sync.Mutex
 	procedures map[string]domain.Procedure
 	values     map[string][]domain.FieldValue
-	events     map[string][]engine.Event
+	events     map[string][]domain.Event
 }
 
 func NewProcedureRepository() *ProcedureRepository {
 	return &ProcedureRepository{
 		procedures: map[string]domain.Procedure{},
 		values:     map[string][]domain.FieldValue{},
-		events:     map[string][]engine.Event{},
+		events:     map[string][]domain.Event{},
 	}
 }
 
@@ -74,7 +74,7 @@ func cloneValues(values []domain.FieldValue) []domain.FieldValue {
 	return cloned
 }
 
-func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e engine.Event) error {
+func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored, ok := s.procedures[p.ID]
@@ -89,13 +89,13 @@ func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e e
 	return nil
 }
 
-func (s *ProcedureRepository) Events(_ context.Context, procedureID string) ([]engine.Event, error) {
+func (s *ProcedureRepository) Events(_ context.Context, procedureID string) ([]domain.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.procedures[procedureID]; !ok {
 		return nil, domain.ErrProcedureNotFound
 	}
-	events := make([]engine.Event, 0, len(s.events[procedureID]))
+	events := make([]domain.Event, 0, len(s.events[procedureID]))
 	for _, e := range s.events[procedureID] {
 		events = append(events, cloneEvent(e))
 	}
@@ -111,7 +111,7 @@ func cloneProcedure(p domain.Procedure) domain.Procedure {
 	return p
 }
 
-func cloneEvent(e engine.Event) engine.Event {
+func cloneEvent(e domain.Event) domain.Event {
 	if e.Referral != nil {
 		r := *e.Referral
 		e.Referral = &r
