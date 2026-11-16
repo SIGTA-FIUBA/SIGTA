@@ -156,3 +156,16 @@ Feature: Step confirmation
     Then the procedure moves to the "file" step
     And the procedure is not referred
     And its state is in an office
+
+  Scenario: closing a referred procedure ends the referral
+    Given a published "credit recognition" procedure type with this flow:
+      | step     | done by               | permissions | action                | next                                 |
+      | request  | applicant             |             | enter_data            | check                                |
+      | check    | student affairs       | verify      | decide                | accept: evaluate, send back: request |
+      | evaluate | curricular commission | evaluate    | confirm_external_fact |                                      |
+    And a "credit recognition" procedure whose open step is "check"
+    And "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
+    When "commission@fi.uba.ar" confirms the "evaluate" step
+    Then no step is left open
+    And the procedure is not referred
+    And its state is closed

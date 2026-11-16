@@ -83,7 +83,10 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	}
 	moved := p
 	moved.OpenStep = nextID
-	if nextID != "" {
+	if nextID == "" {
+		// Closing ends the referral too: a closed procedure is nowhere.
+		moved.Referral = nil
+	} else {
 		nextStep, ok := find(d.Steps, nextID)
 		if !ok {
 			return p, Event{}, fmt.Errorf("procedure %s: step %q leads to %q, which is not in its version", p.ID, step.ID, nextID)

@@ -196,6 +196,28 @@ func TestGoingBackToTheAreaItLeftReturns(t *testing.T) {
 	}
 }
 
+func TestClosingAReferredProcedureEndsTheReferral(t *testing.T) {
+	closesOutside := definition.ProcedureTypeDefinition{
+		Steps: []definition.Step{
+			{ID: "check", Role: definition.RoleStaff, Area: "affairs", Action: definition.ActionConfirmExternalFact, Next: "evaluate"},
+			{ID: "evaluate", Role: definition.RoleStaff, Area: "commission", Action: definition.ActionConfirmExternalFact},
+		},
+	}
+	p := on("evaluate")
+	p.Referral = &domain.Referral{From: "affairs", To: "commission", Since: monday}
+
+	moved, event, err := engine.Confirm(p, closesOutside, confirm("evaluate", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !moved.Closed() || moved.Referral != nil {
+		t.Errorf("procedure = %+v, want it closed and not referred", moved)
+	}
+	if event.Referral != nil || event.Returned {
+		t.Errorf("referral = %+v and returned = %v, want neither: closing is not a return", event.Referral, event.Returned)
+	}
+}
+
 func TestConfirmDoesNotChangeTheProcedureItReceives(t *testing.T) {
 	p := on("check")
 	if _, _, err := engine.Confirm(p, equivalence, confirm("check", "accept")); err != nil {
