@@ -26,6 +26,10 @@ type Procedure struct {
 	// OpenStep is the step the procedure waits for, empty once it is closed.
 	OpenStep string
 	Referral *Referral
+	// StartedAt is when the applicant started it, and MovedAt when it reached
+	// its open step.
+	StartedAt time.Time
+	MovedAt   time.Time
 }
 
 type Referral struct {

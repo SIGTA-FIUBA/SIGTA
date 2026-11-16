@@ -21,6 +21,7 @@ func TestScenarios(t *testing.T) {
 			registerHistorySteps(sc, registerConfirmationSteps(sc, registerAuthorizationSteps(sc)))
 			registerDetailSteps(sc, registerDocumentSteps(sc))
 			registerSubmissionSteps(sc)
+			registerInboxSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",

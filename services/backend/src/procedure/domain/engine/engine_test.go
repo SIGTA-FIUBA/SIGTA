@@ -74,6 +74,22 @@ func TestConfirmRecordsWhoWhenAndObservation(t *testing.T) {
 	}
 }
 
+// The inbox sorts by the last move, so confirming moves the procedure then,
+// and leaves when it started as it was.
+func TestConfirmMovesTheProcedureWhenItIsConfirmed(t *testing.T) {
+	p := on("file")
+	p.StartedAt, p.MovedAt = monday.Add(-72*time.Hour), monday.Add(-24*time.Hour)
+	c := confirm("file", "")
+	c.At = thursday
+	moved, _, err := engine.Confirm(p, equivalence, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !moved.MovedAt.Equal(thursday) || !moved.StartedAt.Equal(p.StartedAt) {
+		t.Errorf("started %v and moved %v, want started %v and moved %v", moved.StartedAt, moved.MovedAt, p.StartedAt, thursday)
+	}
+}
+
 func TestConfirmOpensTheNextStep(t *testing.T) {
 	tests := []struct {
 		name    string

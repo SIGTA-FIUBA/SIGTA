@@ -20,6 +20,15 @@ describe('LoginPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('presents the platform, its core and the catalog', () => {
+    renderAt('/login')
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Los trámites académicos de la facultad')
+    expect(screen.getByRole('heading', { name: 'Qué resuelve SIGTA' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Trámites configurables' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Consultar el catálogo' })).toHaveAttribute('href', '/catalog')
+  })
+
   it.each([
     ['state_mismatch', 'El ingreso no coincide con el que se inició. Volvé a intentarlo.'],
     ['rejected', 'El ingreso no se pudo completar. Volvé a intentarlo.'],

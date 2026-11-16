@@ -63,6 +63,7 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	}
 	moved := p
 	moved.OpenStep = nextID
+	moved.MovedAt = c.At
 	if nextID == "" {
 		// Closing ends the referral too: a closed procedure is nowhere.
 		moved.Referral = nil

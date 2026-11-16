@@ -98,6 +98,9 @@ func run(logger *slog.Logger) error {
 		if err != nil {
 			return stoppedDuringStartup(stop, err)
 		}
+		if err := addDevInbox(startup, versions, procedureRepository, time.Now()); err != nil {
+			return stoppedDuringStartup(stop, fmt.Errorf("add the procedures of the inbox: %w", err))
+		}
 	}
 
 	auth := application.NewAuthService(
@@ -134,6 +137,7 @@ func run(logger *slog.Logger) error {
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now), procedures),
+		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures, time.Now)),
 	)
 
 	server := &http.Server{
@@ -220,6 +224,12 @@ func devPeople() people {
 	return people{
 		users: []domain.User{
 			{ID: devApplicantID, Email: devApplicantEmail, Name: "Titular de prueba"},
+			{ID: "dev-applicant-01", Email: "lucia.ejemplo@fi.uba.ar", Name: "Lucía Ejemplo"},
+			{ID: "dev-applicant-02", Email: "martin.prueba@fi.uba.ar", Name: "Martín Prueba"},
+			{ID: "dev-applicant-03", Email: "sofia.inventada@fi.uba.ar", Name: "Sofía Inventada"},
+			{ID: "dev-applicant-04", Email: "tomas.ficticio@fi.uba.ar", Name: "Tomás Ficticio"},
+			{ID: "dev-applicant-05", Email: "valentina.muestra@fi.uba.ar", Name: "Valentina Muestra"},
+			{ID: "dev-applicant-06", Email: "joaquin.ejemplo@fi.uba.ar", Name: "Joaquín Ejemplo"},
 			{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba"},
 			{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba"},
 			{ID: "dev-admin", Email: "admin@fi.uba.ar", Name: "Administración de prueba"},
@@ -329,6 +339,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 	if err != nil {
 		return err
 	}
+	now := time.Now()
 	for id, step := range map[string]string{devProcedureID: devDocumentsStep, devReviewProcedureID: devReviewStep} {
 		err := procedures.Add(ctx, proceduredomain.Procedure{
 			ID:            id,
@@ -337,6 +348,8 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 			VersionDigest: latest.Digest,
 			Applicant:     applicant,
 			OpenStep:      step,
+			StartedAt:     now,
+			MovedAt:       now,
 		}, nil)
 		if err != nil {
 			return err

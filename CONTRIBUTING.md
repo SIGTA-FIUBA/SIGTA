@@ -157,6 +157,17 @@ Sin la variable, esas pruebas se saltean; en la integración continua, donde est
 
 El contrato de un puerto de salida puede estar en `ports/output/outputtest`, como una suite que recibe una función que arma el adaptador, por ejemplo `outputtest.TestProcedureVersions`. Cada adaptador del puerto, en memoria o contra una base, la corre en su propio test.
 
+La bandeja del personal (`GET /procedures`) lee los mismos trámites que el detalle (`ProcedureRepository`) y decide quién ve y quién actúa con las mismas reglas (`canSee` y `canAct`, ADR-020), así que la bandeja y el detalle le responden lo mismo a la misma persona. El caso de uso es `application.InboxService`; lo que arma la lista está en `services/backend/src/procedure/domain/inbox/`:
+
+- Solo la ve el personal, quien tiene al menos una membresía vigente: el resto recibe 403.
+- Muestra los trámites en curso que pasan por las áreas de quien mira, dentro del alcance de sus membresías. Deja afuera los cerrados y los propios: nadie avanza su propio trámite como personal. Si el personal ve todo lo que pasa por su área o solo lo que tiene un paso suyo abierto sigue a confirmar (D-10).
+- El estado es el del detalle (`domain.StateOf`): `with_applicant` o `in_office`. Todavía no hay `referred`, porque con ADR-020 las áreas no tienen tipo y falta definir cómo se reconoce una derivación. No es el resultado del trámite (ADR-009).
+- Un trámite requiere acción si quien mira tiene los permisos que exige el paso abierto, en su área y para ese tipo de trámite.
+- `view=mine` muestra lo que requiere acción; `view=all`, todo lo visible, marcando lo accionable. Los filtros (tipo, estado, área) se combinan, y las opciones de filtro salen de la vista sin filtrar. Un paso del titular no tiene área.
+- La antigüedad se cuenta desde que el trámite empezó (`StartedAt`) y el último movimiento es cuando llegó al paso abierto (`MovedAt`). Los dos los pone el trámite al iniciarse; cuando los trámites se guarden en PostgreSQL, la tabla `procedures` necesita esas dos columnas.
+
+Hasta que se puedan avanzar trámites desde la interfaz, en desarrollo el servidor carga seis trámites inventados del tipo de ejemplo, en distintos pasos y con titulares sintéticos (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar. La pantalla de la bandeja pide una sola vez todo lo visible y filtra, ordena y cuenta en el navegador; los filtros de la API quedan para otras vistas. Los filtros de la pantalla viven en la URL, así se conservan al ir a un trámite y volver.
+
 ## Commits
 
 Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/), en inglés y en una sola línea de hasta 72 caracteres:
