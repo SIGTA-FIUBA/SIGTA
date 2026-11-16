@@ -26,12 +26,20 @@ type Submission struct {
 	Files         iter.Seq2[SubmittedFile, error]
 }
 
+// Started is a procedure that was just started, with its state as the detail
+// and the inbox compute it (domain.StateOf).
+type Started struct {
+	Procedure domain.Procedure
+	State     domain.State
+}
+
 type Submissions interface {
 	// Submit starts a procedure of the last version of the type, in the name
 	// of the person, with what the opening steps ask for, and leaves it on
-	// the step after them. Either all of it is recorded or nothing is. It
-	// fails with a *submission.Error, which errors.Is matches with
-	// submission.ErrInvalid, or with output.ErrNoVersion if the type is not
-	// published.
-	Submit(ctx context.Context, userID string, s Submission) (domain.Procedure, error)
+	// the step after them. A rejected submission records nothing. It is not
+	// yet all or nothing: if recording fails after some document and before
+	// the procedure, those documents remain (ADR-024, SIG-75). It fails with a
+	// *submission.Error, which errors.Is matches with submission.ErrInvalid,
+	// or with output.ErrNoVersion if the type is not published.
+	Submit(ctx context.Context, userID string, s Submission) (Started, error)
 }

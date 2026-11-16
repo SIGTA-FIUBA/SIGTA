@@ -50,5 +50,6 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 		State:     state,
 		Steps:     detail.WithFiles(detail.Steps(content), documents),
 		CanAct:    canAct,
+		Referral:  detail.ReferralOf(p, content, s.procedures.now()),
 	}, nil
 }

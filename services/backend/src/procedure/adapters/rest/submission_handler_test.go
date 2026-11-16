@@ -23,9 +23,10 @@ import (
 )
 
 // fakeSubmissions reads every file it is given, as the use case does, and
-// answers err or a procedure waiting on openStep.
+// answers err or a procedure waiting on openStep in state.
 type fakeSubmissions struct {
 	openStep string
+	state    domain.State
 	err      error
 
 	user     string
@@ -33,22 +34,22 @@ type fakeSubmissions struct {
 	files    map[string]string
 }
 
-func (f *fakeSubmissions) Submit(_ context.Context, userID string, s input.Submission) (domain.Procedure, error) {
+func (f *fakeSubmissions) Submit(_ context.Context, userID string, s input.Submission) (input.Started, error) {
 	f.user, f.received, f.files = userID, s, map[string]string{}
 	for file, err := range s.Files {
 		if err != nil {
-			return domain.Procedure{}, err
+			return input.Started{}, err
 		}
 		content, err := io.ReadAll(file.Content)
 		if err != nil {
-			return domain.Procedure{}, err
+			return input.Started{}, err
 		}
 		f.files[file.Requirement] = file.FileName + ":" + string(content)
 	}
 	if f.err != nil {
-		return domain.Procedure{}, f.err
+		return input.Started{}, f.err
 	}
-	return domain.Procedure{ID: "P-9", Applicant: userID, OpenStep: f.openStep}, nil
+	return input.Started{Procedure: domain.Procedure{ID: "P-9", Applicant: userID, OpenStep: f.openStep}, State: f.state}, nil
 }
 
 func submitRequest(t *testing.T, parts ...part) *http.Request {
@@ -81,14 +82,14 @@ func submitRequest(t *testing.T, parts ...part) *http.Request {
 
 func serveSubmission(t *testing.T, submissions *fakeSubmissions, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, nil, submissions))
+	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, nil, submissions, nil))
 	recorder := httptest.NewRecorder()
 	api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler)).ServeHTTP(recorder, r)
 	return recorder
 }
 
 func TestSubmitPassesTheValuesAndStreamsTheFiles(t *testing.T) {
-	submissions := &fakeSubmissions{openStep: "review"}
+	submissions := &fakeSubmissions{openStep: "review", state: domain.StateInOffice}
 	recorder := serveSubmission(t, submissions, submitRequest(t,
 		part{"procedure_type", "", "7"},
 		part{"values", "", `{"reason":"Cursé afuera","subjects":["Física I","Química"]}`},
@@ -121,7 +122,7 @@ func TestSubmitPassesTheValuesAndStreamsTheFiles(t *testing.T) {
 }
 
 func TestSubmitWithoutFiles(t *testing.T) {
-	submissions := &fakeSubmissions{}
+	submissions := &fakeSubmissions{state: domain.StateClosed}
 	recorder := serveSubmission(t, submissions, submitRequest(t, part{"procedure_type", "", "7"}, part{"values", "", `{}`}))
 	var got api.StartedProcedure
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {

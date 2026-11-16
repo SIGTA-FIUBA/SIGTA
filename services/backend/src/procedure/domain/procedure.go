@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
@@ -24,6 +25,13 @@ type Procedure struct {
 	Applicant     string
 	// OpenStep is the step the procedure waits for, empty once it is closed.
 	OpenStep string
+	Referral *Referral
+}
+
+type Referral struct {
+	From  string
+	To    string
+	Since time.Time
 }
 
 func (p Procedure) Pin() version.Pin {
@@ -37,6 +45,7 @@ type State string
 const (
 	StateWithApplicant State = "with_applicant"
 	StateInOffice      State = "in_office"
+	StateReferred      State = "referred"
 	StateClosed        State = "closed"
 )
 
@@ -57,5 +66,18 @@ func StateOf(p Procedure, def definition.ProcedureTypeDefinition) (State, error)
 	if def.Steps[i].Role == definition.RoleApplicant {
 		return StateWithApplicant, nil
 	}
+	if p.Referral != nil {
+		return StateReferred, nil
+	}
 	return StateInOffice, nil
+}
+
+func (p Procedure) DaysWithoutReturn(now time.Time) (int, bool) {
+	if p.Referral == nil {
+		return 0, false
+	}
+	since := p.Referral.Since
+	from := time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, time.UTC)
+	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return int(to.Sub(from).Hours() / 24), true
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 
@@ -30,7 +31,7 @@ func registerDetailSteps(sc *godog.ScenarioContext, documents *documentWorld) {
 	w := &detailWorld{documentWorld: documents}
 	// It runs after the Before of the documents, which builds what it uses.
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+		procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, time.Now)
 		w.details = application.NewProcedureDetailService(procedures, w.documents)
 		return ctx, nil
 	})

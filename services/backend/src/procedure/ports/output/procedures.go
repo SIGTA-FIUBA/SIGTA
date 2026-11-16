@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/engine"
 )
 
 type ProcedureRepository interface {
@@ -15,4 +16,6 @@ type ProcedureRepository interface {
 	// Values returns the values of the procedure in the order they were
 	// recorded.
 	Values(ctx context.Context, procedureID string) ([]domain.FieldValue, error)
+	Advance(ctx context.Context, p domain.Procedure, e engine.Event) error
+	Events(ctx context.Context, procedureID string) ([]engine.Event, error)
 }

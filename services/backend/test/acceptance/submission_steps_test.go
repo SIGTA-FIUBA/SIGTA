@@ -52,7 +52,7 @@ type submissionWorld struct {
 
 	values  map[string]submission.Value
 	files   map[string][]byte
-	started domain.Procedure
+	started input.Started
 	err     error
 }
 
@@ -129,7 +129,7 @@ func (w *submissionWorld) setUp() error {
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
 	w.procedures = memory.NewProcedureRepository()
 	w.documents = memory.NewDocumentRepository()
-	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID)
+	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, time.Now)
 	w.service = application.NewSubmissionService(procedures, w.documents, files, w.newID, time.Now)
 	return nil
 }
@@ -320,22 +320,22 @@ func (w *submissionWorld) thenStarted() error {
 	if w.err != nil {
 		return fmt.Errorf("the submission failed: %w", w.err)
 	}
-	if w.started.ID == "" {
+	if w.started.Procedure.ID == "" {
 		return errors.New("the procedure has no identifier")
 	}
-	_, err := w.procedures.Get(context.Background(), w.started.ID)
+	_, err := w.procedures.Get(context.Background(), w.started.Procedure.ID)
 	return err
 }
 
 func (w *submissionWorld) thenApplicant(user string) error {
-	if w.started.Applicant != user {
-		return fmt.Errorf("the applicant is %q", w.started.Applicant)
+	if w.started.Procedure.Applicant != user {
+		return fmt.Errorf("the applicant is %q", w.started.Procedure.Applicant)
 	}
 	return nil
 }
 
 func (w *submissionWorld) thenWaitsInOffice(step string) error {
-	p, err := w.procedures.Get(context.Background(), w.started.ID)
+	p, err := w.procedures.Get(context.Background(), w.started.Procedure.ID)
 	if err != nil {
 		return err
 	}
@@ -346,11 +346,14 @@ func (w *submissionWorld) thenWaitsInOffice(step string) error {
 	if p.OpenStep != step || state != domain.StateInOffice {
 		return fmt.Errorf("the procedure waits on %q, %s", p.OpenStep, state)
 	}
+	if w.started.State != state {
+		return fmt.Errorf("the start answers %s, the procedure is %s", w.started.State, state)
+	}
 	return nil
 }
 
 func (w *submissionWorld) value(field string) (domain.FieldValue, bool, error) {
-	values, err := w.procedures.Values(context.Background(), w.started.ID)
+	values, err := w.procedures.Values(context.Background(), w.started.Procedure.ID)
 	if err != nil {
 		return domain.FieldValue{}, false, err
 	}
@@ -373,7 +376,7 @@ func (w *submissionWorld) thenRecords(field, want, step string) error {
 	if v.Items != nil {
 		got = strings.Join(v.Items, ", ")
 	}
-	if !ok || got != want || v.Step != step || v.EnteredBy != w.started.Applicant {
+	if !ok || got != want || v.Step != step || v.EnteredBy != w.started.Procedure.Applicant {
 		return fmt.Errorf("the %s is %+v", field, v)
 	}
 	return nil
@@ -391,7 +394,7 @@ func (w *submissionWorld) thenRecordsNo(field string) error {
 }
 
 func (w *submissionWorld) document(requirement string) (domain.Document, bool, error) {
-	documents, err := w.documents.List(context.Background(), w.started.ID)
+	documents, err := w.documents.List(context.Background(), w.started.Procedure.ID)
 	if err != nil {
 		return domain.Document{}, false, err
 	}

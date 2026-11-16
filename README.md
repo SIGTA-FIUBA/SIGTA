@@ -136,7 +136,7 @@ Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su d
 | Componente | Se suma cuando | Hasta entonces |
 | --- | --- | --- |
 | Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
-| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos. Al sumarlo, cada archivo se reserva antes de subirse y se confirma o se compensa con una saga (ADR-023) |
+| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos. Al sumarlo, cada archivo se reserva antes de subirse y se confirma o se compensa con una saga (ADR-024) |
 | Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
 | API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
 
@@ -243,7 +243,7 @@ En el código, el servicio de trámites se divide primero por módulo y, dentro 
 | Ruta en `services/backend/src/` | Contenido |
 | --- | --- |
 | `auth/` | Ingreso y sesiones, áreas, membresías y administradores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
-| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, y `submission/`, lo que se envía para iniciarlo (ADR-016). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
+| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, `engine/`, que lo avanza cuando se confirma su paso abierto, y `submission/`, lo que se envía para iniciarlo (ADR-016, ADR-023). Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
 | `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
 | `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
 
@@ -366,11 +366,12 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 - **Trámites como configuración:** los cinco trámites comparten estructura, así que un tipo de trámite es una configuración que se va a editar desde la interfaz de SIGTA, sin cambiar el código. Cada versión la propone una persona y la aprueba otra (ADR-013).
 - **Un trámite en curso conserva su versión:** cada vez que se publica un cambio en un tipo de trámite, el servicio crea una versión nueva, la guarda completa con su hash, quién la propuso, quién la aprobó y cuándo, y no la modifica más. Cada trámite termina con la versión con la que empezó y los nuevos toman la última, así que un cambio de circuito no deja a un trámite a mitad de camino en un paso que ya no existe, y queda constancia de qué versión exacta siguió cada uno.
 - **La inteligencia artificial propone y una persona decide:** un error en un trámite afecta la situación académica de alguien.
+- **Derivar es cambiar de área:** confirmar un paso que lleva a otra área deriva el trámite, y volver al área de la que salió es el retorno, sin configurar nada en cada tipo de trámite (ADR-023).
 - **Los sistemas institucionales se registran, no se integran:** el personal confirma en SIGTA lo que hace en SIU Guaraní o en el expediente electrónico, y queda registrado quién lo declaró.
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
 - **Monolito modular y un solo servicio aparte:** el de inteligencia artificial se separa desde el inicio porque usa otro lenguaje y tiene su propio ciclo de evaluación. Cualquier otra separación espera a que se cumpla su disparador.
 - **Historial de acciones sin event sourcing:** un trámite se audita, no solo se consulta. El historial se escribe en la misma transacción que el estado, y eso alcanza para auditar.
-- **Un trámite se registra en una transacción:** el trámite, sus datos y sus documentos se guardan juntos, así un inicio que falla no deja documentos de un trámite que no existe. Si los archivos pasan a un storage aparte, se reservan antes de subirse y se confirman o se compensan con una saga (ADR-023).
+- **Un trámite se va a registrar en una transacción:** el trámite, sus datos y sus documentos se van a guardar juntos, así un inicio que falla no deja documentos de un trámite que no existe. Hoy un envío rechazado no registra nada, pero si el registro falla después de guardar algún documento y antes del trámite, esos documentos quedan; SIG-75 lo resuelve. Si los archivos pasan a un storage aparte, se reservan antes de subirse y se confirman o se compensan con una saga (ADR-024).
 - **Cola en PostgreSQL:** encolar en la misma transacción que el cambio garantiza que ningún trabajo se pierda, sin otro servicio que operar.
 - **Una sola base relacional:** PostgreSQL con pgvector cubre estado, historial, cola, búsqueda de texto en español y vectores.
 - **Contrato primero:** el frontend, el servicio de trámites y el de inteligencia artificial están en lenguajes distintos; OpenAPI genera el código de cada lado para que no se desfasen.
@@ -387,6 +388,7 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
 | Integridad del historial | Si alcanzan los permisos de la base, que ya impiden a la aplicación modificar versiones y eventos (ADR-022), o hace falta encadenar hashes para que una modificación del dueño de las tablas quede en evidencia | Equipo |
 | Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
+| Pases y derivaciones | Si un pase entre dos áreas del personal es siempre una derivación, o si hay pases internos que no cuentan días sin retorno (D-13) | Secretaría |
 | Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
 | Alcance del personal | Qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si se usa el alcance por tipo de trámite (D-12) | Secretaría |
 | Quién publica tipos de trámite | A quién de la Secretaría, y si también al equipo, se le dan los permisos para proponer y aprobar versiones (D-08) | Equipo y Secretaría |

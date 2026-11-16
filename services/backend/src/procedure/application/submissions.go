@@ -29,21 +29,21 @@ func NewSubmissionService(procedures *ProcedureService, documents output.Documen
 	return &SubmissionService{procedures: procedures, documents: documents, files: files, newID: newID, now: now}
 }
 
-func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input.Submission) (domain.Procedure, error) {
+func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input.Submission) (input.Started, error) {
 	latest, err := s.procedures.latest(ctx, sub.ProcedureType)
 	if err != nil {
-		return domain.Procedure{}, err
+		return input.Started{}, err
 	}
 	content, err := latest.DecodeContent()
 	if err != nil {
-		return domain.Procedure{}, fmt.Errorf("procedure type %d version %d: %w", sub.ProcedureType, latest.Number, err)
+		return input.Started{}, fmt.Errorf("procedure type %d version %d: %w", sub.ProcedureType, latest.Number, err)
 	}
 	def := content.Definition
 	// The values come before the files, so a submission with a wrong value is
 	// rejected without storing any file.
 	values, problems := submission.CheckValues(def, sub.Values)
 	if err := submission.Reject(problems); err != nil {
-		return domain.Procedure{}, err
+		return input.Started{}, err
 	}
 
 	p := domain.Procedure{
@@ -54,10 +54,14 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 		Applicant:     userID,
 		OpenStep:      submission.OpenStep(def),
 	}
+	state, err := domain.StateOf(p, def)
+	if err != nil {
+		return input.Started{}, err
+	}
 	now := s.now()
 	documents, err := s.storeFiles(ctx, p.ID, userID, now, def, sub)
 	if err != nil {
-		return domain.Procedure{}, err
+		return input.Started{}, err
 	}
 
 	fields, _ := submission.Requirements(def)
@@ -81,16 +85,16 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 	// before that leaves files that no document names, which
 	// RemoveUnreferencedFiles removes at startup, and documents of a procedure
 	// that does not exist, which nothing removes yet: they are to be recorded
-	// together with the procedure in one transaction (ADR-023).
+	// together with the procedure in one transaction (ADR-024).
 	for _, d := range documents {
 		if err := s.documents.Add(ctx, d); err != nil {
-			return domain.Procedure{}, fmt.Errorf("record document: %w", err)
+			return input.Started{}, fmt.Errorf("record document: %w", err)
 		}
 	}
 	if err := s.procedures.procedures.Add(ctx, p, entered...); err != nil {
-		return domain.Procedure{}, fmt.Errorf("start procedure: %w", err)
+		return input.Started{}, fmt.Errorf("start procedure: %w", err)
 	}
-	return p, nil
+	return input.Started{Procedure: p, State: state}, nil
 }
 
 // storeFiles keeps every file that covers a document the opening steps ask

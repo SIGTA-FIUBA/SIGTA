@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -14,21 +16,26 @@ import (
 
 var _ input.Procedures = (*ProcedureService)(nil)
 
-const actionAct = "act"
+const (
+	actionAct     = "act"
+	actionConfirm = "confirm"
+)
 
 type ProcedureService struct {
 	staffAuthorizer authinput.StaffAuthorizer
 	procedureTypes  input.ProcedureTypes
 	procedures      output.ProcedureRepository
 	newID           func() string
+	now             func() time.Time
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, newID func() string) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
 	return &ProcedureService{
 		staffAuthorizer: staff,
 		procedureTypes:  procedureTypes,
 		procedures:      procedures,
 		newID:           newID,
+		now:             now,
 	}
 }
 
@@ -111,6 +118,38 @@ func (s *ProcedureService) Act(ctx context.Context, userID, procedureID, stepID 
 		return denied(userID, actionAct+" "+stepID)
 	}
 	return nil
+}
+
+func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID string, c input.StepConfirmation) (engine.Event, error) {
+	p, content, err := s.visible(ctx, userID, procedureID)
+	if err != nil {
+		return engine.Event{}, err
+	}
+	if p.Closed() || c.Step != p.OpenStep {
+		return engine.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, engine.ErrStepNotOpen)
+	}
+	allowed, err := s.canAct(ctx, userID, p, content, c.Step)
+	if err != nil {
+		return engine.Event{}, err
+	}
+	if !allowed {
+		return engine.Event{}, denied(userID, actionConfirm+" "+c.Step)
+	}
+	moved, event, err := engine.Confirm(p, content.Definition, engine.Confirmation{
+		Step:               c.Step,
+		By:                 userID,
+		At:                 s.now(),
+		Observation:        c.Observation,
+		Outcome:            c.Outcome,
+		ExternalFileNumber: c.ExternalFileNumber,
+	})
+	if err != nil {
+		return engine.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, err)
+	}
+	if err := s.procedures.Advance(ctx, moved, event); err != nil {
+		return engine.Event{}, fmt.Errorf("advance procedure %s: %w", p.ID, err)
+	}
+	return event, nil
 }
 
 func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authinput.AreaReach, error) {

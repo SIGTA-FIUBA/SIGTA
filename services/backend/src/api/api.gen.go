@@ -78,6 +78,7 @@ func (e LoginError) Valid() bool {
 const (
 	Closed        ProcedureState = "closed"
 	InOffice      ProcedureState = "in_office"
+	Referred      ProcedureState = "referred"
 	WithApplicant ProcedureState = "with_applicant"
 )
 
@@ -87,6 +88,8 @@ func (e ProcedureState) Valid() bool {
 	case Closed:
 		return true
 	case InOffice:
+		return true
+	case Referred:
 		return true
 	case WithApplicant:
 		return true
@@ -342,7 +345,10 @@ type ProcedureDetail struct {
 	OpenStep      *string `json:"open_step,omitempty"`
 	ProcedureType int64   `json:"procedure_type"`
 
-	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+	// Referral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+	Referral *ProcedureReferral `json:"referral,omitempty"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
 	// Steps Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso.
@@ -374,7 +380,41 @@ type ProcedureDocument struct {
 	UploadedBy Person    `json:"uploaded_by"`
 }
 
-// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+// ProcedureEvent defines model for ProcedureEvent.
+type ProcedureEvent struct {
+	At time.Time `json:"at"`
+	By Person    `json:"by"`
+
+	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
+	Declared bool `json:"declared"`
+
+	// Next Paso que abre; ausente si cierra el trámite
+	Next        *string `json:"next,omitempty"`
+	Observation string  `json:"observation"`
+
+	// Outcome Salida elegida; ausente si el paso no es decide
+	Outcome *string `json:"outcome,omitempty"`
+
+	// Referral Paso del trámite a otra área (ADR-020)
+	Referral *Referral `json:"referral,omitempty"`
+
+	// Returned Si devuelve el trámite al área de la que se había derivado
+	Returned bool `json:"returned"`
+
+	// Step Paso confirmado
+	Step string `json:"step"`
+}
+
+// ProcedureReferral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+type ProcedureReferral struct {
+	Area              NamedOption `json:"area"`
+	DaysWithoutReturn int64       `json:"days_without_return"`
+
+	// From Área de la que salió y a la que vuelve
+	From NamedOption `json:"from"`
+}
+
+// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 type ProcedureState string
 
 // ProcedureStep defines model for ProcedureStep.
@@ -409,6 +449,17 @@ type ProcedureStep struct {
 // ProcedureStepAction Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
 type ProcedureStepAction string
 
+// Referral Paso del trámite a otra área (ADR-020)
+type Referral struct {
+	ExternalFileNumber *string `json:"external_file_number,omitempty"`
+
+	// From Identificador del área de la que sale
+	From string `json:"from"`
+
+	// To Identificador del área a la que se deriva
+	To string `json:"to"`
+}
+
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
 type Role struct {
 	Id   string `json:"id"`
@@ -431,8 +482,20 @@ type StartedProcedure struct {
 	// OpenStep Paso que espera el trámite; falta si quedó cerrado
 	OpenStep *string `json:"open_step,omitempty"`
 
-	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. closed: no tiene paso abierto. No es el resultado del trámite, que no se modela. Falta referred, derivado a un evaluador externo, que se agrega cuando se defina de dónde sale.
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
+}
+
+// StepConfirmation defines model for StepConfirmation.
+type StepConfirmation struct {
+	// ExternalFileNumber Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
+	ExternalFileNumber *string `json:"external_file_number,omitempty"`
+
+	// Observation Qué se hizo o se verificó. No puede quedar vacía
+	Observation string `json:"observation"`
+
+	// Outcome Identificador de la salida elegida; solo en un paso decide
+	Outcome *string `json:"outcome,omitempty"`
 }
 
 // StepOutcome defines model for StepOutcome.
@@ -495,8 +558,14 @@ type ProcedureId = string
 // SessionCookie defines model for SessionCookie.
 type SessionCookie = string
 
+// StepId defines model for StepId.
+type StepId = string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// Conflict defines model for Conflict.
+type Conflict = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
@@ -606,6 +675,11 @@ type DownloadProcedureDocumentParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// ConfirmStepParams defines parameters for ConfirmStep.
+type ConfirmStepParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
 type CreateAreaJSONRequestBody = NewArea
 
@@ -626,6 +700,9 @@ type SubmitProcedureMultipartRequestBody SubmitProcedureMultipartBody
 
 // AttachProcedureDocumentMultipartRequestBody defines body for AttachProcedureDocument for multipart/form-data ContentType.
 type AttachProcedureDocumentMultipartRequestBody AttachProcedureDocumentMultipartBody
+
+// ConfirmStepJSONRequestBody defines body for ConfirmStep for application/json ContentType.
+type ConfirmStepJSONRequestBody = StepConfirmation
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -674,6 +751,9 @@ type ServerInterface interface {
 	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
 	// (GET /procedures/{procedureId}/documents/{documentId}/content)
 	DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams)
+	// ConfirmStep Confirma el paso abierto de un trámite
+	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
+	ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1307,6 +1387,59 @@ func (siw *ServerInterfaceWrapper) DownloadProcedureDocument(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// ConfirmStep operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmStep(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "stepId" -------------
+	var stepId StepId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "stepId", r.PathValue("stepId"), &stepId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stepId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmStepParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmStep(w, r, procedureId, stepId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1439,6 +1572,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/confirmation", wrapper.ConfirmStep)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.DownloadProcedureDocument)
@@ -1447,6 +1581,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 }
 
 type BadRequestJSONResponse Error
+
+type ConflictJSONResponse Error
 
 type ForbiddenJSONResponse Error
 
@@ -2266,6 +2402,101 @@ func (response DownloadProcedureDocument404JSONResponse) VisitDownloadProcedureD
 	return err
 }
 
+type ConfirmStepRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	StepId      StepId      `json:"stepId"`
+	Params      ConfirmStepParams
+	Body        *ConfirmStepJSONRequestBody
+}
+
+type ConfirmStepResponseObject interface {
+	VisitConfirmStepResponse(w http.ResponseWriter) error
+}
+
+type ConfirmStep201JSONResponse ProcedureEvent
+
+func (response ConfirmStep201JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConfirmStep400JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConfirmStep401JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConfirmStep403JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConfirmStep404JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ConfirmStep409JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CreateArea Crea un área del personal
@@ -2313,6 +2544,9 @@ type StrictServerInterface interface {
 	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
 	// (GET /procedures/{procedureId}/documents/{documentId}/content)
 	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
+	// ConfirmStep Confirma el paso abierto de un trámite
+	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
+	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2793,6 +3027,41 @@ func (sh *strictHandler) DownloadProcedureDocument(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DownloadProcedureDocumentResponseObject); ok {
 		if err := validResponse.VisitDownloadProcedureDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmStep operation middleware
+func (sh *strictHandler) ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams) {
+	var request ConfirmStepRequestObject
+
+	request.ProcedureId = procedureId
+	request.StepId = stepId
+	request.Params = params
+
+	var body ConfirmStepJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmStep(ctx, request.(ConfirmStepRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmStep")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmStepResponseObject); ok {
+		if err := validResponse.VisitConfirmStepResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

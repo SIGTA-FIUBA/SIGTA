@@ -334,7 +334,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Un paquete del dominio no puede usar lo no exportado de otro: lo que se comparta entre ellos tiene que exportarse o quedarse en `definition/`.
 - El módulo `auth/` mantiene un solo `domain/`. Si crece de la misma forma, se divide con el mismo criterio.
 
-**Nota.** Los paquetes nuevos de `procedure/domain/` siguen el mismo criterio: uno por lo que se muestra o se calcula, que importa `definition/` y `version/` y no los otros paquetes hermanos. `detail/` arma los pasos que muestra el detalle de un trámite y les pone al lado sus archivos. Lo que comparten el catálogo y el detalle, como los requisitos de un paso (`FieldRequirement`, `DocumentRequirement`), va en `definition/`. `submission/` define los pasos iniciales de un trámite, lo que piden y cómo se validan los datos que envía el titular. El estado del trámite (`State`) va en `domain/`, junto al trámite, para que el detalle y la bandeja lo calculen igual; la bandeja suma su paquete con esta misma nota.
+**Nota.** Los paquetes nuevos de `procedure/domain/` siguen el mismo criterio: uno por lo que se muestra o se calcula, que importa `definition/` y `version/` y no los otros paquetes hermanos. `detail/` arma los pasos que muestra el detalle de un trámite y les pone al lado sus archivos, y dónde está un trámite derivado. `engine/` decide el paso siguiente de una confirmación y arma el evento que la registra (ADR-023). `submission/` define los pasos iniciales de un trámite, lo que piden y cómo se validan los datos que envía el titular. Lo que comparten el catálogo y el detalle, como los requisitos de un paso (`FieldRequirement`, `DocumentRequirement`), va en `definition/`. El estado del trámite (`State`) va en `domain/`, junto al trámite, para que el detalle y la bandeja lo calculen igual; la bandeja suma su paquete con esta misma nota.
 
 ---
 
@@ -506,7 +506,34 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-023: Un trámite y sus datos y documentos se registran en una transacción, y un storage aparte se coordina con outbox y saga
+## ADR-023: Confirmar un paso lo avanza, cambiar de área lo deriva y volver al área de la que salió es el retorno
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** ADR-020 dejó de definir la derivación como pasar a un paso de un área `external`: ahora es pasar a un paso de otra área. Faltaba decir cuándo vuelve el trámite, desde cuándo se cuentan los días sin retorno y cómo se confirma un paso del personal, que es lo que hace avanzar al trámite (US10). Sin una regla, la vuelta de la comisión a la Secretaría también sería "pasar a otra área", y contaría como una derivación nueva.
+
+**Decisión.**
+- **Confirmar un paso.** Lo confirma quien tiene, en el área del paso, los permisos que el paso exige (ADR-020), y solo el paso abierto. Queda quién, cuándo y una observación, que es obligatoria. Quién y cuándo los pone el servidor, nunca el pedido. El trámite pasa al paso siguiente: el configurado o, en una decisión, el de la salida elegida; un paso sin siguiente cierra el trámite. En un paso `confirm_external_fact` queda registrada la declaración de quien confirma, no el hecho (ADR-004).
+- **Los pasos del titular no se confirman.** Los completa el titular al cargar sus datos o documentos (US14 y US15).
+- **Derivación.** Pasar de un paso del personal a uno de otra área deriva el trámite. Se registra de qué área sale, a cuál va, quién derivó, cuándo y, si lo hay, el número de expediente externo. Un número de expediente en una confirmación que no deriva se rechaza, para que nadie crea que quedó guardado.
+- **Retorno.** Volver a un paso del área de la que salió la derivación es el retorno: la derivación termina. Si estando derivado pasa a una tercera área, se registra esa derivación, pero el trámite sigue fuera del área de la que salió primero, y los días sin retorno se cuentan desde entonces. Los pasos del titular no tienen área: ni derivan ni devuelven. Un trámite que se cierra estando derivado deja de estarlo: la derivación termina sin retorno, y el detalle ya no cuenta días sin retorno.
+- **Estado.** El estado del trámite suma `referred`. Se decide en este orden: sin paso abierto, `closed`; paso abierto del titular, `with_applicant`, aunque haya una derivación; derivación abierta, `referred`; si no, `in_office`.
+- **Días sin retorno.** Se cuentan por día de calendario desde que salió del área.
+- **Atomicidad.** El trámite y su evento se guardan como un solo cambio, y solo si el trámite sigue en el paso confirmado. Si otra persona lo confirmó antes, la confirmación se rechaza sin cambiar nada.
+
+**Alternativas descartadas.**
+- Un área responsable por tipo de trámite, de la que todo paso de otra área sería una derivación: es más precisa, pero suma un campo a la configuración de cada tipo de trámite y una versión nueva del formato.
+- Marcar en la configuración los pasos que son derivaciones: depende de que quien configura se acuerde, y no dice cuándo vuelve el trámite.
+- Contar como derivación todo cambio de área, sin retorno: la vuelta de la comisión a la Secretaría sería otra derivación, y el trámite nunca dejaría de estar derivado.
+
+**Consecuencias.**
+- La regla no exige cambios en la configuración de los tipos de trámite ni en las versiones publicadas.
+- El glosario llama pase al avance a un paso de otra área: con esta regla, todo pase es una derivación, también uno interno, por ejemplo de la Secretaría a la Dirección de Alumnos. Si la Secretaría los distingue, hace falta una de las alternativas descartadas (D-13).
+- Registrar el dictamen que trae el retorno queda para "Registrar retorno de la evaluación externa" (US21): acá el retorno solo termina la derivación.
+- Los trámites y sus eventos todavía están en memoria. Cuando pasen a PostgreSQL, `procedure_events` suma sus columnas, y la migración otorga `UPDATE` solo sobre las columnas del paso abierto y de la derivación (ADR-022).
+- La bandeja del personal tiene que calcular el estado con `domain.StateOf`, para que `referred` signifique lo mismo en el detalle y en la bandeja.
+
+## ADR-024: Un trámite y sus datos y documentos se registran en una transacción, y un storage aparte se coordina con outbox y saga
 
 **Estado:** propuesta, a acordar con el equipo
 
@@ -549,3 +576,4 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 | D-10 | Qué ve el personal: todos los trámites que pasan por su área o solo los que tienen abierto un paso suyo (ADR-020) | La bandeja del personal | Canal con la Secretaría |
 | D-11 | Si hay un administrador global o un responsable por área que da de alta a su propio personal (ADR-020) | La gestión de membresías | Canal con la Secretaría |
 | D-12 | Si el alcance por tipo de trámite se usa o alcanza con áreas más finas. Agrupar permisos ya se resolvió con roles (ADR-020) | La gestión de membresías | Canal con la Secretaría |
+| D-13 | Si un pase entre dos áreas del personal es siempre una derivación, o si hay pases internos que no cuentan días sin retorno (ADR-023) | La configuración del segundo trámite | Canal con la Secretaría |

@@ -13,7 +13,6 @@ import (
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
-	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -47,7 +46,7 @@ func (h *ProcedureHandler) SubmitProcedure(ctx context.Context, req api.SubmitPr
 	if err != nil {
 		return malformedSubmission(), nil
 	}
-	p, err := h.submissions.Submit(ctx, user.ID, input.Submission{
+	started, err := h.submissions.Submit(ctx, user.ID, input.Submission{
 		ProcedureType: procedureType,
 		Values:        values,
 		Files:         submittedFiles(req.Body),
@@ -68,12 +67,10 @@ func (h *ProcedureHandler) SubmitProcedure(ctx context.Context, req api.SubmitPr
 	case err != nil:
 		return nil, err
 	}
-	response := api.SubmitProcedure201JSONResponse{Id: p.ID, State: api.ProcedureState(domain.StateClosed)}
+	p := started.Procedure
+	response := api.SubmitProcedure201JSONResponse{Id: p.ID, State: api.ProcedureState(started.State)}
 	if !p.Closed() {
 		response.OpenStep = &p.OpenStep
-		// The procedure waits on the first step of the staff or, if its type
-		// has none, on nobody.
-		response.State = api.ProcedureState(domain.StateInOffice)
 	}
 	return response, nil
 }
