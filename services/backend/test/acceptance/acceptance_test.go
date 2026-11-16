@@ -18,7 +18,7 @@ func TestScenarios(t *testing.T) {
 			registerProcedureTypeSteps(sc)
 			registerAuthenticationSteps(sc)
 			registerCatalogSteps(sc)
-			registerConfirmationSteps(sc, registerAuthorizationSteps(sc))
+			registerHistorySteps(sc, registerConfirmationSteps(sc, registerAuthorizationSteps(sc)))
 			registerDetailSteps(sc, registerDocumentSteps(sc))
 			registerSubmissionSteps(sc)
 		},

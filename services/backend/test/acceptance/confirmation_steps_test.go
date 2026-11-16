@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,8 +25,9 @@ var errRecording = errors.New("recording confirmations fails")
 
 type confirmationWorld struct {
 	*authorizationWorld
-	flow []definition.Step
-	err  error
+	flow       []definition.Step
+	definition definition.ProcedureTypeDefinition
+	err        error
 }
 
 type failingAdvance struct {
@@ -36,7 +38,7 @@ func (failingAdvance) Advance(context.Context, domain.Procedure, domain.Event) e
 	return errRecording
 }
 
-func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWorld) {
+func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWorld) *confirmationWorld {
 	w := &confirmationWorld{authorizationWorld: base}
 
 	sc.Given(`^a published "([^"]*)" procedure type with this flow:$`, w.givenFlow)
@@ -62,22 +64,38 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 	sc.Then(`^its detail shows it in "([^"]*)", from "([^"]*)", for (\d+) days without return$`, w.thenDetailShowsReferral)
 	sc.Then(`^the referral is recorded by "([^"]*)" on "([^"]*)" to "([^"]*)" with the external file number "([^"]*)"$`, w.thenReferralRecorded)
 	sc.Then(`^the referral is recorded without an external file number$`, w.thenReferralWithoutNumber)
+	return w
 }
 
 // givenFlow reads "done by" as the applicant or a staff area, and "next" as
-// a step or, for a decision, as "outcome: step" pairs.
+// a step or, for a decision, as "outcome: step" pairs. The optional "asks for"
+// column names the field, or the document of an upload_document step, that
+// the step asks for; without it, a step of the applicant asks for a reason.
 func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
-	var steps []definition.Step
-	for _, row := range table.Rows[1:] {
-		id, doneBy, action, next := row.Cells[0].Value, row.Cells[1].Value, definition.Action(row.Cells[3].Value), row.Cells[4].Value
+	d := definition.ProcedureTypeDefinition{Name: name, Description: "Descripción de " + name}
+	reason := definition.Field{ID: "reason", Name: "Motivo", Type: definition.FieldLongText}
+	for _, row := range tableRows(table) {
+		id, doneBy, action, next := row["step"], row["done by"], definition.Action(row["action"]), row["next"]
 		step := definition.Step{ID: id, Name: id, Action: action}
 		if doneBy == "applicant" {
 			step.Role = definition.RoleApplicant
-			step.Fields = []string{"reason"}
 		} else {
 			step.Role = definition.RoleStaff
 			step.Area = areaID(doneBy)
-			step.Permissions = list(row.Cells[2].Value)
+			step.Permissions = list(row["permissions"])
+		}
+		switch asked := row["asks for"]; {
+		case asked != "" && action == definition.ActionUploadDocument:
+			d.Documents = append(d.Documents, definition.Document{ID: areaID(asked), Name: asked, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
+			step.Documents = []string{areaID(asked)}
+		case asked != "":
+			d.Fields = append(d.Fields, definition.Field{ID: areaID(asked), Name: asked, Type: definition.FieldText})
+			step.Fields = []string{areaID(asked)}
+		case step.Role == definition.RoleApplicant:
+			if !slices.ContainsFunc(d.Fields, func(f definition.Field) bool { return f.ID == reason.ID }) {
+				d.Fields = append(d.Fields, reason)
+			}
+			step.Fields = []string{reason.ID}
 		}
 		if action == definition.ActionDecide {
 			for _, pair := range list(next) {
@@ -88,10 +106,11 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 		} else {
 			step.Next = next
 		}
-		steps = append(steps, step)
+		d.Steps = append(d.Steps, step)
 	}
-	w.steps[name] = steps
-	w.flow = steps
+	w.steps[name] = d.Steps
+	w.flow = d.Steps
+	w.definition = d
 
 	typeID, known := w.typeIDs[name]
 	if !known {
@@ -101,15 +120,23 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 	_, err := w.types.Publish(context.Background(), input.Publication{
 		ProcedureType: typeID,
 		Base:          w.latestVersion(name),
-		Definition: definition.ProcedureTypeDefinition{
-			Name:        name,
-			Description: "Descripción de " + name,
-			Fields:      []definition.Field{{ID: "reason", Name: "Motivo", Type: definition.FieldLongText}},
-			Steps:       steps,
-		},
-		Authorship: defaultAuthors,
+		Definition:    d,
+		Authorship:    defaultAuthors,
 	})
 	return err
+}
+
+// tableRows reads each row after the header as a map from header to value.
+func tableRows(table *godog.Table) []map[string]string {
+	var rows []map[string]string
+	for _, row := range table.Rows[1:] {
+		values := map[string]string{}
+		for i, cell := range row.Cells {
+			values[table.Rows[0].Cells[i].Value] = cell.Value
+		}
+		rows = append(rows, values)
+	}
+	return rows
 }
 
 func (w *confirmationWorld) givenConfirmed(user, step, outcome string) error {

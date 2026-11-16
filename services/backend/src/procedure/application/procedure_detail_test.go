@@ -61,6 +61,28 @@ func TestDetailSaysTheStateAndWhoActs(t *testing.T) {
 	}
 }
 
+func TestDetailShowsTheHistoryInTheOrderItWasRecorded(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "review")
+	p, err := f.procedures.Get(t.Context(), "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewed := domain.Event{ProcedureID: "P-2", Step: "review", By: reviewer, Observation: "ok"}
+	p.OpenStep = ""
+	if err := f.procedures.Advance(t.Context(), p, reviewed); err != nil {
+		t.Fatal(err)
+	}
+
+	detail, err := f.details.Detail(t.Context(), applicant, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(detail.History, []domain.Event{reviewed}) {
+		t.Errorf("history = %+v, want %+v", detail.History, []domain.Event{reviewed})
+	}
+}
+
 // Someone who cannot see a procedure gets the same answer as for one that
 // does not exist, so the detail does not tell which procedures exist.
 func TestDetailAnswersNotFoundToWhoCannotSeeTheProcedure(t *testing.T) {
