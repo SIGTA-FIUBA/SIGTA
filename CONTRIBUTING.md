@@ -117,6 +117,8 @@ En la web, el detalle está en `/procedures/{id}` (`pages/ProcedurePage.tsx`), a
 
 En desarrollo el servidor deja además dos trámites de ejemplo (`addDevExample`, en `cmd/http.go`): `dev-example`, esperando los documentos de su titular, para tener un trámite esperando al titular, que un trámite iniciado desde el formulario ya no tiene, y `dev-review`, esperando la revisión del personal, para tener un paso que confirmar, que puede confirmar `operativo@fi.uba.ar` con `POST /api/procedures/dev-review/steps/review/confirmation`. Con la identidad de desarrollo el titular es el de prueba; con Google es la primera cuenta que se registra después de arrancar, porque nadie entra como el titular de prueba. Si no se le puede dar el ejemplo, la cuenta entra igual, sin él, el servidor lo anota en el log y el ejemplo queda para la próxima cuenta que se registre.
 
+En desarrollo se publica además un segundo tipo de ejemplo, "Trámite de ejemplo con derivación" (`devReferralProcedureType`, tipo 2): su revisión es una decisión que deriva el trámite a la "Comisión de prueba" o lo devuelve al titular, el dictamen de la comisión lo devuelve al área de prueba (el retorno) y la comunicación del dictamen lo cierra. La comisión confirma con `comision@fi.uba.ar`. Es un tipo aparte, y no un cambio al primero, porque un ejemplo solo se publica si su tipo no tiene versiones (`publishIfMissing`): una base que ya tiene el primero lo conserva.
+
 ## Base de datos
 
 Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.
@@ -168,7 +170,7 @@ La bandeja del personal (`GET /procedures`) lee los mismos trámites que el deta
 - `view=mine` muestra lo que requiere acción; `view=all`, todo lo visible, marcando lo accionable. Los filtros (tipo, estado, área) se combinan, y las opciones de filtro salen de la vista sin filtrar. Un paso del titular no tiene área.
 - La antigüedad se cuenta desde que el trámite empezó (`StartedAt`) y el último movimiento es cuando llegó al paso abierto (`MovedAt`). Los dos los pone el trámite al iniciarse; cuando los trámites se guarden en PostgreSQL, la tabla `procedures` necesita esas dos columnas.
 
-En desarrollo el servidor carga además seis trámites inventados del tipo de ejemplo, en distintos pasos y con titulares sintéticos (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar. La pantalla de la bandeja pide una sola vez todo lo visible y filtra, ordena y cuenta en el navegador; los filtros de la API quedan para otras vistas. Los filtros de la pantalla viven en la URL, así se conservan al ir a un trámite y volver.
+En desarrollo el servidor carga además ocho trámites inventados de los dos tipos de ejemplo, en distintos pasos, con titulares sintéticos y con el historial de cómo llegaron ahí (`src/cmd/dev_procedures.go`), para que la bandeja tenga qué mostrar: `dev-07` espera la decisión de la revisión y `dev-08` está derivado a la comisión. La pantalla de la bandeja pide una sola vez todo lo visible y filtra, ordena y cuenta en el navegador; los filtros de la API quedan para otras vistas. Los filtros de la pantalla viven en la URL, así se conservan al ir a un trámite y volver.
 
 ## Commits
 
