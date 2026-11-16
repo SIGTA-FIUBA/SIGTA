@@ -256,7 +256,8 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 ### Despliegue
 
 - Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
-- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose. Al integrar en `main` se construyen las imágenes.
+- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose.
+- Cada push a `main` o a `develop` construye las imágenes, las publica en Artifact Registry y las despliega en su entorno de prueba: `main` en https://sigta.lopeztancredi.com.ar y `develop` en https://sigta-dev.lopeztancredi.com.ar. Los dos corren en Cloud Run, con PostgreSQL en Cloud SQL. Detalle en [docs/15-despliegue.md](docs/15-despliegue.md).
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
 

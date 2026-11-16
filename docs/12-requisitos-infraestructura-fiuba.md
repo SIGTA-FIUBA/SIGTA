@@ -4,7 +4,7 @@ Qué cumple SIGTA de los requisitos que pide la Subsecretaría de TICs para desp
 
 **Estados.** Cumple: SIGTA ya lo hace. No cumple: SIGTA hace otra cosa o todavía no lo tiene. A confirmar: depende de algo que hay que preguntar o decidir. No aplica: el requisito no corresponde a SIGTA.
 
-En resumen: los requisitos de autenticación y de contenedores ya se cumplen. Las brechas que afectan a la arquitectura son pgvector sobre PostgreSQL 11.9 (riesgo R-17) y el compose de referencia para Swarm.
+En resumen: los requisitos de autenticación y de contenedores ya se cumplen. La brecha que afecta a la arquitectura es pgvector sobre PostgreSQL 11.9 (riesgo R-17).
 
 ## Contenedores e infraestructura
 
@@ -13,13 +13,13 @@ La infraestructura de FIUBA corre sobre Docker Swarm, con Traefik como proxy rev
 | Requisito | Estado | En SIGTA |
 | --- | --- | --- |
 | Un Dockerfile de producción por componente, sin código montado en volúmenes | Cumple | `services/backend/Dockerfile` y `deploy/nginx/Dockerfile`, que construye el frontend y lo sirve con el proxy |
-| Un compose de referencia que Swarm soporte: sin `build:`, sin `depends_on` con condiciones, sin `container_name` ni `links`, sin puertos publicados en el host para servicios web | No cumple | `compose.yaml` es solo para desarrollo: usa `build:`, `depends_on` con condiciones (`service_healthy` y `service_completed_successfully`) y publica el puerto 8000 en el host. Falta un compose de referencia con imágenes ya construidas. Sin condiciones en `depends_on`, las migraciones (`backend migrate`) se corren como un paso del despliegue antes de actualizar el backend (ADR-022) |
+| Un compose de referencia que Swarm soporte: sin `build:`, sin `depends_on` con condiciones, sin `container_name` ni `links`, sin puertos publicados en el host para servicios web | No cumple | `compose.yaml` es solo para desarrollo. Los entornos de prueba corren en Cloud Run, así que no hay un compose de referencia para Swarm: se arma cuando se acuerde el despliegue con la Subsecretaría de TICs. Las migraciones (`backend migrate`) se corren como un paso del despliegue antes de actualizar el backend (ADR-022, [despliegue](15-despliegue.md)) |
 | Cada servicio HTTP expone un único puerto interno y no termina TLS | Cumple | El proxy escucha en el 80 y el backend en el 8080, los dos sin TLS |
-| Las imágenes las construye la Subsecretaría de TICs y se publican en su registry | A confirmar | El README prevé construir las imágenes en GitHub Actions al integrar en `main`. Hay que acordar con la Subsecretaría de TICs quién las construye |
+| Las imágenes las construye la Subsecretaría de TICs y se publican en su registry | A confirmar | Para los entornos de prueba, GitHub Actions las construye en cada push a `main` y a `develop` y las publica en Artifact Registry. Hay que acordar con la Subsecretaría de TICs quién las construye para producción |
 | Configuración por variables de entorno, sin valores de entorno escritos en la imagen | Cumple | Todo el backend se configura con variables `SIGTA_*` (ver "Configuración del servicio de trámites" en el README) |
 | Contraseñas y claves como secretos del despliegue, nunca en el repositorio | Cumple | Las credenciales de Google, el archivo de usuarios y las dos conexiones a la base (`SIGTA_DATABASE_URL` y `SIGTA_MIGRATIONS_DATABASE_URL`) son secretos del despliegue. Las contraseñas de `compose.yaml` son solo de desarrollo |
 | Servicios sin estado, con sesiones, caché y colas en la base o en Redis, para correr más de una réplica | No cumple | Las sesiones y las cuentas registradas se guardan en memoria del backend: se pierden al reiniciar y no se comparten entre réplicas. Se resuelve al guardar usuarios y sesiones en PostgreSQL |
-| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hay dos volúmenes: el de la base de desarrollo y el de los documentos (`/var/lib/sigta/documents`, `SIGTA_DOCUMENTS_DIR`). Los trámites y el registro de sus documentos todavía están en memoria. Al arrancar, el backend borra los archivos que ningún documento registrado nombra y que tienen más de una hora: mientras el registro esté en memoria, son los de la ejecución anterior. Por eso hoy supone una sola instancia |
+| Datos persistentes solo en volúmenes declarados y documentados | A confirmar | Hay dos volúmenes: el de la base y el de los documentos (`/var/lib/sigta/documents`, `SIGTA_DOCUMENTS_DIR`). En los entornos de prueba, la base es Cloud SQL y los documentos van a un bucket de Cloud Storage por entorno, montado en esa ruta. Los trámites y el registro de sus documentos todavía están en memoria. Al arrancar, el backend borra los archivos que ningún documento registrado nombra y que tienen más de una hora: mientras el registro esté en memoria, son los de la ejecución anterior. Por eso hoy supone una sola instancia |
 | La SPA no tiene la URL del backend fija en la imagen | Cumple | El frontend llama a la API por la ruta relativa `/api` (la opción que prefiere la Subsecretaría de TICs) |
 
 ## Base de datos
@@ -93,12 +93,12 @@ No son condiciones excluyentes.
 | --- | --- | --- |
 | Imágenes oficiales con versión fija y multi-stage build | Cumple | `golang:1.26-alpine`, `node:24-alpine`, `nginx:1.30-alpine` y `distroless/static-debian13` |
 | Procesos sin privilegios | No cumple | El backend corre como `nonroot`. El proxy usa la imagen de nginx por defecto, que corre como root |
-| Endpoint de salud que verifique la conexión a la base | No cumple | No hay endpoint de salud |
+| Endpoint de salud que verifique la conexión a la base | No cumple | No hay endpoint de salud. Cloud Run da por levantado el backend cuando responde `/procedure-types`, que lee la base |
 | Logs a la salida estándar | Cumple | El backend escribe con `slog` en stdout |
 | Tareas programadas y workers como servicios separados | No aplica | Todavía no hay tareas programadas ni colas |
 | Sin secretos en el repositorio ni en el historial | A confirmar | Falta revisar el historial antes de entregarlo |
 | CORS limitado a los dominios propios | Cumple | El frontend y la API comparten dominio, así que no hace falta habilitar CORS |
 | Tests automatizados de las funciones principales | Cumple | La CI corre lint, tests, escenarios de aceptación y un arranque del sistema completo en cada pull request |
-| Entornos de test y producción separados | A confirmar | Hoy hay un solo entorno de demo |
+| Entornos de test y producción separados | A confirmar | Hay dos entornos de prueba en Google Cloud, cada uno con su base, su bucket de documentos, sus secretos y su cuenta de servicio: `prod` con `main` y `dev` con `develop` ([despliegue](15-despliegue.md)). Falta acordar los de FIUBA |
 | Versionado semántico de entregas e imágenes | No cumple | No hay versiones |
 | Accesibilidad WCAG 2.1 nivel AA y uso desde el celular | A confirmar | No está verificado |

@@ -1,0 +1,86 @@
+name: Deploy
+
+# main to prod and develop to dev, on Cloud Run (docs/15-despliegue.md).
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/928624274175/locations/global/workloadIdentityPools/github/providers/sigta
+  GCP_SERVICE_ACCOUNT: sigta-deploy@summer-function-513519-a1.iam.gserviceaccount.com
+  GCP_PROJECT: summer-function-513519-a1
+  GCP_REGION: us-east1
+  ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+  SIGTA_HOST: ${{ github.ref_name == 'main' && 'sigta.lopeztancredi.com.ar' || 'sigta-dev.lopeztancredi.com.ar' }}
+  SQL_INSTANCE: ${{ github.ref_name == 'main' && 'sigta' || 'sigta-dev' }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      url: https://${{ env.SIGTA_HOST }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: Build and push the images
+        run: |
+          registry=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT/sigta
+          echo "REGISTRY=$registry" >>"$GITHUB_ENV"
+          gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+          docker build -t "$registry/backend:$GITHUB_SHA" services/backend
+          docker build -t "$registry/proxy:$GITHUB_SHA" -f deploy/nginx/Dockerfile .
+          docker push "$registry/backend:$GITHUB_SHA"
+          docker push "$registry/proxy:$GITHUB_SHA"
+      # The migrations only move forward and run before the new version
+      # (ADR-022): if they fail, the previous one stays online.
+      - name: Migrate
+        run: |
+          gcloud run jobs deploy "sigta-$ENVIRONMENT-migrate" --region "$GCP_REGION" --quiet \
+            --image "$REGISTRY/backend:$GITHUB_SHA" --args migrate \
+            --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
+            --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
+            --set-env-vars SIGTA_ENV=development \
+            --set-secrets "SIGTA_MIGRATIONS_DATABASE_URL=sigta-$ENVIRONMENT-migrations-database-url:latest" \
+            --max-retries 0 --execute-now --wait
+      # One instance: sessions, procedures and documents are still kept in
+      # memory, and the server assumes it is the only one.
+      - name: Deploy
+        run: |
+          gcloud run deploy "sigta-$ENVIRONMENT" --region "$GCP_REGION" --quiet \
+            --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
+            --allow-unauthenticated --execution-environment gen2 --min-instances 1 --max-instances 1 \
+            --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
+            --add-volume "name=documents,type=cloud-storage,bucket=$GCP_PROJECT-sigta-$ENVIRONMENT-documents,mount-options=uid=65532;gid=65532" \
+            --container proxy --image "$REGISTRY/proxy:$GITHUB_SHA" --port 80 --depends-on backend \
+            --cpu 0.25 --memory 128Mi \
+            --set-env-vars SIGTA_BACKEND=127.0.0.1:8080 \
+            --container backend --image "$REGISTRY/backend:$GITHUB_SHA" \
+            --cpu 0.75 --memory 512Mi \
+            --startup-probe "httpGet.port=8080,httpGet.path=/procedure-types,periodSeconds=2,failureThreshold=30" \
+            --add-volume-mount "volume=documents,mount-path=/var/lib/sigta/documents" \
+            --set-env-vars "SIGTA_ENV=development,SIGTA_IDENTITY_PROVIDER=google,SIGTA_ALLOWED_DOMAIN=fi.uba.ar,SIGTA_PUBLIC_URL=https://$SIGTA_HOST/api,SIGTA_APP_URL=https://$SIGTA_HOST/" \
+            --set-secrets "SIGTA_DATABASE_URL=sigta-$ENVIRONMENT-database-url:latest,SIGTA_GOOGLE_CLIENT_ID=sigta-google-client-id:latest,SIGTA_GOOGLE_CLIENT_SECRET=sigta-google-client-secret:latest"
+      - name: Check SIGTA
+        run: |
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "https://$SIGTA_HOST/"
+          curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 3 --retry-all-errors "https://$SIGTA_HOST/api/procedure-types"
