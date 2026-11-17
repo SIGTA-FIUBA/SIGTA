@@ -37,6 +37,18 @@ type ProcedureDetail struct {
 // the procedure, as Procedures does.
 type ProcedureDetails interface {
 	Detail(ctx context.Context, userID, procedureID string) (ProcedureDetail, error)
+	// Mine returns the procedures in progress that the person started, the
+	// most recently moved first.
+	Mine(ctx context.Context, userID string) ([]MyProcedure, error)
+}
+
+// MyProcedure is a procedure in progress as its applicant sees it in their
+// list: where it is, not what happened inside each area.
+type MyProcedure struct {
+	Procedure domain.Procedure
+	Name      string
+	StepName  string
+	State     domain.State
 }
 
 type StepConfirmation struct {

@@ -300,6 +300,23 @@ type Membership struct {
 	UserId      string     `json:"user_id"`
 }
 
+// MyProcedure defines model for MyProcedure.
+type MyProcedure struct {
+	Id string `json:"id"`
+
+	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	LastMovedAt       time.Time `json:"last_moved_at"`
+	ProcedureType     int64     `json:"procedure_type"`
+	ProcedureTypeName string    `json:"procedure_type_name"`
+	StartedAt         time.Time `json:"started_at"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
+	State ProcedureState `json:"state"`
+
+	// StepName Paso abierto, el que se espera ahora
+	StepName string `json:"step_name"`
+}
+
 // NamedOption defines model for NamedOption.
 type NamedOption struct {
 	Id   string `json:"id"`
@@ -704,6 +721,11 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// ListMyProceduresParams defines parameters for ListMyProcedures.
+type ListMyProceduresParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // GrantMembershipParams defines parameters for GrantMembership.
 type GrantMembershipParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
@@ -823,6 +845,9 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
+	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// (GET /me/procedures)
+	ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams)
 	// GrantMembership Otorga una membresía a una persona
 	// (POST /memberships)
 	GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams)
@@ -1205,6 +1230,41 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyProcedures operation middleware
+func (siw *ServerInterfaceWrapper) ListMyProcedures(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMyProceduresParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyProcedures(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1760,6 +1820,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/callback", wrapper.CompleteLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me/procedures", wrapper.ListMyProcedures)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas", wrapper.CreateArea)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/permissions", wrapper.CreatePermission)
@@ -2184,6 +2245,42 @@ func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http
 type GetCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyProceduresRequestObject struct {
+	Params ListMyProceduresParams
+}
+
+type ListMyProceduresResponseObject interface {
+	VisitListMyProceduresResponse(w http.ResponseWriter) error
+}
+
+type ListMyProcedures200JSONResponse []MyProcedure
+
+func (response ListMyProcedures200JSONResponse) VisitListMyProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyProcedures401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListMyProcedures401JSONResponse) VisitListMyProceduresResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2784,6 +2881,9 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// (GET /me/procedures)
+	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
 	// GrantMembership Otorga una membresía a una persona
 	// (POST /memberships)
 	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
@@ -3085,6 +3185,32 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyProcedures operation middleware
+func (sh *strictHandler) ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams) {
+	var request ListMyProceduresRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyProcedures(ctx, request.(ListMyProceduresRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyProcedures")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyProceduresResponseObject); ok {
+		if err := validResponse.VisitListMyProceduresResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
