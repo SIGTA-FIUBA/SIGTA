@@ -275,7 +275,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;
@@ -544,7 +544,7 @@ export interface components {
             external_file_number?: string;
         };
         ProcedureEvent: {
-            /** @description Paso hecho */
+            /** @description Paso hecho, o el paso abierto en el que se adjuntó el documento */
             step: string;
             by: components["schemas"]["Person"];
             /** Format: date-time */
@@ -559,6 +559,15 @@ export interface components {
             referral?: components["schemas"]["Referral"];
             /** @description Si devuelve el trámite al área de la que se había derivado */
             returned: boolean;
+            document?: components["schemas"]["HistoryDocument"];
+        };
+        /** @description Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite. */
+        HistoryDocument: {
+            /** @description Identificador del archivo adjuntado, el mismo de ProcedureDocument */
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            file_name: string;
         };
         /** @description Paso del trámite a otra área (ADR-020) */
         Referral: {
@@ -588,7 +597,7 @@ export interface components {
             referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
-            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite y cada confirmación. No se puede cambiar ni borrar. */
+            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación y cada documento adjuntado después. No se puede cambiar ni borrar. */
             history: components["schemas"]["ProcedureEvent"][];
         };
         /** @description Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área. */

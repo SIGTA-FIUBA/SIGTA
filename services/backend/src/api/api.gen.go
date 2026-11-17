@@ -284,6 +284,16 @@ type FieldRequirement struct {
 // FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
 type FieldType string
 
+// HistoryDocument Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+type HistoryDocument struct {
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document string `json:"document"`
+	FileName string `json:"file_name"`
+
+	// Id Identificador del archivo adjuntado, el mismo de ProcedureDocument
+	Id string `json:"id"`
+}
+
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
 
@@ -373,7 +383,7 @@ type ProcedureDetail struct {
 	// CanAct Si quien mira puede hacer el paso abierto
 	CanAct bool `json:"can_act"`
 
-	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite y cada confirmación. No se puede cambiar ni borrar.
+	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación y cada documento adjuntado después. No se puede cambiar ni borrar.
 	History []ProcedureEvent `json:"history"`
 	Id      string           `json:"id"`
 
@@ -427,6 +437,9 @@ type ProcedureEvent struct {
 	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
 	Declared bool `json:"declared"`
 
+	// Document Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+	Document *HistoryDocument `json:"document,omitempty"`
+
 	// Next Paso que abre; ausente si cierra el trámite
 	Next        *string `json:"next,omitempty"`
 	Observation string  `json:"observation"`
@@ -440,7 +453,7 @@ type ProcedureEvent struct {
 	// Returned Si devuelve el trámite al área de la que se había derivado
 	Returned bool `json:"returned"`
 
-	// Step Paso hecho
+	// Step Paso hecho, o el paso abierto en el que se adjuntó el documento
 	Step string `json:"step"`
 }
 

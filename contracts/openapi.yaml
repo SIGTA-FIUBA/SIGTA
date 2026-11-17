@@ -510,7 +510,8 @@ paths:
         contenido del archivo, no por su nombre, y lo compara con los tipos y
         el tamaño máximo del documento. Adjuntar otro archivo para el mismo
         documento reemplaza al anterior, que queda registrado. Un trámite
-        guarda hasta 20 archivos por documento.
+        guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en
+        el historial, sin avanzar el trámite.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -1102,7 +1103,7 @@ components:
       properties:
         step:
           type: string
-          description: Paso hecho
+          description: Paso hecho, o el paso abierto en el que se adjuntó el documento
         by:
           $ref: "#/components/schemas/Person"
         at:
@@ -1126,6 +1127,23 @@ components:
         returned:
           type: boolean
           description: Si devuelve el trámite al área de la que se había derivado
+        document:
+          $ref: "#/components/schemas/HistoryDocument"
+    HistoryDocument:
+      type: object
+      description: >
+        Documento adjuntado después del inicio; ausente en los demás eventos.
+        Adjuntarlo no avanza el trámite.
+      required: [id, document, file_name]
+      properties:
+        id:
+          type: string
+          description: Identificador del archivo adjuntado, el mismo de ProcedureDocument
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        file_name:
+          type: string
     Referral:
       type: object
       description: Paso del trámite a otra área (ADR-020)
@@ -1179,8 +1197,8 @@ components:
           type: array
           description: >
             Los pasos hechos, en el orden en que se registraron: los del
-            titular al iniciar el trámite y cada confirmación. No se puede
-            cambiar ni borrar.
+            titular al iniciar el trámite, cada confirmación y cada documento
+            adjuntado después. No se puede cambiar ni borrar.
           items:
             $ref: "#/components/schemas/ProcedureEvent"
     ProcedureReferral:

@@ -198,6 +198,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at, Next: "review"},
 		{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide, By: "staff-1", At: at.Add(time.Hour), Observation: "completo", Outcome: "accept", Next: "documents",
 			Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
+		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at.Add(2 * time.Hour),
+			Document: &domain.DocumentRecord{ID: "D-1", Requirement: "statement", FileName: "constancia.pdf"}},
 	}
 
 	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
@@ -207,6 +209,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at, Next: &next},
 		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, Next: &back,
 			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
+		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at.Add(2 * time.Hour),
+			Document: &api.HistoryDocument{Id: "D-1", Document: "statement", FileName: "constancia.pdf"}},
 	}
 	if !reflect.DeepEqual(got.History, want) {
 		t.Errorf("history = %+v, want %+v", got.History, want)
