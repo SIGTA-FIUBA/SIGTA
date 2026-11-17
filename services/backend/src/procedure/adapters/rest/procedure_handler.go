@@ -134,3 +134,30 @@ func procedureValue(v domain.FieldValue, names map[string]string) api.ProcedureV
 	}
 	return value
 }
+
+func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyProceduresRequestObject) (api.ListMyProceduresResponseObject, error) {
+	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
+	if authinput.Unauthenticated(err) {
+		return api.ListMyProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: messageSignIn}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	mine, err := h.procedures.Mine(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	response := make(api.ListMyProcedures200JSONResponse, 0, len(mine))
+	for _, m := range mine {
+		response = append(response, api.MyProcedure{
+			Id:                m.Procedure.ID,
+			ProcedureType:     m.Procedure.ProcedureType,
+			ProcedureTypeName: m.Name,
+			StepName:          m.StepName,
+			State:             api.ProcedureState(m.State),
+			StartedAt:         m.Procedure.StartedAt,
+			LastMovedAt:       m.Procedure.MovedAt,
+		})
+	}
+	return response, nil
+}

@@ -129,7 +129,7 @@ func (w *submissionWorld) setUp() error {
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
 	w.procedures = memory.NewProcedureRepository()
 	w.documents = memory.NewDocumentRepository()
-	procedures := application.NewProcedureService(w.types, w.procedures, w.memberships, w.newID, time.Now)
+	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)
 	w.service = application.NewSubmissionService(procedures, w.documents, files, w.newID, time.Now)
 	return nil
 }

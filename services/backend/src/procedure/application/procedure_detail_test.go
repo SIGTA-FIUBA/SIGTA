@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
@@ -132,5 +133,51 @@ func TestDetailFailsIfTheOpenStepIsNotInTheVersion(t *testing.T) {
 	_, err := f.details.Detail(t.Context(), applicant, "P-2")
 	if err == nil || errors.Is(err, domain.ErrProcedureNotFound) {
 		t.Errorf("err = %v, want an error other than ErrProcedureNotFound", err)
+	}
+}
+
+func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
+	f := newDocumentsFixture(t)
+	day := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+	for _, p := range []domain.Procedure{
+		{ID: "P-old", OpenStep: "review", MovedAt: day},
+		{ID: "P-new", OpenStep: "documents", MovedAt: day.Add(48 * time.Hour)},
+		{ID: "P-closed", OpenStep: "", MovedAt: day.Add(72 * time.Hour)},
+		{ID: "P-other", OpenStep: "review", MovedAt: day.Add(96 * time.Hour), Applicant: reviewer},
+	} {
+		p.ProcedureType, p.Version, p.VersionDigest = 1, 1, f.digest
+		if p.Applicant == "" {
+			p.Applicant = applicant
+		}
+		if err := f.procedures.Add(t.Context(), p, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mine, err := f.details.Mine(t.Context(), applicant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, m := range mine {
+		got = append(got, m.Procedure.ID+" "+m.StepName+" "+string(m.State))
+	}
+	// P-1 is the fixture's own procedure, never moved.
+	want := []string{"P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
+	if !slices.Equal(got, want) {
+		t.Errorf("mine = %v, want %v", got, want)
+	}
+	for _, m := range mine {
+		if m.Name != "Trámite con documentos" {
+			t.Errorf("%s: name %q", m.Procedure.ID, m.Name)
+		}
+	}
+}
+
+func TestMineIsEmptyForSomeoneWithoutProcedures(t *testing.T) {
+	f := newDocumentsFixture(t)
+	mine, err := f.details.Mine(t.Context(), "nobody@fi.uba.ar")
+	if err != nil || mine == nil || len(mine) != 0 {
+		t.Errorf("mine = %#v, %v; want an empty list", mine, err)
 	}
 }

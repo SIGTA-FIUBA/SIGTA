@@ -39,7 +39,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewInboxService(application.NewProcedureService(types, procedures, memberships, func() string { return "id" }, time.Now), time.Now)
+	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now), time.Now)
 
 	mine, err := service.List(ctx, "dev-operative", inbox.Query{View: inbox.ViewMine})
 	if err != nil {
@@ -92,7 +92,7 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewProcedureService(types, procedures, memberships, func() string { return "id" }, time.Now)
+	service := application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 
 	for _, step := range []struct {
 		user string
@@ -141,12 +141,13 @@ func TestDevRulingExampleAsksTheStaffForTheRuling(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewProcedureService(types, procedures, memberships, func() string { return "id" }, time.Now)
+	attached := memory.NewDocumentRepository()
+	service := application.NewProcedureService(types, procedures, attached, memberships, func() string { return "id" }, time.Now)
 	files, err := disk.NewFiles(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	documents := application.NewDocumentService(service, memory.NewDocumentRepository(), files, func() string { return "D-1" }, time.Now)
+	documents := application.NewDocumentService(service, attached, files, func() string { return "D-1" }, time.Now)
 
 	if _, err := service.Confirm(ctx, "dev-committee", "dev-09", input.StepConfirmation{Step: devEvaluateStep, Observation: "Dictamen recibido"}); err != nil {
 		t.Fatal(err)

@@ -45,6 +45,7 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 	sc.Given(`^"([^"]*)" confirmed the "([^"]*)" step(?: choosing "([^"]*)")?$`, w.givenConfirmed)
 	sc.Given(`^recording confirmations fails$`, w.givenRecordingFails)
 	sc.Given(`^it is "([^"]*)"$`, w.itIs)
+	sc.Given(`^the "([^"]*)" documents? of the "([^"]*)" step (?:is|are) attached$`, w.givenAttached)
 
 	sc.When(`^"([^"]*)" confirms the "([^"]*)" step with the observation "([^"]*)"$`, w.confirmWithObservation)
 	sc.When(`^"([^"]*)" confirms the "([^"]*)" step(?: choosing "([^"]*)")?(?: with the external file number "([^"]*)")?$`, w.confirm)
@@ -52,6 +53,7 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 
 	sc.Then(`^the confirmation is (recorded|denied|rejected|not recorded)$`, w.thenConfirmation)
 	sc.Then(`^the confirmation is rejected because the step is not open$`, w.thenNotOpen)
+	sc.Then(`^the confirmation is rejected because "([^"]*)" (?:is|are) missing$`, w.thenMissing)
 	sc.Then(`^the "([^"]*)" step is confirmed by "([^"]*)" on "([^"]*)" with the observation "([^"]*)"$`, w.thenConfirmedBy)
 	sc.Then(`^the "([^"]*)" step has (\d+) confirmations?$`, w.thenConfirmations)
 	sc.Then(`^the "([^"]*)" step is recorded as declared by "([^"]*)", not verified by SIGTA$`, w.thenDeclaredBy)
@@ -69,8 +71,9 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 
 // givenFlow reads "done by" as the applicant or a staff area, and "next" as
 // a step or, for a decision, as "outcome: step" pairs. The optional "asks for"
-// column names the field, or the document of an upload_document step, that
-// the step asks for; without it, a step of the applicant asks for a reason.
+// column names the field, or the documents of an upload_document step, that
+// the step asks for; a document that ends in "optional" is optional. Without
+// it, a step of the applicant asks for a reason.
 func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 	d := definition.ProcedureTypeDefinition{Name: name, Description: "Descripción de " + name}
 	reason := definition.Field{ID: "reason", Name: "Motivo", Type: definition.FieldLongText}
@@ -86,8 +89,15 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 		}
 		switch asked := row["asks for"]; {
 		case asked != "" && action == definition.ActionUploadDocument:
-			d.Documents = append(d.Documents, definition.Document{ID: areaID(asked), Name: asked, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
-			step.Documents = []string{areaID(asked)}
+			for _, name := range list(asked) {
+				name, optional := strings.CutSuffix(name, " optional")
+				d.Documents = append(d.Documents, definition.Document{ID: areaID(name), Name: name, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
+				if optional {
+					step.OptionalDocuments = append(step.OptionalDocuments, areaID(name))
+				} else {
+					step.Documents = append(step.Documents, areaID(name))
+				}
+			}
 		case asked != "":
 			d.Fields = append(d.Fields, definition.Field{ID: areaID(asked), Name: asked, Type: definition.FieldText})
 			step.Fields = []string{areaID(asked)}
@@ -145,7 +155,7 @@ func (w *confirmationWorld) givenConfirmed(user, step, outcome string) error {
 
 func (w *confirmationWorld) givenRecordingFails() error {
 	clock := func() time.Time { return w.now }
-	w.service = application.NewProcedureService(w.types, failingAdvance{w.procedures}, w.memberships, w.newID, clock)
+	w.service = application.NewProcedureService(w.types, failingAdvance{w.procedures}, w.documents, w.memberships, w.newID, clock)
 	return nil
 }
 
@@ -194,6 +204,44 @@ func (w *confirmationWorld) thenConfirmation(result string) error {
 	}
 	if !errors.Is(w.err, want) {
 		return fmt.Errorf("got %w, want %w", w.err, want)
+	}
+	return nil
+}
+
+// givenAttached records a file for each document, as attaching it to the
+// step would, without going through the upload.
+func (w *confirmationWorld) givenAttached(documents, step string) error {
+	for _, name := range list(documents) {
+		err := w.documents.Add(context.Background(), domain.Document{
+			ID:          w.newID(),
+			Procedure:   w.current,
+			Requirement: areaID(name),
+			Step:        step,
+			FileName:    areaID(name) + ".pdf",
+			MediaType:   "application/pdf",
+			Size:        1,
+			Digest:      "sha256:" + areaID(name),
+			UploadedBy:  "staff@fi.uba.ar",
+			UploadedAt:  w.now,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *confirmationWorld) thenMissing(documents string) error {
+	var missing *engine.MissingDocumentsError
+	if !errors.As(w.err, &missing) {
+		return fmt.Errorf("got %w, want the documents %s missing", w.err, documents)
+	}
+	var got []string
+	for _, d := range missing.Documents {
+		got = append(got, d.Name)
+	}
+	if want := list(documents); !slices.Equal(got, want) {
+		return fmt.Errorf("missing %v, want %v", got, want)
 	}
 	return nil
 }

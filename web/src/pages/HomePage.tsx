@@ -1,9 +1,79 @@
-import { Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import { Alert, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
 import { Link, useOutletContext } from 'react-router'
+import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { applicantSteps, principles, staffSteps } from '../content/platform'
+import { stateColors, stateNames } from '../procedureState'
 
 type User = components['schemas']['User']
+type MyProcedure = components['schemas']['MyProcedure']
+
+const date = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'America/Argentina/Buenos_Aires',
+})
+
+function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
+  return (
+    <Paper
+      component={Link}
+      to={`/procedures/${encodeURIComponent(procedure.id)}`}
+      variant="interactive"
+      withBorder
+      p="md"
+      td="none"
+      c="inherit"
+    >
+      <Stack gap="xs">
+        <Group justify="space-between" gap="xs" align="flex-start">
+          <Text fw={600} c="fiuba.7">
+            {procedure.procedure_type_name}
+          </Text>
+          <Badge variant="light" color={stateColors[procedure.state]}>
+            {stateNames[procedure.state]}
+          </Badge>
+        </Group>
+        <Text size="sm">Paso actual: {procedure.step_name}</Text>
+        <Text size="sm" c="dimmed">
+          Último movimiento: {date.format(new Date(procedure.last_moved_at))}
+        </Text>
+      </Stack>
+    </Paper>
+  )
+}
+
+// MyProcedures lists what the person started and is not closed yet, so that
+// signing in answers where each procedure is.
+function MyProcedures() {
+  const mine = useMyProcedures()
+  return (
+    <section aria-labelledby="mine">
+      <Stack gap="sm">
+        <Title order={2} id="mine" size="h4">
+          Mis trámites en curso
+        </Title>
+        {mine.isPending && <Loader aria-label="Cargando los trámites en curso" />}
+        {mine.isError && (
+          <Alert color="red" role="alert">
+            No se pudieron cargar los trámites en curso. Volvé a intentarlo más tarde.
+          </Alert>
+        )}
+        {mine.isSuccess && mine.data.length === 0 && (
+          <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
+        )}
+        {mine.isSuccess && mine.data.length > 0 && (
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+            {mine.data.map((procedure) => (
+              <MyProcedureCard key={procedure.id} procedure={procedure} />
+            ))}
+          </SimpleGrid>
+        )}
+      </Stack>
+    </section>
+  )
+}
 
 type Shortcut = { to: string; title: string; text: string }
 
@@ -57,6 +127,8 @@ export function HomePage() {
           académicos de la facultad, del inicio a la resolución.
         </Text>
       </Stack>
+
+      {user && <MyProcedures />}
 
       <section aria-labelledby="shortcuts">
         <Stack gap="sm">

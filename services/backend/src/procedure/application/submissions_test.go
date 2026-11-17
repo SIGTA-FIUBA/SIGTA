@@ -28,7 +28,7 @@ func TestSubmitRecordsTheOpeningStepsAsDoneByTheApplicant(t *testing.T) {
 	procedures := memory.NewProcedureRepository()
 	at := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
 	service := NewSubmissionService(
-		NewProcedureService(types, procedures, applicants{}, nil, time.Now),
+		NewProcedureService(types, procedures, memory.NewDocumentRepository(), applicants{}, nil, time.Now),
 		memory.NewDocumentRepository(), nil, func() string { return "P-1" }, func() time.Time { return at },
 	)
 

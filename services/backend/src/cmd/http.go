@@ -119,8 +119,8 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, memberships, newID, time.Now)
 	documentRepository := proceduremem.NewDocumentRepository()
+	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, documentRepository, memberships, newID, time.Now)
 	documents := procedureapp.NewDocumentService(procedures, documentRepository, files, newID, time.Now)
 	people := application.NewPeopleService(users)
 	// Once, at startup: the server assumes it is the only instance.

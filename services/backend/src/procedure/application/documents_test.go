@@ -145,7 +145,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 		documents:  memory.NewDocumentRepository(),
 		files:      &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: attachedAt},
 	}
-	procedures := NewProcedureService(types, f.procedures, memberships, func() string { return "P-new" }, time.Now)
+	procedures := NewProcedureService(types, f.procedures, f.documents, memberships, func() string { return "P-new" }, time.Now)
 	attached := 0
 	newID := func() string {
 		attached++

@@ -260,3 +260,52 @@ func TestConfirmDoesNotChangeTheProcedureItReceives(t *testing.T) {
 		t.Errorf("procedure = %+v, want it untouched", p)
 	}
 }
+
+var withDocuments = definition.ProcedureTypeDefinition{
+	Documents: []definition.Document{
+		{ID: "draft", Name: "Proyecto de resolución"},
+		{ID: "note", Name: "Nota firmada"},
+		{ID: "cover", Name: "Nota de elevación"},
+	},
+	Steps: []definition.Step{
+		{ID: "resolution", Role: definition.RoleStaff, Area: "affairs", Action: definition.ActionUploadDocument, Documents: []string{"draft", "note"}, OptionalDocuments: []string{"cover"}, Next: "file"},
+		{ID: "file", Role: definition.RoleStaff, Area: "affairs", Action: definition.ActionConfirmExternalFact},
+	},
+}
+
+func TestConfirmNeedsTheMandatoryDocumentsOfTheStep(t *testing.T) {
+	tests := []struct {
+		name     string
+		attached []string
+		missing  []string
+	}{
+		{"none attached", nil, []string{"draft", "note"}},
+		{"one of two", []string{"draft"}, []string{"note"}},
+		{"only the optional one", []string{"cover"}, []string{"draft", "note"}},
+		{"all mandatory, no optional", []string{"note", "draft"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := confirm("resolution", "")
+			c.Attached = tt.attached
+			moved, _, err := engine.Confirm(on("resolution"), withDocuments, c)
+			if tt.missing == nil {
+				if err != nil || moved.OpenStep != "file" {
+					t.Fatalf("open step %q, err %v, want file and no error", moved.OpenStep, err)
+				}
+				return
+			}
+			var missing *engine.MissingDocumentsError
+			if !errors.As(err, &missing) || !errors.Is(err, engine.ErrInvalidConfirmation) {
+				t.Fatalf("err = %v, want missing documents", err)
+			}
+			var got []string
+			for _, d := range missing.Documents {
+				got = append(got, d.ID)
+			}
+			if !slices.Equal(got, tt.missing) || missing.Documents[0].Name == "" {
+				t.Errorf("missing %v, want %v with their names", missing.Documents, tt.missing)
+			}
+		})
+	}
+}

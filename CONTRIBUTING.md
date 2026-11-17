@@ -39,6 +39,7 @@ El trámite empieza en el primer paso. Cada paso tiene un rol (`role`), que dice
 
 - Un paso es del titular (`role: applicant`) o del personal (`role: staff`). Las áreas son solo del personal: un paso del titular no lleva `area` ni `permissions`, y solo carga datos o documentos. Un paso del personal lleva `area`, una de las áreas de SIGTA (la Secretaría, `secretariat`, o una que creó el administrador), y `permissions`, los permisos de esa área que exige (al menos uno): para hacerlo hay que tenerlos todos. Los permisos los crea el administrador en cada área, con el nombre que quiera, y el código no les da significado: lo que distingue una aprobación es el permiso que exige, no la acción. Un paso no puede exigir los permisos de plataforma de la Secretaría (`edit_procedure_types` y `publish_procedure_types`), que habilitan editar y publicar tipos de trámite. Publicar una versión exige que quien la propone tenga el primero y quien la aprueba, el segundo.
 - Un paso sin `next` ni `outcomes` cierra el trámite.
+- Un paso que pide documentos (`documents`) no se confirma mientras alguno no tenga un archivo adjuntado a ese mismo paso, cualquiera sea su acción: también una decisión que se fundamenta en un acta. Los opcionales (`optional_documents`) no frenan la confirmación. La API responde 400 con un mensaje que nombra los documentos que faltan (`engine.MissingDocuments`). Los pasos iniciales del titular ya lo controlan al enviar el trámite (`submission.MissingDocuments`).
 - Una confirmación registra que alguien declaró el hecho, no el hecho: una firma que pasa en el expediente electrónico queda como la confirmación de quien la vio. A confirmar: si cada firma se registra como un paso aparte, y si la confirmación guarda la fecha del hecho además de la de quien confirma.
 - Un paso del personal tiene un área fija. A confirmar: si un paso puede tomar el área según el trámite, por ejemplo la Comisión Curricular de la carrera del titular.
 - Los plazos y las condiciones de admisibilidad son texto que el catálogo muestra: nada los aplica todavía. A confirmar: si el motor tiene que aplicarlos, como pedía "Plazos y condiciones de admisibilidad", que figura en Linear como duplicado de "Modelo de definición de trámite".
@@ -120,6 +121,12 @@ En desarrollo el servidor deja además dos trámites de ejemplo (`addDevExample`
 Los trámites de ejemplo que ya pasaron la solicitud traen un motivo y un comentario cargados (`devValues`).
 
 En desarrollo se publica además un segundo tipo de ejemplo, "Trámite de ejemplo con derivación" (`devReferralProcedureType`, tipo 2): su revisión es una decisión que deriva el trámite a la "Comisión de prueba" o lo devuelve al titular, el dictamen de la comisión lo devuelve al área de prueba (el retorno) y la comunicación del dictamen lo cierra. La comisión confirma con `comision@fi.uba.ar`. Es un tipo aparte, y no un cambio al primero, porque un ejemplo solo se publica si su tipo no tiene versiones (`publishIfMissing`): una base que ya tiene el primero lo conserva. Por lo mismo, un tercer tipo, "Trámite de ejemplo con dictamen" (`devRulingProcedureType`, tipo 3), es el de derivación con una comunicación que pide adjuntar el dictamen: `dev-09` espera el dictamen de la comisión, y después `operativo@fi.uba.ar` adjunta el documento desde la página del trámite.
+
+### Mis trámites en curso
+
+`GET /me/procedures` devuelve los trámites que inició quien tiene la sesión y que todavía no se cerraron, primero los que se movieron más recientemente. Vale también para el personal, que inicia trámites como cualquiera: ve los suyos, no los de sus áreas, que están en la bandeja. Cada uno dice su tipo de trámite, el paso abierto, el estado y cuándo empezó y se movió por última vez, y nada de lo que pasó dentro de cada área. Lo arma `ProcedureDetailService.Mine`, con el mismo estado (`domain.StateOf`) que el detalle y la bandeja.
+
+En la web, es la primera sección del inicio (`pages/HomePage.tsx`), adonde se llega al ingresar. Cada trámite lleva a su detalle.
 
 ## Base de datos
 

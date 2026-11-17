@@ -37,7 +37,7 @@ func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(types, procedures, applicants{}, func() string { return "started" }, time.Now)
+	service := NewProcedureService(types, procedures, memory.NewDocumentRepository(), applicants{}, func() string { return "started" }, time.Now)
 
 	started, err := service.Start(ctx, "ana", 1)
 	if err != nil {
@@ -121,7 +121,7 @@ func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepo
 		"commission@fi.uba.ar": {"commission": {"evaluate"}},
 	}
 	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, staff, func() string { return "P-1" }, func() time.Time { return confirmedAt })
+	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(), staff, func() string { return "P-1" }, func() time.Time { return confirmedAt })
 	if err := procedures.Add(context.Background(), procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}, nil); err != nil {
 		t.Fatal(err)
 	}

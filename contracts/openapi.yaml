@@ -107,6 +107,27 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /me/procedures:
+    get:
+      operationId: listMyProcedures
+      summary: Trámites en curso de la persona con sesión abierta
+      description: >
+        Los trámites que inició quien tiene la sesión, sea o no del personal,
+        que todavía no se cerraron. Primero los que se movieron más
+        recientemente. Cada uno se abre con su detalle.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Trámites en curso, vacío si no hay ninguno
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MyProcedure"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /procedure-types:
     get:
       operationId: listProcedureTypes
@@ -1157,6 +1178,29 @@ components:
           description: Identificador del área a la que se deriva
         external_file_number:
           type: string
+    MyProcedure:
+      type: object
+      required: [id, procedure_type, procedure_type_name, step_name, state, started_at, last_moved_at]
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        procedure_type_name:
+          type: string
+        step_name:
+          type: string
+          description: Paso abierto, el que se espera ahora
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        started_at:
+          type: string
+          format: date-time
+        last_moved_at:
+          type: string
+          format: date-time
+          description: Cuándo el trámite llegó al paso abierto
     ProcedureDetail:
       type: object
       required: [id, procedure_type, version, name, state, applicant, can_act, steps, history]
