@@ -32,6 +32,7 @@ func addDevInbox(ctx context.Context, versions output.ProcedureVersions, procedu
 		{devProcedureType(), "review", 73, 6},
 		{devReferralProcedureType(), devReviewStep, 1, 1},
 		{devReferralProcedureType(), devEvaluateStep, 12, 5},
+		{devRulingProcedureType(), devEvaluateStep, 8, 2},
 	}
 	for i, row := range rows {
 		latest, err := versions.Latest(ctx, row.example.ProcedureType)
@@ -70,7 +71,11 @@ func addDevInbox(ctx context.Context, versions output.ProcedureVersions, procedu
 				Referral:    &proceduredomain.ReferralRecord{From: "office", To: devCommitteeArea, ExternalFileNumber: "EX-2026-00000123"},
 			})
 		}
-		if err := procedures.Add(ctx, p, events); err != nil {
+		var values []proceduredomain.FieldValue
+		if row.step != "request" {
+			values = devValues(p)
+		}
+		if err := procedures.Add(ctx, p, events, values...); err != nil {
 			return err
 		}
 	}

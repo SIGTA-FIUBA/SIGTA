@@ -291,6 +291,9 @@ func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, version
 	if err := publishIfMissing(ctx, versions, procedureTypes, devReferralProcedureType()); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type with a referral: %w", err)
 	}
+	if err := publishIfMissing(ctx, versions, procedureTypes, devRulingProcedureType()); err != nil {
+		return nil, fmt.Errorf("publish the example procedure type with a ruling: %w", err)
+	}
 	if cfg.identityProvider != identityDev {
 		return &exampleForFirstSignUp{UserRepository: users, logger: logger, give: func(ctx context.Context, applicant string) error {
 			return addDevProcedure(ctx, versions, procedures, applicant)
@@ -353,7 +356,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 	}
 	now := time.Now()
 	for id, step := range map[string]string{devProcedureID: devDocumentsStep, devReviewProcedureID: devReviewStep} {
-		err := procedures.Add(ctx, proceduredomain.Procedure{
+		p := proceduredomain.Procedure{
 			ID:            id,
 			ProcedureType: latest.ProcedureTypeID,
 			Version:       latest.Number,
@@ -362,8 +365,8 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, pro
 			OpenStep:      step,
 			StartedAt:     now,
 			MovedAt:       now,
-		}, nil)
-		if err != nil {
+		}
+		if err := procedures.Add(ctx, p, nil, devValues(p)...); err != nil {
 			return err
 		}
 	}
@@ -421,4 +424,29 @@ func devReferralProcedureType() input.Publication {
 		{ID: "communicate", Name: "Comunicación del dictamen", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 	}
 	return example
+}
+
+// devRulingProcedureType is the example with a referral whose last step asks
+// the staff to attach the ruling.
+func devRulingProcedureType() input.Publication {
+	example := devReferralProcedureType()
+	example.ProcedureType = 3
+	d := &example.Definition
+	d.Name = "Trámite de ejemplo con dictamen"
+	d.Description = "Un trámite inventado para probar adjuntar el dictamen en desarrollo."
+	d.Documents = append(d.Documents, definition.Document{ID: "ruling", Name: "Dictamen", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 10 << 20})
+	last := &d.Steps[len(d.Steps)-1]
+	last.Action, last.Documents = definition.ActionUploadDocument, []string{"ruling"}
+	return example
+}
+
+// devValues are what the applicant of an example entered on the request step.
+func devValues(p proceduredomain.Procedure) []proceduredomain.FieldValue {
+	value := func(field, text string) proceduredomain.FieldValue {
+		return proceduredomain.FieldValue{Procedure: p.ID, Field: field, Step: "request", Text: text, EnteredBy: p.Applicant, EnteredAt: p.StartedAt}
+	}
+	return []proceduredomain.FieldValue{
+		value("reason", "Motivo de ejemplo: pido el trámite para probar SIGTA.\nSegunda línea del motivo."),
+		value("comment", "Comentario de ejemplo."),
+	}
 }
