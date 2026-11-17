@@ -29,7 +29,7 @@
 | EP14 | Cierre académico | 1 | 8 |
 | | **Total** | **58** | **293** |
 
-La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap y del plan de sprints. Las cinco historias de US72 a US76 se agregaron el 14/11, al revisar el backlog contra el alcance, con estimación provisoria.
+La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap y del plan de sprints. Las cinco historias de US72 a US76 se agregaron el 14/11, al revisar el backlog contra el alcance, con estimación provisoria. La columna de sprint refleja la replanificación del 16/11, que concentra el sprint 5 en recorrer un trámite de punta a punta ([plan de sprints](11-plan-de-sprints.md)).
 
 ---
 
@@ -58,9 +58,9 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
 | US08 | SIG-12 | Modelo de definición de trámite | 3 | 2 |
-| US09 | SIG-15 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | 3 |
-| US25 | SIG-24 | Configuración del segundo trámite: reconocimiento de créditos | 8 | 4 |
-| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 | 4 |
+| US09 | SIG-15 | Configuración del trámite ancla: equivalencia entre asignaturas | 8 | 5 |
+| US25 | SIG-24 | Configuración del segundo trámite: reconocimiento de créditos | 8 | 6 |
+| US72 | SIG-74 | Edición y publicación de tipos de trámite | 8 | 5 |
 | US49 | SIG-48 | Configuración de cobertura: pase de universidad extranjera | 5 | 14 |
 | US50 | SIG-51 | Configuración de cobertura: intercambios académicos | 5 | 15 |
 | US51 | SIG-54 | Configuración de cobertura: pase dentro de la UBA | 5 | 16 |
@@ -76,10 +76,10 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
-| US22 | SIG-30 | Mis trámites en curso | 2 | 6 |
-| US23 | SIG-31 | Detalle de mi trámite | 2 | 6 |
+| US22 | SIG-30 | Mis trámites en curso | 2 | 5 |
+| US23 | SIG-31 | Detalle de mi trámite | 2 | 5 |
 | US24 | SIG-35 | Historial de trámites cerrados | 3 | 11 |
-| US34 | SIG-50 | El titular completa una subsanación | 3 | 15 |
+| US34 | SIG-50 | El titular completa una subsanación | 3 | 5 |
 | US38 | SIG-53 | Descarga de comprobante del trámite | 3 | 16 |
 
 ### EP05 — Bandeja y verificación de la Secretaría
@@ -90,7 +90,7 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | US19 | SIG-23 | Vista de detalle del trámite | 3 | 4 |
 | US37 | SIG-25 | Filtros y orden en el listado de trámites | 1 | 4 |
 | US66 | SIG-39 | Verificación manual de requisitos | 5 | 12 |
-| US33 | SIG-49 | Pedido de subsanación al titular | 3 | 15 |
+| US33 | SIG-49 | Pedido de subsanación al titular | 3 | 5 |
 | US67 | SIG-52 | Plazos próximos a vencer | 3 | 15 |
 
 ### EP06 — Motor de pasos y estados
@@ -98,7 +98,7 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
 | US10 | SIG-20 | Avance de un trámite por confirmación de paso | 5 | 4 |
-| US11 | SIG-21 | Historial de pasos de un trámite | 5 | 4 |
+| US11 | SIG-21 | Historial de pasos de un trámite | 5 | 5 |
 | US12 | SIG-44 | Devolución de un paso | 3 | 14 |
 
 ### EP07 — Gestión documental
@@ -120,8 +120,8 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 
 | Historia | Ticket | Título | SP | Sprint |
 |---|---|---|---|---|
-| US27 | SIG-27 | Ingesta y versionado de la base de conocimiento | 8 | 5 |
-| US28 | SIG-28 | Recuperación de contexto relevante para la consulta | 8 | 5 |
+| US27 | SIG-27 | Ingesta y versionado de la base de conocimiento | 8 | 6 |
+| US28 | SIG-28 | Recuperación de contexto relevante para la consulta | 8 | 6 |
 | US69 | SIG-32 | Respuesta conversacional sobre el contexto recuperado | 13 | 6 |
 | US31 | SIG-34 | Set de evaluación del asistente en el pipeline | 8 | 10 |
 | US32 | SIG-40 | Pruebas de seguridad del asistente | 8 | 13 |
@@ -159,7 +159,7 @@ La revisión del 27/09 dejó 53 historias y 264 SP, que son la base del roadmap 
 | US01 | SIG-5 | Repositorio e integración continua | 5 | 1 |
 | US65 | SIG-8 | Definición y setup del stack tecnológico | 5 | 1 |
 | US02 | SIG-10 | Configuración de herramientas agénticas de desarrollo | 5 | 2 |
-| US04 | SIG-19 | Generador de datos sintéticos | 5 | 4 |
+| US04 | SIG-19 | Generador de datos sintéticos | 5 | 6 |
 | US73 | SIG-75 | Persistencia de personas, áreas, trámites y documentos | 5 | 5 |
 | US68 | SIG-29 | Despliegue automático | 8 | 5 |
 
