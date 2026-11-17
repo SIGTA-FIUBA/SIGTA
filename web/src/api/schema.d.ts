@@ -627,8 +627,23 @@ export interface components {
             outcomes: components["schemas"]["StepOutcome"][];
             /** @description Paso que sigue si no es un paso decide; ausente en el último */
             next?: string;
+            /** @description Último valor cargado de cada dato del paso que ya tiene uno, en el mismo orden que fields. Un dato sin valor no aparece. */
+            values: components["schemas"]["ProcedureValue"][];
             /** @description Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece. */
             files: components["schemas"]["ProcedureDocument"][];
+        };
+        ProcedureValue: {
+            /** @description Identificador del dato del tipo de trámite */
+            field: string;
+            /** @description Paso en el que se cargó */
+            step: string;
+            /** @description El valor, como se cargó una vez validado: una opción por su id, un número con punto, una fecha AAAA-MM-DD. Ausente en subject_list */
+            text?: string;
+            /** @description Las asignaturas de un subject_list; ausente en los demás tipos */
+            items?: string[];
+            entered_by: components["schemas"]["Person"];
+            /** Format: date-time */
+            entered_at: string;
         };
         ProcedureDocument: {
             id: string;

@@ -38,12 +38,17 @@ func documentsDefinition() definition.ProcedureTypeDefinition {
 	return definition.ProcedureTypeDefinition{
 		Name:        "Trámite con documentos",
 		Description: "Un trámite para las pruebas",
+		Fields: []definition.Field{
+			{ID: "reason", Name: "Motivo", Type: definition.FieldText},
+			{ID: "subjects", Name: "Asignaturas", Type: definition.FieldSubjectList},
+		},
 		Documents: []definition.Document{
 			{ID: "statement", Name: "Constancia", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSizeBytes: maxSize},
 			{ID: "annex", Name: "Anexo", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: maxSize},
 			{ID: "resolution", Name: "Resolución", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: maxSize},
 		},
 		Steps: []definition.Step{
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"subjects"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, OptionalDocuments: []string{"annex"}, Next: "review"},
 			{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: office.ID, Permissions: []string{"review"}, Action: definition.ActionUploadDocument, Documents: []string{"resolution"}},
 		},

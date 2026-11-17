@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -32,6 +33,29 @@ func TestDetailPutsTheCurrentFileNextToEachDocument(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: files = %v, want %v", user, got, want)
 		}
+	}
+}
+
+func TestDetailPutsTheValuesNextToTheFieldsInTheOrderOfTheDefinition(t *testing.T) {
+	f := newDocumentsFixture(t)
+	p := domain.Procedure{ID: "P-2", ProcedureType: 1, Version: 1, VersionDigest: f.digest, Applicant: applicant, OpenStep: "review"}
+	values := []domain.FieldValue{
+		{Procedure: "P-2", Field: "subjects", Step: "request", Items: []string{"Análisis II", "Física I"}, EnteredBy: applicant, EnteredAt: attachedAt},
+		{Procedure: "P-2", Field: "reason", Step: "request", Text: "Pase de carrera", EnteredBy: applicant, EnteredAt: attachedAt},
+	}
+	if err := f.procedures.Add(t.Context(), p, nil, values...); err != nil {
+		t.Fatal(err)
+	}
+
+	detail, err := f.details.Detail(t.Context(), reviewer, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := detail.Steps[0].Values, []domain.FieldValue{values[1], values[0]}; !reflect.DeepEqual(got, want) {
+		t.Errorf("values of the first step = %+v, want %+v", got, want)
+	}
+	if got := detail.Steps[1].Values; len(got) != 0 {
+		t.Errorf("values of a step that asks for no field = %+v, want none", got)
 	}
 }
 

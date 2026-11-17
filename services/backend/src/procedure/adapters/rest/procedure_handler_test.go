@@ -130,6 +130,28 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	}
 }
 
+func TestGetProcedureShowsTheValuesEntered(t *testing.T) {
+	at := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	d := openedDetail(false)
+	d.Steps[0].Fields = append(d.Steps[0].Fields, definition.FieldRequirement{Field: definition.Field{ID: "subjects", Name: "Asignaturas", Type: definition.FieldSubjectList}})
+	d.Steps[0].Values = []domain.FieldValue{
+		{Procedure: "P-1", Field: "reason", Step: "documents", Text: "Pase de carrera", EnteredBy: "ana", EnteredAt: at},
+		{Procedure: "P-1", Field: "subjects", Step: "documents", Items: []string{"Análisis II", "Física I"}, EnteredBy: "ana", EnteredAt: at},
+	}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	text, items := "Pase de carrera", []string{"Análisis II", "Física I"}
+	ana := api.Person{Id: "ana", Name: "Ana Prueba"}
+	want := []api.ProcedureValue{
+		{Field: "reason", Step: "documents", Text: &text, EnteredBy: ana, EnteredAt: at},
+		{Field: "subjects", Step: "documents", Items: &items, EnteredBy: ana, EnteredAt: at},
+	}
+	if !reflect.DeepEqual(got.Steps[0].Values, want) {
+		t.Errorf("values = %+v, want %+v", got.Steps[0].Values, want)
+	}
+}
+
 func TestGetProcedureOfAnApplicantWhoIsNotRegistered(t *testing.T) {
 	detail := openedDetail(false)
 	detail.Procedure.Applicant = "gone"
@@ -168,6 +190,7 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 			Fields    json.RawMessage `json:"fields"`
 			Documents json.RawMessage `json:"documents"`
 			Outcomes  json.RawMessage `json:"outcomes"`
+			Values    json.RawMessage `json:"values"`
 			Files     json.RawMessage `json:"files"`
 		} `json:"steps"`
 	}
@@ -182,6 +205,9 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	}
 	if string(got.Steps[1].Documents) != "[]" {
 		t.Errorf("documents of a step that asks none = %s, want []", got.Steps[1].Documents)
+	}
+	if string(got.Steps[1].Values) != "[]" {
+		t.Errorf("values of a step that asks no field = %s, want []", got.Steps[1].Values)
 	}
 	if string(got.Steps[1].Files) != "[]" {
 		t.Errorf("files of a step that asks no document = %s, want []", got.Steps[1].Files)

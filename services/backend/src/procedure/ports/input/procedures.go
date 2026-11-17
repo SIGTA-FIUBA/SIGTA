@@ -20,8 +20,9 @@ func (v ProcedureView) CanAct() bool {
 }
 
 // ProcedureDetail is a procedure with the name and the steps of the version it
-// started with, the file that covers each document its steps ask for, whether
-// the person can act on the open step and the steps done so far.
+// started with, the value and the file that cover each field and document its
+// steps ask for, whether the person can act on the open step and the steps
+// done so far.
 type ProcedureDetail struct {
 	Procedure domain.Procedure
 	Name      string

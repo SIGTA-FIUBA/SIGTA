@@ -1220,7 +1220,7 @@ components:
           format: int64
     ProcedureStep:
       type: object
-      required: [id, name, action, role, fields, documents, outcomes, files]
+      required: [id, name, action, role, fields, documents, outcomes, values, files]
       properties:
         id:
           type: string
@@ -1258,6 +1258,13 @@ components:
         next:
           type: string
           description: Paso que sigue si no es un paso decide; ausente en el último
+        values:
+          type: array
+          description: >
+            Último valor cargado de cada dato del paso que ya tiene uno, en el
+            mismo orden que fields. Un dato sin valor no aparece.
+          items:
+            $ref: "#/components/schemas/ProcedureValue"
         files:
           type: array
           description: >
@@ -1265,6 +1272,31 @@ components:
             mismo orden que documents. Un documento sin archivo no aparece.
           items:
             $ref: "#/components/schemas/ProcedureDocument"
+    ProcedureValue:
+      type: object
+      required: [field, step, entered_by, entered_at]
+      properties:
+        field:
+          type: string
+          description: Identificador del dato del tipo de trámite
+        step:
+          type: string
+          description: Paso en el que se cargó
+        text:
+          type: string
+          description: >
+            El valor, como se cargó una vez validado: una opción por su id, un
+            número con punto, una fecha AAAA-MM-DD. Ausente en subject_list
+        items:
+          type: array
+          description: Las asignaturas de un subject_list; ausente en los demás tipos
+          items:
+            type: string
+        entered_by:
+          $ref: "#/components/schemas/Person"
+        entered_at:
+          type: string
+          format: date-time
     ProcedureDocument:
       type: object
       required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]

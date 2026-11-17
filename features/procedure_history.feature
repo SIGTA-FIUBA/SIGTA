@@ -48,6 +48,7 @@ Feature: History of a procedure
       | ruling   | upload_document       |
       | record   | enter_data            |
 
+  @SIG-81
   Scenario: a document attached after the start shows in the history with who attached it, when and what it covers
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
     And "commission@fi.uba.ar" confirmed the "evaluate" step

@@ -538,10 +538,31 @@ type ProcedureStep struct {
 
 	// Role Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
 	Role StepRole `json:"role"`
+
+	// Values Último valor cargado de cada dato del paso que ya tiene uno, en el mismo orden que fields. Un dato sin valor no aparece.
+	Values []ProcedureValue `json:"values"`
 }
 
 // ProcedureStepAction Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
 type ProcedureStepAction string
+
+// ProcedureValue defines model for ProcedureValue.
+type ProcedureValue struct {
+	EnteredAt time.Time `json:"entered_at"`
+	EnteredBy Person    `json:"entered_by"`
+
+	// Field Identificador del dato del tipo de trámite
+	Field string `json:"field"`
+
+	// Items Las asignaturas de un subject_list; ausente en los demás tipos
+	Items *[]string `json:"items,omitempty"`
+
+	// Step Paso en el que se cargó
+	Step string `json:"step"`
+
+	// Text El valor, como se cargó una vez validado: una opción por su id, un número con punto, una fecha AAAA-MM-DD. Ausente en subject_list
+	Text *string `json:"text,omitempty"`
+}
 
 // Referral Paso del trámite a otra área (ADR-020)
 type Referral struct {

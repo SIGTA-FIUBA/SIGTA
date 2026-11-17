@@ -31,6 +31,7 @@ const detail: Detail = {
       ],
       outcomes: [],
       next: 'review',
+      values: [],
       files: [
         {
           id: 'D-1',
@@ -54,6 +55,7 @@ const detail: Detail = {
       fields: [],
       documents: [],
       outcomes: [{ id: 'accept', name: 'Aceptar', next: 'documents' }],
+      values: [],
       files: [],
     },
   ],

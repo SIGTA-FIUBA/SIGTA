@@ -9,14 +9,17 @@ import (
 )
 
 // Step is a step of a procedure as its detail shows it: who does it, what
-// fields and documents it asks for and the files that cover them. Its
-// outcomes are those of Step.
+// fields and documents it asks for and the values and files that cover them.
+// Its outcomes are those of Step.
 type Step struct {
 	Step definition.Step
 	// Area is nil on the steps of the applicant.
 	Area      *Area
 	Fields    []definition.FieldRequirement
 	Documents []definition.DocumentRequirement
+	// Values holds the last value entered for each field that has one, in
+	// the order of Fields.
+	Values []domain.FieldValue
 	// Files holds the current file of each document that has one, in the
 	// order of Documents.
 	Files []domain.Document
@@ -80,6 +83,24 @@ func WithFiles(steps []Step, attached []domain.Document) []Step {
 		for _, r := range steps[i].Documents {
 			if d, ok := current[r.Document.ID]; ok {
 				steps[i].Files = append(steps[i].Files, d)
+			}
+		}
+	}
+	return steps
+}
+
+// WithValues puts next to each field of the steps the last value entered for
+// it, out of the values of the procedure in the order they were recorded.
+func WithValues(steps []Step, entered []domain.FieldValue) []Step {
+	last := map[string]domain.FieldValue{}
+	for _, v := range entered {
+		last[v.Field] = v
+	}
+	for i := range steps {
+		steps[i].Values = nil
+		for _, r := range steps[i].Fields {
+			if v, ok := last[r.Field.ID]; ok {
+				steps[i].Values = append(steps[i].Values, v)
 			}
 		}
 	}
