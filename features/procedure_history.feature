@@ -37,6 +37,7 @@ Feature: History of a procedure
   Scenario: every kind of step the engine records shows in the history
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
     And "commission@fi.uba.ar" confirmed the "evaluate" step
+    And the "ruling" document of the "ruling" step is attached
     And "operative@fi.uba.ar" confirmed the "ruling" step
     And "approver@fi.uba.ar" confirmed the "record" step
     When "approver@fi.uba.ar" reads the history of the procedure

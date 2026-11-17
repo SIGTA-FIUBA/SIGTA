@@ -135,3 +135,27 @@ func TestConfirmStepErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestConfirmStepNamesTheMissingDocuments(t *testing.T) {
+	tests := []struct {
+		name      string
+		documents []definition.Document
+		want      string
+	}{
+		{"one", []definition.Document{{ID: "record", Name: "Acta de la Comisión"}}, `Falta adjuntar el documento "Acta de la Comisión".`},
+		{"several", []definition.Document{{ID: "draft", Name: "Proyecto de resolución"}, {ID: "note", Name: "Nota firmada"}, {ID: "annex"}}, `Falta adjuntar los documentos "Proyecto de resolución", "Nota firmada" y "annex".`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			steps := &fakeSteps{err: fmt.Errorf("procedure P-1: %w", &engine.MissingDocumentsError{Documents: tt.documents})}
+			recorder := confirmStep(t, steps, session, `{"observation":"ok"}`)
+			var body api.Error
+			if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if recorder.Code != http.StatusBadRequest || body.Message != tt.want {
+				t.Errorf("got %d %q, want %d %q", recorder.Code, body.Message, http.StatusBadRequest, tt.want)
+			}
+		})
+	}
+}

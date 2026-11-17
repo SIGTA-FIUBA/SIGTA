@@ -25,15 +25,17 @@ type ProcedureService struct {
 	staffAuthorizer authinput.StaffAuthorizer
 	procedureTypes  input.ProcedureTypes
 	procedures      output.ProcedureRepository
+	documents       output.DocumentRepository
 	newID           func() string
 	now             func() time.Time
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, staff authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, documents output.DocumentRepository, staff authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
 	return &ProcedureService{
 		staffAuthorizer: staff,
 		procedureTypes:  procedureTypes,
 		procedures:      procedures,
+		documents:       documents,
 		newID:           newID,
 		now:             now,
 	}
@@ -138,6 +140,10 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 	if !allowed {
 		return domain.Event{}, denied(userID, actionConfirm+" "+c.Step)
 	}
+	attached, err := s.attachedTo(ctx, p.ID, c.Step)
+	if err != nil {
+		return domain.Event{}, err
+	}
 	moved, event, err := engine.Confirm(p, content.Definition, engine.Confirmation{
 		Step:               c.Step,
 		By:                 userID,
@@ -145,6 +151,7 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 		Observation:        c.Observation,
 		Outcome:            c.Outcome,
 		ExternalFileNumber: c.ExternalFileNumber,
+		Attached:           attached,
 	})
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, c.Step, err)
@@ -206,4 +213,20 @@ func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (ver
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrNoVersion)
 	}
 	return s.procedureTypes.Version(ctx, procedureType, entries[i].Version)
+}
+
+// attachedTo returns the documents of the procedure type that have a file
+// attached to the step.
+func (s *ProcedureService) attachedTo(ctx context.Context, procedureID, stepID string) ([]string, error) {
+	documents, err := s.documents.List(ctx, procedureID)
+	if err != nil {
+		return nil, fmt.Errorf("documents of %s: %w", procedureID, err)
+	}
+	var attached []string
+	for _, d := range documents {
+		if d.Step == stepID {
+			attached = append(attached, d.Requirement)
+		}
+	}
+	return attached, nil
 }
