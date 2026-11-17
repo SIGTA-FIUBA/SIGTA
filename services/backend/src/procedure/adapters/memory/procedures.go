@@ -92,6 +92,16 @@ func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e d
 	return nil
 }
 
+func (s *ProcedureRepository) Record(_ context.Context, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.procedures[e.ProcedureID]; !ok {
+		return domain.ErrProcedureNotFound
+	}
+	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
+	return nil
+}
+
 func (s *ProcedureRepository) Events(_ context.Context, procedureID string) ([]domain.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -118,6 +128,10 @@ func cloneEvent(e domain.Event) domain.Event {
 	if e.Referral != nil {
 		r := *e.Referral
 		e.Referral = &r
+	}
+	if e.Document != nil {
+		d := *e.Document
+		e.Document = &d
 	}
 	return e
 }

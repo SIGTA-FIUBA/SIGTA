@@ -1,15 +1,18 @@
 package acceptance
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"slices"
 	"time"
 
 	"github.com/cucumber/godog"
 
+	"backend/src/procedure/adapters/disk"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -19,18 +22,20 @@ import (
 
 type historyWorld struct {
 	*confirmationWorld
-	history []domain.Event
-	before  []domain.Event
-	readErr error
+	documents *memory.DocumentRepository
+	history   []domain.Event
+	before    []domain.Event
+	readErr   error
 }
 
 func registerHistorySteps(sc *godog.ScenarioContext, base *confirmationWorld) {
-	w := &historyWorld{confirmationWorld: base}
+	w := &historyWorld{confirmationWorld: base, documents: memory.NewDocumentRepository()}
 
 	sc.Given(`^"([^"]*)" submitted a "([^"]*)" procedure on "([^"]*)"$`, w.givenSubmitted)
 	sc.Given(`^"([^"]*)" confirmed the "([^"]*)" step(?: choosing "([^"]*)")? with the observation "([^"]*)"$`, w.givenConfirmedWith)
 	sc.Given(`^"([^"]*)" read the history of the procedure$`, w.givenRead)
 
+	sc.When(`^"([^"]*)" uploads "([^"]*)" as the "([^"]*)"$`, w.upload)
 	sc.When(`^"([^"]*)" reads the history of the procedure$`, w.read)
 	sc.When(`^they change what they read of the history$`, w.changeWhatWasRead)
 
@@ -82,8 +87,30 @@ func (w *historyWorld) givenRead(user string) error {
 	return nil
 }
 
+// upload attaches a PDF to the open step. The history only keeps the record,
+// so the file is not kept after the upload.
+func (w *historyWorld) upload(user, fileName, requirement string) error {
+	dir, err := os.MkdirTemp("", "sigta-history-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	files, err := disk.NewFiles(dir)
+	if err != nil {
+		return err
+	}
+	documents := application.NewDocumentService(w.service, w.documents, files, w.newID, func() time.Time { return w.now })
+	_, err = documents.Attach(context.Background(), user, input.Upload{
+		ProcedureID: w.current,
+		Requirement: areaID(requirement),
+		FileName:    fileName,
+		Content:     bytes.NewReader([]byte("%PDF-1.7\n")),
+	})
+	return err
+}
+
 func (w *historyWorld) read(user string) {
-	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	details := application.NewProcedureDetailService(w.service, w.documents)
 	d, err := details.Detail(context.Background(), user, w.current)
 	w.history, w.readErr = d.History, err
 }
@@ -109,6 +136,10 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 	}
 	for i, row := range rows {
 		e := w.history[i]
+		var document, file string
+		if e.Document != nil {
+			document, file = e.Document.Requirement, e.Document.FileName
+		}
 		got := map[string]string{
 			"step":        e.Step,
 			"done by":     e.By,
@@ -116,9 +147,11 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 			"observation": e.Observation,
 			"outcome":     e.Outcome,
 			"action":      string(e.Action),
+			"document":    document,
+			"file":        file,
 		}
 		for column, want := range row {
-			if column == "outcome" {
+			if column == "outcome" || column == "document" {
 				want = areaID(want)
 			}
 			if got[column] != want {

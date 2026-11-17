@@ -15,7 +15,7 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US07 | SIG-14 | [staff_areas.feature](staff_areas.feature) | 28 |
 | US08 | SIG-12, SIG-65 | [procedure_type_definition.feature](procedure_type_definition.feature) | 11 |
 | US10 | SIG-20 | [step_confirmation.feature](step_confirmation.feature) | 27 |
-| US11 | SIG-21 | [procedure_history.feature](procedure_history.feature) | 8 |
+| US11 | SIG-21 | [procedure_history.feature](procedure_history.feature) | 9 |
 | US13 | SIG-16 | [procedure_catalog.feature](procedure_catalog.feature) | 10 |
 | US14 | SIG-17 | [procedure_start.feature](procedure_start.feature) | 24 |
 | US15 | SIG-18 | [document_upload.feature](document_upload.feature) | 9 |
