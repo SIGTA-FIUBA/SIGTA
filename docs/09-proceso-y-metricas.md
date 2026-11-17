@@ -79,7 +79,9 @@ Linear es la fuente de verdad de las historias: descripción, criterios de acept
 | `In Dev` | El PR se integró en `develop` y está desplegado en el entorno `dev` (https://sigta-dev.lopeztancredi.com.ar). Falta el pase a `main` |
 | `Done` | Llegó a `main` y está desplegado en `prod` (https://sigta.lopeztancredi.com.ar) |
 
-La integración de Linear con GitHub mueve los tickets sola: al abrir el PR pasan a `In Review`, al integrarlo en `develop` a `In Dev`, y al integrarlo en `main` a `Done`. El pase de `develop` a `main` es un PR que no nombra tickets, así que al hacerlo se pasan a mano a `Done` todos los que están en `In Dev`.
+`In Dev` y `Done` son estados de tipo completado: los dos cuentan como terminados para la velocidad y el burnup, y un ticket en `In Dev` no se arrastra al sprint siguiente.
+
+La integración de Linear con GitHub mueve los tickets sola: al abrir el PR pasan a `In Review`, al integrarlo en `develop` a `In Dev`, y al integrarlo en `main` a `Done`. Integrar en cualquier otra rama, como en un PR apilado, no los mueve. El pase de `develop` a `main` es un PR que no nombra tickets, así que al hacerlo se pasan a mano a `Done` todos los que están en `In Dev`.
 
 Estados adicionales: `Canceled` y `Duplicate`.
 
