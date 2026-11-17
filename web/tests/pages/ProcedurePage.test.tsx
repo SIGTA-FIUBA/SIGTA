@@ -114,6 +114,77 @@ describe('ProcedurePage', () => {
     expect(screen.getByText(/Anexo:/).textContent).toBe('Anexo: Sin archivo')
   })
 
+  it('shows the data entered once each, as the applicant chose it', async () => {
+    const enteredBy = { id: 'a-1', name: 'Titular Uno' }
+    const subjects = {
+      field: 'subjects',
+      step: 'documents',
+      items: ['Análisis II', 'Física I'],
+      entered_by: enteredBy,
+      entered_at: '2026-11-16T12:00:00Z',
+    }
+    const subjectList = {
+      id: 'subjects',
+      name: 'Asignaturas',
+      required: true,
+      type: 'subject_list' as const,
+      options: [],
+    }
+    stubApi(200, {
+      ...detail,
+      steps: [
+        {
+          ...detail.steps[0]!,
+          fields: [
+            { id: 'reason', name: 'Motivo', required: true, type: 'long_text', options: [] },
+            {
+              id: 'plan',
+              name: 'Plan',
+              required: true,
+              type: 'option',
+              options: [{ id: 'p2023', name: 'Plan 2023' }],
+            },
+            subjectList,
+            { id: 'phone', name: 'Teléfono', required: false, type: 'text', options: [] },
+          ],
+          values: [
+            {
+              field: 'reason',
+              step: 'documents',
+              text: 'Pase de carrera\nDesde Sistemas',
+              entered_by: enteredBy,
+              entered_at: '2026-11-16T12:00:00Z',
+            },
+            {
+              field: 'plan',
+              step: 'documents',
+              text: 'p2023',
+              entered_by: enteredBy,
+              entered_at: '2026-11-16T12:00:00Z',
+            },
+            subjects,
+          ],
+        },
+        { ...detail.steps[1]!, fields: [subjectList], values: [subjects] },
+      ],
+    })
+    renderPage()
+
+    await screen.findByRole('heading', { level: 2, name: 'Datos del trámite' })
+    expect(screen.getByText('Pase de carrera')).toBeDefined()
+    expect(screen.getByText('Desde Sistemas')).toBeDefined()
+    expect(screen.getByText('Plan 2023')).toBeDefined()
+    expect(screen.getAllByText('Análisis II, Física I')).toHaveLength(1)
+    expect(screen.queryByText('Teléfono')).toBeNull()
+  })
+
+  it('says when no data was entered', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    expect(await screen.findByText('El trámite no tiene datos cargados.')).toBeDefined()
+  })
+
   it('marks the open step and says who does each step', async () => {
     stubApi(200, detail)
     renderPage()

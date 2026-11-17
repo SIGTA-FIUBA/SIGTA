@@ -8,7 +8,6 @@ import {
   Loader,
   Modal,
   Select,
-  Spoiler,
   Stack,
   Stepper,
   TagsInput,
@@ -24,6 +23,7 @@ import { Link, useBlocker, useParams } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
+import { LongValue } from '../components/LongValue/LongValue'
 import { sizeText, typeName } from '../documentFormats'
 import {
   fieldError,
@@ -146,17 +146,6 @@ function SummaryItem({ name, children }: { name: string; children: ReactNode }) 
       </Text>
       {children}
     </Stack>
-  )
-}
-
-// LongValue keeps the lines the applicant wrote and folds a long text.
-function LongValue({ text }: { text: string }) {
-  return (
-    <Spoiler showLabel="Ver todo" hideLabel="Ver menos">
-      {text.split('\n').map((line, i) => (
-        <Text key={i}>{line === '' ? ' ' : line}</Text>
-      ))}
-    </Spoiler>
   )
 }
 

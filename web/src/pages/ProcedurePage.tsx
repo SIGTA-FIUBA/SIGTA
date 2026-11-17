@@ -23,12 +23,16 @@ import { Link, useLocation, useParams } from 'react-router'
 import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
+import { LongValue } from '../components/LongValue/LongValue'
 import { sizeText } from '../documentFormats'
 import { stateColors, stateNames } from '../procedureState'
+import { valueText } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
 type Step = components['schemas']['ProcedureStep']
 type Event = components['schemas']['ProcedureEvent']
+type FieldRequirement = components['schemas']['FieldRequirement']
+type Value = components['schemas']['ProcedureValue']
 
 const dateTime = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
@@ -122,6 +126,42 @@ function StepCard({ procedureId, step, open }: { procedureId: string; step: Step
               )}
               {file && ` (${sizeText(file.size)})`}
             </Text>
+          )
+        })}
+      </Stack>
+    </Paper>
+  )
+}
+
+// enteredValues lists each field that has a value once, in the order of the
+// steps, even if more than one step asks for it.
+function enteredValues(detail: Detail) {
+  const entered = new Map<string, { field: FieldRequirement; value: Value }>()
+  for (const step of detail.steps) {
+    for (const value of step.values) {
+      const field = step.fields.find((candidate) => candidate.id === value.field)
+      if (field && !entered.has(field.id)) {
+        entered.set(field.id, { field, value })
+      }
+    }
+  }
+  return [...entered.values()]
+}
+
+function Values({ detail }: { detail: Detail }) {
+  const entered = enteredValues(detail)
+  if (entered.length === 0) {
+    return <Text c="dimmed">El trámite no tiene datos cargados.</Text>
+  }
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="sm">
+        {entered.map(({ field, value }) => {
+          const text = valueText(field, value.items ?? value.text)
+          return (
+            <Fact key={field.id} label={field.name}>
+              {field.type === 'long_text' ? <LongValue text={text} /> : <Text>{text}</Text>}
+            </Fact>
           )
         })}
       </Stack>
@@ -315,6 +355,10 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
           Paso confirmado. Quedó en el historial.
         </Alert>
       )}
+      <Stack gap="sm">
+        <Title order={2}>Datos del trámite</Title>
+        <Values detail={detail} />
+      </Stack>
       {detail.can_act && open?.role === 'staff' && (
         <ConfirmStep key={open.id} detail={detail} step={open} onConfirmed={() => setConfirmed(true)} />
       )}
