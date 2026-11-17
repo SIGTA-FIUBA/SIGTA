@@ -34,3 +34,26 @@ export function documentDescription(document: DocumentRequirement) {
   }
   return parts.join(' ')
 }
+
+const typesByExtension: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+}
+
+// mediaTypeOf reads the type of a file that comes without it, as in the
+// history, from its name: the server ends every name in an extension of the
+// type it read from the content.
+export function mediaTypeOf(fileName: string) {
+  return typesByExtension[fileName.split('.').pop()!.toLowerCase()] ?? ''
+}
+
+// canPreview says whether the browser shows the file by itself: an image, or
+// a PDF where the browser has a viewer, which Chrome for Android does not.
+export function canPreview(mediaType: string) {
+  if (mediaType === 'application/pdf') {
+    return navigator.pdfViewerEnabled !== false
+  }
+  return mediaType === 'image/png' || mediaType === 'image/jpeg'
+}

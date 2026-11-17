@@ -25,7 +25,8 @@ import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
-import { documentDescription, sizeText } from '../documentFormats'
+import { DocumentFile } from '../components/DocumentFile/DocumentFile'
+import { documentDescription } from '../documentFormats'
 import { stateColors, stateNames } from '../procedureState'
 import { fileError, valueText } from '../submission'
 
@@ -101,10 +102,6 @@ function referralText(referral: NonNullable<Detail['referral']>) {
   return `En ${referral.area.name}, desde ${referral.from.name}. ${days} sin retorno.`
 }
 
-function contentUrl(procedureId: string, documentId: string) {
-  return `/api/procedures/${encodeURIComponent(procedureId)}/documents/${encodeURIComponent(documentId)}/content`
-}
-
 function StepCard({ procedureId, step, open }: { procedureId: string; step: Step; open: boolean }) {
   return (
     <Paper withBorder p="md">
@@ -119,11 +116,18 @@ function StepCard({ procedureId, step, open }: { procedureId: string; step: Step
         {step.documents.map((requirement) => {
           const file = step.files.find((candidate) => candidate.document === requirement.id)
           return (
-            <Text key={requirement.id} size="sm">
-              {requirement.name}:{' '}
-              {file ? <Anchor href={contentUrl(procedureId, file.id)}>{file.file_name}</Anchor> : 'Sin archivo'}
-              {file && ` (${sizeText(file.size)})`}
-            </Text>
+            <Stack key={requirement.id} gap={0}>
+              <Text size="sm" fw={500}>
+                {requirement.name}
+              </Text>
+              {file ? (
+                <DocumentFile procedureId={procedureId} file={file} />
+              ) : (
+                <Text size="sm" c="dimmed">
+                  Sin archivo
+                </Text>
+              )}
+            </Stack>
           )
         })}
       </Stack>
@@ -193,10 +197,12 @@ function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
         {personName(event.by)} · {dateTime.format(new Date(event.at))}
       </Text>
       {event.document && (
-        <Text size="sm">
-          {documentName(detail, event.document.document)}:{' '}
-          <Anchor href={contentUrl(detail.id, event.document.id)}>{event.document.file_name}</Anchor>
-        </Text>
+        <Stack gap={0}>
+          <Text size="sm" fw={500}>
+            {documentName(detail, event.document.document)}
+          </Text>
+          <DocumentFile procedureId={detail.id} file={event.document} />
+        </Stack>
       )}
       {outcome && <Text size="sm">Salida: {outcome.name}</Text>}
       {event.observation && <Text size="sm">{event.observation}</Text>}
