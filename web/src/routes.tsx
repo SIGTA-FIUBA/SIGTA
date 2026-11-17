@@ -6,6 +6,7 @@ import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProcedurePage } from './pages/ProcedurePage'
 import { StartProcedurePage } from './pages/StartProcedurePage'
+import { ProcedurePreview } from './dev/ProcedurePreview'
 import { StartProcedurePreview } from './dev/StartProcedurePreview'
 import { optionalSession, requireSession, skipLoginWithSession } from './session'
 
@@ -16,7 +17,10 @@ export const routes: RouteObject[] = [
   { loader: optionalSession, element: <AppLayout />, children: [{ path: '/catalog', element: <CatalogPage /> }] },
   // Only the dev server has the preview with worst-case data.
   ...(import.meta.env.DEV
-    ? [{ path: '/dev/start-procedure/:procedureTypeId', element: <StartProcedurePreview /> }]
+    ? [
+        { path: '/dev/start-procedure/:procedureTypeId', element: <StartProcedurePreview /> },
+        { path: '/dev/procedures/:id', element: <ProcedurePreview /> },
+      ]
     : []),
   {
     loader: requireSession,

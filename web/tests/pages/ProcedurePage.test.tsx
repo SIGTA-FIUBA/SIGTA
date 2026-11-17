@@ -174,7 +174,8 @@ describe('ProcedurePage', () => {
     expect(screen.getByText('Pase de carrera')).toBeDefined()
     expect(screen.getByText('Desde Sistemas')).toBeDefined()
     expect(screen.getByText('Plan 2023')).toBeDefined()
-    expect(screen.getAllByText('Análisis II, Física I')).toHaveLength(1)
+    expect(screen.getAllByText('Análisis II')).toHaveLength(1)
+    expect(screen.getAllByText('Física I')).toHaveLength(1)
     expect(screen.queryByText('Teléfono')).toBeNull()
   })
 
@@ -424,5 +425,130 @@ describe('ProcedurePage confirmation', () => {
       'El paso ya no está abierto: el trámite cambió mientras tanto.',
     )
     expect(screen.queryByText('Paso confirmado. Quedó en el historial.')).toBeNull()
+  })
+})
+
+describe('ProcedurePage attachment', () => {
+  const record = {
+    id: 'record',
+    name: 'Acta',
+    required: true,
+    accepted_types: ['application/pdf'],
+    max_size: 1024,
+  }
+  const asksForRecord: Detail = {
+    ...detail,
+    steps: [detail.steps[0]!, { ...detail.steps[1]!, documents: [record] }],
+  }
+
+  function stubAttachment(status: number, body: unknown, current: Detail = asksForRecord) {
+    const fetch = vi.fn(async (request: Request) =>
+      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
+    )
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  function pdf(name: string) {
+    return new File(['%PDF-1.7\n'], name, { type: 'application/pdf' })
+  }
+
+  function fileInput() {
+    return document.querySelector<HTMLInputElement>('input[type="file"]')!
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('offers the documents of the open step that have no file yet', async () => {
+    stubAttachment(201, {})
+    renderPage()
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Adjuntar documentos' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+  })
+
+  it('does not offer to attach a document that already has a file, nor to who cannot act', async () => {
+    const attached = {
+      ...detail.steps[0]!.files[0]!,
+      id: 'D-2',
+      document: 'record',
+      step: 'review',
+      file_name: 'acta.pdf',
+    }
+    stubApi(200, { ...asksForRecord, steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [attached] }] })
+    renderPage()
+    await screen.findByRole('heading', { level: 2, name: 'Confirmar Revisar la solicitud' })
+    expect(screen.queryByRole('heading', { name: 'Adjuntar documentos' })).toBeNull()
+
+    vi.unstubAllGlobals()
+    stubApi(200, { ...asksForRecord, can_act: false })
+    renderPage()
+    await screen.findAllByRole('heading', { level: 2, name: 'Historial' })
+    expect(screen.queryByRole('heading', { name: 'Adjuntar documentos' })).toBeNull()
+  })
+
+  it('asks for a file before sending', async () => {
+    const fetch = stubAttachment(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Adjuntá este documento.')).toBeDefined()
+    expect(fetch.mock.calls.some(([request]) => request.method === 'POST')).toBe(false)
+  })
+
+  it('sends the file for its document and says it is in the history', async () => {
+    const fetch = stubAttachment(201, {})
+    renderPage()
+
+    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await userEvent.upload(fileInput(), pdf('acta.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Documento adjuntado. Quedó en el historial.')).toBeDefined()
+    const [post] = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+    expect(post!.url).toMatch(/\/api\/procedures\/P-1\/documents$/)
+    // Read as text: undici cannot parse a form with the File of jsdom, which
+    // reaches it as an empty Blob without its name.
+    const sent = await post!.text()
+    expect(sent).toMatch(/name="document"\r\n\r\nrecord\r\n[\s\S]*name="file"/)
+  })
+
+  it('shows why the server did not take the file', async () => {
+    stubAttachment(400, { message: 'El archivo no es de un tipo que acepte ese documento.' })
+    renderPage()
+
+    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await userEvent.upload(fileInput(), pdf('acta.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe('El archivo no es de un tipo que acepte ese documento.')
+    expect(screen.queryByText('Documento adjuntado. Quedó en el historial.')).toBeNull()
+  })
+
+  it('shows an attached document in the history, with its file', async () => {
+    stubApi(200, {
+      ...asksForRecord,
+      history: [
+        {
+          step: 'review',
+          by: { id: 's-1', name: 'Personal Uno' },
+          at: '2026-11-17T15:00:00Z',
+          observation: '',
+          declared: false,
+          returned: false,
+          document: { id: 'D-2', document: 'record', file_name: 'acta.pdf' },
+        },
+      ],
+    })
+    renderPage()
+
+    const title = await screen.findByText('Documento adjuntado en Revisar la solicitud')
+    const entry = title.closest('.mantine-Timeline-item') as HTMLElement
+    expect(within(entry).getByText(/^Acta:/)).toBeDefined()
+    const link = within(entry).getByRole('link', { name: 'acta.pdf' })
+    expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-2/content')
   })
 })

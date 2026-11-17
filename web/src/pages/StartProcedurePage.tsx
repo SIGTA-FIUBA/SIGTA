@@ -24,7 +24,7 @@ import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
-import { sizeText, typeName } from '../documentFormats'
+import { documentDescription } from '../documentFormats'
 import {
   fieldError,
   fileError,
@@ -105,17 +105,6 @@ function FieldInput({ form, field }: { form: Form; field: FieldRequirement }) {
     default:
       return <TextInput {...common} />
   }
-}
-
-function documentDescription(document: DocumentRequirement) {
-  const parts = []
-  if (document.accepted_types.length > 0) {
-    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
-  }
-  if (document.max_size > 0) {
-    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
-  }
-  return parts.join(' ')
 }
 
 function DocumentInput({ form, document }: { form: Form; document: DocumentRequirement }) {

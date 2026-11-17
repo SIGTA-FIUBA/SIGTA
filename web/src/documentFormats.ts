@@ -1,3 +1,7 @@
+import type { components } from './api/schema'
+
+type DocumentRequirement = components['schemas']['DocumentRequirement']
+
 const typeNames: Record<string, string> = {
   'application/pdf': 'PDF',
   'image/jpeg': 'JPG',
@@ -17,4 +21,16 @@ export function sizeText(bytes: number) {
     return `${Number(megabytes.toFixed(1))}\u00a0MB`
   }
   return `${Math.ceil(bytes / 1024)}\u00a0KB`
+}
+
+// documentDescription says which formats and size a document accepts.
+export function documentDescription(document: DocumentRequirement) {
+  const parts = []
+  if (document.accepted_types.length > 0) {
+    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
+  }
+  if (document.max_size > 0) {
+    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
+  }
+  return parts.join(' ')
 }
