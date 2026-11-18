@@ -41,7 +41,7 @@ En cada push a `main` o a `develop`, el workflow `Deploy` (`.github/workflows/de
 4. Despliega la versión nueva del servicio. Cloud Run la pone en línea cuando el backend obtiene el catálogo, que lee la base. Si no arranca, sigue la anterior.
 5. Comprueba que el frontend y la API respondan.
 
-Las migraciones solo avanzan: si la aplicación nueva no arranca después de migrar, sigue en línea la versión anterior. Volver atrás una migración es restaurar el respaldo (ADR-022).
+Las migraciones solo avanzan: volver atrás una migración es restaurar el respaldo (ADR-022).
 
 ## Secretos
 

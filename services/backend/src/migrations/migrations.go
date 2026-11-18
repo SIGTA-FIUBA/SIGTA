@@ -33,7 +33,6 @@ const undefinedTable = "42P01"
 var (
 	// ErrPending means the schema is behind the binary.
 	ErrPending = errors.New("pending migrations")
-	// ErrChanged means a migration was edited after it was applied.
 	ErrChanged = errors.New("migration changed after it was applied")
 	// ErrUnknown means the schema has a migration that the binary does not,
 	// so the binary is older than the schema.

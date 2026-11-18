@@ -34,8 +34,6 @@ export function AppLayout() {
   const [menuOpen, { toggle: toggleMenu, close: closeMenu }] = useDisclosure(false)
   const [logoutFailed, setLogoutFailed] = useState(false)
   const staff = user?.staff === true
-  // The menu shows how many procedures need action; the inbox shares the
-  // request, so it costs nothing more.
   const procedures = useProcedures(staff)
   const pending = procedures.data?.items.filter((item) => item.actionable).length
 

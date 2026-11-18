@@ -131,7 +131,6 @@ func insertError(v version.ProcedureTypeVersion, err error) error {
 	return fmt.Errorf("add version %d of procedure type %d: %w", v.Number, v.ProcedureTypeID, err)
 }
 
-// versionError wraps sentinel and, if there is one, the cause.
 func versionError(sentinel error, v version.ProcedureTypeVersion, cause error) error {
 	err := fmt.Errorf("%w: version %d of procedure type %d", sentinel, v.Number, v.ProcedureTypeID)
 	if cause == nil {

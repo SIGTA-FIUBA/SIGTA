@@ -42,7 +42,6 @@ type ProcedureServer interface {
 	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
 }
 
-// InboxServer answers the staff's inbox.
 type InboxServer interface {
 	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
 }

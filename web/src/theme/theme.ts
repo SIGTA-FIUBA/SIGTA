@@ -16,14 +16,14 @@ import {
 import classes from './interactions.module.css'
 import typography from './typography.module.css'
 
+// The only place where the interface gets its look. Screens use Mantine
+// components with theme values (sizes such as "md", colors such as "dimmed"),
+// never raw colors or measures; the lint rules in lint/ enforce it.
+
 // A word with no place to break, such as a file name or a pasted link, breaks
 // where it has to instead of running past its box. break-word, unlike
 // anywhere, does not narrow the box to fit the word broken up.
 const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
-
-// The only place where the interface gets its look. Screens use Mantine
-// components with theme values (sizes such as "md", colors such as "dimmed"),
-// never raw colors or measures; the lint rules in lint/ enforce it.
 
 // The FIUBA light blue (#009fe2, index 5) is the color of the logo. On white
 // it does not reach the contrast text needs (2.98:1), so buttons and links use
