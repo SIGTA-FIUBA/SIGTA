@@ -64,16 +64,16 @@ func (s *MembershipService) Holds(ctx context.Context, userID, area string, proc
 	return access.Holds(area, procedureType, permissions), nil
 }
 
-func (s *MembershipService) Reach(ctx context.Context, userID string) ([]input.AreaReach, error) {
+func (s *MembershipService) Scopes(ctx context.Context, userID string) ([]input.AreaScope, error) {
 	access, err := s.Access(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	reach := make([]input.AreaReach, 0, len(access.Memberships))
+	scopes := make([]input.AreaScope, 0, len(access.Memberships))
 	for _, m := range access.Memberships {
-		reach = append(reach, input.AreaReach{Area: m.Area, Scope: slices.Clone(m.Scope)})
+		scopes = append(scopes, input.AreaScope{Area: m.Area, Scope: slices.Clone(m.Scope)})
 	}
-	return reach, nil
+	return scopes, nil
 }
 
 func (s *MembershipService) Grant(ctx context.Context, administratorID string, g input.MembershipGrant) (domain.Membership, error) {

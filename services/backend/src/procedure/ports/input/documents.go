@@ -27,8 +27,8 @@ type AttachedDocument struct {
 type Documents interface {
 	// Attach is for whoever can act on the open step, and only for a document
 	// that step asks for. It fails with domain.ErrAccessDenied,
-	// domain.ErrDocumentNotRequested, domain.ErrDocumentType,
-	// domain.ErrDocumentTooLarge or domain.ErrEmptyDocument.
+	// domain.ErrDocumentNotRequested, domain.ErrDocumentTypeNotAccepted,
+	// domain.ErrDocumentTooLarge or domain.ErrDocumentEmpty.
 	Attach(ctx context.Context, userID string, u Upload) (domain.Document, error)
 	// List returns the documents in the order they were attached, including
 	// the ones that a later file replaced.

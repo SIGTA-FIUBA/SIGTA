@@ -458,7 +458,7 @@ func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
 	}
 }
 
-func TestAStepCannotAskForASystemPermission(t *testing.T) {
+func TestAStepCannotAskForAPlatformPermission(t *testing.T) {
 	d := testDefinition()
 	d.Steps[0].Next = "edit"
 	d.Steps = append(d.Steps, definition.Step{

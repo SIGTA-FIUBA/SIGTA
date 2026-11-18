@@ -233,7 +233,8 @@ type storedFile struct {
 
 // storeFile checks the file against the document it covers, by the type read
 // from its content and its size, and keeps it in the store. It fails with
-// domain.ErrEmptyDocument, domain.ErrDocumentType or domain.ErrDocumentTooLarge.
+// domain.ErrDocumentEmpty, domain.ErrDocumentTypeNotAccepted or
+// domain.ErrDocumentTooLarge.
 func storeFile(ctx context.Context, files output.Files, requirement definition.Document, fileName string, content io.Reader) (storedFile, error) {
 	file := bufio.NewReaderSize(content, sniffLength)
 	head, err := file.Peek(sniffLength)
@@ -241,11 +242,11 @@ func storeFile(ctx context.Context, files output.Files, requirement definition.D
 		return storedFile{}, fmt.Errorf("read the upload: %w", err)
 	}
 	if len(head) == 0 {
-		return storedFile{}, domain.ErrEmptyDocument
+		return storedFile{}, domain.ErrDocumentEmpty
 	}
 	mediaType := detectType(head)
 	if !slices.Contains(requirement.AcceptedTypes, mediaType) {
-		return storedFile{}, fmt.Errorf("%s for %s: %w", mediaType, requirement.ID, domain.ErrDocumentType)
+		return storedFile{}, fmt.Errorf("%s for %s: %w", mediaType, requirement.ID, domain.ErrDocumentTypeNotAccepted)
 	}
 	digest, size, err := files.Put(ctx, &sizeLimit{reader: file, left: requirement.MaxSizeBytes})
 	if err != nil {

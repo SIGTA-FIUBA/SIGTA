@@ -204,9 +204,9 @@ func rejection(err error) (string, bool) {
 		return api.InvalidRequestMessage, true
 	case errors.Is(err, domain.ErrDocumentNotRequested):
 		return messageNotRequested, true
-	case errors.Is(err, domain.ErrDocumentType):
+	case errors.Is(err, domain.ErrDocumentTypeNotAccepted):
 		return messageType, true
-	case errors.Is(err, domain.ErrEmptyDocument):
+	case errors.Is(err, domain.ErrDocumentEmpty):
 		return messageEmpty, true
 	case errors.Is(err, domain.ErrTooManyDocuments):
 		return messageTooMany, true

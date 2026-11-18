@@ -25,7 +25,7 @@ const (
 	actionDeleteRole       = "delete role"
 )
 
-var systemPermissions = []domain.Permission{
+var platformPermissions = []domain.Permission{
 	{ID: input.EditProcedureTypes, Name: "Editar tipos de trámite", System: true},
 	{ID: input.PublishProcedureTypes, Name: "Publicar tipos de trámite", System: true},
 }
@@ -46,7 +46,7 @@ func NewAreaService(areas output.AreaRepository, administrators output.Administr
 	}
 }
 
-// EnsureSecretariat creates the Secretariat with its system permissions, or
+// EnsureSecretariat creates the Secretariat with its platform permissions, or
 // adds the ones it lacks. It runs on every start, before anything reads the
 // areas, and changes nothing when they are already there.
 func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
@@ -59,7 +59,7 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	}
 	changed := !area.System
 	area.System = true
-	for _, permission := range systemPermissions {
+	for _, permission := range platformPermissions {
 		i := slices.IndexFunc(area.Permissions, func(p domain.Permission) bool { return p.ID == permission.ID })
 		switch {
 		case i < 0:
@@ -191,7 +191,7 @@ func (s *AreaService) CreatePermission(ctx context.Context, administratorID, are
 // DeletePermission keeps the permission, marked as deleted. It refuses a
 // permission that a membership that has not ended holds, or that a role that
 // is not deleted includes: someone would keep a permission that no longer
-// exists. A system permission cannot be deleted at all.
+// exists. A platform permission cannot be deleted at all.
 func (s *AreaService) DeletePermission(ctx context.Context, administratorID, areaID, permissionID string) error {
 	if err := s.requireAdministrator(ctx, administratorID, actionDeletePermission); err != nil {
 		return err
@@ -335,8 +335,8 @@ func validatePermission(area domain.Area, p domain.Permission) error {
 	if !domain.ValidID(p.ID) {
 		return fmt.Errorf(invalidID, p.ID)
 	}
-	if input.SystemPermission(area.ID, p.ID) {
-		return fmt.Errorf("id %q is reserved for a system permission", p.ID)
+	if input.PlatformPermission(area.ID, p.ID) {
+		return fmt.Errorf("id %q is reserved for a platform permission", p.ID)
 	}
 	if p.Name == "" {
 		return errors.New("a permission needs a name")

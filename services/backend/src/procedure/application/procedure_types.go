@@ -83,8 +83,8 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	return v, nil
 }
 
-// currentStaffAreas leaves out the system permissions: they enable a function
-// of SIGTA, so a step that asks for one asks for a permission that does not
+// currentStaffAreas leaves out the platform permissions: they enable a
+// function of SIGTA, so a step that asks for one asks for a permission that does not
 // exist.
 func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definition.Area, error) {
 	staff, err := s.areas.List(ctx)

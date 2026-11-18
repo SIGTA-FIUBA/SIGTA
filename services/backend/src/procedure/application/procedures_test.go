@@ -25,7 +25,7 @@ func (applicants) Holds(context.Context, string, string, int64, []string) (bool,
 	return false, nil
 }
 
-func (applicants) Reach(context.Context, string) ([]authinput.AreaReach, error) { return nil, nil }
+func (applicants) Scopes(context.Context, string) ([]authinput.AreaScope, error) { return nil, nil }
 
 // A procedure follows the version it started with, number and digest: a
 // version lost and published again with the same number is not that one.
@@ -86,12 +86,12 @@ func (s staffHolding) Holds(_ context.Context, userID, area string, _ int64, per
 	return held != nil, nil
 }
 
-func (s staffHolding) Reach(_ context.Context, userID string) ([]authinput.AreaReach, error) {
-	var reach []authinput.AreaReach
+func (s staffHolding) Scopes(_ context.Context, userID string) ([]authinput.AreaScope, error) {
+	var scopes []authinput.AreaScope
 	for area := range s[userID] {
-		reach = append(reach, authinput.AreaReach{Area: area})
+		scopes = append(scopes, authinput.AreaScope{Area: area})
 	}
-	return reach, nil
+	return scopes, nil
 }
 
 type failingAdvance struct {

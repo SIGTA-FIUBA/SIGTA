@@ -156,9 +156,9 @@ func (s *SubmissionService) storeFiles(ctx context.Context, procedureID, userID 
 
 func fileProblem(err error) (submission.ProblemCode, bool) {
 	switch {
-	case errors.Is(err, domain.ErrEmptyDocument):
+	case errors.Is(err, domain.ErrDocumentEmpty):
 		return submission.CodeEmpty, true
-	case errors.Is(err, domain.ErrDocumentType):
+	case errors.Is(err, domain.ErrDocumentTypeNotAccepted):
 		return submission.CodeTypeNotAccepted, true
 	case errors.Is(err, domain.ErrDocumentTooLarge):
 		return submission.CodeTooLarge, true

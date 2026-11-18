@@ -401,9 +401,9 @@ func (w *documentWorld) thenType(requirement, mediaType string) error {
 }
 
 var rejections = map[string]error{
-	"its type is not accepted":          domain.ErrDocumentType,
+	"its type is not accepted":          domain.ErrDocumentTypeNotAccepted,
 	"it is too large":                   domain.ErrDocumentTooLarge,
-	"it is empty":                       domain.ErrEmptyDocument,
+	"it is empty":                       domain.ErrDocumentEmpty,
 	"the open step does not ask for it": domain.ErrDocumentNotRequested,
 	"they cannot act on that step":      domain.ErrAccessDenied,
 	"the procedure is not found":        domain.ErrProcedureNotFound,

@@ -93,7 +93,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	sc.When(`^a new version of "([^"]*)" is published$`, w.publishNewVersion)
 
 	sc.Then(`^the areas besides the Secretariat are (.+)$`, w.thenAreas)
-	sc.Then(`^the area "([^"]*)" exists without anyone creating it$`, w.thenSystemArea)
+	sc.Then(`^the area "([^"]*)" exists without anyone creating it$`, w.thenBuiltInArea)
 	sc.Then(`^the role is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^the role is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidRole))
 	sc.Then(`^the role "([^"]*)" of "([^"]*)" records that "([^"]*)" changed it$`, w.thenRoleChangedBy)
@@ -708,7 +708,7 @@ func (w *authorizationWorld) thenVersion(result string) error {
 	return w.thenFails(domain.ErrAccessDenied)()
 }
 
-func (w *authorizationWorld) thenSystemArea(area string) error {
+func (w *authorizationWorld) thenBuiltInArea(area string) error {
 	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
 	if err != nil {
 		return err

@@ -187,9 +187,9 @@ func TestAttachAnswersEachRejection(t *testing.T) {
 		status int
 		says   string
 	}{
-		{domain.ErrDocumentType, http.StatusBadRequest, "tipo"},
+		{domain.ErrDocumentTypeNotAccepted, http.StatusBadRequest, "tipo"},
 		{domain.ErrDocumentTooLarge, http.StatusBadRequest, "tamaño máximo"},
-		{domain.ErrEmptyDocument, http.StatusBadRequest, "vacío"},
+		{domain.ErrDocumentEmpty, http.StatusBadRequest, "vacío"},
 		{domain.ErrTooManyDocuments, http.StatusBadRequest, "cantidad máxima"},
 		{domain.ErrDocumentNotRequested, http.StatusBadRequest, "no pide"},
 		{domain.ErrAccessDenied, http.StatusForbidden, "No podés adjuntar"},

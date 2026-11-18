@@ -162,8 +162,8 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 	return event, nil
 }
 
-func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authinput.AreaReach, error) {
-	memberOf, err := s.staffAuthorizer.Reach(ctx, userID)
+func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authinput.AreaScope, error) {
+	memberOf, err := s.staffAuthorizer.Scopes(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("areas of %s: %w", userID, err)
 	}

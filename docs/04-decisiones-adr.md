@@ -465,7 +465,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Las pruebas de un módulo usan el otro módulo real, armado con sus adaptadores en memoria.
 
 **Consecuencias.**
-- Desaparecen `procedure/adapters/auth/`, los puertos `AreaCatalog` y `StaffDirectory`, el catálogo de áreas en memoria de `procedure`, `Actor`, `StaffMembership` y `Profile.Covers`. Cada área y membresía se define una sola vez, en `auth`, que expone `StaffAuthorizer` (`Holds`, `Reach`) y los identificadores de la Secretaría y sus permisos de plataforma.
+- Desaparecen `procedure/adapters/auth/`, los puertos `AreaCatalog` y `StaffDirectory`, el catálogo de áreas en memoria de `procedure`, `Actor`, `StaffMembership` y `Profile.Covers`. Cada área y membresía se define una sola vez, en `auth`, que expone `StaffAuthorizer` (`Holds`, `Scopes`) y los identificadores de la Secretaría y sus permisos de plataforma.
 - Cada versión de un tipo de trámite sigue guardando su copia de las áreas que usa (ADR-012, ADR-020). No es una traducción entre módulos: es lo que permite leer una versión publicada igual que el día en que se publicó.
 - Los permisos que exige un paso forman parte del contenido versionado de `procedure`, que guarda una copia de su nombre, y se validan al publicar contra los de `auth`. Para autorizar, `procedure` le pasa a `auth` los identificadores y `auth` decide.
 - Las áreas son solo del personal: cada paso dice su rol (`applicant` o `staff`) y solo los del personal tienen área. Desaparecen el área del titular y el identificador que `auth` reservaba para ella. El contenido de las versiones pasa al formato 3, y los formatos 1 y 2, que modelaban al titular como un área de tipo `applicant`, se convierten al leerlos.

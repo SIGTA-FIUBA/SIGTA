@@ -7,7 +7,7 @@ import (
 )
 
 // The Secretariat is the one area that always exists: SIGTA brings it, with
-// the two system permissions that let someone edit and publish procedure
+// the two platform permissions that let someone edit and publish procedure
 // types. Nobody else can do either, and no step can ask for them (ADR-020).
 const (
 	SecretariatArea       = "secretariat"
@@ -15,9 +15,9 @@ const (
 	PublishProcedureTypes = "publish_procedure_types"
 )
 
-// SystemPermission tells whether a permission enables a function of SIGTA
+// PlatformPermission tells whether a permission enables a function of SIGTA
 // instead of a step.
-func SystemPermission(area, permission string) bool {
+func PlatformPermission(area, permission string) bool {
 	return area == SecretariatArea && (permission == EditProcedureTypes || permission == PublishProcedureTypes)
 }
 
