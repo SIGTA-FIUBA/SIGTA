@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { ForbiddenError, useProcedures } from '../api/procedures'
+import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { stateColors, stateNames } from '../procedureState'
 
@@ -269,7 +269,7 @@ export function InboxPage() {
   const location = useLocation()
   const filters = readFilters(params)
 
-  const procedures = useProcedures()
+  const procedures = useInboxProcedures()
 
   function updateParams(changes: Record<string, string | null>) {
     const next = new URLSearchParams(params)

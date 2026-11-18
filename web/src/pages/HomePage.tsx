@@ -2,13 +2,13 @@ import { Alert, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon,
 import { Link, useOutletContext } from 'react-router'
 import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { applicantSteps, principles, staffSteps } from '../content/platform'
+import { applicantHowTo, principles, staffHowTo } from '../content/platform'
 import { stateColors, stateNames } from '../procedureState'
 
 type User = components['schemas']['User']
 type MyProcedure = components['schemas']['MyProcedure']
 
-const date = new Intl.DateTimeFormat('es-AR', {
+const dateFormat = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
@@ -37,35 +37,35 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
         </Group>
         <Text size="sm">Paso actual: {procedure.step_name}</Text>
         <Text size="sm" c="dimmed">
-          Último movimiento: {date.format(new Date(procedure.last_moved_at))}
+          Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
         </Text>
       </Stack>
     </Paper>
   )
 }
 
-// MyProcedures lists what the person started and is not closed yet, so that
+// MyProceduresSection lists what the person started and is not closed yet, so that
 // signing in answers where each procedure is.
-function MyProcedures() {
-  const mine = useMyProcedures()
+function MyProceduresSection() {
+  const myProcedures = useMyProcedures()
   return (
-    <section aria-labelledby="mine">
+    <section aria-labelledby="my-procedures">
       <Stack gap="sm">
-        <Title order={2} id="mine" size="h4">
+        <Title order={2} id="my-procedures" size="h4">
           Mis trámites en curso
         </Title>
-        {mine.isPending && <Loader aria-label="Cargando los trámites en curso" />}
-        {mine.isError && (
+        {myProcedures.isPending && <Loader aria-label="Cargando los trámites en curso" />}
+        {myProcedures.isError && (
           <Alert color="red" role="alert">
             No se pudieron cargar los trámites en curso. Volvé a intentarlo más tarde.
           </Alert>
         )}
-        {mine.isSuccess && mine.data.length === 0 && (
+        {myProcedures.isSuccess && myProcedures.data.length === 0 && (
           <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
         )}
-        {mine.isSuccess && mine.data.length > 0 && (
+        {myProcedures.isSuccess && myProcedures.data.length > 0 && (
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-            {mine.data.map((procedure) => (
+            {myProcedures.data.map((procedure) => (
               <MyProcedureCard key={procedure.id} procedure={procedure} />
             ))}
           </SimpleGrid>
@@ -111,7 +111,7 @@ export function HomePage() {
       text: 'Requisitos, plazos y documentación de cada trámite.',
     },
   ]
-  const steps = staff ? staffSteps : applicantSteps
+  const howTo = staff ? staffHowTo : applicantHowTo
 
   return (
     <Stack gap="xl">
@@ -126,7 +126,7 @@ export function HomePage() {
         </Text>
       </Stack>
 
-      <MyProcedures />
+      <MyProceduresSection />
 
       <section aria-labelledby="shortcuts">
         <Stack gap="sm">
@@ -147,8 +147,8 @@ export function HomePage() {
             {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
           </Title>
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
-            {steps.map((step, index) => (
-              <Paper key={step.title} withBorder p="lg">
+            {howTo.map((item, index) => (
+              <Paper key={item.title} withBorder p="lg">
                 <Stack gap="sm">
                   <ThemeIcon variant="light" radius="xl" aria-hidden>
                     <Text size="sm" fw={700}>
@@ -156,10 +156,10 @@ export function HomePage() {
                     </Text>
                   </ThemeIcon>
                   <Title order={3} size="h5">
-                    {step.title}
+                    {item.title}
                   </Title>
                   <Text size="sm" c="dimmed">
-                    {step.text}
+                    {item.text}
                   </Text>
                 </Stack>
               </Paper>
