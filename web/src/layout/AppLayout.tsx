@@ -16,9 +16,9 @@ import { useDisclosure } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { useInboxProcedures } from '../api/procedures'
-import { MenuIcon, type MenuIconName } from '../components/MenuIcon/MenuIcon'
 import { logout, type optionalSession } from '../session'
 import { AppHeader } from './AppHeader'
+import { MenuIcon, type MenuIconName } from './MenuIcon'
 import { UserMenu } from './UserMenu'
 
 type MenuLink = { to: string; label: string; icon: MenuIconName; active: boolean; actionableCount?: number }
