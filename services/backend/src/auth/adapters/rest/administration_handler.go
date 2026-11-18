@@ -7,7 +7,7 @@ import (
 
 	"backend/src/api"
 	"backend/src/auth/domain"
-	ports "backend/src/auth/ports/input"
+	"backend/src/auth/ports/input"
 )
 
 var _ api.AdministrationServer = (*AdministrationHandler)(nil)
@@ -15,12 +15,12 @@ var _ api.AdministrationServer = (*AdministrationHandler)(nil)
 // The use cases decide who is an administrator: this handler only finds who
 // is behind the session.
 type AdministrationHandler struct {
-	auth        ports.Authenticator
-	areas       ports.Areas
-	memberships ports.Memberships
+	auth        input.Authenticator
+	areas       input.Areas
+	memberships input.Memberships
 }
 
-func NewAdministrationHandler(auth ports.Authenticator, areas ports.Areas, memberships ports.Memberships) *AdministrationHandler {
+func NewAdministrationHandler(auth input.Authenticator, areas input.Areas, memberships input.Memberships) *AdministrationHandler {
 	return &AdministrationHandler{auth: auth, areas: areas, memberships: memberships}
 }
 
@@ -37,7 +37,7 @@ const (
 
 func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAreaRequestObject) (api.CreateAreaResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
+	if input.Unauthenticated(err) {
 		return api.CreateArea401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -57,13 +57,13 @@ func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAr
 
 func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.GrantMembershipRequestObject) (api.GrantMembershipResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
+	if input.Unauthenticated(err) {
 		return api.GrantMembership401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	m, err := h.memberships.Grant(ctx, user.ID, ports.MembershipGrant{
+	m, err := h.memberships.Grant(ctx, user.ID, input.MembershipGrant{
 		UserID:      req.Body.UserId,
 		Area:        req.Body.Area,
 		Roles:       listOrEmpty(req.Body.Roles),
@@ -98,7 +98,7 @@ func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.Gra
 
 func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.CreatePermissionRequestObject) (api.CreatePermissionResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
+	if input.Unauthenticated(err) {
 		return api.CreatePermission401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
@@ -120,13 +120,13 @@ func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.Cr
 
 func (h *AdministrationHandler) CreateRole(ctx context.Context, req api.CreateRoleRequestObject) (api.CreateRoleResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
+	if input.Unauthenticated(err) {
 		return api.CreateRole401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	role, err := h.areas.CreateRole(ctx, user.ID, req.AreaId, ports.NewRole{ID: req.Body.Id, Name: req.Body.Name, Permissions: req.Body.Permissions})
+	role, err := h.areas.CreateRole(ctx, user.ID, req.AreaId, input.NewRole{ID: req.Body.Id, Name: req.Body.Name, Permissions: req.Body.Permissions})
 	switch {
 	case errors.Is(err, domain.ErrAccessDenied):
 		return api.CreateRole403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageNotAdmin}}, nil
@@ -142,7 +142,7 @@ func (h *AdministrationHandler) CreateRole(ctx context.Context, req api.CreateRo
 
 func (h *AdministrationHandler) UpdateRolePermissions(ctx context.Context, req api.UpdateRolePermissionsRequestObject) (api.UpdateRolePermissionsResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
+	if input.Unauthenticated(err) {
 		return api.UpdateRolePermissions401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {

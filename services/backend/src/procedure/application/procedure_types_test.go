@@ -12,7 +12,7 @@ import (
 	authdomain "backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
-	procdomain "backend/src/procedure/domain"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
@@ -60,8 +60,8 @@ func newServiceOn(versions output.ProcedureTypeVersionRepository, areas *authmem
 	)
 	administrators := authmem.NewAdministrators()
 	auth := authapp.NewAreaService(areas, administrators, memberships, time.Now)
-	staff := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
-	return NewProcedureTypeService(versions, auth, staff, func() time.Time { return publishedAt })
+	staffAuthorizer := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
+	return NewProcedureTypeService(versions, auth, staffAuthorizer, func() time.Time { return publishedAt })
 }
 
 // fakeVersions wraps the memory adapter so that a test can make it fail or
@@ -421,15 +421,15 @@ func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
 		{name: "proposer cannot edit", memberships: []authdomain.Membership{
 			membership("m1", "ana", nil, authinput.PublishProcedureTypes),
 			membership("m2", "beto", nil, authinput.PublishProcedureTypes),
-		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
 		{name: "approver cannot publish", memberships: []authdomain.Membership{
 			membership("m1", "ana", nil, authinput.EditProcedureTypes),
 			membership("m2", "beto", nil, authinput.EditProcedureTypes),
-		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
 		{name: "the same permissions in another area are not enough", memberships: []authdomain.Membership{
 			{ID: "m1", UserID: "ana", Area: "office", Permissions: []string{authinput.EditProcedureTypes}},
 			{ID: "m2", UserID: "beto", Area: "office", Permissions: []string{authinput.PublishProcedureTypes}},
-		}, procedureType: 1, want: procdomain.ErrAccessDenied},
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
 		{name: "a scope covers its procedure types", memberships: []authdomain.Membership{
 			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
 			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
@@ -437,7 +437,7 @@ func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
 		{name: "a scope does not cover a new procedure type", memberships: []authdomain.Membership{
 			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
 			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
-		}, procedureType: 2, want: procdomain.ErrAccessDenied},
+		}, procedureType: 2, want: proceduredomain.ErrAccessDenied},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

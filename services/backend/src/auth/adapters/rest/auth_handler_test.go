@@ -20,7 +20,7 @@ import (
 	"backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
-	ports "backend/src/auth/ports/input"
+	"backend/src/auth/ports/input"
 )
 
 func newServer(t *testing.T) *httptest.Server {
@@ -269,7 +269,7 @@ func TestInvalidRequestsAnswerWithTheContractError(t *testing.T) {
 	}
 }
 
-type brokenAuth struct{ ports.Authenticator }
+type brokenAuth struct{ input.Authenticator }
 
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 

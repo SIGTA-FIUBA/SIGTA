@@ -30,9 +30,9 @@ type ProcedureService struct {
 	now             func() time.Time
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, documents output.DocumentRepository, staff authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, documents output.DocumentRepository, staffAuthorizer authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
 	return &ProcedureService{
-		staffAuthorizer: staff,
+		staffAuthorizer: staffAuthorizer,
 		procedureTypes:  procedureTypes,
 		procedures:      procedures,
 		documents:       documents,

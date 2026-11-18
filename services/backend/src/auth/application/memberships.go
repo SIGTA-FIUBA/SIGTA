@@ -27,16 +27,16 @@ type MembershipService struct {
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
 	newID       func() string
-	clock       func() time.Time
+	now         func() time.Time
 }
 
-func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, newID func() string, clock func() time.Time) *MembershipService {
+func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, newID func() string, now func() time.Time) *MembershipService {
 	return &MembershipService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
 		newID:              newID,
-		clock:              clock,
+		now:                now,
 	}
 }
 
@@ -53,7 +53,7 @@ func (s *MembershipService) Access(ctx context.Context, userID string) (domain.A
 	if err != nil {
 		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return domain.NewAccess(administrator, memberships, areas, s.clock()), nil
+	return domain.NewAccess(administrator, memberships, areas, s.now()), nil
 }
 
 func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, permissions []string) (bool, error) {
@@ -92,7 +92,7 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 		GrantedBy:   administratorID,
 	}
 	if m.From.IsZero() {
-		m.From = s.clock().UTC()
+		m.From = s.now().UTC()
 	}
 	if err := s.validate(ctx, m); err != nil {
 		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
@@ -113,7 +113,7 @@ func (s *MembershipService) End(ctx context.Context, administratorID, membership
 	if err != nil {
 		return fmt.Errorf("membership %s: %w", membershipID, err)
 	}
-	now := s.clock().UTC()
+	now := s.now().UTC()
 	if !m.Until.IsZero() && !now.Before(m.Until) {
 		return fmt.Errorf("%w: membership %s already ended", domain.ErrInvalidMembership, membershipID)
 	}

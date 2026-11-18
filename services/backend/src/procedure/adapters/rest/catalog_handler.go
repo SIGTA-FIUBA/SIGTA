@@ -5,14 +5,14 @@ import (
 
 	"backend/src/api"
 	"backend/src/procedure/domain/definition"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/input"
 )
 
 type CatalogHandler struct {
-	procedureTypes ports.ProcedureTypes
+	procedureTypes input.ProcedureTypes
 }
 
-func NewCatalogHandler(procedureTypes ports.ProcedureTypes) *CatalogHandler {
+func NewCatalogHandler(procedureTypes input.ProcedureTypes) *CatalogHandler {
 	return &CatalogHandler{procedureTypes: procedureTypes}
 }
 
@@ -28,7 +28,7 @@ func (h *CatalogHandler) ListProcedureTypes(ctx context.Context, _ api.ListProce
 	return response, nil
 }
 
-func catalogEntry(entry ports.CatalogEntry) api.CatalogEntry {
+func catalogEntry(entry input.CatalogEntry) api.CatalogEntry {
 	return api.CatalogEntry{
 		Id:            entry.ProcedureType,
 		Version:       int64(entry.Version),

@@ -9,7 +9,7 @@ import (
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/inbox"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/input"
 )
 
 var _ api.InboxServer = (*InboxHandler)(nil)
@@ -19,10 +19,10 @@ var _ api.InboxServer = (*InboxHandler)(nil)
 type InboxHandler struct {
 	auth   authinput.Authenticator
 	people authinput.People
-	inbox  ports.Inbox
+	inbox  input.Inbox
 }
 
-func NewInboxHandler(auth authinput.Authenticator, people authinput.People, inbox ports.Inbox) *InboxHandler {
+func NewInboxHandler(auth authinput.Authenticator, people authinput.People, inbox input.Inbox) *InboxHandler {
 	return &InboxHandler{auth: auth, people: people, inbox: inbox}
 }
 
@@ -38,7 +38,7 @@ func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProcedure
 		return api.ListProcedures400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
 	}
 	list, err := h.inbox.List(ctx, user.ID, queryOf(req.Params))
-	if errors.Is(err, ports.ErrNotStaff) {
+	if errors.Is(err, input.ErrNotStaff) {
 		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal."}}, nil
 	}
 	if err != nil {

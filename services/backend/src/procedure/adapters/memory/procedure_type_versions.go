@@ -29,7 +29,7 @@ func (s *ProcedureTypeVersionRepository) Latest(_ context.Context, procedureType
 	if len(stored) == 0 {
 		return version.ProcedureTypeVersion{}, output.ErrVersionNotFound
 	}
-	return clone(stored[len(stored)-1]), nil
+	return cloneVersion(stored[len(stored)-1]), nil
 }
 
 func (s *ProcedureTypeVersionRepository) LatestOfEach(context.Context) ([]version.ProcedureTypeVersion, error) {
@@ -38,7 +38,7 @@ func (s *ProcedureTypeVersionRepository) LatestOfEach(context.Context) ([]versio
 	latest := make([]version.ProcedureTypeVersion, 0, len(s.versions))
 	for _, stored := range s.versions {
 		if len(stored) > 0 {
-			latest = append(latest, clone(stored[len(stored)-1]))
+			latest = append(latest, cloneVersion(stored[len(stored)-1]))
 		}
 	}
 	slices.SortFunc(latest, func(left, right version.ProcedureTypeVersion) int {
@@ -54,7 +54,7 @@ func (s *ProcedureTypeVersionRepository) Get(_ context.Context, procedureType in
 	if number < 1 || number > len(stored) {
 		return version.ProcedureTypeVersion{}, output.ErrVersionNotFound
 	}
-	return clone(stored[number-1]), nil
+	return cloneVersion(stored[number-1]), nil
 }
 
 func (s *ProcedureTypeVersionRepository) Add(_ context.Context, v version.ProcedureTypeVersion) error {
@@ -68,11 +68,11 @@ func (s *ProcedureTypeVersionRepository) Add(_ context.Context, v version.Proced
 	case v.Number != next:
 		return fmt.Errorf("%w: version %d, the next one is %d", output.ErrVersionGap, v.Number, next)
 	}
-	s.versions[v.ProcedureTypeID] = append(stored, clone(v))
+	s.versions[v.ProcedureTypeID] = append(stored, cloneVersion(v))
 	return nil
 }
 
-func clone(v version.ProcedureTypeVersion) version.ProcedureTypeVersion {
+func cloneVersion(v version.ProcedureTypeVersion) version.ProcedureTypeVersion {
 	v.EncodedContent = slices.Clone(v.EncodedContent)
 	return v
 }

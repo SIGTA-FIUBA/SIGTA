@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"backend/src/procedure/adapters/memory"
-	procdomain "backend/src/procedure/domain"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
@@ -44,7 +44,7 @@ func TestSubmitRecordsTheOpeningStepsAsDoneByTheApplicant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []procdomain.Event{
+	want := []proceduredomain.Event{
 		{ProcedureID: "P-1", Step: "request", Action: definition.ActionEnterData, By: "ana", At: at, Next: "detail"},
 		{ProcedureID: "P-1", Step: "detail", Action: definition.ActionEnterData, By: "ana", At: at, Next: "review"},
 	}

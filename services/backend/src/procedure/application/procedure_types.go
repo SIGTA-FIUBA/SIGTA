@@ -25,8 +25,8 @@ type ProcedureTypeService struct {
 	now             func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureTypeVersionRepository, areas authinput.Areas, staff authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
-	return &ProcedureTypeService{versions: versions, areas: areas, staffAuthorizer: staff, now: now}
+func NewProcedureTypeService(versions output.ProcedureTypeVersionRepository, areas authinput.Areas, staffAuthorizer authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
+	return &ProcedureTypeService{versions: versions, areas: areas, staffAuthorizer: staffAuthorizer, now: now}
 }
 
 func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication) (version.ProcedureTypeVersion, error) {
@@ -87,12 +87,12 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 // function of SIGTA, so a step that asks for one asks for a permission that does not
 // exist.
 func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definition.Area, error) {
-	staff, err := s.areas.List(ctx)
+	authAreas, err := s.areas.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list areas: %w", err)
 	}
-	areas := make([]definition.Area, 0, len(staff))
-	for _, a := range staff {
+	areas := make([]definition.Area, 0, len(authAreas))
+	for _, a := range authAreas {
 		area := definition.Area{ID: a.ID, Name: a.Name}
 		for _, p := range a.Permissions {
 			if p.System {

@@ -12,7 +12,7 @@ import (
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/input"
 )
 
 var _ api.DocumentServer = (*DocumentHandler)(nil)
@@ -46,10 +46,10 @@ var errMalformedUpload = errors.New("the upload must have the document and then 
 type DocumentHandler struct {
 	auth      authinput.Authenticator
 	people    authinput.People
-	documents ports.Documents
+	documents input.Documents
 }
 
-func NewDocumentHandler(auth authinput.Authenticator, people authinput.People, documents ports.Documents) *DocumentHandler {
+func NewDocumentHandler(auth authinput.Authenticator, people authinput.People, documents input.Documents) *DocumentHandler {
 	return &DocumentHandler{auth: auth, people: people, documents: documents}
 }
 
@@ -97,7 +97,7 @@ func (h *DocumentHandler) AttachProcedureDocument(ctx context.Context, req api.A
 		message, _ := rejection(err)
 		return api.AttachProcedureDocument400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: message}}, nil
 	}
-	d, err := h.documents.Attach(ctx, user.ID, ports.Upload{
+	d, err := h.documents.Attach(ctx, user.ID, input.Upload{
 		ProcedureID: req.ProcedureId,
 		Requirement: requirement,
 		FileName:    file.FileName(),
