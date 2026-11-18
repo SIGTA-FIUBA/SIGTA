@@ -135,6 +135,11 @@ func validateFlow(steps []Step) []ValidationProblem {
 		if !closes[s.ID] {
 			problems = append(problems, ValidationProblem{Code: CodeStepNeverCloses, Path: []Element{{Kind: KindStep, ID: s.ID}}})
 		}
+		for _, o := range s.Outcomes {
+			if o.SendBack && !walk([]string{o.Next}, next)[s.ID] {
+				problems = append(problems, ValidationProblem{Code: CodeSendBackForward, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindOutcome, ID: o.ID}}})
+			}
+		}
 	}
 	return problems
 }
