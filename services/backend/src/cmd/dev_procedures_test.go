@@ -39,7 +39,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now), time.Now)
+	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now))
 
 	mine, err := service.List(ctx, "dev-operative", inbox.Query{View: inbox.ViewMine})
 	if err != nil {

@@ -16,7 +16,7 @@ import (
 
 	"backend/src/auth/adapters/google"
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 
 	"github.com/go-jose/go-jose/v4"
 	"golang.org/x/oauth2"
@@ -176,7 +176,7 @@ func TestLoginWithAnInstitutionalAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := out.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}
+	want := output.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}
 	if identity != want {
 		t.Fatalf("Exchange(%q) = %+v, want %+v", issuedCode, identity, want)
 	}

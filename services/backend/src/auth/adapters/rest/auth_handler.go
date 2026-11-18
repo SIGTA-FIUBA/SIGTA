@@ -110,7 +110,7 @@ func (h *AuthHandler) Logout(ctx context.Context, req api.LogoutRequestObject) (
 func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
 	if ports.Unauthenticated(err) {
-		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized("Iniciá sesión para continuar.")}, nil
+		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized(messageSignIn)}, nil
 	}
 	if err != nil {
 		return nil, err

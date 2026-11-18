@@ -14,7 +14,7 @@ import (
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
 var _ input.Authenticator = (*AuthService)(nil)
@@ -26,17 +26,17 @@ type AuthConfig struct {
 
 type AuthService struct {
 	config   AuthConfig
-	identity out.IdentityProvider
-	users    out.UserRepository
-	sessions out.SessionStore
+	identity output.IdentityProvider
+	users    output.UserRepository
+	sessions output.SessionStore
 	now      func() time.Time
 }
 
 func NewAuthService(
 	config AuthConfig,
-	identity out.IdentityProvider,
-	users out.UserRepository,
-	sessions out.SessionStore,
+	identity output.IdentityProvider,
+	users output.UserRepository,
+	sessions output.SessionStore,
 	now func() time.Time,
 ) *AuthService {
 	return &AuthService{

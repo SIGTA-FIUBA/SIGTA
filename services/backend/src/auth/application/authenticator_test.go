@@ -12,7 +12,7 @@ import (
 	"backend/src/auth/adapters/memory"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
 var (
@@ -134,10 +134,10 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 
 // outsideDomain stands for a provider that checks the domain itself, as the
 // Google adapter does with the hd claim.
-type outsideDomain struct{ out.IdentityProvider }
+type outsideDomain struct{ output.IdentityProvider }
 
-func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (out.Identity, error) {
-	return out.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, "uba.ar")
+func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (output.Identity, error) {
+	return output.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, "uba.ar")
 }
 
 func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {

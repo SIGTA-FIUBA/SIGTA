@@ -137,7 +137,7 @@ func run(logger *slog.Logger) error {
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now), procedures),
-		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures, time.Now)),
+		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 	)
 
 	server := &http.Server{

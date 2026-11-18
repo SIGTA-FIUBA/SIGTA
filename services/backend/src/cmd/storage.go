@@ -83,12 +83,12 @@ const (
 // connect opens a pool that acts as role, in the backend schema unless the URL
 // names another search_path.
 func connect(ctx context.Context, url, role string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(url)
+	poolConfig, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, err
 	}
-	actAs(config, role)
-	return pgxpool.NewWithConfig(ctx, config)
+	actAs(poolConfig, role)
+	return pgxpool.NewWithConfig(ctx, poolConfig)
 }
 
 // actAs makes every connection take role. The login does not have to be role
