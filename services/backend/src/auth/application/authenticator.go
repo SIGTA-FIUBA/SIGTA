@@ -67,8 +67,8 @@ func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pen
 	if !domain.InDomain(email, s.config.AllowedDomain) {
 		return "", domain.ErrDomainNotAllowed
 	}
-	user, err := s.users.FindByEmail(ctx, email)
-	if errors.Is(err, domain.ErrUnknownUser) {
+	user, err := s.users.GetByEmail(ctx, email)
+	if errors.Is(err, domain.ErrUserNotFound) {
 		user, err = s.register(ctx, email, identity.Name)
 	}
 	if err != nil {
@@ -96,7 +96,7 @@ func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (do
 		return domain.User{}, domain.ErrSessionNotFound
 	}
 	tokenHash := hashToken(sessionToken)
-	session, err := s.sessions.Find(ctx, tokenHash)
+	session, err := s.sessions.Get(ctx, tokenHash)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find session: %w", err)
 	}
@@ -107,7 +107,7 @@ func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (do
 		}
 		return domain.User{}, domain.ErrSessionExpired
 	}
-	user, err := s.users.FindByID(ctx, session.UserID)
+	user, err := s.users.Get(ctx, session.UserID)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find user %s: %w", session.UserID, err)
 	}

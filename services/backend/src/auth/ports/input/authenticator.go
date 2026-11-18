@@ -22,5 +22,5 @@ type Authenticator interface {
 func Unauthenticated(err error) bool {
 	return errors.Is(err, domain.ErrSessionNotFound) ||
 		errors.Is(err, domain.ErrSessionExpired) ||
-		errors.Is(err, domain.ErrUnknownUser)
+		errors.Is(err, domain.ErrUserNotFound)
 }

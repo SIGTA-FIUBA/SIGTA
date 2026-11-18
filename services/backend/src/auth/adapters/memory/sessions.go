@@ -24,7 +24,7 @@ func (s *SessionStore) Save(_ context.Context, session domain.Session) error {
 	return nil
 }
 
-func (s *SessionStore) Find(_ context.Context, tokenHash string) (domain.Session, error) {
+func (s *SessionStore) Get(_ context.Context, tokenHash string) (domain.Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	session, ok := s.sessions[tokenHash]
