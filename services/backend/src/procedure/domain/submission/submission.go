@@ -14,14 +14,15 @@ import (
 
 var ErrInvalid = errors.New("invalid submission")
 
-// FieldRequirement is a field an opening step asks for, with that step.
-type FieldRequirement struct {
+// StepFieldRequirement is a field an opening step asks for, with that step.
+type StepFieldRequirement struct {
 	definition.FieldRequirement
 	Step string
 }
 
-// DocumentRequirement is a document an opening step asks for, with that step.
-type DocumentRequirement struct {
+// StepDocumentRequirement is a document an opening step asks for, with that
+// step.
+type StepDocumentRequirement struct {
 	definition.DocumentRequirement
 	Step string
 }
@@ -63,25 +64,25 @@ func OpenStep(def definition.ProcedureTypeDefinition) string {
 // definition declares it. Something mandatory in one opening step is
 // mandatory, even if another makes it optional, and it belongs to the first
 // step that asks for it.
-func Requirements(def definition.ProcedureTypeDefinition) ([]FieldRequirement, []DocumentRequirement) {
+func Requirements(def definition.ProcedureTypeDefinition) ([]StepFieldRequirement, []StepDocumentRequirement) {
 	fields, documents := askedBy{}, askedBy{}
 	for _, s := range OpeningSteps(def) {
 		fields.add(s.ID, s.Fields, s.OptionalFields)
 		documents.add(s.ID, s.Documents, s.OptionalDocuments)
 	}
-	var fieldRequirements []FieldRequirement
+	var fieldRequirements []StepFieldRequirement
 	for _, f := range def.Fields {
 		if a, ok := fields[f.ID]; ok {
-			fieldRequirements = append(fieldRequirements, FieldRequirement{
+			fieldRequirements = append(fieldRequirements, StepFieldRequirement{
 				FieldRequirement: definition.FieldRequirement{Field: f, Required: a.required},
 				Step:             a.step,
 			})
 		}
 	}
-	var documentRequirements []DocumentRequirement
+	var documentRequirements []StepDocumentRequirement
 	for _, d := range def.Documents {
 		if a, ok := documents[d.ID]; ok {
-			documentRequirements = append(documentRequirements, DocumentRequirement{
+			documentRequirements = append(documentRequirements, StepDocumentRequirement{
 				DocumentRequirement: definition.DocumentRequirement{Document: d, Required: a.required},
 				Step:                a.step,
 			})
@@ -166,7 +167,7 @@ func Reject(problems []Problem) error {
 
 // MissingDocuments returns a problem for each mandatory document that was not
 // sent.
-func MissingDocuments(documents []DocumentRequirement, sent map[string]bool) []Problem {
+func MissingDocuments(documents []StepDocumentRequirement, sent map[string]bool) []Problem {
 	var problems []Problem
 	for _, d := range documents {
 		if d.Required && !sent[d.Document.ID] {
@@ -177,7 +178,7 @@ func MissingDocuments(documents []DocumentRequirement, sent map[string]bool) []P
 }
 
 // Fields leaves out the step of each requirement.
-func Fields(requirements []FieldRequirement) []definition.FieldRequirement {
+func Fields(requirements []StepFieldRequirement) []definition.FieldRequirement {
 	fields := make([]definition.FieldRequirement, len(requirements))
 	for i, r := range requirements {
 		fields[i] = r.FieldRequirement
@@ -186,7 +187,7 @@ func Fields(requirements []FieldRequirement) []definition.FieldRequirement {
 }
 
 // Documents leaves out the step of each requirement.
-func Documents(requirements []DocumentRequirement) []definition.DocumentRequirement {
+func Documents(requirements []StepDocumentRequirement) []definition.DocumentRequirement {
 	documents := make([]definition.DocumentRequirement, len(requirements))
 	for i, r := range requirements {
 		documents[i] = r.DocumentRequirement

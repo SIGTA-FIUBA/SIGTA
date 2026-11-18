@@ -100,8 +100,8 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 
 // storeFiles keeps every file that covers a document the opening steps ask
 // for, and returns the documents that name them, still to be recorded.
-func (s *SubmissionService) storeFiles(ctx context.Context, procedureID, userID string, now time.Time, requirements []submission.DocumentRequirement, sub input.Submission) ([]domain.Document, error) {
-	asked := make(map[string]submission.DocumentRequirement, len(requirements))
+func (s *SubmissionService) storeFiles(ctx context.Context, procedureID, userID string, now time.Time, requirements []submission.StepDocumentRequirement, sub input.Submission) ([]domain.Document, error) {
+	asked := make(map[string]submission.StepDocumentRequirement, len(requirements))
 	for _, r := range requirements {
 		asked[r.Document.ID] = r
 	}

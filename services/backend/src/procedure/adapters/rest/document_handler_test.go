@@ -68,7 +68,7 @@ func (f *fakeDocuments) Open(context.Context, string, string, string) (domain.Do
 	return f.attached[0], io.NopCloser(strings.NewReader("%PDF-1.7")), nil
 }
 
-func serve(t *testing.T, documents *fakeDocuments, r *http.Request) *httptest.ResponseRecorder {
+func serveDocuments(t *testing.T, documents *fakeDocuments, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
 	server := api.NewServer(nil, nil, nil, rest.NewDocumentHandler(fakeAuth{}, fakePeople{}, documents), nil, nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
@@ -118,7 +118,7 @@ func message(t *testing.T, recorder *httptest.ResponseRecorder) string {
 
 func TestAttachStreamsTheFileToTheUseCase(t *testing.T) {
 	documents := &fakeDocuments{}
-	recorder := serve(t, documents, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", "%PDF-1.7 contenido"}))
+	recorder := serveDocuments(t, documents, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", "%PDF-1.7 contenido"}))
 
 	if recorder.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body %s; want 201", recorder.Code, recorder.Body)
@@ -148,7 +148,7 @@ func TestAttachNeedsTheDocumentBeforeTheFile(t *testing.T) {
 	for name, parts := range tests {
 		t.Run(name, func(t *testing.T) {
 			documents := &fakeDocuments{}
-			recorder := serve(t, documents, attachRequest(t, parts...))
+			recorder := serveDocuments(t, documents, attachRequest(t, parts...))
 			if recorder.Code != http.StatusBadRequest || message(t, recorder) != api.InvalidRequestMessage {
 				t.Errorf("status = %d, body %s; want 400 with the invalid request message", recorder.Code, recorder.Body)
 			}
@@ -167,7 +167,7 @@ func TestAttachAnswersABrokenUploadAsABadRequest(t *testing.T) {
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body[:len(body)-20]))
 
-	recorder := serve(t, &fakeDocuments{}, r)
+	recorder := serveDocuments(t, &fakeDocuments{}, r)
 	if recorder.Code != http.StatusBadRequest || message(t, recorder) != api.InvalidRequestMessage {
 		t.Errorf("status = %d, body %s; want 400 with the invalid request message", recorder.Code, recorder.Body)
 	}
@@ -175,7 +175,7 @@ func TestAttachAnswersABrokenUploadAsABadRequest(t *testing.T) {
 
 func TestAttachStopsAtTheRequestLimit(t *testing.T) {
 	file := strings.Repeat("a", api.MaxRequestBytes)
-	recorder := serve(t, &fakeDocuments{}, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", file}))
+	recorder := serveDocuments(t, &fakeDocuments{}, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", file}))
 	if recorder.Code != http.StatusBadRequest || !strings.Contains(message(t, recorder), "tamaño máximo") {
 		t.Errorf("status = %d, body %s; want 400 saying it is too large", recorder.Code, recorder.Body)
 	}
@@ -198,7 +198,7 @@ func TestAttachAnswersEachRejection(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.err.Error(), func(t *testing.T) {
-			recorder := serve(t, &fakeDocuments{err: tt.err}, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", "%PDF"}))
+			recorder := serveDocuments(t, &fakeDocuments{err: tt.err}, attachRequest(t, part{"document", "", "transcript"}, part{"file", "historia.pdf", "%PDF"}))
 			if recorder.Code != tt.status || !strings.Contains(message(t, recorder), tt.says) {
 				t.Errorf("status = %d, body %s; want %d saying %q", recorder.Code, recorder.Body, tt.status, tt.says)
 			}
@@ -230,7 +230,7 @@ func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 		{Document: domain.Document{ID: "D-1", Requirement: "transcript", UploadedAt: uploaded, UploadedBy: "ana"}},
 		{Document: domain.Document{ID: "D-2", Requirement: "transcript", UploadedAt: uploaded, UploadedBy: "gone"}, Current: true},
 	}}
-	recorder := serve(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
+	recorder := serveDocuments(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
 
 	var got []api.ProcedureDocument
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
@@ -245,7 +245,7 @@ func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 }
 
 func TestListIsEmptyAndNotNull(t *testing.T) {
-	recorder := serve(t, &fakeDocuments{}, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
+	recorder := serveDocuments(t, &fakeDocuments{}, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents", http.NoBody))
 	if strings.TrimSpace(recorder.Body.String()) != "[]" {
 		t.Errorf("body = %s, want []", recorder.Body)
 	}
@@ -253,7 +253,7 @@ func TestListIsEmptyAndNotNull(t *testing.T) {
 
 func TestDownloadIsAnAttachmentWithTheDetectedType(t *testing.T) {
 	documents := &fakeDocuments{attached: []domain.Document{{ID: "D-1", FileName: "historia académica.pdf", MediaType: "application/pdf", Size: 8}}}
-	recorder := serve(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents/D-1/content", http.NoBody))
+	recorder := serveDocuments(t, documents, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents/D-1/content", http.NoBody))
 
 	if recorder.Code != http.StatusOK || recorder.Body.String() != "%PDF-1.7" {
 		t.Fatalf("status = %d, body %q", recorder.Code, recorder.Body)
@@ -278,7 +278,7 @@ func TestDownloadIsAnAttachmentWithTheDetectedType(t *testing.T) {
 
 func TestDownloadDoesNotRevealOtherProcedures(t *testing.T) {
 	for _, err := range []error{domain.ErrProcedureNotFound, domain.ErrDocumentNotFound} {
-		recorder := serve(t, &fakeDocuments{err: err}, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents/D-1/content", http.NoBody))
+		recorder := serveDocuments(t, &fakeDocuments{err: err}, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures/P-1/documents/D-1/content", http.NoBody))
 		if recorder.Code != http.StatusNotFound {
 			t.Errorf("%v: status = %d, want 404", err, recorder.Code)
 		}
