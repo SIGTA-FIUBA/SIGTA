@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router'
 import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { applicantHowTo, principles, staffHowTo } from '../content/platform'
-import { stateColors, stateNames } from '../procedureState'
+import { stateColors, stateNames } from '../content/procedureStates'
 
 type User = components['schemas']['User']
 type MyProcedure = components['schemas']['MyProcedure']

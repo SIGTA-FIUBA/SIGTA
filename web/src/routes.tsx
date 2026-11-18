@@ -8,7 +8,7 @@ import { ProcedurePage } from './pages/ProcedurePage'
 import { StartProcedurePage } from './pages/StartProcedurePage'
 import { ProcedurePreview } from './dev/ProcedurePreview'
 import { StartProcedurePreview } from './dev/StartProcedurePreview'
-import { optionalSession, requireSession, skipLoginWithSession } from './session'
+import { optionalSession, requireSession, skipLoginWithSession } from './api/session'
 
 export const routes: RouteObject[] = [
   { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },

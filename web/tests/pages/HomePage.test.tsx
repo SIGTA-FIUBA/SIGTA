@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 import { HomePage } from '../../src/pages/HomePage'
 
 const inOffice = {

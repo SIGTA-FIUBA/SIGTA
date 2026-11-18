@@ -16,7 +16,7 @@ import {
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { stateColors, stateNames } from '../procedureState'
+import { stateColors, stateNames } from '../content/procedureStates'
 
 type ProcedureListItem = components['schemas']['ProcedureListItem']
 type ProcedureState = components['schemas']['ProcedureState']

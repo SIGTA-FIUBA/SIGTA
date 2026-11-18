@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StartProcedurePage } from '../../src/pages/StartProcedurePage'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 const pdf = (name: string, size = 200) => new File(['%PDF-1.7\n'.padEnd(size, 'x')], name, { type: 'application/pdf' })
 

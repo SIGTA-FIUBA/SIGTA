@@ -24,7 +24,7 @@ import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
-import { documentDescription } from '../documentFormats'
+import { documentDescription } from '../content/documentFormats'
 import {
   emptySubmission,
   fieldError,

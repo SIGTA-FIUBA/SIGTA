@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InboxPage } from '../../src/pages/InboxPage'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 const day = 86_400_000
 const daysAgo = (days: number) => new Date(Date.now() - days * day - 3_600_000).toISOString()

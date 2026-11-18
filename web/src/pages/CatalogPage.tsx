@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
-import { documentDescription } from '../documentFormats'
+import { documentDescription } from '../content/documentFormats'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
 type DocumentRequirement = components['schemas']['DocumentRequirement']

@@ -1,5 +1,5 @@
 import type { components } from './api/schema'
-import { sizeText, typeName } from './documentFormats'
+import { sizeText, typeName } from './content/documentFormats'
 
 type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']

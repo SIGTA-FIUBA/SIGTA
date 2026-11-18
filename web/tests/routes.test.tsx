@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from '../src/routes'
-import { render } from './render'
+import { render } from './test-utils/render'
 
 const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', staff: false, administrator: false }
 
