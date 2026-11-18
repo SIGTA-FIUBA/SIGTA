@@ -53,7 +53,7 @@ func (s *MembershipService) Access(ctx context.Context, userID string) (domain.A
 	if err != nil {
 		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return domain.NewAccess(userID, administrator, memberships, areas, s.clock()), nil
+	return domain.NewAccess(administrator, memberships, areas, s.clock()), nil
 }
 
 func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, permissions []string) (bool, error) {

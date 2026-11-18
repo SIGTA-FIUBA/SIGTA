@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InboxPage } from '../../src/pages/InboxPage'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
@@ -69,17 +69,11 @@ function stubApi(status: number, body: unknown) {
   return fetch
 }
 
-function renderInbox(path = '/inbox', staff = true) {
-  const user = { id: 'u1', email: 'operativo@fi.uba.ar', name: 'Operativo', staff, administrator: false }
+function renderInbox(path = '/inbox') {
   const router = createMemoryRouter(
     [
-      {
-        element: <Outlet context={user} />,
-        children: [
-          { path: '/inbox', element: <InboxPage /> },
-          { path: '/procedures/:id', element: <ProcedurePage /> },
-        ],
-      },
+      { path: '/inbox', element: <InboxPage /> },
+      { path: '/procedures/:id', element: <ProcedurePage /> },
     ],
     { initialEntries: [path] },
   )
@@ -240,7 +234,7 @@ describe('InboxPage', () => {
 
   it('tells who is not staff that the inbox is not theirs', async () => {
     stubApi(403, { message: 'La bandeja es solo para el personal.' })
-    renderInbox('/inbox', false)
+    renderInbox()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('disponible solo para el personal')
   })

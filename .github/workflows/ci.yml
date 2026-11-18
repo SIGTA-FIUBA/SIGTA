@@ -97,9 +97,6 @@ jobs:
       - name: Show the logs
         if: failure()
         run: docker compose logs
-      - name: Stop the stack
-        if: always()
-        run: docker compose down --volumes
 
   # Single check to require in the ruleset of main, so adding or renaming a job
   # does not require changing the ruleset.

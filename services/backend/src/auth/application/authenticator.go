@@ -48,9 +48,9 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin, error) {
+func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin) {
 	pending := domain.PendingLogin{State: newToken(), Nonce: newToken(), CodeVerifier: newToken()}
-	return s.identity.AuthorizationURL(pending, loginHint), pending, nil
+	return s.identity.AuthorizationURL(pending, loginHint), pending
 }
 
 // CompleteLogin registers someone new to SIGTA as an applicant: only a

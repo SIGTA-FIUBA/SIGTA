@@ -34,10 +34,7 @@ func NewAuthHandler(auth ports.Authenticator, memberships ports.Memberships, aft
 }
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req api.BeginLoginRequestObject) (api.BeginLoginResponseObject, error) {
-	location, pending, err := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
-	if err != nil {
-		return nil, err
-	}
+	location, pending := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
 	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending), int(loginStateMaxAge.Seconds()))
 	return api.BeginLogin302Response{Headers: api.BeginLogin302ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
 }

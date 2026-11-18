@@ -58,10 +58,7 @@ func (f *fixture) login(email string) (string, error) {
 
 func (f *fixture) begin(email string) (code, state string, pending domain.PendingLogin) {
 	f.t.Helper()
-	location, pending, err := f.auth.BeginLogin(email)
-	if err != nil {
-		f.t.Fatal(err)
-	}
+	location, pending := f.auth.BeginLogin(email)
 	u, err := url.Parse(location)
 	if err != nil {
 		f.t.Fatal(err)
