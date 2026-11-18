@@ -10,6 +10,7 @@
     "lint": "oxlint --deny-warnings",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "unused": "knip",
     "test": "vitest run",
     "generate": "openapi-typescript ../contracts/openapi.yaml -o src/api/schema.d.ts",
     "preview": "vite preview"
@@ -33,6 +34,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.3.0",
     "jsdom": "31.0.0",
+    "knip": "6.46.1",
     "openapi-typescript": "7.13.0",
     "oxlint": "1.93.0",
     "prettier": "3.9.10",
