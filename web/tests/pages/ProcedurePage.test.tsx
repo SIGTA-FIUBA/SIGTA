@@ -461,43 +461,83 @@ describe('ProcedurePage attachment', () => {
     vi.unstubAllGlobals()
   })
 
+  const attached = {
+    ...detail.steps[0]!.files[0]!,
+    id: 'D-2',
+    document: 'record',
+    step: 'review',
+    file_name: 'acta.pdf',
+  }
+  const withRecord = (file: typeof attached): Detail => ({
+    ...asksForRecord,
+    steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [file] }],
+  })
+
+  function documentsSection() {
+    return screen.getByRole('heading', { level: 2, name: 'Documentos del paso' }).parentElement!
+  }
+
   it('offers the documents of the open step that have no file yet', async () => {
     stubAttachment(201, {})
     renderPage()
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Adjuntar documentos' })).toBeDefined()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
   })
 
-  it('does not offer to attach a document that already has a file, nor to who cannot act', async () => {
-    const attached = {
-      ...detail.steps[0]!.files[0]!,
-      id: 'D-2',
-      document: 'record',
-      step: 'review',
-      file_name: 'acta.pdf',
-    }
-    stubApi(200, { ...asksForRecord, steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [attached] }] })
+  it('offers to replace, not to attach, a document attached in the step', async () => {
+    stubApi(200, withRecord(attached))
     renderPage()
-    await screen.findByRole('heading', { level: 2, name: 'Confirmar Revisar la solicitud' })
-    expect(screen.queryByRole('heading', { name: 'Adjuntar documentos' })).toBeNull()
 
-    vi.unstubAllGlobals()
+    await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })
+    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
+  })
+
+  it('does not show the documents of the step to who cannot act', async () => {
     stubApi(200, { ...asksForRecord, can_act: false })
     renderPage()
     await screen.findAllByRole('heading', { level: 2, name: 'Historial' })
-    expect(screen.queryByRole('heading', { name: 'Adjuntar documentos' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Documentos del paso' })).toBeNull()
+  })
+
+  it('replaces a document and shows the new file as the current one', async () => {
+    let current = withRecord(attached)
+    const fetch = vi.fn(async (request: Request) => {
+      if (request.method === 'POST') {
+        current = withRecord({ ...attached, id: 'D-3', file_name: 'acta-corregida.pdf' })
+        return Response.json({}, { status: 201 })
+      }
+      return Response.json(current)
+    })
+    vi.stubGlobal('fetch', fetch)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
+    await userEvent.upload(fileInput(), pdf('acta-corregida.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Documento reemplazado. Quedó en el historial.')).toBeDefined()
+    const link = await within(documentsSection()).findByRole('link', { name: 'acta-corregida.pdf' })
+    expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-3/content')
+    expect(within(documentsSection()).queryByRole('link', { name: 'acta.pdf' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
+  })
+
+  it('keeps the file when replacing it is cancelled', async () => {
+    stubApi(200, withRecord(attached))
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
+    await userEvent.click(screen.getByRole('button', { name: 'No reemplazar Acta' }))
+
+    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
   })
 
   it('offers a document whose file was attached in another step', async () => {
-    const elsewhere = {
-      ...detail.steps[0]!.files[0]!,
-      id: 'D-2',
-      document: 'record',
-      step: 'documents',
-      file_name: 'acta.pdf',
-    }
-    stubApi(200, { ...asksForRecord, steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [elsewhere] }] })
+    stubApi(200, withRecord({ ...attached, step: 'documents' }))
     renderPage()
 
     expect(await screen.findByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()

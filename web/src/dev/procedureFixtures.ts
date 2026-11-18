@@ -10,6 +10,7 @@ type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 type Value = components['schemas']['ProcedureValue']
 type Event = components['schemas']['ProcedureEvent']
+type Attached = components['schemas']['ProcedureDocument']
 
 const megabyte = 1024 * 1024
 const applicant = { id: 'dev-applicant-01', name: 'Lucía Ejemplo' }
@@ -45,6 +46,7 @@ function detail(
   values: Value[],
   documents: DocumentRequirement[],
   history: Event[],
+  files: Attached[] = [],
 ): Detail {
   const request: Step = {
     id: 'request',
@@ -68,7 +70,7 @@ function detail(
     documents,
     outcomes: [],
     values: [],
-    files: [],
+    files,
   }
   return {
     id: 'dev-09',
@@ -102,6 +104,18 @@ const attached = (id: string, requirement: string, fileName: string): Event => (
   declared: false,
   returned: false,
   document: { id, document: requirement, file_name: fileName },
+})
+
+const file = (id: string, requirement: string, fileName: string): Attached => ({
+  id,
+  document: requirement,
+  step: 'communicate',
+  file_name: fileName,
+  media_type: 'application/pdf',
+  size: 9_876_543,
+  uploaded_by: staff,
+  uploaded_at: '2026-11-17T15:00:00Z',
+  current: true,
 })
 
 const demo = detail(
@@ -155,6 +169,7 @@ const worst = detail(
     document('annex', 'Anexo con la tabla de correspondencias entre asignaturas', false),
   ],
   [started, attached('D-1', 'ruling', longFileName), attached('D-2', 'unknown', 'acta.pdf')],
+  [file('D-1', 'ruling', longFileName)],
 )
 
 const empty = detail([field('reason', 'Motivo', 'long_text')], [], [], [])
