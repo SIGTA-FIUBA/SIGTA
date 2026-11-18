@@ -90,14 +90,17 @@ El servicio de IA en Python todavía no existe en el repositorio.
 | Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`) |
 | Regenerar código desde el contrato | `make contracts` |
 | Backend: tests y lint | `cd services/backend && go test -race ./...` y `golangci-lint run` |
+| Backend: código sin usar | `cd services/backend && go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...` (no tiene que listar nada) |
 | Backend: tests contra PostgreSQL | `docker compose up --detach --wait db` y los tests con `SIGTA_TEST_DATABASE_URL` (ver "Pruebas contra PostgreSQL" en CONTRIBUTING.md) |
-| Frontend: lint, tipos, tests | `cd web && npm run lint && npm run format:check && npm run typecheck && npm test` |
+| Frontend: lint, tipos, tests | `cd web && npm run lint && npm run format:check && npm run unused && npm run typecheck && npm test` |
+| Tests en su lugar | `scripts/check-test-layout.sh` |
 | Instalar el hook de commits | `npm install` en la raíz |
 
 ## Convenciones
 
 - **Idioma:** código, endpoints y nombres técnicos en inglés; documentación en español.
 - **Nombres:** cada archivo, función y variable se nombra con el vocabulario de arriba y por lo que es o hace, así el repositorio se recorre sin leer el código. Las reglas están en "Nombres" de CONTRIBUTING.md.
+- **Buscar antes de crear:** antes de escribir una función, un componente, un tipo, un texto o una ayuda de test, buscar si ya existe uno que lo haga, y usarlo o extenderlo. Dos piezas que hacen lo mismo con nombres distintos son lo que después obliga a un refactor.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
 - **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
 - **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`. Corren con godog dentro de `go test`, y un paso sin implementar hace fallar el pipeline, así que un `.feature` entra junto con sus pasos.
@@ -115,6 +118,7 @@ Las tareas recurrentes tienen una rutina en `.claude/skills/`. Seguirla cuando s
 | `gherkin-scenarios` | Redactar los escenarios de una historia desde sus criterios de aceptación |
 | `new-procedure-type` | Preparar el borrador de configuración de un tipo de trámite nuevo |
 | `open-pr` | Armar la rama, los commits y el PR con la plantilla completa |
+| `review-conventions` | Revisar un cambio contra las convenciones (nombres, ubicación, reutilización, tests) antes del PR |
 | `break-ui` | Probar una pantalla con datos extremos (nombres largos, listas vacías, un solo elemento) antes de darla por terminada |
 | `web-design-guidelines` | Revisar la accesibilidad, el foco, los formularios y los textos de una pantalla |
 | `mantine-form` | Armar formularios con `@mantine/form` |

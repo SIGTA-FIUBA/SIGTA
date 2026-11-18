@@ -32,6 +32,7 @@ Backend:
 - En un repositorio, `Get` busca uno por su clave y `GetBy<Campo>` por otro campo; si no existe, fallan con `Err<Concepto>NotFound`.
 - Los errores son `Err<Concepto><Problema>`: `ErrUserNotFound`, `ErrVersionExists`.
 - Un caso de uso es `<Concepto>Service` en `application/<concepto>.go`.
+- Un paquete de otro módulo, o cuyo nombre se repite entre módulos, se importa con el alias `<módulo><paquete>`, igual en todo el backend: `authinput`, `authdomain`, `authapp` (de `application/`), `proceduremem` (de `adapters/memory/`), `procedurerest`.
 - Los pasos de `features/<historia>.feature` van en `test/acceptance/<historia>_steps_test.go`. Los pasos que comparten varias historias van en un archivo con el nombre de lo que cubren, como `document_steps_test.go`.
 
 Web:
@@ -41,6 +42,8 @@ Web:
 - Una consulta compartida es `use<Qué>` en `api/` (`useInboxProcedures`, `useMyProcedures`) y su clave sigue la ruta de la API (`['me', 'procedures']`).
 - Un texto que se calcula es `<algo>Text` y un mapa de textos, `<algo>Texts` (`loginErrorText`, `problemTexts`); un contador, `<algo>Count`; un booleano empieza con `is`, `has` o `can`; una expresión regular termina en `Pattern`.
 - Los tests repiten la estructura de `src/` en `tests/` (`src/layout/AppLayout.tsx` se prueba en `tests/layout/AppLayout.test.tsx`), con `.test.ts` si no tienen JSX. Dentro, `stubApi` reemplaza la API y `render<Algo>` monta la pantalla: `renderAt(path)` en una ruta, `renderAs(staff)` con una sesión. Lo que comparten los tests, como `render`, va en `tests/test-utils/`.
+
+Lo que se puede comprobar solo lo comprueba la CI: los alias (`importas`), los nombres de los errores (`errname`), los parámetros que siempre reciben lo mismo (`unparam`), el código sin usar (`deadcode` en el backend, `npm run unused` en la web), el nombre del archivo de cada componente (la regla `sigta-naming/file-name` de oxlint) y que cada test se llame como lo que prueba (`scripts/check-test-layout.sh`). El resto lo revisa la rutina `review-conventions` antes de abrir el PR.
 
 ## Modelo de tipo de trámite
 
