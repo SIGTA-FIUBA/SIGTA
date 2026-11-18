@@ -489,6 +489,20 @@ describe('ProcedurePage attachment', () => {
     expect(screen.queryByRole('heading', { name: 'Adjuntar documentos' })).toBeNull()
   })
 
+  it('offers a document whose file was attached in another step', async () => {
+    const elsewhere = {
+      ...detail.steps[0]!.files[0]!,
+      id: 'D-2',
+      document: 'record',
+      step: 'documents',
+      file_name: 'acta.pdf',
+    }
+    stubApi(200, { ...asksForRecord, steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [elsewhere] }] })
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+  })
+
   it('asks for a file before sending', async () => {
     const fetch = stubAttachment(201, {})
     renderPage()

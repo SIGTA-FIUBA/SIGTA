@@ -319,7 +319,8 @@ function AttachDocument({
   )
 }
 
-// AttachDocuments offers the documents of the step that have no file yet.
+// AttachDocuments offers the documents of the step that have no file attached
+// in that same step, the only one that lets it be confirmed.
 function AttachDocuments({
   procedureId,
   step,
@@ -329,7 +330,9 @@ function AttachDocuments({
   step: Step
   onAttached: () => void
 }) {
-  const missing = step.documents.filter((document) => !step.files.some((file) => file.document === document.id))
+  const missing = step.documents.filter(
+    (document) => !step.files.some((file) => file.document === document.id && file.step === step.id),
+  )
   if (missing.length === 0) {
     return null
   }
