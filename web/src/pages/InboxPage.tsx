@@ -260,7 +260,7 @@ export function InboxPage() {
   function update(changes: Record<string, string | null>) {
     const next = new URLSearchParams(params)
     for (const [name, value] of Object.entries(changes)) {
-      if (value === null || value === '') {
+      if (value === null) {
         next.delete(name)
       } else {
         next.set(name, value)
@@ -300,9 +300,7 @@ export function InboxPage() {
 
   return (
     <Stack gap="lg">
-      <Stack gap={0}>
-        <Title order={1}>Bandeja de trámites</Title>
-      </Stack>
+      <Title order={1}>Bandeja de trámites</Title>
 
       {list.isPending && <Loader aria-label="Cargando los trámites" />}
       {list.isError && list.error instanceof ForbiddenError && (

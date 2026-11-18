@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"backend/src/procedure/domain"
-	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
@@ -61,12 +60,12 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 	if err != nil {
 		return input.Started{}, err
 	}
-	documents, err := s.storeFiles(ctx, p.ID, userID, now, def, sub)
+	fields, requirements := submission.Requirements(def)
+	documents, err := s.storeFiles(ctx, p.ID, userID, now, requirements, sub)
 	if err != nil {
 		return input.Started{}, err
 	}
 
-	fields, _ := submission.Requirements(def)
 	var entered []domain.FieldValue
 	for _, r := range fields {
 		v, ok := values[r.Field.ID]
@@ -101,8 +100,7 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 
 // storeFiles keeps every file that covers a document the opening steps ask
 // for, and returns the documents that name them, still to be recorded.
-func (s *SubmissionService) storeFiles(ctx context.Context, procedureID, userID string, now time.Time, def definition.ProcedureTypeDefinition, sub input.Submission) ([]domain.Document, error) {
-	_, requirements := submission.Requirements(def)
+func (s *SubmissionService) storeFiles(ctx context.Context, procedureID, userID string, now time.Time, requirements []submission.DocumentRequirement, sub input.Submission) ([]domain.Document, error) {
 	asked := make(map[string]submission.DocumentRequirement, len(requirements))
 	for _, r := range requirements {
 		asked[r.Document.ID] = r

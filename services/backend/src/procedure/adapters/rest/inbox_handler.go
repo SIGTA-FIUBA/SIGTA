@@ -108,14 +108,10 @@ func procedureList(list inbox.List, names map[string]string) api.ProcedureList {
 		response.Items = append(response.Items, listItem)
 	}
 	for _, option := range list.ProcedureTypes {
-		response.ProcedureTypes = append(response.ProcedureTypes, api.NamedOption{Id: idText(option.ID), Name: option.Name})
+		response.ProcedureTypes = append(response.ProcedureTypes, api.NamedOption{Id: strconv.FormatInt(option.ID, 10), Name: option.Name})
 	}
 	for _, option := range list.Areas {
 		response.Areas = append(response.Areas, api.NamedOption{Id: option.ID, Name: option.Name})
 	}
 	return response
-}
-
-func idText(id int64) string {
-	return strconv.FormatInt(id, 10)
 }

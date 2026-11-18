@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,12 +67,12 @@ func loadConfig(getenv func(string) string) (config, error) {
 		return config{}, fmt.Errorf("SIGTA_ENV must be %s or %s, not %q", envDevelopment, envProduction, c.env)
 	}
 	if c.development() {
-		c.identityProvider = or(c.identityProvider, identityDev)
-		c.publicURL = or(c.publicURL, "http://localhost:8080")
-		c.appURL = or(c.appURL, "http://localhost:5173/")
-		c.allowedDomain = or(c.allowedDomain, "fi.uba.ar")
+		c.identityProvider = cmp.Or(c.identityProvider, identityDev)
+		c.publicURL = cmp.Or(c.publicURL, "http://localhost:8080")
+		c.appURL = cmp.Or(c.appURL, "http://localhost:5173/")
+		c.allowedDomain = cmp.Or(c.allowedDomain, "fi.uba.ar")
 	}
-	c.identityProvider = or(c.identityProvider, identityGoogle)
+	c.identityProvider = cmp.Or(c.identityProvider, identityGoogle)
 
 	var missing []string
 	for _, v := range []struct{ name, value string }{
@@ -127,13 +128,6 @@ func secureOrLocal(raw string) bool {
 		return false
 	}
 	return u.Scheme == "https" || (u.Scheme == "http" && u.Hostname() == "localhost")
-}
-
-func or(value, fallback string) string {
-	if value != "" {
-		return value
-	}
-	return fallback
 }
 
 // userEntry is one person in SIGTA_USERS_FILE. The file holds real names and

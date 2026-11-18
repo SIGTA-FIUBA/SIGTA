@@ -93,9 +93,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
 }
 
 export function HomePage() {
-  // The layout passes the person with the session; outside it there is none.
-  const user = useOutletContext<User | null | undefined>()
-  const staff = user?.staff === true
+  const { staff } = useOutletContext<User>()
 
   const shortcuts: Shortcut[] = [
     ...(staff
@@ -128,7 +126,7 @@ export function HomePage() {
         </Text>
       </Stack>
 
-      {user && <MyProcedures />}
+      <MyProcedures />
 
       <section aria-labelledby="shortcuts">
         <Stack gap="sm">
