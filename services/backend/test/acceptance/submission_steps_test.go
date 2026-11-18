@@ -118,7 +118,7 @@ func (w *submissionWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(administrator)
+	administrators := authmem.NewAdministrators(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
@@ -206,7 +206,7 @@ func (w *submissionWorld) givenStaff(user, area, permission string) error {
 	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 		return err
 	}
-	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 		UserID: user, Area: areaID(area), Permissions: []string{permission},
 	})
 	return err

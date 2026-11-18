@@ -110,7 +110,7 @@ func (w *documentWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(administrator)
+	administrators := authmem.NewAdministrators(scenarioAdministrator)
 	// The authors of the procedure type in the Secretariat, so that it can be
 	// published.
 	stored := authmem.NewMembershipRepository(
@@ -139,13 +139,13 @@ func (w *documentWorld) newID() string {
 func ensure(areas *authapp.AreaService, known map[string]bool, id, area, permission string) error {
 	ctx := context.Background()
 	if !known[area] {
-		if _, err := areas.Create(ctx, administrator, authdomain.Area{ID: id, Name: area}); err != nil {
+		if _, err := areas.Create(ctx, scenarioAdministrator, authdomain.Area{ID: id, Name: area}); err != nil {
 			return fmt.Errorf("area %s: %w", area, err)
 		}
 		known[area] = true
 	}
 	if key := area + "/" + permission; !known[key] {
-		if _, err := areas.CreatePermission(ctx, administrator, id, authdomain.Permission{ID: permission, Name: permission}); err != nil {
+		if _, err := areas.CreatePermission(ctx, scenarioAdministrator, id, authdomain.Permission{ID: permission, Name: permission}); err != nil {
 			return fmt.Errorf("permission %s of %s: %w", permission, area, err)
 		}
 		known[key] = true
@@ -212,7 +212,7 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 				return err
 			}
 		}
-		_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID: user, Area: areaID(area), Permissions: permissions,
 		})
 		if err != nil {
@@ -226,7 +226,7 @@ func (w *documentWorld) givenScopedStaff(user, area, permission string) error {
 	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 		return err
 	}
-	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 		UserID: user, Area: areaID(area), Permissions: []string{permission}, Scope: []int64{2},
 	})
 	return err

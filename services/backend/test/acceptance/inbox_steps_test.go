@@ -122,7 +122,7 @@ func (w *inboxWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(administrator)
+	administrators := authmem.NewAdministrators(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
@@ -209,7 +209,7 @@ func (w *inboxWorld) givenMemberships(table *godog.Table) error {
 		for _, name := range list(row.Cells[3].Value) {
 			scope = append(scope, w.typeIDs[name])
 		}
-		if _, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
+		if _, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID: user, Area: slug(area), Permissions: permissions, Scope: scope,
 		}); err != nil {
 			return err
