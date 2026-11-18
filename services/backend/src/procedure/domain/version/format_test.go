@@ -13,7 +13,7 @@ import (
 
 // formatOneContent is what testdata/format1.json reads as today: format 1
 // used every key and every value of its time, and is converted when read
-// (legacy.go). The applicant had an area of kind "applicant", and the
+// (legacy_formats.go). The applicant had an area of kind "applicant", and the
 // commission one of kind "external", which is staff.
 func formatOneContent() version.Content {
 	return version.Content{
