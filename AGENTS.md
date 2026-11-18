@@ -129,5 +129,5 @@ Los tickets viven en Linear, en el equipo SIG del espacio `sigta` (https://linea
 - Los tickets se identifican como `SIG-n`. Las historias del backlog llevan la marca `**USxx**` al principio de la descripción; los tickets que salen de partir una historia dicen "Sale de" y enlazan al original. Los criterios de aceptación están en la descripción, como checklist: **Linear es la fuente de verdad de las historias**, y [docs/08-backlog.md](docs/08-backlog.md) es solo el índice que relaciona cada `USxx` con su `SIG-n`.
 - Cada épica es un proyecto de Linear (`EP00` a `EP14`), y cada sprint es el ciclo del mismo número.
 - Etiquetas: `s01` a `s18` (sprint), `b1` a `b4` (bloque) y `Feature`, `Bug`, `Improvement`.
-- Estados: `Backlog` → `Todo` → `In Progress` → `In Review` → `Done`, más `Canceled` y `Duplicate`.
+- Estados: `Backlog` → `Todo` → `In Progress` → `In Review` → `In Dev` → `Done`, más `Canceled` y `Duplicate`. `In Dev` es lo integrado en `develop` que todavía no llegó a `main`; `Done` es lo que ya está en `main` (detalle en [docs/09-proceso-y-metricas.md](docs/09-proceso-y-metricas.md)).
 - Un agente lee tickets libremente, pero no crea, cierra ni cambia el estado de un ticket sin que se lo pidan.

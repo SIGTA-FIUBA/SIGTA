@@ -254,10 +254,12 @@ function AttachDocument({
   procedureId,
   document,
   onAttached,
+  onCancel,
 }: {
   procedureId: string
   document: DocumentRequirement
   onAttached: () => void
+  onCancel?: () => void
 }) {
   const queryClient = useQueryClient()
   const [sending, setSending] = useState(false)
@@ -319,32 +321,90 @@ function AttachDocument({
           <Button type="submit" variant="default" loading={sending} aria-label={`Adjuntar ${document.name}`}>
             Adjuntar
           </Button>
+          {onCancel && (
+            <Button variant="subtle" onClick={onCancel} aria-label={`No reemplazar ${document.name}`}>
+              Cancelar
+            </Button>
+          )}
         </Group>
       </Stack>
     </form>
   )
 }
 
-// AttachDocuments offers the documents of the step that have no file yet.
-function AttachDocuments({
+// StepDocument shows the file attached for a document in the open step, which
+// can be replaced, or the form to attach one if the step has none.
+function StepDocument({
+  procedureId,
+  step,
+  document,
+  onAttached,
+}: {
+  procedureId: string
+  step: Step
+  document: DocumentRequirement
+  onAttached: (replaced: boolean) => void
+}) {
+  const [replacing, setReplacing] = useState(false)
+  const file = step.files.find((candidate) => candidate.document === document.id && candidate.step === step.id)
+  if (!file) {
+    return <AttachDocument procedureId={procedureId} document={document} onAttached={() => onAttached(false)} />
+  }
+  if (replacing) {
+    return (
+      <AttachDocument
+        procedureId={procedureId}
+        document={document}
+        onCancel={() => setReplacing(false)}
+        onAttached={() => {
+          setReplacing(false)
+          onAttached(true)
+        }}
+      />
+    )
+  }
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={500}>
+        {document.name}
+      </Text>
+      <DocumentFile procedureId={procedureId} file={file} />
+      <Group>
+        <Button variant="default" onClick={() => setReplacing(true)} aria-label={`Reemplazar ${document.name}`}>
+          Reemplazar
+        </Button>
+      </Group>
+    </Stack>
+  )
+}
+
+// StepDocuments lists the documents of the open step. A document counts as
+// attached only with a file from that same step, the only one that lets the
+// step be confirmed.
+function StepDocuments({
   procedureId,
   step,
   onAttached,
 }: {
   procedureId: string
   step: Step
-  onAttached: () => void
+  onAttached: (replaced: boolean) => void
 }) {
-  const missing = step.documents.filter((document) => !step.files.some((file) => file.document === document.id))
-  if (missing.length === 0) {
+  if (step.documents.length === 0) {
     return null
   }
   return (
     <Paper withBorder p="md">
       <Stack gap="md">
-        <Title order={2}>Adjuntar documentos</Title>
-        {missing.map((document) => (
-          <AttachDocument key={document.id} procedureId={procedureId} document={document} onAttached={onAttached} />
+        <Title order={2}>Documentos del paso</Title>
+        {step.documents.map((document) => (
+          <StepDocument
+            key={document.id}
+            procedureId={procedureId}
+            step={step}
+            document={document}
+            onAttached={onAttached}
+          />
         ))}
       </Stack>
     </Paper>
@@ -490,11 +550,13 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
       </Stack>
       {detail.can_act && open?.role === 'staff' && (
         <>
-          <AttachDocuments
-            key={`attach-${open.id}`}
+          <StepDocuments
+            key={`documents-${open.id}`}
             procedureId={detail.id}
             step={open}
-            onAttached={() => setNotice('Documento adjuntado. Quedó en el historial.')}
+            onAttached={(replaced) =>
+              setNotice(`Documento ${replaced ? 'reemplazado' : 'adjuntado'}. Quedó en el historial.`)
+            }
           />
           <ConfirmStep
             key={open.id}
