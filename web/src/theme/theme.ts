@@ -4,6 +4,7 @@ import {
   createTheme,
   Input,
   List,
+  Modal,
   type MantineColorsTuple,
   NavLink,
   Paper,
@@ -50,6 +51,11 @@ export const theme = createTheme({
   cursorType: 'pointer',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   headings: { fontWeight: '600' },
+  other: {
+    // The height of a document opened in the page, below the header of its
+    // full screen modal.
+    documentHeight: 'calc(100dvh - 9rem)',
+  },
   components: {
     // The side menu (variant="menu") sits on the logo's light blue: each link
     // is a white box with dark text, and the current page is filled in dark
@@ -85,6 +91,9 @@ export const theme = createTheme({
       classNames: (_theme, props) => ({ root: props.variant === 'display' ? typography.display : '' }),
     }),
     List: List.extend({ styles: { item: breakLongWords.root } }),
+    // A long title, such as the name of a file, breaks instead of pushing the
+    // close button out of the screen.
+    Modal: Modal.extend({ styles: { title: { ...breakLongWords.root, minWidth: 0 } } }),
     // A long text shows its first lines and opens the rest on request.
     Spoiler: Spoiler.extend({ defaultProps: { maxHeight: 120 } }),
   },

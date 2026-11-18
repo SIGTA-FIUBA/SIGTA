@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -49,16 +50,19 @@ type documentWorld struct {
 	procedure domain.Procedure
 	nextID    int
 
-	attached   domain.Document
-	content    []byte
+	attached domain.Document
+	content  []byte
+	// contents keeps what was attached under each file name.
+	contents   map[string][]byte
 	downloaded []byte
+	file       domain.Document
 	err        error
 }
 
 // registerDocumentSteps returns its world so that the detail of a procedure
 // can share the procedure type, the staff and the procedure it sets up.
 func registerDocumentSteps(sc *godog.ScenarioContext) *documentWorld {
-	w := &documentWorld{known: map[string]bool{}}
+	w := &documentWorld{known: map[string]bool{}, contents: map[string][]byte{}}
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		return ctx, w.setUp()
 	})
@@ -74,9 +78,11 @@ func registerDocumentSteps(sc *godog.ScenarioContext) *documentWorld {
 	sc.Given(`^"([^"]*)" has a procedure waiting on the "([^"]*)" step$`, w.givenProcedure)
 	sc.Given(`^the procedure moved on to the "([^"]*)" step$`, w.givenMovedOn)
 	sc.Given(`^"([^"]*)" attached (.+) named "([^"]*)" as the "([^"]*)"$`, w.givenAttached)
+	sc.Given(`^"([^"]*)" is in the "([^"]*)" with "([^"]*)" only for another procedure type$`, w.givenScopedStaff)
 
 	sc.When(`^"([^"]*)" attaches (.+) named "([^"]*)" as the "([^"]*)"$`, w.attach)
 	sc.When(`^"([^"]*)" downloads the "([^"]*)"$`, w.download)
+	sc.When(`^"([^"]*)" downloads "([^"]*)"$`, w.downloadFile)
 
 	sc.Then(`^the "([^"]*)" of the procedure is "([^"]*)", uploaded by "([^"]*)" on the "([^"]*)" step$`, w.thenCurrent)
 	sc.Then(`^the "([^"]*)" of the procedure has the type "([^"]*)"$`, w.thenType)
@@ -84,6 +90,8 @@ func registerDocumentSteps(sc *godog.ScenarioContext) *documentWorld {
 	sc.Then(`^the procedure has no attached documents$`, func() error { return w.thenAttachedCount(0) })
 	sc.Then(`^the procedure has (\d+) attached documents$`, w.thenAttachedCount)
 	sc.Then(`^they get the same content that was attached$`, w.thenSameContent)
+	sc.Then(`^they get "([^"]*)" with the content that was attached$`, w.thenFileContent)
+	sc.Then(`^the file comes as "([^"]*)" with the type "([^"]*)"$`, w.thenFileType)
 	sc.Then(`^the procedure is not found$`, func() error { return w.thenFails(domain.ErrProcedureNotFound) })
 	sc.Then(`^the document store keeps the file under the SHA-256 digest of its content$`, w.thenStoredByDigest)
 	sc.Then(`^the record of the document names that digest and its size$`, w.thenRecordNamesDigest)
@@ -111,6 +119,8 @@ func (w *documentWorld) setUp() error {
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
 	)
+	// The Secretariat comes with SIGTA: it is not created again.
+	w.known[authinput.SecretariatArea] = true
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
@@ -213,6 +223,16 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 	return nil
 }
 
+func (w *documentWorld) givenScopedStaff(user, area, permission string) error {
+	if err := w.ensure(area, permission); err != nil {
+		return err
+	}
+	_, err := w.memberships.Grant(context.Background(), documentsAdministrator, authinput.MembershipGrant{
+		UserID: user, Area: areaID(area), Permissions: []string{permission}, Scope: []int64{2},
+	})
+	return err
+}
+
 func (w *documentWorld) givenProcedure(applicant, step string) error {
 	published, err := w.types.Version(context.Background(), 1, 1)
 	if err != nil {
@@ -292,6 +312,9 @@ func (w *documentWorld) attach(user, file, name, requirement string) {
 		FileName:    name,
 		Content:     bytes.NewReader(content),
 	})
+	if w.err == nil {
+		w.contents[w.attached.FileName] = content
+	}
 }
 
 func (w *documentWorld) download(user, requirement string) error {
@@ -308,6 +331,27 @@ func (w *documentWorld) download(user, requirement string) error {
 	}
 	_, file, err := w.service.Open(ctx, user, w.procedure.ID, id)
 	w.err = err
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = file.Close() }()
+	w.downloaded, err = io.ReadAll(file)
+	return err
+}
+
+// downloadFile downloads the file attached under that name, current or not.
+func (w *documentWorld) downloadFile(user, name string) error {
+	ctx := context.Background()
+	attached, err := w.documents.List(ctx, w.procedure.ID)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(attached, func(d domain.Document) bool { return d.FileName == name })
+	if i < 0 {
+		return fmt.Errorf("no file is named %s", name)
+	}
+	d, file, err := w.service.Open(ctx, user, w.procedure.ID, attached[i].ID)
+	w.file, w.err = d, err
 	if err != nil {
 		return nil
 	}
@@ -398,6 +442,29 @@ func (w *documentWorld) thenSameContent() error {
 	}
 	if !bytes.Equal(w.downloaded, w.content) {
 		return fmt.Errorf("got %d bytes, want the %d that were attached", len(w.downloaded), len(w.content))
+	}
+	return nil
+}
+
+func (w *documentWorld) thenFileContent(name string) error {
+	if w.err != nil {
+		return w.err
+	}
+	if w.file.FileName != name {
+		return fmt.Errorf("got %s, want %s", w.file.FileName, name)
+	}
+	if !bytes.Equal(w.downloaded, w.contents[name]) {
+		return fmt.Errorf("got %d bytes, want the %d attached as %s", len(w.downloaded), len(w.contents[name]), name)
+	}
+	return nil
+}
+
+func (w *documentWorld) thenFileType(name, mediaType string) error {
+	if w.err != nil {
+		return w.err
+	}
+	if w.file.FileName != name || w.file.MediaType != mediaType {
+		return fmt.Errorf("got %s with the type %s, want %s with %s", w.file.FileName, w.file.MediaType, name, mediaType)
 	}
 	return nil
 }

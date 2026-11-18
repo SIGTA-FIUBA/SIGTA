@@ -109,9 +109,10 @@ describe('ProcedurePage', () => {
     stubApi(200, detail)
     renderPage()
 
-    const link = await screen.findByRole('link', { name: 'constancia.pdf' })
+    const link = await screen.findByRole('link', { name: 'Descargar constancia.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-1/content')
-    expect(screen.getByText(/Anexo:/).textContent).toBe('Anexo: Sin archivo')
+    expect(screen.getByText(/^2\sKB$/)).toBeDefined()
+    expect(screen.getByText('Anexo').nextElementSibling?.textContent).toBe('Sin archivo')
   })
 
   it('shows the data entered once each, as the applicant chose it', async () => {
@@ -490,7 +491,7 @@ describe('ProcedurePage attachment', () => {
     renderPage()
 
     await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })
-    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(within(documentsSection()).getByRole('link', { name: 'Descargar acta.pdf' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
   })
@@ -519,9 +520,9 @@ describe('ProcedurePage attachment', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
 
     expect(await screen.findByText('Documento reemplazado. Quedó en el historial.')).toBeDefined()
-    const link = await within(documentsSection()).findByRole('link', { name: 'acta-corregida.pdf' })
+    const link = await within(documentsSection()).findByRole('link', { name: 'Descargar acta-corregida.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-3/content')
-    expect(within(documentsSection()).queryByRole('link', { name: 'acta.pdf' })).toBeNull()
+    expect(within(documentsSection()).queryByRole('link', { name: 'Descargar acta.pdf' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
   })
 
@@ -532,7 +533,7 @@ describe('ProcedurePage attachment', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
     await userEvent.click(screen.getByRole('button', { name: 'No reemplazar Acta' }))
 
-    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(within(documentsSection()).getByRole('link', { name: 'Descargar acta.pdf' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
   })
 
@@ -601,8 +602,9 @@ describe('ProcedurePage attachment', () => {
 
     const title = await screen.findByText('Documento adjuntado en Revisar la solicitud')
     const entry = title.closest('.mantine-Timeline-item') as HTMLElement
-    expect(within(entry).getByText(/^Acta:/)).toBeDefined()
-    const link = within(entry).getByRole('link', { name: 'acta.pdf' })
+    expect(within(entry).getByText('Acta')).toBeDefined()
+    expect(within(entry).getByRole('button', { name: 'Ver acta.pdf' })).toBeDefined()
+    const link = within(entry).getByRole('link', { name: 'Descargar acta.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-2/content')
   })
 })
