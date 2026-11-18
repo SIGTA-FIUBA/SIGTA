@@ -138,9 +138,11 @@ func (s *AreaService) Delete(ctx context.Context, administratorID, areaID string
 	return nil
 }
 
+const invalidID = "id %q has to be lowercase letters, digits and underscores, and start with a letter"
+
 func (s *AreaService) validate(ctx context.Context, a domain.Area) error {
 	if !domain.ValidID(a.ID) {
-		return fmt.Errorf("id %q has to be lowercase letters, digits and underscores, and start with a letter", a.ID)
+		return fmt.Errorf(invalidID, a.ID)
 	}
 	if a.ID == input.SecretariatArea {
 		return fmt.Errorf("id %q is reserved for the Secretariat", a.ID)
@@ -331,7 +333,7 @@ func (s *AreaService) unendedMemberships(ctx context.Context, areaID string) ([]
 
 func validatePermission(area domain.Area, p domain.Permission) error {
 	if !domain.ValidID(p.ID) {
-		return fmt.Errorf("id %q has to be lowercase letters, digits and underscores, and start with a letter", p.ID)
+		return fmt.Errorf(invalidID, p.ID)
 	}
 	if input.SystemPermission(area.ID, p.ID) {
 		return fmt.Errorf("id %q is reserved for a system permission", p.ID)
@@ -350,7 +352,7 @@ func validatePermission(area domain.Area, p domain.Permission) error {
 
 func validateRole(area domain.Area, r domain.Role) error {
 	if !domain.ValidID(r.ID) {
-		return fmt.Errorf("id %q has to be lowercase letters, digits and underscores, and start with a letter", r.ID)
+		return fmt.Errorf(invalidID, r.ID)
 	}
 	if r.Name == "" {
 		return errors.New("a role needs a name")

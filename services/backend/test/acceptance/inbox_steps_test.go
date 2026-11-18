@@ -28,8 +28,6 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-const inboxAdministrator = "admin@fi.uba.ar"
-
 // inboxWorld wires the services as the server does, and asks the inbox over
 // HTTP, so that the names and the session go through the handler.
 type inboxWorld struct {
@@ -124,7 +122,7 @@ func (w *inboxWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(inboxAdministrator)
+	administrators := authmem.NewAdministrators(administrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
@@ -147,24 +145,6 @@ func (w *inboxWorld) newID() string {
 
 func (w *inboxWorld) typeID(name string) string {
 	return strconv.FormatInt(w.typeIDs[name], 10)
-}
-
-// ensure creates the area and the permission the first time they are named.
-func (w *inboxWorld) ensure(area, permission string) error {
-	ctx := context.Background()
-	if !w.known[area] {
-		if _, err := w.areas.Create(ctx, inboxAdministrator, authdomain.Area{ID: slug(area), Name: area}); err != nil {
-			return fmt.Errorf("area %s: %w", area, err)
-		}
-		w.known[area] = true
-	}
-	if key := area + "/" + permission; !w.known[key] {
-		if _, err := w.areas.CreatePermission(ctx, inboxAdministrator, slug(area), authdomain.Permission{ID: permission, Name: permission}); err != nil {
-			return fmt.Errorf("permission %s of %s: %w", permission, area, err)
-		}
-		w.known[key] = true
-	}
-	return nil
 }
 
 // givenProcedureTypes publishes one procedure type per name, with its steps
@@ -195,7 +175,7 @@ func (w *inboxWorld) givenProcedureTypes(table *godog.Table) error {
 				return fmt.Errorf("unknown author %q", doneBy)
 			}
 			permission = strings.Trim(permission, `"`)
-			if err := w.ensure(area, permission); err != nil {
+			if err := ensure(w.areas, w.known, slug(area), area, permission); err != nil {
 				return err
 			}
 			step.Role, step.Area, step.Permissions = definition.RoleStaff, slug(area), []string{permission}
@@ -221,7 +201,7 @@ func (w *inboxWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		user, area, permissions := row.Cells[0].Value, row.Cells[1].Value, list(row.Cells[2].Value)
 		for _, permission := range permissions {
-			if err := w.ensure(area, permission); err != nil {
+			if err := ensure(w.areas, w.known, slug(area), area, permission); err != nil {
 				return err
 			}
 		}
@@ -229,7 +209,7 @@ func (w *inboxWorld) givenMemberships(table *godog.Table) error {
 		for _, name := range list(row.Cells[3].Value) {
 			scope = append(scope, w.typeIDs[name])
 		}
-		if _, err := w.memberships.Grant(context.Background(), inboxAdministrator, authinput.MembershipGrant{
+		if _, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 			UserID: user, Area: slug(area), Permissions: permissions, Scope: scope,
 		}); err != nil {
 			return err

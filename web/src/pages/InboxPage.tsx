@@ -222,9 +222,7 @@ function ItemCards({ items, from, showAction }: { items: Item[]; from: string; s
                   {item.procedure_type_name}
                 </Text>
               </Stack>
-              <Badge variant="light" color={stateColors[item.state]}>
-                {stateNames[item.state]}
-              </Badge>
+              <StateCell item={item} />
             </Group>
             <Stack gap={0}>
               <Group gap="xs">

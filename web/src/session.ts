@@ -4,14 +4,11 @@ import { api } from './api/client'
 // requireSession guards the pages that need a session: without one, the
 // browser goes to the login page. It returns the person with the session.
 export async function requireSession() {
-  const { data, response } = await api.GET('/me')
-  if (response.status === 401) {
+  const user = await optionalSession()
+  if (user === null) {
     throw redirect('/login')
   }
-  if (!data) {
-    throw new Error(`GET /me answered ${response.status}`)
-  }
-  return data
+  return user
 }
 
 // optionalSession is for the pages anyone can read, such as the catalog: it

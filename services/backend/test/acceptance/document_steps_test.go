@@ -31,8 +31,6 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-const documentsAdministrator = "admin@fi.uba.ar"
-
 var pdfOfSize = regexp.MustCompile(`^a PDF of (\d+) bytes$`)
 
 // documentWorld wires the services as the server does, with the files on a
@@ -112,7 +110,7 @@ func (w *documentWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(documentsAdministrator)
+	administrators := authmem.NewAdministrators(administrator)
 	// The authors of the procedure type in the Secretariat, so that it can be
 	// published.
 	stored := authmem.NewMembershipRepository(
@@ -136,20 +134,21 @@ func (w *documentWorld) newID() string {
 	return "D-" + strconv.Itoa(w.nextID)
 }
 
-// ensure creates the area and the permission the first time they are named.
-func (w *documentWorld) ensure(area, permission string) error {
+// ensure creates the area, with the given ID, and the permission the first
+// time they are named.
+func ensure(areas *authapp.AreaService, known map[string]bool, id, area, permission string) error {
 	ctx := context.Background()
-	if !w.known[area] {
-		if _, err := w.areas.Create(ctx, documentsAdministrator, authdomain.Area{ID: areaID(area), Name: area}); err != nil {
+	if !known[area] {
+		if _, err := areas.Create(ctx, administrator, authdomain.Area{ID: id, Name: area}); err != nil {
 			return fmt.Errorf("area %s: %w", area, err)
 		}
-		w.known[area] = true
+		known[area] = true
 	}
-	if key := area + "/" + permission; !w.known[key] {
-		if _, err := w.areas.CreatePermission(ctx, documentsAdministrator, areaID(area), authdomain.Permission{ID: permission, Name: permission}); err != nil {
+	if key := area + "/" + permission; !known[key] {
+		if _, err := areas.CreatePermission(ctx, administrator, id, authdomain.Permission{ID: permission, Name: permission}); err != nil {
 			return fmt.Errorf("permission %s of %s: %w", permission, area, err)
 		}
-		w.known[key] = true
+		known[key] = true
 	}
 	return nil
 }
@@ -187,7 +186,7 @@ func (w *documentWorld) givenProcedureType(table *godog.Table) error {
 				return fmt.Errorf("unknown author %q", doneBy)
 			}
 			permission = strings.Trim(permission, `"`)
-			if err := w.ensure(area, permission); err != nil {
+			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 				return err
 			}
 			step.Role, step.Area, step.Permissions = definition.RoleStaff, areaID(area), []string{permission}
@@ -209,11 +208,11 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		user, area, permissions := row.Cells[0].Value, row.Cells[1].Value, list(row.Cells[2].Value)
 		for _, permission := range permissions {
-			if err := w.ensure(area, permission); err != nil {
+			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 				return err
 			}
 		}
-		_, err := w.memberships.Grant(context.Background(), documentsAdministrator, authinput.MembershipGrant{
+		_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 			UserID: user, Area: areaID(area), Permissions: permissions,
 		})
 		if err != nil {
@@ -224,10 +223,10 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 }
 
 func (w *documentWorld) givenScopedStaff(user, area, permission string) error {
-	if err := w.ensure(area, permission); err != nil {
+	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 		return err
 	}
-	_, err := w.memberships.Grant(context.Background(), documentsAdministrator, authinput.MembershipGrant{
+	_, err := w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID: user, Area: areaID(area), Permissions: []string{permission}, Scope: []int64{2},
 	})
 	return err
