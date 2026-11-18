@@ -19,6 +19,28 @@ SIGTA lo desarrolla un equipo cerrado de cuatro integrantes. Esta guía resume l
 - **Documentación en el mismo pull request:** si un cambio modifica el comportamiento, la arquitectura o la configuración de trámites, la documentación se actualiza junto con el código.
 - **Decisiones:** toda decisión que condicione la arquitectura o el alcance se registra como ADR en [docs/04-decisiones-adr.md](docs/04-decisiones-adr.md). El README muestra solo el resultado vigente y se actualiza en el mismo pull request.
 - **Datos:** nunca se suben datos personales reales; solo datos sintéticos o anonimizados.
+- **Nombres:** un archivo, una función o una variable se nombra por lo que es o hace en el vocabulario del dominio (ver "Nombres"), para que el repositorio se pueda recorrer sin leer el código.
+
+## Nombres
+
+El vocabulario es el de la tabla de [AGENTS.md](AGENTS.md#vocabulario): un concepto tiene un solo nombre en todo el repositorio, del contrato a la web.
+
+Backend:
+
+- Un archivo por concepto, en `snake_case` y en plural cuando guarda o expone una colección: `procedures.go`, `procedure_type_versions.go`. El test de un archivo es `<archivo>_test.go`.
+- Un puerto por archivo, con el nombre del archivo. Los de entrada son lo que el módulo ofrece (`Procedures`, `Areas`, `StaffAuthorizer`); los de salida, `<Concepto>Repository` (`UserRepository`, `ProcedureTypeVersionRepository`). El adaptador de un puerto se llama igual en cada tecnología (`memory/procedure_type_versions.go`, `postgres/procedure_type_versions.go`), y un adaptador REST, `<concepto>_handler.go`.
+- En un repositorio, `Get` busca uno por su clave y `GetBy<Campo>` por otro campo; si no existe, fallan con `Err<Concepto>NotFound`.
+- Los errores son `Err<Concepto><Problema>`: `ErrUserNotFound`, `ErrVersionExists`.
+- Un caso de uso es `<Concepto>Service` en `application/<concepto>.go`.
+- Los pasos de `features/<historia>.feature` van en `test/acceptance/<historia>_steps_test.go`. Los pasos que comparten varias historias van en un archivo con el nombre de lo que cubren, como `document_steps_test.go`.
+
+Web:
+
+- Un componente por archivo, con el mismo nombre que exporta (`AppLayout.tsx`); las páginas terminan en `Page`. Un módulo sin JSX va en `camelCase.ts` (`submission.ts`).
+- Un tipo del contrato se usa con el nombre que tiene en el esquema (`type ProcedureListItem = components['schemas']['ProcedureListItem']`).
+- Una consulta compartida es `use<Qué>` en `api/` (`useInboxProcedures`, `useMyProcedures`) y su clave sigue la ruta de la API (`['me', 'procedures']`).
+- Un texto que se calcula es `<algo>Text` y un mapa de textos, `<algo>Texts` (`loginErrorText`, `problemTexts`); un contador, `<algo>Count`; un booleano empieza con `is`, `has` o `can`; una expresión regular termina en `Pattern`.
+- Los tests repiten la estructura de `src/` en `tests/` (`src/layout/AppLayout.tsx` se prueba en `tests/layout/AppLayout.test.tsx`), con `.test.ts` si no tienen JSX. Dentro, `stubApi` reemplaza la API y `render<Algo>` monta la pantalla: `renderAt(path)` en una ruta, `renderAs(staff)` con una sesión.
 
 ## Modelo de tipo de trámite
 
