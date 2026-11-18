@@ -69,7 +69,7 @@ function stubApi(status: number, body: unknown) {
   return fetch
 }
 
-function renderInbox(path = '/inbox') {
+function renderAt(path = '/inbox') {
   const router = createMemoryRouter(
     [
       { path: '/inbox', element: <InboxPage /> },
@@ -110,7 +110,7 @@ describe('InboxPage', () => {
 
   it('asks once for everything the person can see', async () => {
     const fetch = stubApi(200, { items: [pending], ...options })
-    renderInbox()
+    renderAt()
 
     await tableRows()
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -119,7 +119,7 @@ describe('InboxPage', () => {
 
   it('shows the procedure type, pending step, who has it, state and age', async () => {
     stubApi(200, { items: [pending], ...options })
-    renderInbox()
+    renderAt()
 
     const [row] = await tableRows()
     expect(within(row!).getByRole('link', { name: 'Titular Uno' })).toBeVisible()
@@ -133,7 +133,7 @@ describe('InboxPage', () => {
 
   it('shows the applicant in charge of a step of their own, and a name the API does not know', async () => {
     stubApi(200, { items: [{ ...waiting, applicant: { id: 'a-3', name: '' } }], ...options })
-    renderInbox('/inbox?view=all')
+    renderAt('/inbox?view=all')
 
     const [row] = await tableRows()
     expect(within(row!).getByRole('link', { name: 'Titular sin nombre registrado' })).toBeVisible()
@@ -142,7 +142,7 @@ describe('InboxPage', () => {
 
   it('shows only what needs action by default', async () => {
     stubApi(200, { items: [pending, evaluating, waiting], ...options })
-    renderInbox()
+    renderAt()
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Uno'])
@@ -152,7 +152,7 @@ describe('InboxPage', () => {
 
   it('counts each state over everything visible, whatever the filters', async () => {
     stubApi(200, { items: [pending, evaluating, waiting], ...options })
-    renderInbox('/inbox?view=all&type=3')
+    renderAt('/inbox?view=all&type=3')
 
     await tableRows()
     expect(screen.getByRole('button', { name: /Acción requerida\s*1/ })).toBeVisible()
@@ -162,7 +162,7 @@ describe('InboxPage', () => {
 
   it('lists everything in progress, marking what needs action, oldest first', async () => {
     stubApi(200, { items: [pending, evaluating, waiting], ...options })
-    renderInbox('/inbox?view=all')
+    renderAt('/inbox?view=all')
 
     const rows = await tableRows()
     expect(listedNames()).toEqual(['Titular Dos', 'Titular Tres', 'Titular Uno'])
@@ -172,7 +172,7 @@ describe('InboxPage', () => {
 
   it('filters by state from a summary and by the selects, combined', async () => {
     stubApi(200, { items: [pending, evaluating, waiting], ...options })
-    const router = renderInbox()
+    const router = renderAt()
     await tableRows()
 
     await userEvent.click(screen.getByRole('button', { name: /En un área/ }))
@@ -191,7 +191,7 @@ describe('InboxPage', () => {
 
   it('sorts by the last movement', async () => {
     stubApi(200, { items: [pending, evaluating, waiting], ...options })
-    renderInbox('/inbox?view=all&sort=last_moved')
+    renderAt('/inbox?view=all&sort=last_moved')
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Tres', 'Titular Uno', 'Titular Dos'])
@@ -206,7 +206,7 @@ describe('InboxPage', () => {
           : Response.json({ items: [pending, evaluating, waiting], ...options }),
       ),
     )
-    const router = renderInbox('/inbox?view=all&area=office')
+    const router = renderAt('/inbox?view=all&area=office')
 
     const [row] = await tableRows()
     await userEvent.click(within(row!).getByRole('link', { name: 'Titular Uno' }))
@@ -220,35 +220,35 @@ describe('InboxPage', () => {
 
   it('says when nothing needs action', async () => {
     stubApi(200, { items: [evaluating], ...options })
-    renderInbox()
+    renderAt()
 
     expect(await screen.findByText('No hay trámites que requieran acción de esta cuenta.')).toBeVisible()
   })
 
   it('says when there is nothing in progress', async () => {
     stubApi(200, { items: [], procedure_types: [], areas: [] })
-    renderInbox('/inbox?view=all')
+    renderAt('/inbox?view=all')
 
     expect(await screen.findByText('No hay trámites en curso.')).toBeVisible()
   })
 
   it('tells who is not staff that the inbox is not theirs', async () => {
     stubApi(403, { message: 'La bandeja es solo para el personal.' })
-    renderInbox()
+    renderAt()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('disponible solo para el personal')
   })
 
   it('says when the inbox fails', async () => {
     stubApi(500, { message: 'Ocurrió un error inesperado.' })
-    renderInbox()
+    renderAt()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la bandeja de trámites.')
   })
 
   it('ignores filters in the URL that it does not know', async () => {
     stubApi(200, { items: [pending, evaluating], ...options })
-    renderInbox('/inbox?view=everything&state=approved&type=abc&sort=name')
+    renderAt('/inbox?view=everything&state=approved&type=abc&sort=name')
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Uno'])
