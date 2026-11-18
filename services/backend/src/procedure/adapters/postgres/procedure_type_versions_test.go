@@ -23,11 +23,11 @@ import (
 	"backend/src/procedure/ports/output/outputtest"
 )
 
-func TestProcedureVersions(t *testing.T) {
+func TestProcedureTypeVersionRepository(t *testing.T) {
 	for _, isolation := range []dbtest.Isolation{dbtest.ReadCommitted, dbtest.Serializable} {
 		t.Run(string(isolation), func(t *testing.T) {
-			outputtest.TestProcedureVersions(t, func(t *testing.T) output.ProcedureVersions {
-				return postgres.NewProcedureVersions(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, isolation))
+			outputtest.TestProcedureTypeVersionRepository(t, func(t *testing.T) output.ProcedureTypeVersionRepository {
+				return postgres.NewProcedureTypeVersionRepository(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, isolation))
 			})
 		})
 	}
@@ -56,7 +56,7 @@ func TestPublicationThatLosesTheRace(t *testing.T) {
 			ctx := t.Context()
 			schema := dbtest.NewSchema(t)
 			pool := schema.Pool(t, dbtest.AppRole, tc.isolation)
-			store := postgres.NewProcedureVersions(pool)
+			store := postgres.NewProcedureTypeVersionRepository(pool)
 			if tc.number > 1 {
 				if err := store.Add(ctx, outputtest.Version(1, 1, "Primera")); err != nil {
 					t.Fatal(err)
@@ -125,7 +125,7 @@ func TestDigestFromSQL(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewSchema(t)
 	pool := schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
-	store := postgres.NewProcedureVersions(pool)
+	store := postgres.NewProcedureTypeVersionRepository(pool)
 	v := outputtest.Version(1, 1, "Equivalencia de materias: año, acción, 日本語, 🎓")
 	if err := store.Add(ctx, v); err != nil {
 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestDigestFromSQL(t *testing.T) {
 func TestServiceOnAnAlteredVersion(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewSchema(t)
-	service := application.NewProcedureTypeService(postgres.NewProcedureVersions(schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)), areaService(), everyoneHolds{}, time.Now)
+	service := application.NewProcedureTypeService(postgres.NewProcedureTypeVersionRepository(schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)), areaService(), everyoneHolds{}, time.Now)
 	d := definitiontest.Definition()
 	authors := version.Authorship{ProposedBy: "ana", ApprovedBy: "beto"}
 	published, err := service.Publish(ctx, input.Publication{ProcedureType: 1, Definition: d, Authorship: authors})
@@ -199,7 +199,7 @@ func TestRivalOfAnotherProcedureType(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
 			pool := dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.Serializable)
-			store := postgres.NewProcedureVersions(pool)
+			store := postgres.NewProcedureTypeVersionRepository(pool)
 
 			rivals, attempts := 0, 0
 			var rival pgx.Tx
@@ -245,8 +245,8 @@ func TestRivalOfAnotherProcedureType(t *testing.T) {
 			if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != "40001" || errors.Is(err, output.ErrVersionExists) {
 				t.Errorf("Add() = %v, want SQLSTATE 40001 and not ErrVersionExists", err)
 			}
-			if !errors.Is(getErr, output.ErrNoVersion) {
-				t.Errorf("Get() = %v, want ErrNoVersion", getErr)
+			if !errors.Is(getErr, output.ErrVersionNotFound) {
+				t.Errorf("Get() = %v, want ErrVersionNotFound", getErr)
 			}
 		})
 	}
@@ -256,7 +256,7 @@ func TestRivalOfAnotherProcedureType(t *testing.T) {
 // whose digest does not match its content, and that Add reports it as an
 // altered content.
 func TestDigestThatIsNotOfTheContent(t *testing.T) {
-	store := postgres.NewProcedureVersions(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
+	store := postgres.NewProcedureTypeVersionRepository(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
 	v := outputtest.Version(1, 1, "Primera")
 	v.Digest = outputtest.Version(1, 1, "Otra").Digest
 	err := store.Add(t.Context(), v)
@@ -277,7 +277,7 @@ func violatesDigestCheck(err error) bool {
 func TestApproverThatTheDatabaseFolds(t *testing.T) {
 	ctx := t.Context()
 	pool := dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
-	store := postgres.NewProcedureVersions(pool)
+	store := postgres.NewProcedureTypeVersionRepository(pool)
 
 	v := outputtest.Version(1, 1, "Primera")
 	v.Authorship = version.Authorship{ProposedBy: "ana", ApprovedBy: "ANA"}

@@ -169,7 +169,7 @@ Si los roles no existen, las pruebas los crean sin permiso para iniciar sesión.
 
 Sin la variable, esas pruebas se saltean; en la integración continua, donde está definida `CI`, fallan.
 
-El contrato de un puerto de salida puede estar en `ports/output/outputtest`, como una suite que recibe una función que arma el adaptador, por ejemplo `outputtest.TestProcedureVersions`. Cada adaptador del puerto, en memoria o contra una base, la corre en su propio test.
+El contrato de un puerto de salida puede estar en `ports/output/outputtest`, como una suite que recibe una función que arma el adaptador, por ejemplo `outputtest.TestProcedureTypeVersionRepository`. Cada adaptador del puerto, en memoria o contra una base, la corre en su propio test.
 
 La bandeja del personal (`GET /procedures`) lee los mismos trámites que el detalle (`ProcedureRepository`) y decide quién ve y quién actúa con las mismas reglas (`canSee` y `canAct`, ADR-020), así que la bandeja y el detalle le responden lo mismo a la misma persona. El caso de uso es `application.InboxService`; lo que arma la lista está en `services/backend/src/procedure/domain/inbox/`:
 

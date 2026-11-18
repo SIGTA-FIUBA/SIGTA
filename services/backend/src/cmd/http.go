@@ -83,7 +83,7 @@ func run(logger *slog.Logger) error {
 	// stops it.
 	startup, cancel := context.WithTimeout(stop, 30*time.Second)
 	defer cancel()
-	versions, closeVersions, err := openProcedureVersions(startup, cfg, logger)
+	versions, closeVersions, err := openProcedureTypeVersions(startup, cfg, logger)
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
@@ -264,9 +264,9 @@ func devAreas() []domain.Area {
 // flow goes in a new procedure type, as devReferralProcedureType. If another
 // start publishes first, publishing again finds the same content and returns
 // the stored version; another content is an error.
-func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, publication input.Publication) error {
+func publishIfMissing(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedureTypes input.ProcedureTypes, publication input.Publication) error {
 	_, err := versions.Latest(ctx, publication.ProcedureType)
-	if !errors.Is(err, output.ErrNoVersion) {
+	if !errors.Is(err, output.ErrVersionNotFound) {
 		return err
 	}
 	_, err = procedureTypes.Publish(ctx, publication)
@@ -280,7 +280,7 @@ func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, pr
 // it for an applicant. With the identity of development the procedure is of
 // the test applicant. With Google nobody signs in as that applicant, so it is
 // of the first account that registers, which the returned users hand it to.
-func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
+func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureTypeVersionRepository, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
 	if err := publishIfMissing(ctx, versions, procedureTypes, devProcedureType()); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type: %w", err)
 	}
@@ -345,7 +345,7 @@ const (
 // the documents of the applicant and one on the review of staff, so that
 // there is something to show and to confirm until procedures can be started
 // and moved from the interface.
-func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, procedures output.ProcedureRepository, applicant string) error {
+func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, applicant string) error {
 	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil {
 		return err

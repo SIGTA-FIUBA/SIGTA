@@ -18,9 +18,9 @@ import (
 // publishers is how many publications of the same version race each other.
 const publishers = 8
 
-// TestProcedureVersions runs the contract of output.ProcedureVersions.
+// TestProcedureTypeVersionRepository runs the contract of output.ProcedureTypeVersionRepository.
 // newStore returns an empty store each time it is called.
-func TestProcedureVersions(t *testing.T, newStore func(t *testing.T) output.ProcedureVersions) {
+func TestProcedureTypeVersionRepository(t *testing.T, newStore func(t *testing.T) output.ProcedureTypeVersionRepository) {
 	t.Run("numbers without gaps", func(t *testing.T) { numbersWithoutGaps(t, newStore(t)) })
 	t.Run("latest of each", func(t *testing.T) { latestOfEach(t, newStore(t)) })
 	t.Run("content byte for byte", func(t *testing.T) { byteForByte(t, newStore(t)) })
@@ -44,10 +44,10 @@ func Version(procedureType int64, number int, name string) version.ProcedureType
 	}
 }
 
-func numbersWithoutGaps(t *testing.T, s output.ProcedureVersions) {
+func numbersWithoutGaps(t *testing.T, s output.ProcedureTypeVersionRepository) {
 	ctx := t.Context()
-	if _, err := s.Latest(ctx, 1); !errors.Is(err, output.ErrNoVersion) {
-		t.Errorf("Latest() of an empty store = %v, want ErrNoVersion", err)
+	if _, err := s.Latest(ctx, 1); !errors.Is(err, output.ErrVersionNotFound) {
+		t.Errorf("Latest() of an empty store = %v, want ErrVersionNotFound", err)
 	}
 	for _, add := range []struct {
 		number int
@@ -84,8 +84,8 @@ func numbersWithoutGaps(t *testing.T, s output.ProcedureVersions) {
 		}
 	}
 	for _, number := range []int{0, 3} {
-		if _, err := s.Get(ctx, 1, number); !errors.Is(err, output.ErrNoVersion) {
-			t.Errorf("Get(1, %d) = %v, want ErrNoVersion", number, err)
+		if _, err := s.Get(ctx, 1, number); !errors.Is(err, output.ErrVersionNotFound) {
+			t.Errorf("Get(1, %d) = %v, want ErrVersionNotFound", number, err)
 		}
 	}
 
@@ -101,7 +101,7 @@ func numbersWithoutGaps(t *testing.T, s output.ProcedureVersions) {
 	}
 }
 
-func latestOfEach(t *testing.T, s output.ProcedureVersions) {
+func latestOfEach(t *testing.T, s output.ProcedureTypeVersionRepository) {
 	ctx := t.Context()
 	if got, err := s.LatestOfEach(ctx); err != nil || len(got) != 0 {
 		t.Fatalf("LatestOfEach() of an empty store = %v, %v, want nothing", got, err)
@@ -122,7 +122,7 @@ func latestOfEach(t *testing.T, s output.ProcedureVersions) {
 
 // byteForByte stores content that a decoder would change: keys out of order,
 // spaces, escapes, characters outside ASCII and bytes that are not UTF-8.
-func byteForByte(t *testing.T, s output.ProcedureVersions) {
+func byteForByte(t *testing.T, s output.ProcedureTypeVersionRepository) {
 	ctx := t.Context()
 	contents := [][]byte{
 		[]byte("{ \"definition\": {\"name\":\"Equivalencia de materias: año, acción, ñandú, Ünïcödé, 日本語, 🎓\", \"description\":\"caf\\u00e9\"},\n\t\"format\": 1 }"),
@@ -157,7 +157,7 @@ func byteForByte(t *testing.T, s output.ProcedureVersions) {
 	}
 }
 
-func noSharedMemory(t *testing.T, s output.ProcedureVersions) {
+func noSharedMemory(t *testing.T, s output.ProcedureTypeVersionRepository) {
 	ctx := t.Context()
 	v := Version(1, 1, "Primera")
 	if err := s.Add(ctx, v); err != nil {
@@ -186,7 +186,7 @@ func noSharedMemory(t *testing.T, s output.ProcedureVersions) {
 // concurrentPublications races several publications of each number. Exactly
 // one wins and the rest get ErrVersionExists, so the numbers have no gaps and
 // the latest is the winner.
-func concurrentPublications(t *testing.T, s output.ProcedureVersions) {
+func concurrentPublications(t *testing.T, s output.ProcedureTypeVersionRepository) {
 	ctx := t.Context()
 	const rounds = 5
 	for number := 1; number <= rounds; number++ {

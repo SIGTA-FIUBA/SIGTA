@@ -11,28 +11,28 @@ import (
 	"backend/src/procedure/ports/output"
 )
 
-var _ output.ProcedureVersions = (*ProcedureVersions)(nil)
+var _ output.ProcedureTypeVersionRepository = (*ProcedureTypeVersionRepository)(nil)
 
-type ProcedureVersions struct {
+type ProcedureTypeVersionRepository struct {
 	mu       sync.Mutex
 	versions map[int64][]version.ProcedureTypeVersion
 }
 
-func NewProcedureVersions() *ProcedureVersions {
-	return &ProcedureVersions{versions: map[int64][]version.ProcedureTypeVersion{}}
+func NewProcedureTypeVersionRepository() *ProcedureTypeVersionRepository {
+	return &ProcedureTypeVersionRepository{versions: map[int64][]version.ProcedureTypeVersion{}}
 }
 
-func (s *ProcedureVersions) Latest(_ context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) Latest(_ context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored := s.versions[procedureType]
 	if len(stored) == 0 {
-		return version.ProcedureTypeVersion{}, output.ErrNoVersion
+		return version.ProcedureTypeVersion{}, output.ErrVersionNotFound
 	}
 	return clone(stored[len(stored)-1]), nil
 }
 
-func (s *ProcedureVersions) LatestOfEach(context.Context) ([]version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) LatestOfEach(context.Context) ([]version.ProcedureTypeVersion, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	latest := make([]version.ProcedureTypeVersion, 0, len(s.versions))
@@ -47,17 +47,17 @@ func (s *ProcedureVersions) LatestOfEach(context.Context) ([]version.ProcedureTy
 	return latest, nil
 }
 
-func (s *ProcedureVersions) Get(_ context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) Get(_ context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored := s.versions[procedureType]
 	if number < 1 || number > len(stored) {
-		return version.ProcedureTypeVersion{}, output.ErrNoVersion
+		return version.ProcedureTypeVersion{}, output.ErrVersionNotFound
 	}
 	return clone(stored[number-1]), nil
 }
 
-func (s *ProcedureVersions) Add(_ context.Context, v version.ProcedureTypeVersion) error {
+func (s *ProcedureTypeVersionRepository) Add(_ context.Context, v version.ProcedureTypeVersion) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored := s.versions[v.ProcedureTypeID]

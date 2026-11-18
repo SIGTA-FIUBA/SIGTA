@@ -31,7 +31,7 @@ func (applicants) Reach(context.Context, string) ([]authinput.AreaReach, error) 
 // version lost and published again with the same number is not that one.
 func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 	ctx := t.Context()
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	published, err := types.Publish(ctx, publication(1, 0, testDefinition()))
 	if err != nil {
 		t.Fatal(err)

@@ -27,7 +27,7 @@ type procedureTypeWorld struct {
 	// areas is what auth keeps, and stepAreas what a version copies of them.
 	areas     *authmem.AreaRepository
 	stepAreas []definition.Area
-	versions  *memory.ProcedureVersions
+	versions  *memory.ProcedureTypeVersionRepository
 	authors   version.Authorship
 	now       time.Time
 
@@ -47,7 +47,7 @@ type procedureTypeWorld struct {
 
 func registerProcedureTypeSteps(sc *godog.ScenarioContext) {
 	w := &procedureTypeWorld{
-		versions: memory.NewProcedureVersions(),
+		versions: memory.NewProcedureTypeVersionRepository(),
 		now:      time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC),
 	}
 
@@ -97,7 +97,7 @@ func (w *procedureTypeWorld) service() *application.ProcedureTypeService {
 
 func (w *procedureTypeWorld) latest() (int, error) {
 	v, err := w.versions.Latest(context.Background(), procedureType)
-	if errors.Is(err, output.ErrNoVersion) {
+	if errors.Is(err, output.ErrVersionNotFound) {
 		return 0, nil
 	}
 	return v.Number, err
@@ -234,7 +234,7 @@ func (w *procedureTypeWorld) givenAlteredVersion(number int) error {
 // restore from a backup taken before number was published, and publishes
 // number again with other content.
 func (w *procedureTypeWorld) givenRepublished(number int) error {
-	restored := memory.NewProcedureVersions()
+	restored := memory.NewProcedureTypeVersionRepository()
 	for n := 1; n < number; n++ {
 		v, err := w.versions.Get(context.Background(), procedureType, n)
 		if err != nil {

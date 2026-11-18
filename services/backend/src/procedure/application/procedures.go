@@ -210,7 +210,7 @@ func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (ver
 	}
 	i := slices.IndexFunc(entries, func(e input.CatalogEntry) bool { return e.ProcedureType == procedureType })
 	if i < 0 {
-		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrNoVersion)
+		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrVersionNotFound)
 	}
 	return s.procedureTypes.Version(ctx, procedureType, entries[i].Version)
 }

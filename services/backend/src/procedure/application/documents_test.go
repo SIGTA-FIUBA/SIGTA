@@ -134,7 +134,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	if _, err := memberships.Grant(ctx, "admin", authinput.MembershipGrant{UserID: reviewer, Area: office.ID, Permissions: []string{"review"}}); err != nil {
 		t.Fatal(err)
 	}
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	published, err := types.Publish(ctx, publication(1, 0, documentsDefinition()))
 	if err != nil {
 		t.Fatal(err)

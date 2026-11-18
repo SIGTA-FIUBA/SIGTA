@@ -62,7 +62,7 @@ func (h *ProcedureHandler) SubmitProcedure(ctx context.Context, req api.SubmitPr
 		return api.SubmitProcedure400JSONResponse{Message: messageSubmissionTooLarge, Problems: []api.SubmissionProblem{}}, nil
 	case errors.Is(err, errMalformedUpload):
 		return malformedSubmission(), nil
-	case errors.Is(err, output.ErrNoVersion):
+	case errors.Is(err, output.ErrVersionNotFound):
 		return api.SubmitProcedure404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: messageNoProcedureType}}, nil
 	case err != nil:
 		return nil, err

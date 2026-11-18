@@ -21,7 +21,7 @@ import (
 // and those of the applicant only show in the full list.
 func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	if err := publishIfMissing(ctx, versions, types, devProcedureType()); err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 // the review refers it to the committee, whose ruling returns it.
 func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	if err := publishIfMissing(ctx, versions, types, devReferralProcedureType()); err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 // on the last step of the example with a ruling.
 func TestDevRulingExampleAsksTheStaffForTheRuling(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	for _, example := range []input.Publication{devProcedureType(), devReferralProcedureType(), devRulingProcedureType()} {
 		if err := publishIfMissing(ctx, versions, types, example); err != nil {

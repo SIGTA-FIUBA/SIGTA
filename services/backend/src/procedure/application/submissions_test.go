@@ -21,7 +21,7 @@ func TestSubmitRecordsTheOpeningStepsAsDoneByTheApplicant(t *testing.T) {
 		{ID: "detail", Name: "Detalle", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, Next: "review"},
 		{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: office.ID, Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 	}
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	if _, err := types.Publish(ctx, publication(1, 0, d)); err != nil {
 		t.Fatal(err)
 	}

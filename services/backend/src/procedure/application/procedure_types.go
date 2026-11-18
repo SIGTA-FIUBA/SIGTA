@@ -19,13 +19,13 @@ import (
 var _ input.ProcedureTypes = (*ProcedureTypeService)(nil)
 
 type ProcedureTypeService struct {
-	versions        output.ProcedureVersions
+	versions        output.ProcedureTypeVersionRepository
 	areas           authinput.Areas
 	staffAuthorizer authinput.StaffAuthorizer
 	now             func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureVersions, areas authinput.Areas, staff authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
+func NewProcedureTypeService(versions output.ProcedureTypeVersionRepository, areas authinput.Areas, staff authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
 	return &ProcedureTypeService{versions: versions, areas: areas, staffAuthorizer: staff, now: now}
 }
 
@@ -164,7 +164,7 @@ func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntr
 // it would hide the alteration.
 func (s *ProcedureTypeService) latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
 	v, err := s.versions.Latest(ctx, procedureType)
-	if errors.Is(err, output.ErrNoVersion) {
+	if errors.Is(err, output.ErrVersionNotFound) {
 		return version.ProcedureTypeVersion{}, nil
 	}
 	if err != nil {
