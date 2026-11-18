@@ -143,7 +143,7 @@ func newPending() domain.PendingLogin {
 	return domain.PendingLogin{State: "state", Nonce: "nonce", CodeVerifier: oauth2.GenerateVerifier()}
 }
 
-func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending domain.PendingLogin) url.Values {
+func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending domain.PendingLogin) {
 	t.Helper()
 	u, err := url.Parse(p.AuthorizationURL(pending, ""))
 	if err != nil {
@@ -163,7 +163,6 @@ func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending 
 		"iat":            now.Unix(),
 		"exp":            now.Add(time.Hour).Unix(),
 	}
-	return query
 }
 
 func TestLoginWithAnInstitutionalAccount(t *testing.T) {

@@ -130,17 +130,14 @@ func (w *authenticationWorld) newBrowser() error {
 	return nil
 }
 
-// do takes a path or a full URL, and records the result.
-func (w *authenticationWorld) do(method, target, body string) error {
+// get takes a path or a full URL, and records the result.
+func (w *authenticationWorld) get(target string) error {
 	if strings.HasPrefix(target, "/") {
 		target = baseURL + target
 	}
-	req, err := http.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, target, http.NoBody)
 	if err != nil {
 		return err
-	}
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
 	}
 	res, err := w.client.Do(req)
 	if err != nil {
@@ -213,7 +210,7 @@ func (w *authenticationWorld) begin(target string) (string, error) {
 	if err := w.newBrowser(); err != nil {
 		return "", err
 	}
-	if err := w.do(http.MethodGet, target, ""); err != nil {
+	if err := w.get(target); err != nil {
 		return "", err
 	}
 	return w.location, w.expectStatus(http.StatusFound)
@@ -225,7 +222,7 @@ func (w *authenticationWorld) signIn(email string) error {
 		return err
 	}
 	w.callback = callback
-	return w.do(http.MethodGet, callback, "")
+	return w.get(callback)
 }
 
 // signInRejected relies on the development provider, which rejects a login
@@ -235,7 +232,7 @@ func (w *authenticationWorld) signInRejected() error {
 	if err != nil {
 		return err
 	}
-	return w.do(http.MethodGet, callback, "")
+	return w.get(callback)
 }
 
 func (w *authenticationWorld) signInCancelled(email string) error {
@@ -251,7 +248,7 @@ func (w *authenticationWorld) signInCancelled(email string) error {
 	query.Del("code")
 	query.Set("error", "access_denied")
 	cancelled.RawQuery = query.Encode()
-	return w.do(http.MethodGet, cancelled.String(), "")
+	return w.get(cancelled.String())
 }
 
 func (w *authenticationWorld) signInForged() error {
@@ -266,11 +263,11 @@ func (w *authenticationWorld) signInForged() error {
 	query := forged.Query()
 	query.Set("state", "forged")
 	forged.RawQuery = query.Encode()
-	return w.do(http.MethodGet, forged.String(), "")
+	return w.get(forged.String())
 }
 
 func (w *authenticationWorld) repeatCallback() error {
-	return w.do(http.MethodGet, w.callback, "")
+	return w.get(w.callback)
 }
 
 func (w *authenticationWorld) pass(minutes int) error {
@@ -291,7 +288,7 @@ func (w *authenticationWorld) keepActive(minutes int) error {
 }
 
 func (w *authenticationWorld) currentUser() error {
-	return w.do(http.MethodGet, "/me", "")
+	return w.get("/me")
 }
 
 func (w *authenticationWorld) thenSessionOpened() error {
