@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Code,
+  FileInput,
   Group,
   Loader,
   Paper,
@@ -23,12 +24,17 @@ import { Link, useLocation, useParams } from 'react-router'
 import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
-import { sizeText } from '../documentFormats'
+import { LongValue } from '../components/LongValue/LongValue'
+import { documentDescription, sizeText } from '../documentFormats'
 import { stateColors, stateNames } from '../procedureState'
+import { fileError, valueText } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
 type Step = components['schemas']['ProcedureStep']
 type Event = components['schemas']['ProcedureEvent']
+type FieldRequirement = components['schemas']['FieldRequirement']
+type DocumentRequirement = components['schemas']['DocumentRequirement']
+type Value = components['schemas']['ProcedureValue']
 
 const dateTime = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
@@ -95,6 +101,10 @@ function referralText(referral: NonNullable<Detail['referral']>) {
   return `En ${referral.area.name}, desde ${referral.from.name}. ${days} sin retorno.`
 }
 
+function contentUrl(procedureId: string, documentId: string) {
+  return `/api/procedures/${encodeURIComponent(procedureId)}/documents/${encodeURIComponent(documentId)}/content`
+}
+
 function StepCard({ procedureId, step, open }: { procedureId: string; step: Step; open: boolean }) {
   return (
     <Paper withBorder p="md">
@@ -111,15 +121,7 @@ function StepCard({ procedureId, step, open }: { procedureId: string; step: Step
           return (
             <Text key={requirement.id} size="sm">
               {requirement.name}:{' '}
-              {file ? (
-                <Anchor
-                  href={`/api/procedures/${encodeURIComponent(procedureId)}/documents/${encodeURIComponent(file.id)}/content`}
-                >
-                  {file.file_name}
-                </Anchor>
-              ) : (
-                'Sin archivo'
-              )}
+              {file ? <Anchor href={contentUrl(procedureId, file.id)}>{file.file_name}</Anchor> : 'Sin archivo'}
               {file && ` (${sizeText(file.size)})`}
             </Text>
           )
@@ -129,8 +131,57 @@ function StepCard({ procedureId, step, open }: { procedureId: string; step: Step
   )
 }
 
+// enteredValues lists each field that has a value once, in the order of the
+// steps, even if more than one step asks for it.
+function enteredValues(detail: Detail) {
+  const entered = new Map<string, { field: FieldRequirement; value: Value }>()
+  for (const step of detail.steps) {
+    for (const value of step.values) {
+      const field = step.fields.find((candidate) => candidate.id === value.field)
+      if (field && !entered.has(field.id)) {
+        entered.set(field.id, { field, value })
+      }
+    }
+  }
+  return [...entered.values()]
+}
+
+function Values({ detail }: { detail: Detail }) {
+  const entered = enteredValues(detail)
+  if (entered.length === 0) {
+    return <Text c="dimmed">El trámite no tiene datos cargados.</Text>
+  }
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="sm">
+        {entered.map(({ field, value }) => (
+          <Fact key={field.id} label={field.name}>
+            {value.items ? (
+              <LongValue text={value.items.map((item) => item.trim()).join('\n')} />
+            ) : field.type === 'long_text' ? (
+              <LongValue text={valueText(field, value.text)} />
+            ) : (
+              <Text>{valueText(field, value.text)}</Text>
+            )}
+          </Fact>
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
 function areaName(detail: Detail, id: string) {
   return detail.steps.find((step) => step.area?.id === id)?.area?.name ?? id
+}
+
+function documentName(detail: Detail, id: string) {
+  for (const step of detail.steps) {
+    const document = step.documents.find((candidate) => candidate.id === id)
+    if (document) {
+      return document.name
+    }
+  }
+  return id
 }
 
 function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
@@ -141,6 +192,12 @@ function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
       <Text size="sm" c="dimmed">
         {personName(event.by)} · {dateTime.format(new Date(event.at))}
       </Text>
+      {event.document && (
+        <Text size="sm">
+          {documentName(detail, event.document.document)}:{' '}
+          <Anchor href={contentUrl(detail.id, event.document.id)}>{event.document.file_name}</Anchor>
+        </Text>
+      )}
       {outcome && <Text size="sm">Salida: {outcome.name}</Text>}
       {event.observation && <Text size="sm">{event.observation}</Text>}
       {event.referral && (
@@ -159,6 +216,11 @@ function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
   )
 }
 
+function historyTitle(detail: Detail, event: Event) {
+  const step = detail.steps.find((candidate) => candidate.id === event.step)?.name ?? event.step
+  return event.document ? `Documento adjuntado en ${step}` : step
+}
+
 function History({ detail }: { detail: Detail }) {
   if (detail.history.length === 0) {
     return <Text c="dimmed">Todavía no hay pasos hechos.</Text>
@@ -166,7 +228,7 @@ function History({ detail }: { detail: Detail }) {
   return (
     <Timeline active={detail.history.length - 1} bulletSize={20} lineWidth={2}>
       {detail.history.map((event, i) => (
-        <Timeline.Item key={i} title={detail.steps.find((step) => step.id === event.step)?.name ?? event.step}>
+        <Timeline.Item key={i} title={historyTitle(detail, event)}>
           <HistoryItem detail={detail} event={event} />
         </Timeline.Item>
       ))}
@@ -180,6 +242,169 @@ function leadsElsewhere(detail: Detail, step: Step, outcome: string | null) {
   const next = step.action === 'decide' ? step.outcomes.find((o) => o.id === outcome)?.next : step.next
   const area = detail.steps.find((candidate) => candidate.id === next)?.area
   return area !== undefined && area.id !== step.area?.id
+}
+
+function AttachDocument({
+  procedureId,
+  document,
+  onAttached,
+  onCancel,
+}: {
+  procedureId: string
+  document: DocumentRequirement
+  onAttached: () => void
+  onCancel?: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const form = useForm({
+    mode: 'uncontrolled',
+    initialValues: { file: null as File | null },
+    validate: { file: (file) => fileError({ ...document, required: true }, file) },
+  })
+
+  async function attach({ file }: { file: File | null }) {
+    if (!file) {
+      return
+    }
+    setFailure(null)
+    setSending(true)
+    try {
+      const body = new FormData()
+      body.append('document', document.id)
+      body.append('file', file)
+      const { response, error } = await api.POST('/procedures/{procedureId}/documents', {
+        params: { path: { procedureId } },
+        body: { document: document.id, file: '' },
+        bodySerializer: () => body,
+      })
+      if (response.ok) {
+        onAttached()
+      } else {
+        setFailure(error && 'message' in error ? error.message : 'No pudimos adjuntar el archivo. Volvé a intentarlo.')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['procedure', procedureId] })
+    } catch {
+      setFailure('No pudimos adjuntar el archivo. Revisá tu conexión y volvé a intentarlo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={form.onSubmit((values) => void attach(values))} noValidate>
+      <Stack gap="xs">
+        <FileInput
+          label={document.name}
+          description={documentDescription(document)}
+          withAsterisk={document.required}
+          accept={document.accepted_types.join(',')}
+          placeholder="Elegí un archivo…"
+          clearable
+          clearButtonProps={{ 'aria-label': `Quitar el archivo de ${document.name}` }}
+          key={form.key('file')}
+          {...form.getInputProps('file')}
+        />
+        {failure && (
+          <Alert color="red" role="alert">
+            {failure}
+          </Alert>
+        )}
+        <Group>
+          <Button type="submit" variant="default" loading={sending} aria-label={`Adjuntar ${document.name}`}>
+            Adjuntar
+          </Button>
+          {onCancel && (
+            <Button variant="subtle" onClick={onCancel} aria-label={`No reemplazar ${document.name}`}>
+              Cancelar
+            </Button>
+          )}
+        </Group>
+      </Stack>
+    </form>
+  )
+}
+
+// StepDocument shows the file attached for a document in the open step, which
+// can be replaced, or the form to attach one if the step has none.
+function StepDocument({
+  procedureId,
+  step,
+  document,
+  onAttached,
+}: {
+  procedureId: string
+  step: Step
+  document: DocumentRequirement
+  onAttached: (replaced: boolean) => void
+}) {
+  const [replacing, setReplacing] = useState(false)
+  const file = step.files.find((candidate) => candidate.document === document.id && candidate.step === step.id)
+  if (!file) {
+    return <AttachDocument procedureId={procedureId} document={document} onAttached={() => onAttached(false)} />
+  }
+  if (replacing) {
+    return (
+      <AttachDocument
+        procedureId={procedureId}
+        document={document}
+        onCancel={() => setReplacing(false)}
+        onAttached={() => {
+          setReplacing(false)
+          onAttached(true)
+        }}
+      />
+    )
+  }
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={500}>
+        {document.name}
+      </Text>
+      <Text size="sm">
+        <Anchor href={contentUrl(procedureId, file.id)}>{file.file_name}</Anchor> ({sizeText(file.size)})
+      </Text>
+      <Group>
+        <Button variant="default" onClick={() => setReplacing(true)} aria-label={`Reemplazar ${document.name}`}>
+          Reemplazar
+        </Button>
+      </Group>
+    </Stack>
+  )
+}
+
+// StepDocuments lists the documents of the open step. A document counts as
+// attached only with a file from that same step, the only one that lets the
+// step be confirmed.
+function StepDocuments({
+  procedureId,
+  step,
+  onAttached,
+}: {
+  procedureId: string
+  step: Step
+  onAttached: (replaced: boolean) => void
+}) {
+  if (step.documents.length === 0) {
+    return null
+  }
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="md">
+        <Title order={2}>Documentos del paso</Title>
+        {step.documents.map((document) => (
+          <StepDocument
+            key={document.id}
+            procedureId={procedureId}
+            step={step}
+            document={document}
+            onAttached={onAttached}
+          />
+        ))}
+      </Stack>
+    </Paper>
+  )
 }
 
 function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step; onConfirmed: () => void }) {
@@ -278,7 +503,7 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
 }
 
 function ProcedureDetail({ detail }: { detail: Detail }) {
-  const [confirmed, setConfirmed] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
   return (
     <Stack gap="lg">
@@ -310,13 +535,32 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
           )}
         </SimpleGrid>
       </Paper>
-      {confirmed && (
-        <Alert withCloseButton onClose={() => setConfirmed(false)} closeButtonLabel="Cerrar el aviso">
-          Paso confirmado. Quedó en el historial.
+      {notice && (
+        <Alert withCloseButton onClose={() => setNotice(null)} closeButtonLabel="Cerrar el aviso">
+          {notice}
         </Alert>
       )}
+      <Stack gap="sm">
+        <Title order={2}>Datos del trámite</Title>
+        <Values detail={detail} />
+      </Stack>
       {detail.can_act && open?.role === 'staff' && (
-        <ConfirmStep key={open.id} detail={detail} step={open} onConfirmed={() => setConfirmed(true)} />
+        <>
+          <StepDocuments
+            key={`documents-${open.id}`}
+            procedureId={detail.id}
+            step={open}
+            onAttached={(replaced) =>
+              setNotice(`Documento ${replaced ? 'reemplazado' : 'adjuntado'}. Quedó en el historial.`)
+            }
+          />
+          <ConfirmStep
+            key={open.id}
+            detail={detail}
+            step={open}
+            onConfirmed={() => setNotice('Paso confirmado. Quedó en el historial.')}
+          />
+        </>
       )}
       <Stack gap="sm">
         <Title order={2}>Historial</Title>

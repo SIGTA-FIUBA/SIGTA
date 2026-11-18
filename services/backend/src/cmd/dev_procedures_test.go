@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"slices"
 	"testing"
 	"time"
 
 	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
+	"backend/src/procedure/adapters/disk"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
@@ -27,6 +29,9 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	if err := publishIfMissing(ctx, versions, types, devReferralProcedureType()); err != nil {
 		t.Fatal(err)
 	}
+	if err := publishIfMissing(ctx, versions, types, devRulingProcedureType()); err != nil {
+		t.Fatal(err)
+	}
 	procedures := memory.NewProcedureRepository()
 	if err := addDevInbox(ctx, versions, procedures, time.Now()); err != nil {
 		t.Fatal(err)
@@ -44,15 +49,15 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mine.Items) != 5 || len(all.Items) != 8 {
-		t.Errorf("the operative has %d to do of %d, want 5 of 8", len(mine.Items), len(all.Items))
+	if len(mine.Items) != 5 || len(all.Items) != 9 {
+		t.Errorf("the operative has %d to do of %d, want 5 of 9", len(mine.Items), len(all.Items))
 	}
 	committee, err := service.List(ctx, "dev-committee", inbox.Query{View: inbox.ViewMine})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(committee.Items) != 1 || committee.Items[0].State != domain.StateReferred {
-		t.Errorf("the committee has %+v to do, want the referred procedure", committee.Items)
+	if len(committee.Items) != 2 || committee.Items[0].State != domain.StateReferred || committee.Items[1].State != domain.StateReferred {
+		t.Errorf("the committee has %+v to do, want the two referred procedures", committee.Items)
 	}
 	known := map[string]bool{}
 	for _, user := range directory.users {
@@ -72,6 +77,9 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	versions := memory.NewProcedureVersions()
 	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	if err := publishIfMissing(ctx, versions, types, devReferralProcedureType()); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishIfMissing(ctx, versions, types, devRulingProcedureType()); err != nil {
 		t.Fatal(err)
 	}
 	if err := publishDevProcedureType(ctx, versions, types); err != nil {
@@ -112,5 +120,43 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	}
 	if events[2].Referral == nil || !events[3].Returned {
 		t.Errorf("review referral = %+v, ruling returned = %t; want a referral and a return", events[2].Referral, events[3].Returned)
+	}
+}
+
+// Once the committee's ruling is back, the staff of development attaches it
+// on the last step of the example with a ruling.
+func TestDevRulingExampleAsksTheStaffForTheRuling(t *testing.T) {
+	ctx := t.Context()
+	versions := memory.NewProcedureVersions()
+	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
+	for _, example := range []input.Publication{devProcedureType(), devReferralProcedureType(), devRulingProcedureType()} {
+		if err := publishIfMissing(ctx, versions, types, example); err != nil {
+			t.Fatal(err)
+		}
+	}
+	procedures := memory.NewProcedureRepository()
+	if err := addDevInbox(ctx, versions, procedures, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	directory := devPeople()
+	areas := authmem.NewAreaRepository(devAreas()...)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	attached := memory.NewDocumentRepository()
+	service := application.NewProcedureService(types, procedures, attached, memberships, func() string { return "id" }, time.Now)
+	files, err := disk.NewFiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents := application.NewDocumentService(service, attached, files, func() string { return "D-1" }, time.Now)
+
+	if _, err := service.Confirm(ctx, "dev-committee", "dev-09", input.StepConfirmation{Step: devEvaluateStep, Observation: "Dictamen recibido"}); err != nil {
+		t.Fatal(err)
+	}
+	ruling := input.Upload{ProcedureID: "dev-09", Requirement: "ruling", FileName: "dictamen.pdf", Content: bytes.NewReader([]byte("%PDF-1.7\n"))}
+	if _, err := documents.Attach(ctx, "dev-operative", ruling); err != nil {
+		t.Fatalf("attach the ruling: %v", err)
+	}
+	if values, err := procedures.Values(ctx, "dev-09"); err != nil || len(values) == 0 {
+		t.Errorf("values = %v, %v; want what the applicant entered", values, err)
 	}
 }

@@ -1,14 +1,15 @@
 @US19 @SIG-23
 Feature: Detail of a procedure
   As a person who takes part in a procedure,
-  I want to see its steps, who does each one and the documents they ask for,
+  I want to see its steps, who does each one and the data and documents they ask for,
   so that I know where it stands and what is expected now.
 
   Background:
     Given a procedure type whose steps ask for these documents:
-      | step      | done by                    | document   | types                      | max size |
-      | documents | the applicant              | transcript | application/pdf, image/png | 1024     |
-      | ruling    | student affairs, "resolve" | ruling     | application/pdf            | 1024     |
+      | step      | done by                    | fields        | document   | types                      | max size |
+      | request   | the applicant              | reason, phone |            |                            |          |
+      | documents | the applicant              |               | transcript | application/pdf, image/png | 1024     |
+      | ruling    | student affairs, "resolve" |               | ruling     | application/pdf            | 1024     |
     And these staff members:
       | staff                | area                  | permissions |
       | resolver@fi.uba.ar   | student affairs       | resolve     |
@@ -20,6 +21,7 @@ Feature: Detail of a procedure
     When "applicant@fi.uba.ar" opens the procedure
     Then they see these steps:
       | step      | done by         | documents  |
+      | request   | the applicant   |            |
       | documents | the applicant   | transcript |
       | ruling    | student affairs | ruling     |
 
@@ -49,6 +51,13 @@ Feature: Detail of a procedure
     When "reader@fi.uba.ar" opens the procedure
     Then the "transcript" shows the file "historia.pdf"
     And the "ruling" shows no file
+
+  @SIG-81
+  Scenario: the detail shows what the applicant entered next to the data it fills
+    Given "applicant@fi.uba.ar" entered "Pase de carrera" as the "reason" on the "request" step
+    When "resolver@fi.uba.ar" opens the procedure
+    Then the "reason" shows "Pase de carrera", entered by "applicant@fi.uba.ar"
+    And the "phone" shows no value
 
   Scenario Outline: whoever has no part in the procedure does not see its detail
     When "<person>" opens the procedure

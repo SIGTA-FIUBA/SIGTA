@@ -31,6 +31,7 @@ const detail: Detail = {
       ],
       outcomes: [],
       next: 'review',
+      values: [],
       files: [
         {
           id: 'D-1',
@@ -54,6 +55,7 @@ const detail: Detail = {
       fields: [],
       documents: [],
       outcomes: [{ id: 'accept', name: 'Aceptar', next: 'documents' }],
+      values: [],
       files: [],
     },
   ],
@@ -110,6 +112,78 @@ describe('ProcedurePage', () => {
     const link = await screen.findByRole('link', { name: 'constancia.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-1/content')
     expect(screen.getByText(/Anexo:/).textContent).toBe('Anexo: Sin archivo')
+  })
+
+  it('shows the data entered once each, as the applicant chose it', async () => {
+    const enteredBy = { id: 'a-1', name: 'Titular Uno' }
+    const subjects = {
+      field: 'subjects',
+      step: 'documents',
+      items: ['Análisis II', 'Física I'],
+      entered_by: enteredBy,
+      entered_at: '2026-11-16T12:00:00Z',
+    }
+    const subjectList = {
+      id: 'subjects',
+      name: 'Asignaturas',
+      required: true,
+      type: 'subject_list' as const,
+      options: [],
+    }
+    stubApi(200, {
+      ...detail,
+      steps: [
+        {
+          ...detail.steps[0]!,
+          fields: [
+            { id: 'reason', name: 'Motivo', required: true, type: 'long_text', options: [] },
+            {
+              id: 'plan',
+              name: 'Plan',
+              required: true,
+              type: 'option',
+              options: [{ id: 'p2023', name: 'Plan 2023' }],
+            },
+            subjectList,
+            { id: 'phone', name: 'Teléfono', required: false, type: 'text', options: [] },
+          ],
+          values: [
+            {
+              field: 'reason',
+              step: 'documents',
+              text: 'Pase de carrera\nDesde Sistemas',
+              entered_by: enteredBy,
+              entered_at: '2026-11-16T12:00:00Z',
+            },
+            {
+              field: 'plan',
+              step: 'documents',
+              text: 'p2023',
+              entered_by: enteredBy,
+              entered_at: '2026-11-16T12:00:00Z',
+            },
+            subjects,
+          ],
+        },
+        { ...detail.steps[1]!, fields: [subjectList], values: [subjects] },
+      ],
+    })
+    renderPage()
+
+    await screen.findByRole('heading', { level: 2, name: 'Datos del trámite' })
+    expect(screen.getByText('Pase de carrera')).toBeDefined()
+    expect(screen.getByText('Desde Sistemas')).toBeDefined()
+    expect(screen.getByText('Plan 2023')).toBeDefined()
+    expect(screen.getAllByText('Análisis II')).toHaveLength(1)
+    expect(screen.getAllByText('Física I')).toHaveLength(1)
+    expect(screen.queryByText('Teléfono')).toBeNull()
+  })
+
+  it('says when no data was entered', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    expect(await screen.findByText('El trámite no tiene datos cargados.')).toBeDefined()
   })
 
   it('marks the open step and says who does each step', async () => {
@@ -351,5 +425,184 @@ describe('ProcedurePage confirmation', () => {
       'El paso ya no está abierto: el trámite cambió mientras tanto.',
     )
     expect(screen.queryByText('Paso confirmado. Quedó en el historial.')).toBeNull()
+  })
+})
+
+describe('ProcedurePage attachment', () => {
+  const record = {
+    id: 'record',
+    name: 'Acta',
+    required: true,
+    accepted_types: ['application/pdf'],
+    max_size: 1024,
+  }
+  const asksForRecord: Detail = {
+    ...detail,
+    steps: [detail.steps[0]!, { ...detail.steps[1]!, documents: [record] }],
+  }
+
+  function stubAttachment(status: number, body: unknown, current: Detail = asksForRecord) {
+    const fetch = vi.fn(async (request: Request) =>
+      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
+    )
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  function pdf(name: string) {
+    return new File(['%PDF-1.7\n'], name, { type: 'application/pdf' })
+  }
+
+  function fileInput() {
+    return document.querySelector<HTMLInputElement>('input[type="file"]')!
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const attached = {
+    ...detail.steps[0]!.files[0]!,
+    id: 'D-2',
+    document: 'record',
+    step: 'review',
+    file_name: 'acta.pdf',
+  }
+  const withRecord = (file: typeof attached): Detail => ({
+    ...asksForRecord,
+    steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [file] }],
+  })
+
+  function documentsSection() {
+    return screen.getByRole('heading', { level: 2, name: 'Documentos del paso' }).parentElement!
+  }
+
+  it('offers the documents of the open step that have no file yet', async () => {
+    stubAttachment(201, {})
+    renderPage()
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+  })
+
+  it('offers to replace, not to attach, a document attached in the step', async () => {
+    stubApi(200, withRecord(attached))
+    renderPage()
+
+    await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })
+    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
+  })
+
+  it('does not show the documents of the step to who cannot act', async () => {
+    stubApi(200, { ...asksForRecord, can_act: false })
+    renderPage()
+    await screen.findAllByRole('heading', { level: 2, name: 'Historial' })
+    expect(screen.queryByRole('heading', { name: 'Documentos del paso' })).toBeNull()
+  })
+
+  it('replaces a document and shows the new file as the current one', async () => {
+    let current = withRecord(attached)
+    const fetch = vi.fn(async (request: Request) => {
+      if (request.method === 'POST') {
+        current = withRecord({ ...attached, id: 'D-3', file_name: 'acta-corregida.pdf' })
+        return Response.json({}, { status: 201 })
+      }
+      return Response.json(current)
+    })
+    vi.stubGlobal('fetch', fetch)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
+    await userEvent.upload(fileInput(), pdf('acta-corregida.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Documento reemplazado. Quedó en el historial.')).toBeDefined()
+    const link = await within(documentsSection()).findByRole('link', { name: 'acta-corregida.pdf' })
+    expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-3/content')
+    expect(within(documentsSection()).queryByRole('link', { name: 'acta.pdf' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
+  })
+
+  it('keeps the file when replacing it is cancelled', async () => {
+    stubApi(200, withRecord(attached))
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
+    await userEvent.click(screen.getByRole('button', { name: 'No reemplazar Acta' }))
+
+    expect(within(documentsSection()).getByRole('link', { name: 'acta.pdf' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
+  })
+
+  it('offers a document whose file was attached in another step', async () => {
+    stubApi(200, withRecord({ ...attached, step: 'documents' }))
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+  })
+
+  it('asks for a file before sending', async () => {
+    const fetch = stubAttachment(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Adjuntá este documento.')).toBeDefined()
+    expect(fetch.mock.calls.some(([request]) => request.method === 'POST')).toBe(false)
+  })
+
+  it('sends the file for its document and says it is in the history', async () => {
+    const fetch = stubAttachment(201, {})
+    renderPage()
+
+    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await userEvent.upload(fileInput(), pdf('acta.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect(await screen.findByText('Documento adjuntado. Quedó en el historial.')).toBeDefined()
+    const [post] = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+    expect(post!.url).toMatch(/\/api\/procedures\/P-1\/documents$/)
+    // Read as text: undici cannot parse a form with the File of jsdom, which
+    // reaches it as an empty Blob without its name.
+    const sent = await post!.text()
+    expect(sent).toMatch(/name="document"\r\n\r\nrecord\r\n[\s\S]*name="file"/)
+  })
+
+  it('shows why the server did not take the file', async () => {
+    stubAttachment(400, { message: 'El archivo no es de un tipo que acepte ese documento.' })
+    renderPage()
+
+    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await userEvent.upload(fileInput(), pdf('acta.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe('El archivo no es de un tipo que acepte ese documento.')
+    expect(screen.queryByText('Documento adjuntado. Quedó en el historial.')).toBeNull()
+  })
+
+  it('shows an attached document in the history, with its file', async () => {
+    stubApi(200, {
+      ...asksForRecord,
+      history: [
+        {
+          step: 'review',
+          by: { id: 's-1', name: 'Personal Uno' },
+          at: '2026-11-17T15:00:00Z',
+          observation: '',
+          declared: false,
+          returned: false,
+          document: { id: 'D-2', document: 'record', file_name: 'acta.pdf' },
+        },
+      ],
+    })
+    renderPage()
+
+    const title = await screen.findByText('Documento adjuntado en Revisar la solicitud')
+    const entry = title.closest('.mantine-Timeline-item') as HTMLElement
+    expect(within(entry).getByText(/^Acta:/)).toBeDefined()
+    const link = within(entry).getByRole('link', { name: 'acta.pdf' })
+    expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-2/content')
   })
 })

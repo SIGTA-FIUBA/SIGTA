@@ -49,6 +49,20 @@ Feature: History of a procedure
       | ruling   | upload_document       |
       | record   | enter_data            |
 
+  @SIG-81
+  Scenario: a document attached after the start shows in the history with who attached it, when and what it covers
+    Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
+    And "commission@fi.uba.ar" confirmed the "evaluate" step
+    And it is "2026-11-20"
+    When "operative@fi.uba.ar" uploads "dictamen.pdf" as the "ruling"
+    And "approver@fi.uba.ar" reads the history of the procedure
+    Then the history shows, in this order:
+      | step     | done by              | on         | document | file         |
+      | request  | applicant@fi.uba.ar  | 2026-11-16 |          |              |
+      | check    | operative@fi.uba.ar  | 2026-11-16 |          |              |
+      | evaluate | commission@fi.uba.ar | 2026-11-16 |          |              |
+      | ruling   | operative@fi.uba.ar  | 2026-11-20 | ruling   | dictamen.pdf |
+
   Scenario: what the history shows stays as it was when the procedure moves on
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
     And "operative@fi.uba.ar" read the history of the procedure

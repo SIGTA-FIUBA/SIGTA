@@ -145,21 +145,30 @@ func (w *documentWorld) ensure(area, permission string) error {
 }
 
 // givenProcedureType reads "the applicant" or an area and a quoted permission
-// as who does each step.
+// as who does each step, and a row with no document as a step that asks for
+// the text fields of its "fields" column, all optional.
 func (w *documentWorld) givenProcedureType(table *godog.Table) error {
 	var def definition.ProcedureTypeDefinition
 	def.Name = "Trámite con documentos"
 	def.Description = "Un trámite para las pruebas de documentos"
-	for _, row := range table.Rows[1:] {
-		stepID, doneBy, documentID := row.Cells[0].Value, row.Cells[1].Value, row.Cells[2].Value
-		maxSize, err := strconv.ParseInt(row.Cells[4].Value, 10, 64)
-		if err != nil {
-			return err
+	for _, row := range tableRows(table) {
+		stepID, doneBy, documentID := row["step"], row["done by"], row["document"]
+		step := definition.Step{ID: stepID, Name: stepID}
+		if documentID == "" {
+			step.Action, step.OptionalFields = definition.ActionEnterData, list(row["fields"])
+			for _, id := range step.OptionalFields {
+				def.Fields = append(def.Fields, definition.Field{ID: id, Name: id, Type: definition.FieldText})
+			}
+		} else {
+			maxSize, err := strconv.ParseInt(row["max size"], 10, 64)
+			if err != nil {
+				return err
+			}
+			def.Documents = append(def.Documents, definition.Document{
+				ID: documentID, Name: documentID, AcceptedTypes: list(row["types"]), MaxSizeBytes: maxSize,
+			})
+			step.Action, step.Documents = definition.ActionUploadDocument, []string{documentID}
 		}
-		def.Documents = append(def.Documents, definition.Document{
-			ID: documentID, Name: documentID, AcceptedTypes: list(row.Cells[3].Value), MaxSizeBytes: maxSize,
-		})
-		step := definition.Step{ID: stepID, Name: stepID, Action: definition.ActionUploadDocument, Documents: []string{documentID}}
 		if doneBy == "the applicant" {
 			step.Role = definition.RoleApplicant
 		} else {

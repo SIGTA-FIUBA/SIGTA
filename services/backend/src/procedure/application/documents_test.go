@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -37,12 +38,17 @@ func documentsDefinition() definition.ProcedureTypeDefinition {
 	return definition.ProcedureTypeDefinition{
 		Name:        "Trámite con documentos",
 		Description: "Un trámite para las pruebas",
+		Fields: []definition.Field{
+			{ID: "reason", Name: "Motivo", Type: definition.FieldText},
+			{ID: "subjects", Name: "Asignaturas", Type: definition.FieldSubjectList},
+		},
 		Documents: []definition.Document{
 			{ID: "statement", Name: "Constancia", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSizeBytes: maxSize},
 			{ID: "annex", Name: "Anexo", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: maxSize},
 			{ID: "resolution", Name: "Resolución", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: maxSize},
 		},
 		Steps: []definition.Step{
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"subjects"}, Next: "documents"},
 			{ID: "documents", Name: "Documentación", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"statement"}, OptionalDocuments: []string{"annex"}, Next: "review"},
 			{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: office.ID, Permissions: []string{"review"}, Action: definition.ActionUploadDocument, Documents: []string{"resolution"}},
 		},
@@ -195,6 +201,32 @@ func TestAttachStoresTheFileAndRecordsIt(t *testing.T) {
 	}
 }
 
+func TestAttachRecordsItInTheHistory(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "review")
+	u := upload("resolution", "resolucion.pdf", pdf(100))
+	u.ProcedureID = "P-2"
+	d, err := f.service.Attach(t.Context(), reviewer, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	detail, err := f.details.Detail(t.Context(), reviewer, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := domain.Event{
+		ProcedureID: "P-2", Step: "review", Action: definition.ActionUploadDocument, By: reviewer, At: attachedAt,
+		Document: &domain.DocumentRecord{ID: d.ID, Requirement: "resolution", FileName: "resolucion.pdf"},
+	}
+	if len(detail.History) != 1 || !reflect.DeepEqual(detail.History[0], want) {
+		t.Errorf("history = %+v, want only %+v", detail.History, want)
+	}
+	if detail.Procedure.OpenStep != "review" {
+		t.Errorf("open step = %q, want it to stay on review", detail.Procedure.OpenStep)
+	}
+}
+
 func TestAttachAcceptsAnOptionalDocument(t *testing.T) {
 	f := newDocumentsFixture(t)
 	if _, err := f.service.Attach(t.Context(), applicant, upload("annex", "anexo.pdf", pdf(100))); err != nil {
@@ -242,6 +274,9 @@ func TestAttachRejects(t *testing.T) {
 			}
 			if len(f.files.files) != 0 {
 				t.Error("the store kept a rejected file")
+			}
+			if events, _ := f.procedures.Events(t.Context(), "P-1"); len(events) != 0 {
+				t.Errorf("history = %+v, want it empty", events)
 			}
 		})
 	}
@@ -414,6 +449,9 @@ func TestAttachWhoseRecordFails(t *testing.T) {
 	}
 	if documents, err := f.documents.List(t.Context(), "P-1"); err != nil || len(documents) != 0 {
 		t.Fatalf("List() = %v, %v; want no documents", documents, err)
+	}
+	if events, _ := f.procedures.Events(t.Context(), "P-1"); len(events) != 0 {
+		t.Fatalf("history = %+v, want it empty", events)
 	}
 	if len(f.files.files) != 1 {
 		t.Fatalf("stored files = %d, want the one of the failed upload", len(f.files.files))

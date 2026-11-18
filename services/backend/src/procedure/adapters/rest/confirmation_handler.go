@@ -97,6 +97,9 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 			event.Referral.ExternalFileNumber = &e.Referral.ExternalFileNumber
 		}
 	}
+	if e.Document != nil {
+		event.Document = &api.HistoryDocument{Id: e.Document.ID, Document: e.Document.Requirement, FileName: e.Document.FileName}
+	}
 	return event
 }
 

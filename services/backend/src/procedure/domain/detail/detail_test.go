@@ -99,6 +99,43 @@ func TestWithFiles(t *testing.T) {
 	}
 }
 
+func TestWithValues(t *testing.T) {
+	asks := func(ids ...string) []definition.FieldRequirement {
+		var r []definition.FieldRequirement
+		for _, id := range ids {
+			r = append(r, definition.FieldRequirement{Field: definition.Field{ID: id}})
+		}
+		return r
+	}
+	steps := []detail.Step{
+		{Step: definition.Step{ID: "request"}, Fields: asks("reason", "phone", "subjects")},
+		{Step: definition.Step{ID: "review"}},
+		{Step: definition.Step{ID: "fix"}, Fields: asks("subjects")},
+	}
+	entered := []domain.FieldValue{
+		{Field: "subjects", Items: []string{"Análisis II"}},
+		{Field: "reason", Text: "Pase"},
+		{Field: "subjects", Items: []string{"Física I"}},
+	}
+
+	steps = detail.WithValues(steps, entered)
+
+	got := make([]string, 0, len(steps))
+	for _, s := range steps {
+		var values []string
+		for _, v := range s.Values {
+			values = append(values, fmt.Sprintf("%s %s%v", v.Field, v.Text, v.Items))
+		}
+		got = append(got, fmt.Sprintf("%s %v", s.Step.ID, values))
+	}
+	// A field entered again shows its last value, in every step that asks for
+	// it, and a field with no value shows none.
+	want := []string{"request [reason Pase[] subjects [Física I]]", "review []", "fix [subjects [Física I]]"}
+	if !slices.Equal(got, want) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
 func TestReferralOf(t *testing.T) {
 	content := version.Content{Areas: []definition.Area{{ID: "affairs", Name: "Dirección de Alumnos"}, {ID: "commission", Name: "Comisión Curricular"}}}
 	since := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)

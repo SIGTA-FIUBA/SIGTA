@@ -47,6 +47,10 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	if err != nil {
 		return input.ProcedureDetail{}, fmt.Errorf("documents of %s: %w", procedureID, err)
 	}
+	values, err := s.procedures.procedures.Values(ctx, procedureID)
+	if err != nil {
+		return input.ProcedureDetail{}, fmt.Errorf("values of %s: %w", procedureID, err)
+	}
 	history, err := s.procedures.procedures.Events(ctx, procedureID)
 	if err != nil {
 		return input.ProcedureDetail{}, fmt.Errorf("history of %s: %w", procedureID, err)
@@ -55,7 +59,7 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 		Procedure: p,
 		Name:      content.Definition.Name,
 		State:     state,
-		Steps:     detail.WithFiles(detail.Steps(content), documents),
+		Steps:     detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values),
 		CanAct:    canAct,
 		Referral:  detail.ReferralOf(p, content, s.procedures.now()),
 		History:   history,

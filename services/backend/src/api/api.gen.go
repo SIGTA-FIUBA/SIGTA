@@ -284,6 +284,16 @@ type FieldRequirement struct {
 // FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
 type FieldType string
 
+// HistoryDocument Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+type HistoryDocument struct {
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document string `json:"document"`
+	FileName string `json:"file_name"`
+
+	// Id Identificador del archivo adjuntado, el mismo de ProcedureDocument
+	Id string `json:"id"`
+}
+
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
 
@@ -390,7 +400,7 @@ type ProcedureDetail struct {
 	// CanAct Si quien mira puede hacer el paso abierto
 	CanAct bool `json:"can_act"`
 
-	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite y cada confirmación. No se puede cambiar ni borrar.
+	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación y cada documento adjuntado después. No se puede cambiar ni borrar.
 	History []ProcedureEvent `json:"history"`
 	Id      string           `json:"id"`
 
@@ -444,6 +454,9 @@ type ProcedureEvent struct {
 	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
 	Declared bool `json:"declared"`
 
+	// Document Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+	Document *HistoryDocument `json:"document,omitempty"`
+
 	// Next Paso que abre; ausente si cierra el trámite
 	Next        *string `json:"next,omitempty"`
 	Observation string  `json:"observation"`
@@ -457,7 +470,7 @@ type ProcedureEvent struct {
 	// Returned Si devuelve el trámite al área de la que se había derivado
 	Returned bool `json:"returned"`
 
-	// Step Paso hecho
+	// Step Paso hecho, o el paso abierto en el que se adjuntó el documento
 	Step string `json:"step"`
 }
 
@@ -542,10 +555,31 @@ type ProcedureStep struct {
 
 	// Role Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
 	Role StepRole `json:"role"`
+
+	// Values Último valor cargado de cada dato del paso que ya tiene uno, en el mismo orden que fields. Un dato sin valor no aparece.
+	Values []ProcedureValue `json:"values"`
 }
 
 // ProcedureStepAction Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
 type ProcedureStepAction string
+
+// ProcedureValue defines model for ProcedureValue.
+type ProcedureValue struct {
+	EnteredAt time.Time `json:"entered_at"`
+	EnteredBy Person    `json:"entered_by"`
+
+	// Field Identificador del dato del tipo de trámite
+	Field string `json:"field"`
+
+	// Items Las asignaturas de un subject_list; ausente en los demás tipos
+	Items *[]string `json:"items,omitempty"`
+
+	// Step Paso en el que se cargó
+	Step string `json:"step"`
+
+	// Text El valor, como se cargó una vez validado: una opción por su id, un número con punto, una fecha AAAA-MM-DD. Ausente en subject_list
+	Text *string `json:"text,omitempty"`
+}
 
 // Referral Paso del trámite a otra área (ADR-020)
 type Referral struct {

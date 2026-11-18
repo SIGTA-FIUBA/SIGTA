@@ -135,6 +135,28 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	}
 }
 
+func TestGetProcedureShowsTheValuesEntered(t *testing.T) {
+	at := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	d := openedDetail(false)
+	d.Steps[0].Fields = append(d.Steps[0].Fields, definition.FieldRequirement{Field: definition.Field{ID: "subjects", Name: "Asignaturas", Type: definition.FieldSubjectList}})
+	d.Steps[0].Values = []domain.FieldValue{
+		{Procedure: "P-1", Field: "reason", Step: "documents", Text: "Pase de carrera", EnteredBy: "ana", EnteredAt: at},
+		{Procedure: "P-1", Field: "subjects", Step: "documents", Items: []string{"Análisis II", "Física I"}, EnteredBy: "ana", EnteredAt: at},
+	}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	text, items := "Pase de carrera", []string{"Análisis II", "Física I"}
+	ana := api.Person{Id: "ana", Name: "Ana Prueba"}
+	want := []api.ProcedureValue{
+		{Field: "reason", Step: "documents", Text: &text, EnteredBy: ana, EnteredAt: at},
+		{Field: "subjects", Step: "documents", Items: &items, EnteredBy: ana, EnteredAt: at},
+	}
+	if !reflect.DeepEqual(got.Steps[0].Values, want) {
+		t.Errorf("values = %+v, want %+v", got.Steps[0].Values, want)
+	}
+}
+
 func TestGetProcedureOfAnApplicantWhoIsNotRegistered(t *testing.T) {
 	detail := openedDetail(false)
 	detail.Procedure.Applicant = "gone"
@@ -173,6 +195,7 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 			Fields    json.RawMessage `json:"fields"`
 			Documents json.RawMessage `json:"documents"`
 			Outcomes  json.RawMessage `json:"outcomes"`
+			Values    json.RawMessage `json:"values"`
 			Files     json.RawMessage `json:"files"`
 		} `json:"steps"`
 	}
@@ -187,6 +210,9 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	}
 	if string(got.Steps[1].Documents) != "[]" {
 		t.Errorf("documents of a step that asks none = %s, want []", got.Steps[1].Documents)
+	}
+	if string(got.Steps[1].Values) != "[]" {
+		t.Errorf("values of a step that asks no field = %s, want []", got.Steps[1].Values)
 	}
 	if string(got.Steps[1].Files) != "[]" {
 		t.Errorf("files of a step that asks no document = %s, want []", got.Steps[1].Files)
@@ -203,6 +229,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at, Next: "review"},
 		{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide, By: "staff-1", At: at.Add(time.Hour), Observation: "completo", Outcome: "accept", Next: "documents",
 			Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
+		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at.Add(2 * time.Hour),
+			Document: &domain.DocumentRecord{ID: "D-1", Requirement: "statement", FileName: "constancia.pdf"}},
 	}
 
 	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
@@ -212,6 +240,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at, Next: &next},
 		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, Next: &back,
 			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
+		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at.Add(2 * time.Hour),
+			Document: &api.HistoryDocument{Id: "D-1", Document: "statement", FileName: "constancia.pdf"}},
 	}
 	if !reflect.DeepEqual(got.History, want) {
 		t.Errorf("history = %+v, want %+v", got.History, want)

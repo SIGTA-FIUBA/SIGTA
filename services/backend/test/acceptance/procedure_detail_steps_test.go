@@ -37,6 +37,7 @@ func registerDetailSteps(sc *godog.ScenarioContext, documents *documentWorld) {
 	})
 
 	sc.Given(`^the procedure has no open step$`, func() error { return w.givenMovedOn("") })
+	sc.Given(`^"([^"]*)" entered "([^"]*)" as the "([^"]*)" on the "([^"]*)" step$`, w.givenEntered)
 
 	sc.When(`^"([^"]*)" opens the procedure$`, w.open)
 
@@ -47,6 +48,14 @@ func registerDetailSteps(sc *godog.ScenarioContext, documents *documentWorld) {
 	sc.Then(`^it is not up to them$`, func() error { return w.thenTurn(false) })
 	sc.Then(`^the "([^"]*)" shows the file "([^"]*)"$`, w.thenShowsFile)
 	sc.Then(`^the "([^"]*)" shows no file$`, func(requirement string) error { return w.thenShowsFile(requirement, "") })
+	sc.Then(`^the "([^"]*)" shows "([^"]*)", entered by "([^"]*)"$`, w.thenShowsValue)
+	sc.Then(`^the "([^"]*)" shows no value$`, func(field string) error { return w.thenShowsValue(field, "", "") })
+}
+
+// givenEntered records the value with the procedure, as starting it does.
+func (w *detailWorld) givenEntered(user, value, field, step string) error {
+	v := domain.FieldValue{Procedure: w.procedure.ID, Field: field, Step: step, Text: value, EnteredBy: user, EnteredAt: time.Now()}
+	return w.procedures.Add(context.Background(), w.procedure, nil, v)
 }
 
 func (w *detailWorld) open(user string) {
@@ -151,4 +160,26 @@ func (w *detailWorld) thenShowsFile(requirement, name string) error {
 		return fmt.Errorf("no step of the detail asks for the %s", requirement)
 	}
 	return nil
+}
+
+func (w *detailWorld) thenShowsValue(field, value, by string) error {
+	if w.err != nil {
+		return w.err
+	}
+	for _, s := range w.detail.Steps {
+		if !slices.ContainsFunc(s.Fields, func(r definition.FieldRequirement) bool { return r.Field.ID == field }) {
+			continue
+		}
+		var got, enteredBy string
+		for _, v := range s.Values {
+			if v.Field == field {
+				got, enteredBy = v.Text, v.EnteredBy
+			}
+		}
+		if got != value || enteredBy != by {
+			return fmt.Errorf("the %s of %s shows %q entered by %q, want %q by %q", field, s.Step.ID, got, enteredBy, value, by)
+		}
+		return nil
+	}
+	return fmt.Errorf("no step of the detail asks for the %s", field)
 }

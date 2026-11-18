@@ -99,7 +99,23 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	if err := s.documents.Add(ctx, d); err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
 	}
+	// Until SIG-75 records both together (ADR-024), a failure here leaves the
+	// document without its entry in the history.
+	if err := s.procedures.procedures.Record(ctx, attachedEvent(d)); err != nil {
+		return domain.Document{}, fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
+	}
 	return d, nil
+}
+
+func attachedEvent(d domain.Document) domain.Event {
+	return domain.Event{
+		ProcedureID: d.Procedure,
+		Step:        d.Step,
+		Action:      definition.ActionUploadDocument,
+		By:          d.UploadedBy,
+		At:          d.UploadedAt,
+		Document:    &domain.DocumentRecord{ID: d.ID, Requirement: d.Requirement, FileName: d.FileName},
+	}
 }
 
 func (s *DocumentService) List(ctx context.Context, userID, procedureID string) ([]input.AttachedDocument, error) {

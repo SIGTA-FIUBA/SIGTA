@@ -45,6 +45,9 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	p := detail.Procedure
 	people := []string{p.Applicant}
 	for _, s := range detail.Steps {
+		for _, v := range s.Values {
+			people = append(people, v.EnteredBy)
+		}
 		for _, d := range s.Files {
 			people = append(people, d.UploadedBy)
 		}
@@ -95,6 +98,7 @@ func procedureStep(s procdetail.Step, names map[string]string) api.ProcedureStep
 		Fields:    make([]api.FieldRequirement, 0, len(s.Fields)),
 		Documents: make([]api.DocumentRequirement, 0, len(s.Documents)),
 		Outcomes:  make([]api.StepOutcome, 0, len(s.Step.Outcomes)),
+		Values:    make([]api.ProcedureValue, 0, len(s.Values)),
 		Files:     make([]api.ProcedureDocument, 0, len(s.Files)),
 	}
 	if s.Area != nil {
@@ -112,10 +116,23 @@ func procedureStep(s procdetail.Step, names map[string]string) api.ProcedureStep
 	for _, o := range s.Step.Outcomes {
 		step.Outcomes = append(step.Outcomes, api.StepOutcome{Id: o.ID, Name: o.Name, Next: o.Next})
 	}
+	for _, v := range s.Values {
+		step.Values = append(step.Values, procedureValue(v, names))
+	}
 	for _, d := range s.Files {
 		step.Files = append(step.Files, procedureDocument(d, true, names))
 	}
 	return step
+}
+
+func procedureValue(v domain.FieldValue, names map[string]string) api.ProcedureValue {
+	value := api.ProcedureValue{Field: v.Field, Step: v.Step, EnteredBy: person(v.EnteredBy, names), EnteredAt: v.EnteredAt}
+	if v.Items != nil {
+		value.Items = &v.Items
+	} else {
+		value.Text = &v.Text
+	}
+	return value
 }
 
 func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyProceduresRequestObject) (api.ListMyProceduresResponseObject, error) {

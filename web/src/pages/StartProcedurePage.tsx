@@ -8,7 +8,6 @@ import {
   Loader,
   Modal,
   Select,
-  Spoiler,
   Stack,
   Stepper,
   TagsInput,
@@ -24,7 +23,8 @@ import { Link, useBlocker, useParams } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
-import { sizeText, typeName } from '../documentFormats'
+import { LongValue } from '../components/LongValue/LongValue'
+import { documentDescription } from '../documentFormats'
 import {
   fieldError,
   fileError,
@@ -107,17 +107,6 @@ function FieldInput({ form, field }: { form: Form; field: FieldRequirement }) {
   }
 }
 
-function documentDescription(document: DocumentRequirement) {
-  const parts = []
-  if (document.accepted_types.length > 0) {
-    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
-  }
-  if (document.max_size > 0) {
-    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
-  }
-  return parts.join(' ')
-}
-
 function DocumentInput({ form, document }: { form: Form; document: DocumentRequirement }) {
   const path = `files.${document.id}`
   return (
@@ -146,17 +135,6 @@ function SummaryItem({ name, children }: { name: string; children: ReactNode }) 
       </Text>
       {children}
     </Stack>
-  )
-}
-
-// LongValue keeps the lines the applicant wrote and folds a long text.
-function LongValue({ text }: { text: string }) {
-  return (
-    <Spoiler showLabel="Ver todo" hideLabel="Ver menos">
-      {text.split('\n').map((line, i) => (
-        <Text key={i}>{line === '' ? ' ' : line}</Text>
-      ))}
-    </Spoiler>
   )
 }
 

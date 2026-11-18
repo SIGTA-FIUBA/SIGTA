@@ -112,6 +112,44 @@ func TestAdvanceAnUnknownProcedure(t *testing.T) {
 	}
 }
 
+func TestRecordAppendsTheEventWithoutMovingTheProcedure(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	attached := domain.Event{ProcedureID: "P-1", Step: "file", By: "staff@fi.uba.ar", Document: &domain.DocumentRecord{ID: "D-1", Requirement: "ruling", FileName: "acta.pdf"}}
+	if err := s.Record(ctx, attached); err != nil {
+		t.Fatal(err)
+	}
+	p, e := confirmed("file", "approve")
+	if err := s.Advance(ctx, p, e); err != nil {
+		t.Fatalf("Advance after Record = %v", err)
+	}
+
+	events, err := s.Events(ctx, "P-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 || events[0].Document == nil || *events[0].Document != *attached.Document || events[1].Step != "file" {
+		t.Errorf("events = %+v, want the attachment and then the confirmation of file", events)
+	}
+
+	attached.Document.FileName = "changed"
+	events[0].Document.ID = "changed"
+	stored, _ := s.Events(ctx, "P-1")
+	if *stored[0].Document != (domain.DocumentRecord{ID: "D-1", Requirement: "ruling", FileName: "acta.pdf"}) {
+		t.Errorf("stored document = %+v, want it unchanged", *stored[0].Document)
+	}
+}
+
+func TestRecordOnAnUnknownProcedure(t *testing.T) {
+	e := domain.Event{ProcedureID: "P-1", Step: "file"}
+	if err := NewProcedureRepository().Record(context.Background(), e); !errors.Is(err, domain.ErrProcedureNotFound) {
+		t.Errorf("Record = %v, want ErrProcedureNotFound", err)
+	}
+}
+
 func TestConcurrentConfirmationsOfTheSameStepAdvanceOnce(t *testing.T) {
 	ctx := context.Background()
 	s := NewProcedureRepository()

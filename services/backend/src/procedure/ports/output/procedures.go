@@ -16,5 +16,8 @@ type ProcedureRepository interface {
 	// recorded.
 	Values(ctx context.Context, procedureID string) ([]domain.FieldValue, error)
 	Advance(ctx context.Context, p domain.Procedure, e domain.Event) error
+	// Record appends an event that does not move the procedure, and fails
+	// with domain.ErrProcedureNotFound if there is no such procedure.
+	Record(ctx context.Context, e domain.Event) error
 	Events(ctx context.Context, procedureID string) ([]domain.Event, error)
 }
