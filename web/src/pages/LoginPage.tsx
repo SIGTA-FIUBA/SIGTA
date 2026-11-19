@@ -77,8 +77,8 @@ function TrackingPreview() {
   )
 }
 
-// LoginPage is the public landing page: it says what SIGTA is, which
-// procedures it covers and how they are done, and leads to the login.
+// LoginPage is the public landing page: it says what SIGTA is and how
+// procedures are done, and leads to the login.
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = messageFor(params.get('error'))

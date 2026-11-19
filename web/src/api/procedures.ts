@@ -45,10 +45,9 @@ export function useProcedure(id: string) {
 
 // useMyProcedures asks for the procedures in progress that the person
 // started, staff or not.
-export function useMyProcedures(enabled = true) {
+export function useMyProcedures() {
   return useQuery({
     queryKey: ['my-procedures'],
-    enabled,
     queryFn: async () => {
       const { data, response } = await api.GET('/me/procedures')
       if (data === undefined) {

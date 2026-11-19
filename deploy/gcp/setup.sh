@@ -48,9 +48,8 @@ for environment in prod dev; do
 
     exists gcloud sql instances describe "$instance" ||
         gcloud sql instances create "$instance" --region="$region" --database-version=POSTGRES_18 \
-            --edition=enterprise --tier=db-f1-micro --storage-type=HDD --storage-size=10 \
-            --storage-auto-increase --backup-start-time=06:00 --retained-backups-count=7 \
-            --deletion-protection --root-password="$(openssl rand -hex 24)"
+            --edition=enterprise --tier=db-f1-micro --storage-type=HDD --backup-start-time=06:00 \
+            --deletion-protection
     exists gcloud sql databases describe sigta --instance="$instance" ||
         gcloud sql databases create sigta --instance="$instance"
 
@@ -104,7 +103,7 @@ if exists gcloud iam workload-identity-pools providers describe sigta --location
 else
     gcloud iam workload-identity-pools providers create-oidc sigta --location=global \
         --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com \
-        --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref \
+        --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id \
         --attribute-condition="$condition"
 fi
 gcloud iam service-accounts add-iam-policy-binding "$deployer" --role=roles/iam.workloadIdentityUser \

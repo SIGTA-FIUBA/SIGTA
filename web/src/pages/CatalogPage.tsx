@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
-import { sizeText, typeName } from '../documentFormats'
+import { documentDescription } from '../documentFormats'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
@@ -15,14 +15,9 @@ function requiredText(required: boolean) {
 // A version of an older format has no accepted types or size, so each part is
 // shown only when it is known.
 function documentText(document: DocumentRequirement) {
-  const parts = [`${document.name} (${requiredText(document.required)}).`]
-  if (document.accepted_types.length > 0) {
-    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
-  }
-  if (document.max_size > 0) {
-    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
-  }
-  return parts.join(' ')
+  return [`${document.name} (${requiredText(document.required)}).`, documentDescription(document)]
+    .filter(Boolean)
+    .join(' ')
 }
 
 function Section({ title, items }: { title: string; items: string[] }) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
@@ -20,11 +19,10 @@ var _ input.Inbox = (*InboxService)(nil)
 // same person.
 type InboxService struct {
 	procedures *ProcedureService
-	now        func() time.Time
 }
 
-func NewInboxService(procedures *ProcedureService, now func() time.Time) *InboxService {
-	return &InboxService{procedures: procedures, now: now}
+func NewInboxService(procedures *ProcedureService) *InboxService {
+	return &InboxService{procedures: procedures}
 }
 
 // List leaves out the closed procedures and the person's own: the inbox is
@@ -65,7 +63,7 @@ func (s *InboxService) List(ctx context.Context, userID string, q inbox.Query) (
 		}
 		summaries = append(summaries, summary)
 	}
-	return inbox.Build(summaries, q, s.now()), nil
+	return inbox.Build(summaries, q, s.procedures.now()), nil
 }
 
 func (s *InboxService) summary(ctx context.Context, userID string, p domain.Procedure, c version.Content) (inbox.Summary, error) {

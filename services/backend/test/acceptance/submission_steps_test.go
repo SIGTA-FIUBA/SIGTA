@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	submissionAdministrator = "admin@fi.uba.ar"
-	submittedType           = 1
-	unpublishedType         = 99
+	submittedType   = 1
+	unpublishedType = 99
 )
 
 // submissionWorld builds the procedure type from three tables, fields,
@@ -119,7 +118,7 @@ func (w *submissionWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(submissionAdministrator)
+	administrators := authmem.NewAdministrators(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
@@ -137,24 +136,6 @@ func (w *submissionWorld) setUp() error {
 func (w *submissionWorld) newID() string {
 	w.nextID++
 	return "S-" + strconv.Itoa(w.nextID)
-}
-
-// ensure creates the area and the permission the first time they are named.
-func (w *submissionWorld) ensure(area, permission string) error {
-	ctx := context.Background()
-	if !w.known[area] {
-		if _, err := w.areas.Create(ctx, submissionAdministrator, authdomain.Area{ID: areaID(area), Name: area}); err != nil {
-			return fmt.Errorf("area %s: %w", area, err)
-		}
-		w.known[area] = true
-	}
-	if key := area + "/" + permission; !w.known[key] {
-		if _, err := w.areas.CreatePermission(ctx, submissionAdministrator, areaID(area), authdomain.Permission{ID: permission, Name: permission}); err != nil {
-			return fmt.Errorf("permission %s of %s: %w", permission, area, err)
-		}
-		w.known[key] = true
-	}
-	return nil
 }
 
 func (w *submissionWorld) givenFields(table *godog.Table) error {
@@ -197,7 +178,7 @@ func (w *submissionWorld) givenSteps(table *godog.Table) error {
 				return fmt.Errorf("unknown author %q", doneBy)
 			}
 			permission = strings.Trim(permission, `"`)
-			if err := w.ensure(area, permission); err != nil {
+			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 				return err
 			}
 			step.Role, step.Area, step.Permissions = definition.RoleStaff, areaID(area), []string{permission}
@@ -222,10 +203,10 @@ func (w *submissionWorld) givenSteps(table *godog.Table) error {
 }
 
 func (w *submissionWorld) givenStaff(user, area, permission string) error {
-	if err := w.ensure(area, permission); err != nil {
+	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
 		return err
 	}
-	_, err := w.memberships.Grant(context.Background(), submissionAdministrator, authinput.MembershipGrant{
+	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 		UserID: user, Area: areaID(area), Permissions: []string{permission},
 	})
 	return err

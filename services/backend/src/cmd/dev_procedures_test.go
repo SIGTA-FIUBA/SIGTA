@@ -23,7 +23,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	ctx := t.Context()
 	versions := memory.NewProcedureVersions()
 	types := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
-	if err := publishDevProcedureType(ctx, versions, types); err != nil {
+	if err := publishIfMissing(ctx, versions, types, devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
 	if err := publishIfMissing(ctx, versions, types, devReferralProcedureType()); err != nil {
@@ -39,7 +39,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
 	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
-	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now), time.Now)
+	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now))
 
 	mine, err := service.List(ctx, "dev-operative", inbox.Query{View: inbox.ViewMine})
 	if err != nil {
@@ -82,7 +82,7 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	if err := publishIfMissing(ctx, versions, types, devRulingProcedureType()); err != nil {
 		t.Fatal(err)
 	}
-	if err := publishDevProcedureType(ctx, versions, types); err != nil {
+	if err := publishIfMissing(ctx, versions, types, devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
 	procedures := memory.NewProcedureRepository()

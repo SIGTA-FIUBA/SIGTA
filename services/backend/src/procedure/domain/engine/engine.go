@@ -157,7 +157,7 @@ func next(step definition.Step, outcome string) (string, error) {
 	return step.Outcomes[i].Next, nil
 }
 
-// refer follows ADR-020: moving to a step of another area refers the
+// refer follows ADR-023: moving to a step of another area refers the
 // procedure, and moving back to the area it first left returns it. Applicant
 // steps have no area, so they neither refer nor return.
 func refer(current *domain.Referral, fromArea, toArea string, c Confirmation) (*domain.Referral, *domain.ReferralRecord, bool) {

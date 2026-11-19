@@ -110,7 +110,7 @@ export function AppLayout() {
                   label={link.label}
                   leftSection={<MenuIcon name={link.icon} />}
                   rightSection={
-                    link.pending !== undefined && link.pending > 0 ? (
+                    link.pending ? (
                       <Badge
                         variant={link.active ? 'white' : 'filled'}
                         size="sm"

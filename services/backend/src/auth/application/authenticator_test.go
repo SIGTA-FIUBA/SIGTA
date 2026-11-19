@@ -12,7 +12,7 @@ import (
 	"backend/src/auth/adapters/memory"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
 var (
@@ -58,10 +58,7 @@ func (f *fixture) login(email string) (string, error) {
 
 func (f *fixture) begin(email string) (code, state string, pending domain.PendingLogin) {
 	f.t.Helper()
-	location, pending, err := f.auth.BeginLogin(email)
-	if err != nil {
-		f.t.Fatal(err)
-	}
+	location, pending := f.auth.BeginLogin(email)
 	u, err := url.Parse(location)
 	if err != nil {
 		f.t.Fatal(err)
@@ -137,10 +134,10 @@ func TestCompleteLoginRejectsWhatTheProviderRejects(t *testing.T) {
 
 // outsideDomain stands for a provider that checks the domain itself, as the
 // Google adapter does with the hd claim.
-type outsideDomain struct{ out.IdentityProvider }
+type outsideDomain struct{ output.IdentityProvider }
 
-func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (out.Identity, error) {
-	return out.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, "uba.ar")
+func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (output.Identity, error) {
+	return output.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, "uba.ar")
 }
 
 func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {

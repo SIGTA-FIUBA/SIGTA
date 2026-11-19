@@ -39,7 +39,7 @@ const document = (
   required = true,
 ): DocumentRequirement => ({ id, name, required, accepted_types: acceptedTypes, max_size: maxSize })
 
-export const demo = entry(
+const demo = entry(
   'Equivalencia entre asignaturas',
   [
     field('reason', 'Motivo', 'long_text'),
@@ -69,7 +69,7 @@ const degrees = [
   'Licenciatura en Ciencias de la Computación (articulación con la Facultad de Ciencias Exactas y Naturales)',
 ].map((name, i) => ({ id: `degree_${i + 1}`, name }))
 
-export const worst = entry(
+const worst = entry(
   'Reconocimiento de créditos por actividades de extensión, investigación, transferencia y prácticas profesionales supervisadas realizadas fuera de la Facultad',
   [
     field(
@@ -102,9 +102,9 @@ export const worst = entry(
   ],
 )
 
-export const empty = entry('Baja de una inscripción', [], [])
+const empty = entry('Baja de una inscripción', [], [])
 
-export const one = entry(
+const one = entry(
   'Pedido de constancia',
   [field('modality', 'Modalidad', 'option', true, [{ id: 'only', name: 'Única' }])],
   [document('note', 'Nota', ['application/pdf'], 1024)],

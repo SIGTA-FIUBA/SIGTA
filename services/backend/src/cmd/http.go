@@ -137,7 +137,7 @@ func run(logger *slog.Logger) error {
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now), procedures),
-		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures, time.Now)),
+		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 	)
 
 	server := &http.Server{
@@ -258,10 +258,6 @@ func devAreas() []domain.Area {
 	}
 }
 
-func publishDevProcedureType(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes) error {
-	return publishIfMissing(ctx, versions, procedureTypes, devProcedureType())
-}
-
 // publishIfMissing publishes an example only if its procedure type has no
 // version. A database that has one keeps it even if the example changed
 // since, so editing the example does not add a version on every start: a new
@@ -285,7 +281,7 @@ func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, pr
 // the test applicant. With Google nobody signs in as that applicant, so it is
 // of the first account that registers, which the returned users hand it to.
 func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
-	if err := publishDevProcedureType(ctx, versions, procedureTypes); err != nil {
+	if err := publishIfMissing(ctx, versions, procedureTypes, devProcedureType()); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type: %w", err)
 	}
 	if err := publishIfMissing(ctx, versions, procedureTypes, devReferralProcedureType()); err != nil {

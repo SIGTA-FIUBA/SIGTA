@@ -9,6 +9,10 @@ import (
 	"github.com/cucumber/godog"
 )
 
+// scenarioAdministrator creates the areas, permissions and memberships the
+// scenarios need.
+const scenarioAdministrator = "admin@fi.uba.ar"
+
 // TestScenarios fails on a scenario that fails and, because of Strict, on a
 // step that has no implementation: a scenario cannot pass without running.
 func TestScenarios(t *testing.T) {

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
-import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../render'
 import { HomePage } from '../../src/pages/HomePage'
@@ -49,11 +49,8 @@ afterEach(() => {
 
 describe('HomePage', () => {
   it('says what the platform is', () => {
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>,
-    )
+    stubMine(200, [])
+    renderAs(false)
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Sistema Integral de Gestión de Trámites Académicos' }),

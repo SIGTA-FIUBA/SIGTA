@@ -38,7 +38,7 @@ func TestDevProcedureTypeIsPublishedOnce(t *testing.T) {
 	for range 2 {
 		versions := postgres.NewProcedureVersions(app)
 		service := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
-		if err := publishDevProcedureType(ctx, versions, service); err != nil {
+		if err := publishIfMissing(ctx, versions, service, devProcedureType()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -82,15 +82,15 @@ func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
 			ctx := t.Context()
 			store := &lostRace{ProcedureVersions: memory.NewProcedureVersions(), rival: tc.rival}
 			service := application.NewProcedureTypeService(store, devAreaService(), devStaff(), time.Now)
-			err := publishDevProcedureType(ctx, store, service)
+			err := publishIfMissing(ctx, store, service, devProcedureType())
 			if !store.lost {
 				t.Fatal("the other start never published")
 			}
 			if tc.wantErr != (err != nil) {
-				t.Fatalf("publishDevProcedureType() = %v, want an error: %v", err, tc.wantErr)
+				t.Fatalf("publishIfMissing() = %v, want an error: %v", err, tc.wantErr)
 			}
 			if tc.wantErr && !errors.Is(err, input.ErrOutdatedBase) {
-				t.Errorf("publishDevProcedureType() = %v, want ErrOutdatedBase", err)
+				t.Errorf("publishIfMissing() = %v, want ErrOutdatedBase", err)
 			}
 			latest, err := store.Latest(ctx, devProcedureType().ProcedureType)
 			if err != nil || latest.Number != 1 {
@@ -105,7 +105,7 @@ func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
 func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 	ctx := t.Context()
 	versions := memory.NewProcedureVersions()
-	if err := publishDevProcedureType(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)); err != nil {
+	if err := publishIfMissing(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
 	procedures := memory.NewProcedureRepository()
@@ -137,7 +137,7 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
 	ctx := t.Context()
 	versions := memory.NewProcedureVersions()
-	if err := publishDevProcedureType(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)); err != nil {
+	if err := publishIfMissing(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
 	procedures := memory.NewProcedureRepository()

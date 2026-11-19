@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
 // IdentityProvider logs in as whatever email the login hint names, or as
@@ -39,15 +39,15 @@ func (p *IdentityProvider) AuthorizationURL(pending domain.PendingLogin, loginHi
 	return p.callbackURL + "?" + query.Encode()
 }
 
-func (p *IdentityProvider) Exchange(_ context.Context, code string, pending domain.PendingLogin) (out.Identity, error) {
+func (p *IdentityProvider) Exchange(_ context.Context, code string, pending domain.PendingLogin) (output.Identity, error) {
 	challenge, email, ok := strings.Cut(code, ".")
 	if !ok || email == "" {
-		return out.Identity{}, errors.New("dev identity provider needs an email as login_hint")
+		return output.Identity{}, errors.New("dev identity provider needs an email as login_hint")
 	}
 	if subtle.ConstantTimeCompare([]byte(challenge), []byte(pkceS256Challenge(pending.CodeVerifier))) != 1 {
-		return out.Identity{}, errors.New("PKCE code verifier does not match the challenge")
+		return output.Identity{}, errors.New("PKCE code verifier does not match the challenge")
 	}
-	return out.Identity{Subject: "dev|" + email, Email: email}, nil
+	return output.Identity{Subject: "dev|" + email, Email: email}, nil
 }
 
 func pkceS256Challenge(verifier string) string {
