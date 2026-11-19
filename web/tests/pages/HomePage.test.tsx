@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 import { HomePage } from '../../src/pages/HomePage'
 
 const inOffice = {
@@ -22,7 +22,7 @@ const withApplicant = {
   state: 'with_applicant',
 }
 
-function stubMine(status: number, body: unknown) {
+function stubApi(status: number, body: unknown) {
   const fetch = vi.fn(async (_request: Request) => Response.json(body, { status }))
   vi.stubGlobal('fetch', fetch)
   return fetch
@@ -49,7 +49,7 @@ afterEach(() => {
 
 describe('HomePage', () => {
   it('says what the platform is', () => {
-    stubMine(200, [])
+    stubApi(200, [])
     renderAs(false)
 
     expect(
@@ -59,7 +59,7 @@ describe('HomePage', () => {
   })
 
   it('lists the procedures in progress of the person, each with its state and leading to its detail', async () => {
-    const fetch = stubMine(200, [inOffice, withApplicant])
+    const fetch = stubApi(200, [inOffice, withApplicant])
     renderAs(false)
 
     const mine = screen.getByRole('region', { name: 'Mis trámites en curso' })
@@ -74,21 +74,21 @@ describe('HomePage', () => {
   })
 
   it('says when there is no procedure in progress', async () => {
-    stubMine(200, [])
+    stubApi(200, [])
     renderAs(true)
 
     expect(await screen.findByText(/No hay trámites en curso/)).toBeVisible()
   })
 
   it('says when the procedures in progress could not be loaded', async () => {
-    stubMine(500, { message: 'error' })
+    stubApi(500, { message: 'error' })
     renderAs(false)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los trámites en curso')
   })
 
   it('explains to an applicant how a procedure is done, and links to the catalog', () => {
-    stubMine(200, [])
+    stubApi(200, [])
     renderAs(false)
 
     expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
@@ -97,7 +97,7 @@ describe('HomePage', () => {
   })
 
   it('explains to the staff how to work, and links to the inbox', () => {
-    stubMine(200, [])
+    stubApi(200, [])
     renderAs(true)
 
     expect(screen.getByRole('heading', { name: 'Cómo se trabaja en SIGTA' })).toBeVisible()

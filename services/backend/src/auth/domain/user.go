@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var ErrUnknownUser = errors.New("no user registered with that identity")
+var ErrUserNotFound = errors.New("no user registered with that identity")
 
 // User is a person registered in SIGTA. What they may do comes from their
 // memberships, never from the identity provider.

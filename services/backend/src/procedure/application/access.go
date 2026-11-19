@@ -18,11 +18,11 @@ func denied(userID, action string) error {
 // canSee lets anyone see the procedures they started, and staff also those
 // that go through their areas, within the scope of their memberships
 // (ADR-020).
-func canSee(userID string, memberOf []authinput.AreaReach, p domain.Procedure, c version.Content) bool {
+func canSee(userID string, memberOf []authinput.AreaScope, p domain.Procedure, c version.Content) bool {
 	if p.Applicant == userID {
 		return true
 	}
-	return slices.ContainsFunc(memberOf, func(area authinput.AreaReach) bool {
+	return slices.ContainsFunc(memberOf, func(area authinput.AreaScope) bool {
 		coversType := len(area.Scope) == 0 || slices.Contains(area.Scope, p.ProcedureType)
 		return coversType && c.PassesThrough(area.Area)
 	})

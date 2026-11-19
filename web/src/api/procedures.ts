@@ -4,9 +4,9 @@ import { api } from './client'
 // ForbiddenError means the person is not part of the staff.
 export class ForbiddenError extends Error {}
 
-// useProcedures asks once for every procedure in progress the person can see.
+// useInboxProcedures asks once for every procedure in progress the person can see.
 // The inbox and the menu share it, so the pending count costs no request.
-export function useProcedures(enabled = true) {
+export function useInboxProcedures(enabled = true) {
   return useQuery({
     queryKey: ['procedures'],
     enabled,
@@ -47,7 +47,7 @@ export function useProcedure(id: string) {
 // started, staff or not.
 export function useMyProcedures() {
   return useQuery({
-    queryKey: ['my-procedures'],
+    queryKey: ['me', 'procedures'],
     queryFn: async () => {
       const { data, response } = await api.GET('/me/procedures')
       if (data === undefined) {

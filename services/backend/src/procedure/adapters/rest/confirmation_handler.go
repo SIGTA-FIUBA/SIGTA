@@ -10,7 +10,7 @@ import (
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/engine"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/input"
 )
 
 const (
@@ -39,7 +39,7 @@ func (h *ProcedureHandler) ConfirmStep(ctx context.Context, req api.ConfirmStepR
 	if req.Body == nil {
 		return api.ConfirmStep400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
 	}
-	event, err := h.steps.Confirm(ctx, user.ID, req.ProcedureId, ports.StepConfirmation{
+	event, err := h.steps.Confirm(ctx, user.ID, req.ProcedureId, input.StepConfirmation{
 		Step:               req.StepId,
 		Observation:        req.Body.Observation,
 		Outcome:            valueOf(req.Body.Outcome),

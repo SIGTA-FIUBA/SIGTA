@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
-import { documentDescription } from '../documentFormats'
+import { documentDescription } from '../content/documentFormats'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
@@ -36,7 +36,7 @@ function Section({ title, items }: { title: string; items: string[] }) {
   )
 }
 
-function Entry({ entry }: { entry: CatalogEntry }) {
+function CatalogItem({ entry }: { entry: CatalogEntry }) {
   return (
     <Stack component="article" gap="sm">
       <Title order={2}>{entry.name}</Title>
@@ -72,7 +72,7 @@ export function CatalogPage() {
       )}
       {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
       {entries.map((entry) => (
-        <Entry key={entry.id} entry={entry} />
+        <CatalogItem key={entry.id} entry={entry} />
       ))}
     </Stack>
   )

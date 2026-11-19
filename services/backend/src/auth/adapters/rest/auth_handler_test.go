@@ -20,7 +20,7 @@ import (
 	"backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
-	ports "backend/src/auth/ports/input"
+	"backend/src/auth/ports/input"
 )
 
 func newServer(t *testing.T) *httptest.Server {
@@ -29,7 +29,7 @@ func newServer(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	auth := application.NewAuthService(
+	auth := application.NewAuthenticatorService(
 		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
 		dev.NewIdentityProvider(srv.URL+"/auth/callback", ""),
 		memory.NewUserRepository(
@@ -37,14 +37,14 @@ func newServer(t *testing.T) *httptest.Server {
 			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
 			domain.User{ID: "u3", Email: "admin@fi.uba.ar", Name: "Administración"},
 		),
-		memory.NewSessionStore(),
+		memory.NewSessionRepository(),
 		time.Now,
 	)
 	areaRepository := memory.NewAreaRepository(domain.Area{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}})
 	if err := application.EnsureSecretariat(t.Context(), areaRepository); err != nil {
 		t.Fatal(err)
 	}
-	administrators := memory.NewAdministrators("u3")
+	administrators := memory.NewAdministratorRepository("u3")
 	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Permissions: []string{"review"}})
 	areas := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, func() string { return "m2" }, time.Now)
@@ -269,7 +269,7 @@ func TestInvalidRequestsAnswerWithTheContractError(t *testing.T) {
 	}
 }
 
-type brokenAuth struct{ ports.Authenticator }
+type brokenAuth struct{ input.Authenticator }
 
 func (brokenAuth) Logout(context.Context, string) error { return errors.New("secret detail") }
 

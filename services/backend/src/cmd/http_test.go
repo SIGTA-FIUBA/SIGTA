@@ -30,19 +30,19 @@ func TestDevProcedureTypeIsPublishedOnce(t *testing.T) {
 	app := schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
 	older := devProcedureType()
 	older.Definition.Name = "Trámite de ejemplo anterior"
-	stored, err := application.NewProcedureTypeService(postgres.NewProcedureVersions(app), devAreaService(), devStaff(), time.Now).Publish(ctx, older)
+	stored, err := application.NewProcedureTypeService(postgres.NewProcedureTypeVersionRepository(app), devAreaService(), devStaff(), time.Now).Publish(ctx, older)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Each start opens the same database with a new service.
 	for range 2 {
-		versions := postgres.NewProcedureVersions(app)
+		versions := postgres.NewProcedureTypeVersionRepository(app)
 		service := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 		if err := publishIfMissing(ctx, versions, service, devProcedureType()); err != nil {
 			t.Fatal(err)
 		}
 	}
-	latest, err := postgres.NewProcedureVersions(app).Latest(ctx, devProcedureType().ProcedureType)
+	latest, err := postgres.NewProcedureTypeVersionRepository(app).Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil || latest.Number != 1 || latest.Digest != stored.Digest {
 		t.Fatalf("Latest() = version %d, %v; want the older example as version 1", latest.Number, err)
 	}
@@ -51,7 +51,7 @@ func TestDevProcedureTypeIsPublishedOnce(t *testing.T) {
 // lostRace is a store where another start publishes rival right before the
 // first Add.
 type lostRace struct {
-	output.ProcedureVersions
+	output.ProcedureTypeVersionRepository
 	rival input.Publication
 	lost  bool
 }
@@ -59,12 +59,12 @@ type lostRace struct {
 func (s *lostRace) Add(ctx context.Context, v version.ProcedureTypeVersion) error {
 	if !s.lost {
 		s.lost = true
-		other := application.NewProcedureTypeService(s.ProcedureVersions, devAreaService(), devStaff(), time.Now)
+		other := application.NewProcedureTypeService(s.ProcedureTypeVersionRepository, devAreaService(), devStaff(), time.Now)
 		if _, err := other.Publish(ctx, s.rival); err != nil {
 			return err
 		}
 	}
-	return s.ProcedureVersions.Add(ctx, v)
+	return s.ProcedureTypeVersionRepository.Add(ctx, v)
 }
 
 func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
@@ -80,7 +80,7 @@ func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
-			store := &lostRace{ProcedureVersions: memory.NewProcedureVersions(), rival: tc.rival}
+			store := &lostRace{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository(), rival: tc.rival}
 			service := application.NewProcedureTypeService(store, devAreaService(), devStaff(), time.Now)
 			err := publishIfMissing(ctx, store, service, devProcedureType())
 			if !store.lost {
@@ -104,7 +104,7 @@ func TestDevProcedureTypeWhenAnotherStartPublishesFirst(t *testing.T) {
 // its open step, and the staff of the area see it without acting.
 func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	if err := publishIfMissing(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 
 	for _, tc := range []struct {
@@ -136,7 +136,7 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 
 func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	if err := publishIfMissing(ctx, versions, application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), devProcedureType()); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 	confirmation := input.StepConfirmation{Step: devReviewStep, Observation: "Revisado"}
 
@@ -165,7 +165,7 @@ func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
 // the first account that registers, and only to it.
 func TestDevProcedureGoesToTheFirstSignUpWithGoogle(t *testing.T) {
 	ctx := t.Context()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	procedureTypes := application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now)
 	procedures := memory.NewProcedureRepository()
 	users, err := addDevExample(ctx, config{identityProvider: identityGoogle}, slog.New(slog.DiscardHandler), versions, procedureTypes, procedures, authmem.NewUserRepository(devPeople().users...))
@@ -232,13 +232,13 @@ func devStaff() *authapp.MembershipService {
 	return authapp.NewMembershipService(areas, administrators, memberships, newID, time.Now)
 }
 
-func devDirectory() (*authmem.AreaRepository, *authmem.Administrators, *authmem.MembershipRepository) {
+func devDirectory() (*authmem.AreaRepository, *authmem.AdministratorRepository, *authmem.MembershipRepository) {
 	areas := authmem.NewAreaRepository(devAreas()...)
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		panic(err)
 	}
 	people := devPeople()
-	return areas, authmem.NewAdministrators(people.administrators...), authmem.NewMembershipRepository(people.memberships...)
+	return areas, authmem.NewAdministratorRepository(people.administrators...), authmem.NewMembershipRepository(people.memberships...)
 }
 
 // TestServeLetsTheRequestsInFlightFinish stops the server while a request is

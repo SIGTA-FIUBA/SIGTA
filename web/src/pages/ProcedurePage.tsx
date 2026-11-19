@@ -26,8 +26,8 @@ import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
-import { documentDescription } from '../documentFormats'
-import { stateColors, stateNames } from '../procedureState'
+import { documentDescription } from '../content/documentFormats'
+import { stateColors, stateNames } from '../content/procedureStates'
 import { fileError, valueText } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']

@@ -34,30 +34,30 @@ const (
 	attempts = 3
 )
 
-var _ output.ProcedureVersions = (*ProcedureVersions)(nil)
+var _ output.ProcedureTypeVersionRepository = (*ProcedureTypeVersionRepository)(nil)
 
-// ProcedureVersions never decodes the content: it reads and writes the bytes
+// ProcedureTypeVersionRepository never decodes the content: it reads and writes the bytes
 // the digest covers. It works at READ COMMITTED, the default of PostgreSQL,
 // and at SERIALIZABLE, where its contract tests also run.
-type ProcedureVersions struct {
+type ProcedureTypeVersionRepository struct {
 	pool *pgxpool.Pool
 	// beforeCommit, if set, runs in each attempt of Add after the insert, so
 	// a test can publish a rival version at that point.
 	beforeCommit func(ctx context.Context)
 }
 
-func NewProcedureVersions(pool *pgxpool.Pool) *ProcedureVersions {
-	return &ProcedureVersions{pool: pool}
+func NewProcedureTypeVersionRepository(pool *pgxpool.Pool) *ProcedureTypeVersionRepository {
+	return &ProcedureTypeVersionRepository{pool: pool}
 }
 
 const versionColumns = "procedure_type_id, number, digest, content, proposed_by, approved_by, published_at"
 
-func (s *ProcedureVersions) Latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) Latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
 	return s.one(ctx, fmt.Sprintf("latest version of procedure type %d", procedureType),
 		"SELECT "+versionColumns+" FROM current_procedure_type_versions WHERE procedure_type_id = $1", procedureType)
 }
 
-func (s *ProcedureVersions) LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error) {
 	rows, err := s.pool.Query(ctx, "SELECT "+versionColumns+" FROM current_procedure_type_versions ORDER BY procedure_type_id")
 	if err != nil {
 		return nil, fmt.Errorf("latest versions: %w", err)
@@ -69,7 +69,7 @@ func (s *ProcedureVersions) LatestOfEach(ctx context.Context) ([]version.Procedu
 	return latest, nil
 }
 
-func (s *ProcedureVersions) Get(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) Get(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
 	return s.one(ctx, fmt.Sprintf("version %d of procedure type %d", number, procedureType),
 		"SELECT "+versionColumns+" FROM procedure_type_versions WHERE procedure_type_id = $1 AND number = $2", procedureType, number)
 }
@@ -85,7 +85,7 @@ func (s *ProcedureVersions) Get(ctx context.Context, procedureType int64, number
 // predicate locks cover pages and not procedure types: if the number is
 // still free, Add tries again, up to attempts times, and then returns the
 // failure as it is, with its 40001 and without ErrVersionExists.
-func (s *ProcedureVersions) Add(ctx context.Context, v version.ProcedureTypeVersion) error {
+func (s *ProcedureTypeVersionRepository) Add(ctx context.Context, v version.ProcedureTypeVersion) error {
 	for attempt := 1; ; attempt++ {
 		inserted, err := s.insert(ctx, v)
 		switch {
@@ -96,7 +96,7 @@ func (s *ProcedureVersions) Add(ctx context.Context, v version.ProcedureTypeVers
 		}
 
 		latest, readErr := s.Latest(ctx, v.ProcedureTypeID)
-		if readErr != nil && !errors.Is(readErr, output.ErrNoVersion) {
+		if readErr != nil && !errors.Is(readErr, output.ErrVersionNotFound) {
 			return fmt.Errorf("add version %d of procedure type %d: %w", v.Number, v.ProcedureTypeID, errors.Join(err, readErr))
 		}
 		next := latest.Number + 1
@@ -142,7 +142,7 @@ func versionError(sentinel error, v version.ProcedureTypeVersion, cause error) e
 
 // insert also registers the procedure type with its first version, since
 // versions reference it and nothing else creates procedure types yet.
-func (s *ProcedureVersions) insert(ctx context.Context, v version.ProcedureTypeVersion) (bool, error) {
+func (s *ProcedureTypeVersionRepository) insert(ctx context.Context, v version.ProcedureTypeVersion) (bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin: %w", err)
@@ -183,7 +183,7 @@ func violatesCheck(err error, constraint string) bool {
 }
 
 // one reads the version that sql selects, described by what.
-func (s *ProcedureVersions) one(ctx context.Context, what, sql string, args ...any) (version.ProcedureTypeVersion, error) {
+func (s *ProcedureTypeVersionRepository) one(ctx context.Context, what, sql string, args ...any) (version.ProcedureTypeVersion, error) {
 	rows, err := s.pool.Query(ctx, sql, args...)
 	if err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("read %s: %w", what, err)
@@ -191,7 +191,7 @@ func (s *ProcedureVersions) one(ctx context.Context, what, sql string, args ...a
 	v, err := pgx.CollectExactlyOneRow(rows, scanVersion)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		return version.ProcedureTypeVersion{}, fmt.Errorf("%w: %s", output.ErrNoVersion, what)
+		return version.ProcedureTypeVersion{}, fmt.Errorf("%w: %s", output.ErrVersionNotFound, what)
 	case err != nil:
 		return version.ProcedureTypeVersion{}, fmt.Errorf("read %s: %w", what, err)
 	}

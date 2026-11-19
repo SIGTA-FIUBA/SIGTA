@@ -32,7 +32,7 @@ func (f *fakeInbox) List(_ context.Context, userID string, q inbox.Query) (inbox
 
 // getProcedures asks with the session of fakeAuth, or with none if cookie is
 // empty.
-func getProcedures(t *testing.T, box *fakeInbox, cookie, query string) *httptest.ResponseRecorder {
+func listInbox(t *testing.T, box *fakeInbox, cookie, query string) *httptest.ResponseRecorder {
 	t.Helper()
 	server := api.NewServer(nil, nil, nil, nil, nil, rest.NewInboxHandler(fakeAuth{}, fakePeople{}, box))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
@@ -63,7 +63,7 @@ func TestListProceduresAnswersTheList(t *testing.T) {
 		Areas:          []inbox.Option[string]{{ID: "committee", Name: "Comisión"}},
 	}}
 
-	recorder := getProcedures(t, box, session, "?view=all&procedure_type=7&state=in_office&area=committee&sort=last_moved")
+	recorder := listInbox(t, box, session, "?view=all&procedure_type=7&state=in_office&area=committee&sort=last_moved")
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body)
@@ -93,7 +93,7 @@ func TestListProceduresAnswersTheList(t *testing.T) {
 func TestListProceduresDefaultsToMineByAge(t *testing.T) {
 	box := &fakeInbox{}
 
-	recorder := getProcedures(t, box, session, "")
+	recorder := listInbox(t, box, session, "")
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
@@ -124,7 +124,7 @@ func TestListProceduresRefuses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			box := &fakeInbox{}
-			if recorder := getProcedures(t, box, tt.cookie, tt.query); recorder.Code != tt.want {
+			if recorder := listInbox(t, box, tt.cookie, tt.query); recorder.Code != tt.want {
 				t.Errorf("status = %d, want %d", recorder.Code, tt.want)
 			}
 			if box.asked {
@@ -135,7 +135,7 @@ func TestListProceduresRefuses(t *testing.T) {
 }
 
 func TestListProceduresRefusesWhoIsNotStaff(t *testing.T) {
-	recorder := getProcedures(t, &fakeInbox{err: input.ErrNotStaff}, session, "")
+	recorder := listInbox(t, &fakeInbox{err: input.ErrNotStaff}, session, "")
 
 	if recorder.Code != http.StatusForbidden {
 		t.Errorf("status = %d, want 403", recorder.Code)
@@ -143,7 +143,7 @@ func TestListProceduresRefusesWhoIsNotStaff(t *testing.T) {
 }
 
 func TestListProceduresFailsWhenTheInboxFails(t *testing.T) {
-	recorder := getProcedures(t, &fakeInbox{err: errors.New("store down")}, session, "")
+	recorder := listInbox(t, &fakeInbox{err: errors.New("store down")}, session, "")
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", recorder.Code)

@@ -9,7 +9,7 @@ import (
 )
 
 type administratorGuard struct {
-	administrators output.Administrators
+	administrators output.AdministratorRepository
 }
 
 func (g administratorGuard) requireAdministrator(ctx context.Context, userID, action string) error {

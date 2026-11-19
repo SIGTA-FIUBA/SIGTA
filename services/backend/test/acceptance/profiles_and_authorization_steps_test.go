@@ -30,7 +30,7 @@ type authorizationWorld struct {
 	memberships       *authapp.MembershipService
 	areas             *authapp.AreaService
 	storedAreas       *authmem.AreaRepository
-	administrators    *authmem.Administrators
+	administrators    *authmem.AdministratorRepository
 	storedMemberships *authmem.MembershipRepository
 	procedures        *memory.ProcedureRepository
 	documents         *memory.DocumentRepository
@@ -52,7 +52,7 @@ type authorizationWorld struct {
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	w := &authorizationWorld{
-		administrators:    authmem.NewAdministrators("admin@fi.uba.ar"),
+		administrators:    authmem.NewAdministratorRepository(scenarioAdministrator),
 		storedMemberships: authmem.NewMembershipRepository(),
 		procedures:        memory.NewProcedureRepository(),
 		documents:         memory.NewDocumentRepository(),
@@ -76,15 +76,9 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	sc.When(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the permissions? "([^"]*)"(?: on "([^"]*)")?$`, w.grant)
 	sc.Step(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the role "([^"]*)"(?: and the permissions? "([^"]*)")?$`, w.grantRole)
 	sc.When(`^"([^"]*)" changes the permissions of the role "([^"]*)" of "([^"]*)" to "([^"]*)"$`, w.changeRole)
-	sc.Step(`^"([^"]*)" creates the role "([^"]*)" named "([^"]*)" with "([^"]*)" in "([^"]*)"$`, w.createRole)
-	sc.When(`^"([^"]*)" deletes the role "([^"]*)" of "([^"]*)"$`, w.deleteRole)
 	sc.When(`^"([^"]*)" proposes and "([^"]*)" approves a version of "([^"]*)"$`, w.proposeAndApprove)
 	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
 	sc.When(`^it is "([^"]*)"$`, w.itIs)
-	sc.When(`^"([^"]*)" creates the area "([^"]*)" named "([^"]*)"$`, w.createArea)
-	sc.When(`^"([^"]*)" deletes the area "([^"]*)"$`, w.deleteArea)
-	sc.When(`^"([^"]*)" creates the permission "([^"]*)" named "([^"]*)" in "([^"]*)"$`, w.createPermission)
-	sc.When(`^"([^"]*)" deletes the permission "([^"]*)" of "([^"]*)"$`, w.deletePermission)
 	sc.When(`^"([^"]*)" starts a "([^"]*)" procedure$`, w.start)
 	sc.When(`^"([^"]*)" acts on that step$`, w.actOnOpenStep)
 	sc.When(`^"([^"]*)" sends the approval directly to the API$`, w.sendApproval)
@@ -92,21 +86,10 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	sc.When(`^"([^"]*)" lists (?:their|the) procedures$`, w.list)
 	sc.When(`^a new version of "([^"]*)" is published$`, w.publishNewVersion)
 
-	sc.Then(`^the areas besides the Secretariat are (.+)$`, w.thenAreas)
-	sc.Then(`^the area "([^"]*)" exists without anyone creating it$`, w.thenSystemArea)
-	sc.Then(`^the role is denied$`, w.thenFails(authdomain.ErrAccessDenied))
-	sc.Then(`^the role is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidRole))
 	sc.Then(`^the role "([^"]*)" of "([^"]*)" records that "([^"]*)" changed it$`, w.thenRoleChangedBy)
 	sc.Then(`^the version is (published|denied)$`, w.thenVersion)
-	sc.Then(`^the area is denied$`, w.thenFails(authdomain.ErrAccessDenied))
-	sc.Then(`^the area is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidArea))
-	sc.Then(`^the area "([^"]*)" records that "([^"]*)" deleted it$`, w.thenAreaDeletedBy)
-	sc.Then(`^the permission is denied$`, w.thenFails(authdomain.ErrAccessDenied))
-	sc.Then(`^the permission is not (?:created|deleted)$`, w.thenFails(authdomain.ErrInvalidPermission))
-	sc.Then(`^"([^"]*)" (can|cannot) grant "([^"]*)" a membership in "([^"]*)" with the (permissions?|role) "([^"]*)"$`, w.thenCanGrant)
 	sc.Then(`^a procedure type with a step in "([^"]*)" that asks for "([^"]*)" (can|cannot) be published$`, w.thenPublishesWithArea)
 	sc.Then(`^the procedure is started$`, w.thenStarted)
-	sc.Then(`^the procedure is not started$`, w.thenNotStarted)
 	sc.Then(`^"([^"]*)" (can|cannot) start a "([^"]*)" procedure$`, w.thenCanStart)
 	sc.Then(`^the membership is granted by "([^"]*)" from now on$`, w.thenGranted)
 	sc.Then(`^the membership is denied$`, w.thenFails(authdomain.ErrAccessDenied))
@@ -153,7 +136,7 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	clock := func() time.Time { return w.now }
 	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, clock)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, clock)
 	w.service = application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, clock)
 	return nil
 }
@@ -270,7 +253,7 @@ func (w *authorizationWorld) givenAdministrator(user string) error {
 
 func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
-		_, err := w.memberships.Grant(context.Background(), "admin@fi.uba.ar", authinput.MembershipGrant{
+		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID:      row.Cells[0].Value,
 			Area:        areaID(row.Cells[1].Value),
 			Permissions: list(row.Cells[2].Value),
@@ -551,16 +534,6 @@ func (w *authorizationWorld) thenStaysOn(step string) error {
 	return nil
 }
 
-func (w *authorizationWorld) createArea(administrator, id, name string) {
-	w.user = administrator
-	_, w.err = w.areas.Create(context.Background(), administrator, authdomain.Area{ID: areaID(id), Name: name})
-}
-
-func (w *authorizationWorld) deleteArea(administrator, name string) {
-	w.user = administrator
-	w.err = w.areas.Delete(context.Background(), administrator, areaID(name))
-}
-
 var quoted = regexp.MustCompile(`"([^"]*)"`)
 
 // list reads "a, b" as the permissions a and b, and "" as none.
@@ -577,71 +550,9 @@ func list(cell string) []string {
 // givenAreaPermissions creates each quoted permission, named as its ID.
 func (w *authorizationWorld) givenAreaPermissions(area, permissions string) error {
 	for _, m := range quoted.FindAllStringSubmatch(permissions, -1) {
-		if _, err := w.areas.CreatePermission(context.Background(), "admin@fi.uba.ar", areaID(area), authdomain.Permission{ID: m[1], Name: m[1]}); err != nil {
+		if _, err := w.areas.CreatePermission(context.Background(), scenarioAdministrator, areaID(area), authdomain.Permission{ID: m[1], Name: m[1]}); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (w *authorizationWorld) createPermission(administrator, id, name, area string) {
-	w.user = administrator
-	_, w.err = w.areas.CreatePermission(context.Background(), administrator, areaID(area), authdomain.Permission{ID: id, Name: name})
-}
-
-func (w *authorizationWorld) deletePermission(administrator, id, area string) {
-	w.user = administrator
-	w.err = w.areas.DeletePermission(context.Background(), administrator, areaID(area), id)
-}
-
-func (w *authorizationWorld) thenAreas(list string) error {
-	var want []string
-	for _, m := range quoted.FindAllStringSubmatch(list, -1) {
-		want = append(want, m[1])
-	}
-	areas, err := w.areas.List(context.Background())
-	if err != nil {
-		return err
-	}
-	got := make([]string, 0, len(areas))
-	for _, a := range areas {
-		if !a.System {
-			got = append(got, a.Name)
-		}
-	}
-	if !slices.Equal(got, want) {
-		return fmt.Errorf("the areas are %q, want %q", got, want)
-	}
-	return nil
-}
-
-func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error {
-	area, err := w.storedAreas.Get(context.Background(), areaID(name))
-	if err != nil {
-		return err
-	}
-	if area.DeletedBy != administrator || !area.DeletedAt.Equal(w.now) {
-		return fmt.Errorf("stored %+v, want deleted by %s at %s", area, administrator, w.now)
-	}
-	return nil
-}
-
-func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, kind, ids string) error {
-	g := authinput.MembershipGrant{UserID: user, Area: areaID(area)}
-	if kind == "role" {
-		g.Roles = list(ids)
-	} else {
-		g.Permissions = list(ids)
-	}
-	_, err := w.memberships.Grant(context.Background(), administrator, g)
-	if can == "can" {
-		return err
-	}
-	if err == nil {
-		return fmt.Errorf("granted, want %w", authdomain.ErrInvalidMembership)
-	}
-	if !errors.Is(err, authdomain.ErrInvalidMembership) {
-		return fmt.Errorf("got %w, want %w", err, authdomain.ErrInvalidMembership)
 	}
 	return nil
 }
@@ -666,7 +577,7 @@ func (w *authorizationWorld) thenPublishesWithArea(area, permissions, can string
 }
 
 func (w *authorizationWorld) givenRole(area, role, permissions string) error {
-	_, err := w.areas.CreateRole(context.Background(), "admin@fi.uba.ar", areaID(area), authinput.NewRole{ID: role, Name: role, Permissions: list(permissions)})
+	_, err := w.areas.CreateRole(context.Background(), scenarioAdministrator, areaID(area), authinput.NewRole{ID: role, Name: role, Permissions: list(permissions)})
 	return err
 }
 
@@ -685,16 +596,6 @@ func (w *authorizationWorld) changeRole(administrator, role, area, permissions s
 	return err
 }
 
-func (w *authorizationWorld) createRole(administrator, id, name, permissions, area string) {
-	w.user = administrator
-	_, w.err = w.areas.CreateRole(context.Background(), administrator, areaID(area), authinput.NewRole{ID: id, Name: name, Permissions: list(permissions)})
-}
-
-func (w *authorizationWorld) deleteRole(administrator, role, area string) {
-	w.user = administrator
-	w.err = w.areas.DeleteRole(context.Background(), administrator, areaID(area), role)
-}
-
 // proposeAndApprove publishes a version that changes the description, so that
 // it is a new version whenever the authors are allowed.
 func (w *authorizationWorld) proposeAndApprove(proposer, approver, name string) {
@@ -706,17 +607,6 @@ func (w *authorizationWorld) thenVersion(result string) error {
 		return w.err
 	}
 	return w.thenFails(domain.ErrAccessDenied)()
-}
-
-func (w *authorizationWorld) thenSystemArea(area string) error {
-	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
-	if err != nil {
-		return err
-	}
-	if !stored.System || stored.Deleted() {
-		return fmt.Errorf("stored %+v, want a system area", stored)
-	}
-	return nil
 }
 
 func (w *authorizationWorld) thenRoleChangedBy(role, area, administrator string) error {

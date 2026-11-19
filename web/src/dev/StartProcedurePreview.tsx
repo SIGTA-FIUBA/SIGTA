@@ -6,7 +6,7 @@ import { catalogQuery } from '../api/catalog'
 import { StartProcedurePage } from '../pages/StartProcedurePage'
 import { fixtures, type FixtureName } from './startProcedureFixtures'
 
-const states: { value: FixtureName; label: string }[] = [
+const fixtureOptions: { value: FixtureName; label: string }[] = [
   { value: 'demo', label: 'Demo' },
   { value: 'worst', label: 'Worst case' },
   { value: 'empty', label: 'Empty' },
@@ -20,20 +20,20 @@ function isFixture(value: string | null): value is FixtureName {
 // StartProcedurePreview renders the form that starts a procedure with each
 // catalog of startProcedureFixtures, swapped in the query cache, which is
 // where the page reads the catalog. Only for development: the route exists
-// only in the dev server. The state stays in ?data= across reloads.
+// only in the dev server. The fixture stays in ?data= across reloads.
 export function StartProcedurePreview() {
   const [params, setParams] = useSearchParams()
-  const data = params.get('data')
-  const state: FixtureName = isFixture(data) ? data : 'demo'
+  const fixtureParam = params.get('data')
+  const fixture: FixtureName = isFixture(fixtureParam) ? fixtureParam : 'demo'
   const client = useMemo(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-    seeded.setQueryData(catalogQuery.queryKey, [fixtures[state]])
+    seeded.setQueryData(catalogQuery.queryKey, [fixtures[fixture]])
     return seeded
-  }, [state])
+  }, [fixture])
 
   return (
     <>
-      <QueryClientProvider client={client} key={state}>
+      <QueryClientProvider client={client} key={fixture}>
         <Container size="md" py="md">
           <StartProcedurePage />
         </Container>
@@ -41,8 +41,8 @@ export function StartProcedurePreview() {
       <Affix position={{ bottom: 'md', left: '50%' }}>
         <SegmentedControl
           size="xs"
-          value={state}
-          data={states}
+          value={fixture}
+          data={fixtureOptions}
           onChange={(value) => setParams({ data: value }, { replace: true })}
         />
       </Affix>

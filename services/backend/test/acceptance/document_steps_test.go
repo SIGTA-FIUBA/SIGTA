@@ -110,7 +110,7 @@ func (w *documentWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(scenarioAdministrator)
+	administrators := authmem.NewAdministratorRepository(scenarioAdministrator)
 	// The authors of the procedure type in the Secretariat, so that it can be
 	// published.
 	stored := authmem.NewMembershipRepository(
@@ -121,7 +121,7 @@ func (w *documentWorld) setUp() error {
 	w.known[authinput.SecretariatArea] = true
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	w.documents = memory.NewDocumentRepository()
 	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)
@@ -401,9 +401,9 @@ func (w *documentWorld) thenType(requirement, mediaType string) error {
 }
 
 var rejections = map[string]error{
-	"its type is not accepted":          domain.ErrDocumentType,
+	"its type is not accepted":          domain.ErrDocumentTypeNotAccepted,
 	"it is too large":                   domain.ErrDocumentTooLarge,
-	"it is empty":                       domain.ErrEmptyDocument,
+	"it is empty":                       domain.ErrDocumentEmpty,
 	"the open step does not ask for it": domain.ErrDocumentNotRequested,
 	"they cannot act on that step":      domain.ErrAccessDenied,
 	"the procedure is not found":        domain.ErrProcedureNotFound,

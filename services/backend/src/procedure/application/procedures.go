@@ -30,9 +30,9 @@ type ProcedureService struct {
 	now             func() time.Time
 }
 
-func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, documents output.DocumentRepository, staff authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
+func NewProcedureService(procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, documents output.DocumentRepository, staffAuthorizer authinput.StaffAuthorizer, newID func() string, now func() time.Time) *ProcedureService {
 	return &ProcedureService{
-		staffAuthorizer: staff,
+		staffAuthorizer: staffAuthorizer,
 		procedureTypes:  procedureTypes,
 		procedures:      procedures,
 		documents:       documents,
@@ -162,8 +162,8 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 	return event, nil
 }
 
-func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authinput.AreaReach, error) {
-	memberOf, err := s.staffAuthorizer.Reach(ctx, userID)
+func (s *ProcedureService) memberOf(ctx context.Context, userID string) ([]authinput.AreaScope, error) {
+	memberOf, err := s.staffAuthorizer.Scopes(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("areas of %s: %w", userID, err)
 	}
@@ -210,7 +210,7 @@ func (s *ProcedureService) latest(ctx context.Context, procedureType int64) (ver
 	}
 	i := slices.IndexFunc(entries, func(e input.CatalogEntry) bool { return e.ProcedureType == procedureType })
 	if i < 0 {
-		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrNoVersion)
+		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", procedureType, output.ErrVersionNotFound)
 	}
 	return s.procedureTypes.Version(ctx, procedureType, entries[i].Version)
 }

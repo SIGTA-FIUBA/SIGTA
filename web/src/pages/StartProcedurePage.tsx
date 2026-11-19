@@ -24,29 +24,29 @@ import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
-import { documentDescription } from '../documentFormats'
+import { documentDescription } from '../content/documentFormats'
 import {
+  emptySubmission,
   fieldError,
   fileError,
-  formData,
-  initialValues,
   isEmpty,
-  maxItems,
+  maxSubjects,
   problemErrors,
-  totalErrors,
+  submissionBody,
+  totalSizeErrors,
   valueText,
-  type SubmissionValues,
+  type SubmissionDraft,
 } from '../submission'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
 type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 type StartedProcedure = components['schemas']['StartedProcedure']
-type Form = UseFormReturnType<SubmissionValues>
+type Form = UseFormReturnType<SubmissionDraft>
 
-const stepData = 0
-const stepDocuments = 1
-const stepSummary = 2
+const stageData = 0
+const stageDocuments = 1
+const stageSummary = 2
 
 // Beyond this many options, a select lets the applicant type to find one.
 const searchableOptions = 7
@@ -96,9 +96,9 @@ function FieldInput({ form, field }: { form: Form; field: FieldRequirement }) {
       return (
         <TagsInput
           {...common}
-          description={`Escribí cada asignatura y apretá Enter. Hasta ${maxItems}.`}
+          description={`Escribí cada asignatura y apretá Enter. Hasta ${maxSubjects}.`}
           splitChars={[]}
-          maxTags={maxItems}
+          maxTags={maxSubjects}
           clearable
         />
       )
@@ -177,8 +177,8 @@ function Summary({ form, entry }: { form: Form; entry: CatalogEntry }) {
   )
 }
 
-// Started takes the focus, since the button that had it is gone.
-function Started({ procedure }: { procedure: StartedProcedure }) {
+// StartedNotice takes the focus, since the button that had it is gone.
+function StartedNotice({ procedure }: { procedure: StartedProcedure }) {
   const alert = useRef<HTMLDivElement>(null)
   useEffect(() => {
     alert.current?.focus()
@@ -233,15 +233,15 @@ function LeaveWarning({ dirty }: { dirty: boolean }) {
   )
 }
 
-function SubmissionForm({ entry }: { entry: CatalogEntry }) {
+function StartProcedureForm({ entry }: { entry: CatalogEntry }) {
   const { fields, documents } = entry.submission
-  const [active, setActive] = useState(stepData)
+  const [active, setActive] = useState(stageData)
   const [sending, setSending] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [started, setStarted] = useState<StartedProcedure | null>(null)
-  const form = useForm<SubmissionValues>({
+  const form = useForm<SubmissionDraft>({
     mode: 'uncontrolled',
-    initialValues: initialValues(fields, documents),
+    initialValues: emptySubmission(fields, documents),
     validate: (submission) => ({
       ...Object.fromEntries(
         fields.map((field) => [`values.${field.id}`, fieldError(field, submission.values[field.id])]),
@@ -252,9 +252,9 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
     }),
   })
 
-  // After the step changes, the focus goes to the field to fix, if there is
-  // one, or else to the content of the new step, so that a screen reader
-  // reads it. Only the active step is mounted, so the three share the ref.
+  // After the stage changes, the focus goes to the field to fix, if there is
+  // one, or else to the content of the new stage, so that a screen reader
+  // reads it. Only the active stage is mounted, so the three share the ref.
   const content = useRef<HTMLDivElement>(null)
   const pendingFocus = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -267,35 +267,35 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
     ;(node ?? content.current)?.focus()
   })
 
-  function goTo(step: number, path: string | null = null) {
+  function goToStage(stage: number, path: string | null = null) {
     pendingFocus.current = path
-    setActive(step)
+    setActive(stage)
   }
 
   const pathsOf = [fields.map((field) => `values.${field.id}`), documents.map((document) => `files.${document.id}`), []]
 
   function firstError(errors: Record<string, unknown>) {
-    for (const [step, paths] of pathsOf.entries()) {
+    for (const [stage, paths] of pathsOf.entries()) {
       const path = paths.find((candidate) => errors[candidate])
       if (path) {
-        return { step, path }
+        return { stage, path }
       }
     }
     return null
   }
 
-  // validateStep checks the fields or the files of a step, and the files
+  // validateStage checks the fields or the files of a stage, and the files
   // together against the most a request can carry. It returns the first
   // path to fix.
-  function validateStep(step: number) {
+  function validateStage(stage: number) {
     // Every path is validated, so that all that is wrong shows at once.
-    const results = pathsOf[step].map((path) => ({ path, hasError: form.validateField(path).hasError }))
+    const results = pathsOf[stage].map((path) => ({ path, hasError: form.validateField(path).hasError }))
     const invalid = results.find((result) => result.hasError)
     if (invalid) {
       return invalid.path
     }
-    if (step === stepDocuments) {
-      const total = totalErrors(documents, form.getValues().files)
+    if (stage === stageDocuments) {
+      const total = totalSizeErrors(documents, form.getValues().files)
       const [path] = Object.keys(total)
       if (path) {
         form.setErrors(total)
@@ -306,21 +306,21 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
   }
 
   function next() {
-    const invalid = validateStep(active)
+    const invalid = validateStage(active)
     if (invalid) {
       form.getInputNode(invalid)?.focus()
       return
     }
-    goTo(active + 1)
+    goToStage(active + 1)
   }
 
   async function submit() {
     const validation = form.validate()
-    const errors = { ...validation.errors, ...totalErrors(documents, form.getValues().files) }
+    const errors = { ...validation.errors, ...totalSizeErrors(documents, form.getValues().files) }
     const invalid = firstError(errors)
     if (invalid) {
       form.setErrors(errors)
-      goTo(invalid.step, invalid.path)
+      goToStage(invalid.stage, invalid.path)
       return
     }
     setFailure(null)
@@ -328,7 +328,7 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
     try {
       const { data, error, response } = await api.POST('/procedures', {
         body: { procedure_type: entry.id, values: '' },
-        bodySerializer: () => formData(entry.id, fields, form.getValues()),
+        bodySerializer: () => submissionBody(entry.id, fields, form.getValues()),
       })
       if (data) {
         setStarted(data)
@@ -338,7 +338,7 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
         const rejected = problemErrors(error.problems)
         form.setErrors(rejected)
         const first = firstError(rejected)
-        goTo(first?.step ?? active, first?.path ?? null)
+        goToStage(first?.stage ?? active, first?.path ?? null)
         return
       }
       // A request the server could not read comes with a message that says
@@ -353,14 +353,14 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
   }
 
   if (started) {
-    return <Started procedure={started} />
+    return <StartedNotice procedure={started} />
   }
 
   return (
     <Stack gap="lg">
       <LeaveWarning dirty={form.isDirty()} />
       <Text>Completá lo que pide el trámite. No se envía nada hasta que confirmes el resumen.</Text>
-      <Stepper active={active} onStepClick={(step) => goTo(step)} allowNextStepsSelect={false}>
+      <Stepper active={active} onStepClick={(stage) => goToStage(stage)} allowNextStepsSelect={false}>
         <Stepper.Step label="Datos">
           <Stack gap="md" mt="md" ref={content} tabIndex={-1}>
             {fields.length === 0 && <Text c="dimmed">Este trámite no pide datos.</Text>}
@@ -389,8 +389,8 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
         </Alert>
       )}
       <Group justify="space-between">
-        {active > stepData ? (
-          <Button variant="default" onClick={() => goTo(active - 1)} disabled={sending}>
+        {active > stageData ? (
+          <Button variant="default" onClick={() => goToStage(active - 1)} disabled={sending}>
             Volver
           </Button>
         ) : (
@@ -398,8 +398,8 @@ function SubmissionForm({ entry }: { entry: CatalogEntry }) {
             Cancelar
           </Button>
         )}
-        {active < stepSummary ? (
-          <Button onClick={next}>{active === stepDocuments ? 'Ver el resumen' : 'Continuar'}</Button>
+        {active < stageSummary ? (
+          <Button onClick={next}>{active === stageDocuments ? 'Ver el resumen' : 'Continuar'}</Button>
         ) : (
           <Button onClick={() => void submit()} loading={sending}>
             Enviar el trámite
@@ -433,7 +433,7 @@ export function StartProcedurePage() {
           .
         </Text>
       )}
-      {entry && <SubmissionForm entry={entry} />}
+      {entry && <StartProcedureForm entry={entry} />}
     </Stack>
   )
 }

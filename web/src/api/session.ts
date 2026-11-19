@@ -1,5 +1,5 @@
 import { redirect } from 'react-router'
-import { api } from './api/client'
+import { api } from './client'
 
 // requireSession guards the pages that need a session: without one, the
 // browser goes to the login page. It returns the person with the session.

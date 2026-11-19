@@ -21,7 +21,7 @@ import (
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
-	out "backend/src/auth/ports/output"
+	authoutput "backend/src/auth/ports/output"
 	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
@@ -74,7 +74,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	administrators := memory.NewAdministrators(directory.administrators...)
+	administrators := memory.NewAdministratorRepository(directory.administrators...)
 	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
 	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
@@ -83,7 +83,7 @@ func run(logger *slog.Logger) error {
 	// stops it.
 	startup, cancel := context.WithTimeout(stop, 30*time.Second)
 	defer cancel()
-	versions, closeVersions, err := openProcedureVersions(startup, cfg, logger)
+	versions, closeVersions, err := openProcedureTypeVersions(startup, cfg, logger)
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
@@ -92,7 +92,7 @@ func run(logger *slog.Logger) error {
 	// The procedures and what is recorded about their documents stay in
 	// memory until they are stored in PostgreSQL.
 	procedureRepository := proceduremem.NewProcedureRepository()
-	users := out.UserRepository(memory.NewUserRepository(directory.users...))
+	users := authoutput.UserRepository(memory.NewUserRepository(directory.users...))
 	if cfg.development() {
 		users, err = addDevExample(startup, cfg, logger, versions, procedureTypes, procedureRepository, users)
 		if err != nil {
@@ -103,14 +103,14 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
-	auth := application.NewAuthService(
+	auth := application.NewAuthenticatorService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			AllowedDomain: cfg.allowedDomain,
 		},
 		identity,
 		users,
-		memory.NewSessionStore(),
+		memory.NewSessionRepository(),
 		time.Now,
 	)
 
@@ -197,7 +197,7 @@ func newID() string {
 	return rand.Text()
 }
 
-func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
+func identityProviderOf(cfg config, logger *slog.Logger) (authoutput.IdentityProvider, error) {
 	if cfg.identityProvider == identityDev {
 		return dev.NewIdentityProvider(cfg.callbackURL(), devApplicantEmail), nil
 	}
@@ -264,9 +264,9 @@ func devAreas() []domain.Area {
 // flow goes in a new procedure type, as devReferralProcedureType. If another
 // start publishes first, publishing again finds the same content and returns
 // the stored version; another content is an error.
-func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, publication input.Publication) error {
+func publishIfMissing(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedureTypes input.ProcedureTypes, publication input.Publication) error {
 	_, err := versions.Latest(ctx, publication.ProcedureType)
-	if !errors.Is(err, output.ErrNoVersion) {
+	if !errors.Is(err, output.ErrVersionNotFound) {
 		return err
 	}
 	_, err = procedureTypes.Publish(ctx, publication)
@@ -280,7 +280,7 @@ func publishIfMissing(ctx context.Context, versions output.ProcedureVersions, pr
 // it for an applicant. With the identity of development the procedure is of
 // the test applicant. With Google nobody signs in as that applicant, so it is
 // of the first account that registers, which the returned users hand it to.
-func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureVersions, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users out.UserRepository) (out.UserRepository, error) {
+func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, versions output.ProcedureTypeVersionRepository, procedureTypes input.ProcedureTypes, procedures output.ProcedureRepository, users authoutput.UserRepository) (authoutput.UserRepository, error) {
 	if err := publishIfMissing(ctx, versions, procedureTypes, devProcedureType()); err != nil {
 		return nil, fmt.Errorf("publish the example procedure type: %w", err)
 	}
@@ -305,7 +305,7 @@ func addDevExample(ctx context.Context, cfg config, logger *slog.Logger, version
 // registers. If giving it fails, the account still signs in, without it, and
 // the example is left for the next account.
 type exampleForFirstSignUp struct {
-	out.UserRepository
+	authoutput.UserRepository
 	give   func(ctx context.Context, applicant string) error
 	logger *slog.Logger
 
@@ -345,7 +345,7 @@ const (
 // the documents of the applicant and one on the review of staff, so that
 // there is something to show and to confirm until procedures can be started
 // and moved from the interface.
-func addDevProcedure(ctx context.Context, versions output.ProcedureVersions, procedures output.ProcedureRepository, applicant string) error {
+func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, applicant string) error {
 	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil {
 		return err

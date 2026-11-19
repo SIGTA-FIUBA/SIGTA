@@ -128,13 +128,13 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	t.Helper()
 	ctx := t.Context()
 	areas := authmem.NewAreaRepository(office)
-	administrators := authmem.NewAdministrators("admin")
+	administrators := authmem.NewAdministratorRepository("admin")
 	stored := authmem.NewMembershipRepository()
 	memberships := authapp.NewMembershipService(areas, administrators, stored, func() string { return "M-1" }, time.Now)
 	if _, err := memberships.Grant(ctx, "admin", authinput.MembershipGrant{UserID: reviewer, Area: office.ID, Permissions: []string{"review"}}); err != nil {
 		t.Fatal(err)
 	}
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	published, err := types.Publish(ctx, publication(1, 0, documentsDefinition()))
 	if err != nil {
 		t.Fatal(err)
@@ -257,9 +257,9 @@ func TestAttachRejects(t *testing.T) {
 		content     []byte
 		want        error
 	}{
-		{"text named as a PDF", applicant, "statement", "constancia.pdf", []byte("no soy un PDF"), domain.ErrDocumentType},
-		{"accepted elsewhere but not here", applicant, "annex", "anexo.png", []byte("\x89PNG\r\n\x1a\n0000"), domain.ErrDocumentType},
-		{"empty file", applicant, "statement", "vacio.pdf", nil, domain.ErrEmptyDocument},
+		{"text named as a PDF", applicant, "statement", "constancia.pdf", []byte("no soy un PDF"), domain.ErrDocumentTypeNotAccepted},
+		{"accepted elsewhere but not here", applicant, "annex", "anexo.png", []byte("\x89PNG\r\n\x1a\n0000"), domain.ErrDocumentTypeNotAccepted},
+		{"empty file", applicant, "statement", "vacio.pdf", nil, domain.ErrDocumentEmpty},
 		{"a document of another step", applicant, "resolution", "resolucion.pdf", pdf(100), domain.ErrDocumentNotRequested},
 		{"a document the type does not have", applicant, "passport", "pasaporte.pdf", pdf(100), domain.ErrDocumentNotRequested},
 		{"staff on the applicant's step", reviewer, "statement", "constancia.pdf", pdf(100), domain.ErrAccessDenied},

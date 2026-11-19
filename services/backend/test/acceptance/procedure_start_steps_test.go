@@ -96,7 +96,7 @@ func registerSubmissionSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the submission is rejected because (its type is not accepted|it is too large|it is empty)$`, w.thenFileRejected)
 	sc.Then(`^no procedure is started$`, w.thenNothingStarted)
 	sc.Then(`^the procedure type is not found$`, func() error {
-		if !errors.Is(w.err, output.ErrNoVersion) {
+		if !errors.Is(w.err, output.ErrVersionNotFound) {
 			return fmt.Errorf("the submission failed with %w, want no published version", w.err)
 		}
 		return nil
@@ -118,14 +118,14 @@ func (w *submissionWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(scenarioAdministrator)
+	administrators := authmem.NewAdministratorRepository(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
 	)
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, time.Now)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
 	w.procedures = memory.NewProcedureRepository()
 	w.documents = memory.NewDocumentRepository()
 	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)

@@ -9,7 +9,7 @@ import (
 
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
-	procdomain "backend/src/procedure/domain"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/version"
@@ -25,13 +25,13 @@ func (applicants) Holds(context.Context, string, string, int64, []string) (bool,
 	return false, nil
 }
 
-func (applicants) Reach(context.Context, string) ([]authinput.AreaReach, error) { return nil, nil }
+func (applicants) Scopes(context.Context, string) ([]authinput.AreaScope, error) { return nil, nil }
 
 // A procedure follows the version it started with, number and digest: a
 // version lost and published again with the same number is not that one.
 func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 	ctx := t.Context()
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	published, err := types.Publish(ctx, publication(1, 0, testDefinition()))
 	if err != nil {
 		t.Fatal(err)
@@ -86,19 +86,19 @@ func (s staffHolding) Holds(_ context.Context, userID, area string, _ int64, per
 	return held != nil, nil
 }
 
-func (s staffHolding) Reach(_ context.Context, userID string) ([]authinput.AreaReach, error) {
-	var reach []authinput.AreaReach
+func (s staffHolding) Scopes(_ context.Context, userID string) ([]authinput.AreaScope, error) {
+	var scopes []authinput.AreaScope
 	for area := range s[userID] {
-		reach = append(reach, authinput.AreaReach{Area: area})
+		scopes = append(scopes, authinput.AreaScope{Area: area})
 	}
-	return reach, nil
+	return scopes, nil
 }
 
 type failingAdvance struct {
 	*memory.ProcedureRepository
 }
 
-func (failingAdvance) Advance(context.Context, procdomain.Procedure, procdomain.Event) error {
+func (failingAdvance) Advance(context.Context, proceduredomain.Procedure, proceduredomain.Event) error {
 	return errStore
 }
 
@@ -116,13 +116,13 @@ func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepo
 	if err != nil {
 		t.Fatal(err)
 	}
-	staff := staffHolding{
+	staffAuthorizer := staffHolding{
 		"operative@fi.uba.ar":  {"affairs": {"verify"}},
 		"commission@fi.uba.ar": {"commission": {"evaluate"}},
 	}
 	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(), staff, func() string { return "P-1" }, func() time.Time { return confirmedAt })
-	if err := procedures.Add(context.Background(), procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}, nil); err != nil {
+	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(), staffAuthorizer, func() string { return "P-1" }, func() time.Time { return confirmedAt })
+	if err := procedures.Add(context.Background(), proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	return service, procedures
@@ -173,9 +173,9 @@ func TestConfirmRejectsAndChangesNothing(t *testing.T) {
 		openStep     string
 		want         error
 	}{
-		{"staff without the permissions of the step", "commission@fi.uba.ar", fileConfirmation(), "file", procdomain.ErrAccessDenied},
-		{"the applicant on a staff step", "applicant@fi.uba.ar", fileConfirmation(), "file", procdomain.ErrAccessDenied},
-		{"someone who cannot see the procedure", "other@fi.uba.ar", fileConfirmation(), "file", procdomain.ErrProcedureNotFound},
+		{"staff without the permissions of the step", "commission@fi.uba.ar", fileConfirmation(), "file", proceduredomain.ErrAccessDenied},
+		{"the applicant on a staff step", "applicant@fi.uba.ar", fileConfirmation(), "file", proceduredomain.ErrAccessDenied},
+		{"someone who cannot see the procedure", "other@fi.uba.ar", fileConfirmation(), "file", proceduredomain.ErrProcedureNotFound},
 		{"a step that is not open, even without its permissions", "operative@fi.uba.ar", notOpen, "file", engine.ErrStepNotOpen},
 		{"no observation", "operative@fi.uba.ar", noObservation, "file", engine.ErrNoObservation},
 		{"a step of the applicant", "applicant@fi.uba.ar", applicantStep, "request", engine.ErrApplicantStep},
@@ -185,7 +185,7 @@ func TestConfirmRejectsAndChangesNothing(t *testing.T) {
 			ctx := context.Background()
 			service, procedures := confirmationFixture(t)
 			if tt.openStep != "file" {
-				if err := procedures.Add(ctx, procdomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: tt.openStep}, nil); err != nil {
+				if err := procedures.Add(ctx, proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: tt.openStep}, nil); err != nil {
 					t.Fatal(err)
 				}
 			}

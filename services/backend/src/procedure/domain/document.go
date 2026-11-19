@@ -6,12 +6,12 @@ import (
 )
 
 var (
-	ErrDocumentNotFound     = errors.New("document not found")
-	ErrDocumentNotRequested = errors.New("the open step does not ask for that document")
-	ErrDocumentType         = errors.New("the file type is not accepted for that document")
-	ErrDocumentTooLarge     = errors.New("the file exceeds the maximum size of that document")
-	ErrEmptyDocument        = errors.New("the file is empty")
-	ErrTooManyDocuments     = errors.New("the procedure has the most files allowed for that document")
+	ErrDocumentNotFound        = errors.New("document not found")
+	ErrDocumentNotRequested    = errors.New("the open step does not ask for that document")
+	ErrDocumentTypeNotAccepted = errors.New("the file type is not accepted for that document")
+	ErrDocumentTooLarge        = errors.New("the file exceeds the maximum size of that document")
+	ErrDocumentEmpty           = errors.New("the file is empty")
+	ErrTooManyDocuments        = errors.New("the procedure has the most files allowed for that document")
 )
 
 // Document is a file attached to a procedure for one of the documents its

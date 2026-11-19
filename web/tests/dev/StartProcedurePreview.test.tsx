@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { StartProcedurePreview } from '../../src/dev/StartProcedurePreview'
 import { fixtures } from '../../src/dev/startProcedureFixtures'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 function renderPreview(data: string) {
   const router = createMemoryRouter(

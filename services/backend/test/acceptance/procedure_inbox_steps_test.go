@@ -122,7 +122,7 @@ func (w *inboxWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(scenarioAdministrator)
+	administrators := authmem.NewAdministratorRepository(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
@@ -130,7 +130,7 @@ func (w *inboxWorld) setUp() error {
 	clock := func() time.Time { return w.now }
 	w.areas = authapp.NewAreaService(areas, administrators, stored, clock)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, clock)
-	w.types = application.NewProcedureTypeService(memory.NewProcedureVersions(), w.areas, w.memberships, clock)
+	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, clock)
 	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
 	procedures := application.NewProcedureService(w.types, w.procedures, memory.NewDocumentRepository(), w.memberships, w.newID, clock)
 	inbox := rest.NewInboxHandler(sessionIsUser{}, namesFromEmails{}, application.NewInboxService(procedures))

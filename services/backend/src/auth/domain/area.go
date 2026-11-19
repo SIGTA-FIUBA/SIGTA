@@ -41,7 +41,7 @@ func (a Area) Deleted() bool {
 
 // Permission belongs to an area, and staff steps of that area ask for it. Its
 // name means nothing to SIGTA and no permission covers another (ADR-020). The
-// exception are system permissions, which enable a function of SIGTA instead
+// exception are platform permissions, which enable a function of SIGTA instead
 // of a step, and cannot be deleted. A deleted permission is kept, so that its
 // ID is never reused.
 type Permission struct {

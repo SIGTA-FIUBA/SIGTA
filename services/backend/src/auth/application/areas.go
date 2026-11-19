@@ -25,7 +25,7 @@ const (
 	actionDeleteRole       = "delete role"
 )
 
-var systemPermissions = []domain.Permission{
+var platformPermissions = []domain.Permission{
 	{ID: input.EditProcedureTypes, Name: "Editar tipos de trámite", System: true},
 	{ID: input.PublishProcedureTypes, Name: "Publicar tipos de trámite", System: true},
 }
@@ -34,19 +34,19 @@ type AreaService struct {
 	administratorGuard
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
-	clock       func() time.Time
+	now         func() time.Time
 }
 
-func NewAreaService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, clock func() time.Time) *AreaService {
+func NewAreaService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, now func() time.Time) *AreaService {
 	return &AreaService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
-		clock:              clock,
+		now:                now,
 	}
 }
 
-// EnsureSecretariat creates the Secretariat with its system permissions, or
+// EnsureSecretariat creates the Secretariat with its platform permissions, or
 // adds the ones it lacks. It runs on every start, before anything reads the
 // areas, and changes nothing when they are already there.
 func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
@@ -59,7 +59,7 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	}
 	changed := !area.System
 	area.System = true
-	for _, permission := range systemPermissions {
+	for _, permission := range platformPermissions {
 		i := slices.IndexFunc(area.Permissions, func(p domain.Permission) bool { return p.ID == permission.ID })
 		switch {
 		case i < 0:
@@ -130,7 +130,7 @@ func (s *AreaService) Delete(ctx context.Context, administratorID, areaID string
 	if len(memberships) > 0 {
 		return fmt.Errorf("%w: area %s has memberships that have not ended", domain.ErrInvalidArea, areaID)
 	}
-	area.DeletedAt = s.clock().UTC()
+	area.DeletedAt = s.now().UTC()
 	area.DeletedBy = administratorID
 	if err := s.areas.Save(ctx, area); err != nil {
 		return fmt.Errorf("delete area %s: %w", areaID, err)
@@ -191,7 +191,7 @@ func (s *AreaService) CreatePermission(ctx context.Context, administratorID, are
 // DeletePermission keeps the permission, marked as deleted. It refuses a
 // permission that a membership that has not ended holds, or that a role that
 // is not deleted includes: someone would keep a permission that no longer
-// exists. A system permission cannot be deleted at all.
+// exists. A platform permission cannot be deleted at all.
 func (s *AreaService) DeletePermission(ctx context.Context, administratorID, areaID, permissionID string) error {
 	if err := s.requireAdministrator(ctx, administratorID, actionDeletePermission); err != nil {
 		return err
@@ -217,7 +217,7 @@ func (s *AreaService) DeletePermission(ctx context.Context, administratorID, are
 	if slices.ContainsFunc(memberships, func(m domain.Membership) bool { return slices.Contains(m.Permissions, permissionID) }) {
 		return fmt.Errorf("%w: permission %s of area %s is held by memberships that have not ended", domain.ErrInvalidPermission, permissionID, areaID)
 	}
-	area.Permissions[i].DeletedAt = s.clock().UTC()
+	area.Permissions[i].DeletedAt = s.now().UTC()
 	area.Permissions[i].DeletedBy = administratorID
 	if err := s.areas.Save(ctx, area); err != nil {
 		return fmt.Errorf("delete permission %s of area %s: %w", permissionID, areaID, err)
@@ -238,7 +238,7 @@ func (s *AreaService) CreateRole(ctx context.Context, administratorID, areaID st
 	role := domain.Role{
 		ID:        r.ID,
 		Name:      strings.TrimSpace(r.Name),
-		Revisions: []domain.RoleRevision{{Permissions: slices.Clone(r.Permissions), At: s.clock().UTC(), By: administratorID}},
+		Revisions: []domain.RoleRevision{{Permissions: slices.Clone(r.Permissions), At: s.now().UTC(), By: administratorID}},
 	}
 	if err := validateRole(area, role); err != nil {
 		return domain.Role{}, fmt.Errorf("%w: %w", domain.ErrInvalidRole, err)
@@ -265,7 +265,7 @@ func (s *AreaService) UpdateRolePermissions(ctx context.Context, administratorID
 	}
 	area.Roles[i].Revisions = append(area.Roles[i].Revisions, domain.RoleRevision{
 		Permissions: slices.Clone(permissions),
-		At:          s.clock().UTC(),
+		At:          s.now().UTC(),
 		By:          administratorID,
 	})
 	if err := s.areas.Save(ctx, area); err != nil {
@@ -291,7 +291,7 @@ func (s *AreaService) DeleteRole(ctx context.Context, administratorID, areaID, r
 	if slices.ContainsFunc(memberships, func(m domain.Membership) bool { return slices.Contains(m.Roles, roleID) }) {
 		return fmt.Errorf("%w: role %s of area %s is held by memberships that have not ended", domain.ErrInvalidRole, roleID, areaID)
 	}
-	area.Roles[i].DeletedAt = s.clock().UTC()
+	area.Roles[i].DeletedAt = s.now().UTC()
 	area.Roles[i].DeletedBy = administratorID
 	if err := s.areas.Save(ctx, area); err != nil {
 		return fmt.Errorf("delete role %s of area %s: %w", roleID, areaID, err)
@@ -327,7 +327,7 @@ func (s *AreaService) unendedMemberships(ctx context.Context, areaID string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("memberships of area %s: %w", areaID, err)
 	}
-	now := s.clock().UTC()
+	now := s.now().UTC()
 	return slices.DeleteFunc(memberships, func(m domain.Membership) bool { return !m.Until.IsZero() && !m.Until.After(now) }), nil
 }
 
@@ -335,8 +335,8 @@ func validatePermission(area domain.Area, p domain.Permission) error {
 	if !domain.ValidID(p.ID) {
 		return fmt.Errorf(invalidID, p.ID)
 	}
-	if input.SystemPermission(area.ID, p.ID) {
-		return fmt.Errorf("id %q is reserved for a system permission", p.ID)
+	if input.PlatformPermission(area.ID, p.ID) {
+		return fmt.Errorf("id %q is reserved for a platform permission", p.ID)
 	}
 	if p.Name == "" {
 		return errors.New("a permission needs a name")

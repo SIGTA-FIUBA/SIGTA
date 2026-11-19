@@ -31,7 +31,7 @@ func withSecretariat(areas *authmem.AreaRepository, clock func() time.Time) (*au
 		members = append(members, authdomain.Membership{ID: "publish-" + user, UserID: user, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}})
 	}
 	memberships := authmem.NewMembershipRepository(members...)
-	administrators := authmem.NewAdministrators()
+	administrators := authmem.NewAdministratorRepository()
 	return authapp.NewAreaService(areas, administrators, memberships, clock),
 		authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, clock),
 		nil

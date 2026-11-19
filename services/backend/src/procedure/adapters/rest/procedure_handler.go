@@ -7,8 +7,8 @@ import (
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
-	procdetail "backend/src/procedure/domain/detail"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/ports/input"
 )
 
 var _ api.ProcedureServer = (*ProcedureHandler)(nil)
@@ -18,12 +18,12 @@ var _ api.ProcedureServer = (*ProcedureHandler)(nil)
 type ProcedureHandler struct {
 	auth        authinput.Authenticator
 	people      authinput.People
-	procedures  ports.ProcedureDetails
-	submissions ports.Submissions
-	steps       ports.Procedures
+	procedures  input.ProcedureDetails
+	submissions input.Submissions
+	steps       input.Procedures
 }
 
-func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures ports.ProcedureDetails, submissions ports.Submissions, steps ports.Procedures) *ProcedureHandler {
+func NewProcedureHandler(auth authinput.Authenticator, people authinput.People, procedures input.ProcedureDetails, submissions input.Submissions, steps input.Procedures) *ProcedureHandler {
 	return &ProcedureHandler{auth: auth, people: people, procedures: procedures, submissions: submissions, steps: steps}
 }
 
@@ -35,16 +35,16 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	if err != nil {
 		return nil, err
 	}
-	detail, err := h.procedures.Detail(ctx, user.ID, req.ProcedureId)
+	d, err := h.procedures.Detail(ctx, user.ID, req.ProcedureId)
 	if errors.Is(err, domain.ErrProcedureNotFound) {
 		return api.GetProcedure404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: messageNoProcedure}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	p := detail.Procedure
+	p := d.Procedure
 	people := []string{p.Applicant}
-	for _, s := range detail.Steps {
+	for _, s := range d.Steps {
 		for _, v := range s.Values {
 			people = append(people, v.EnteredBy)
 		}
@@ -52,7 +52,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 			people = append(people, d.UploadedBy)
 		}
 	}
-	for _, e := range detail.History {
+	for _, e := range d.History {
 		people = append(people, e.By)
 	}
 	names, err := h.people.Names(ctx, people)
@@ -63,33 +63,33 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		Id:            p.ID,
 		ProcedureType: p.ProcedureType,
 		Version:       int64(p.Version),
-		Name:          detail.Name,
-		State:         api.ProcedureState(detail.State),
+		Name:          d.Name,
+		State:         api.ProcedureState(d.State),
 		Applicant:     person(p.Applicant, names),
-		CanAct:        detail.CanAct,
-		Steps:         make([]api.ProcedureStep, 0, len(detail.Steps)),
-		History:       make([]api.ProcedureEvent, 0, len(detail.History)),
+		CanAct:        d.CanAct,
+		Steps:         make([]api.ProcedureStep, 0, len(d.Steps)),
+		History:       make([]api.ProcedureEvent, 0, len(d.History)),
 	}
 	if !p.Closed() {
 		response.OpenStep = &p.OpenStep
 	}
-	if r := detail.Referral; r != nil {
+	if r := d.Referral; r != nil {
 		response.Referral = &api.ProcedureReferral{
 			Area:              api.NamedOption{Id: r.Area.ID, Name: r.Area.Name},
 			From:              api.NamedOption{Id: r.From.ID, Name: r.From.Name},
 			DaysWithoutReturn: int64(r.DaysWithoutReturn),
 		}
 	}
-	for _, s := range detail.Steps {
+	for _, s := range d.Steps {
 		response.Steps = append(response.Steps, procedureStep(s, names))
 	}
-	for _, e := range detail.History {
+	for _, e := range d.History {
 		response.History = append(response.History, procedureEvent(e, names))
 	}
 	return response, nil
 }
 
-func procedureStep(s procdetail.Step, names map[string]string) api.ProcedureStep {
+func procedureStep(s detail.Step, names map[string]string) api.ProcedureStep {
 	step := api.ProcedureStep{
 		Id:        s.Step.ID,
 		Name:      s.Step.Name,

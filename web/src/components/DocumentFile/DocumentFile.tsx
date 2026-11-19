@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Group, Image, Loader, Modal, Stack, Text, useMantineTheme } from '@mantine/core'
 import { useEffect, useState } from 'react'
-import { canPreview, mediaTypeOf, sizeText } from '../../documentFormats'
+import { canPreview, mediaTypeOf, sizeText } from '../../content/documentFormats'
 
 type AttachedFile = {
   id: string
