@@ -56,6 +56,7 @@ Feature: Define and publish a procedure type
       | a reference to an undeclared document                    |
       | a step unreachable from the first one                    |
       | a step that never reaches a closing step                 |
+      | a send back that goes forward                            |
       | a field no step uses                                     |
       | a staff step without permissions                         |
       | a step that asks for a permission its area does not have |

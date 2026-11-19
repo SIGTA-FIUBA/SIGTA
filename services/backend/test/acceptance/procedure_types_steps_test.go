@@ -311,6 +311,9 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	case "a step that never reaches a closing step":
 		d.Steps[lastStep].Next = "review"
 		w.problem = definition.CodeStepNeverCloses
+	case "a send back that goes forward":
+		d.Steps[decision].Outcomes[0].SendBack = true
+		w.problem = definition.CodeSendBackForward
 	case "a field no step uses":
 		d.Fields = append(d.Fields, definition.Field{ID: "unused", Name: extraName, Type: definition.FieldText})
 		w.problem = definition.CodeUnusedField

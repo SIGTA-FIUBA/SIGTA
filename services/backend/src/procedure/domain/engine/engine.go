@@ -68,7 +68,7 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	if err := MissingDocuments(d, step, c.Attached); err != nil {
 		return p, domain.Event{}, err
 	}
-	nextID, err := next(step, c.Outcome)
+	nextID, sendBack, err := next(step, c.Outcome)
 	if err != nil {
 		return p, domain.Event{}, err
 	}
@@ -82,6 +82,7 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 		Observation: c.Observation,
 		Outcome:     c.Outcome,
 		Declared:    step.Action == definition.ActionConfirmExternalFact,
+		SendBack:    sendBack,
 		Next:        nextID,
 	}
 	moved := p
@@ -143,18 +144,18 @@ func find(steps []definition.Step, id string) (definition.Step, bool) {
 	return steps[i], true
 }
 
-func next(step definition.Step, outcome string) (string, error) {
+func next(step definition.Step, outcome string) (string, bool, error) {
 	if step.Action != definition.ActionDecide {
 		if outcome != "" {
-			return "", ErrInvalidOutcome
+			return "", false, ErrInvalidOutcome
 		}
-		return step.Next, nil
+		return step.Next, false, nil
 	}
 	i := slices.IndexFunc(step.Outcomes, func(o definition.Outcome) bool { return o.ID == outcome })
 	if i < 0 {
-		return "", ErrInvalidOutcome
+		return "", false, ErrInvalidOutcome
 	}
-	return step.Outcomes[i].Next, nil
+	return step.Outcomes[i].Next, step.Outcomes[i].SendBack, nil
 }
 
 // refer follows ADR-020: moving to a step of another area refers the

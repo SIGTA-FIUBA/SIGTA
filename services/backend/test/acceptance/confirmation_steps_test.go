@@ -47,7 +47,7 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 	sc.Given(`^it is "([^"]*)"$`, w.itIs)
 	sc.Given(`^the "([^"]*)" documents? of the "([^"]*)" step (?:is|are) attached$`, w.givenAttached)
 
-	sc.When(`^"([^"]*)" confirms the "([^"]*)" step with the observation "([^"]*)"$`, w.confirmWithObservation)
+	sc.When(`^"([^"]*)" confirms the "([^"]*)" step(?: choosing "([^"]*)")? with the observation "([^"]*)"$`, w.confirmWithObservation)
 	sc.When(`^"([^"]*)" confirms the "([^"]*)" step(?: choosing "([^"]*)")?(?: with the external file number "([^"]*)")?$`, w.confirm)
 	sc.When(`^"([^"]*)" and "([^"]*)" confirm the "([^"]*)" step at the same time$`, w.confirmAtTheSameTime)
 
@@ -70,7 +70,8 @@ func registerConfirmationSteps(sc *godog.ScenarioContext, base *authorizationWor
 }
 
 // givenFlow reads "done by" as the applicant or a staff area, and "next" as
-// a step or, for a decision, as "outcome: step" pairs. The optional "asks for"
+// a step or, for a decision, as "outcome: step" pairs; "outcome: back to step"
+// makes the outcome a send back. The optional "asks for"
 // column names the field, or the documents of an upload_document step, that
 // the step asks for; a document that ends in "optional" is optional. Without
 // it, a step of the applicant asks for a reason.
@@ -111,7 +112,8 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 			for _, pair := range list(next) {
 				outcome, to, _ := strings.Cut(pair, ":")
 				outcome = strings.TrimSpace(outcome)
-				step.Outcomes = append(step.Outcomes, definition.Outcome{ID: areaID(outcome), Name: outcome, Next: strings.TrimSpace(to)})
+				to, sendBack := strings.CutPrefix(strings.TrimSpace(to), "back to ")
+				step.Outcomes = append(step.Outcomes, definition.Outcome{ID: areaID(outcome), Name: outcome, Next: to, SendBack: sendBack})
 			}
 		} else {
 			step.Next = next
@@ -165,8 +167,8 @@ func (w *confirmationWorld) send(user, step string, c input.StepConfirmation) er
 	return err
 }
 
-func (w *confirmationWorld) confirmWithObservation(user, step, observation string) {
-	w.err = w.send(user, step, input.StepConfirmation{Observation: observation})
+func (w *confirmationWorld) confirmWithObservation(user, step, outcome, observation string) {
+	w.err = w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: areaID(outcome)})
 }
 
 func (w *confirmationWorld) confirm(user, step, outcome, fileNumber string) {
