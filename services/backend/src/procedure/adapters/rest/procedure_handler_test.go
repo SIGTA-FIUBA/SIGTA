@@ -65,6 +65,7 @@ func openedDetail(canAct bool) input.ProcedureDetail {
 			{
 				Step: definition.Step{ID: "review", Name: "Revisar", Action: definition.ActionDecide, Role: definition.RoleStaff, Area: "office", Outcomes: []definition.Outcome{
 					{ID: "accept", Name: "Aceptar", Next: "documents"},
+					{ID: "send_back", Name: "Devolver", Next: "documents", SendBack: true},
 				}},
 				Area: &detail.Area{ID: "office", Name: "Dirección de Alumnos"},
 			},
@@ -130,7 +131,8 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	if second.Role != api.Staff || second.Area == nil || *second.Area != (api.NamedOption{Id: "office", Name: "Dirección de Alumnos"}) || second.Next != nil {
 		t.Errorf("second step = %+v", second)
 	}
-	if len(second.Outcomes) != 1 || second.Outcomes[0] != (api.StepOutcome{Id: "accept", Name: "Aceptar", Next: "documents"}) {
+	wantOutcomes := []api.StepOutcome{{Id: "accept", Name: "Aceptar", Next: "documents"}, {Id: "send_back", Name: "Devolver", Next: "documents", SendBack: true}}
+	if !reflect.DeepEqual(second.Outcomes, wantOutcomes) {
 		t.Errorf("outcomes of the second step = %+v", second.Outcomes)
 	}
 }
@@ -227,7 +229,7 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 	d := openedDetail(false)
 	d.History = []domain.Event{
 		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at, Next: "review"},
-		{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide, By: "staff-1", At: at.Add(time.Hour), Observation: "completo", Outcome: "accept", Next: "documents",
+		{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide, By: "staff-1", At: at.Add(time.Hour), Observation: "completo", Outcome: "accept", SendBack: true, Next: "documents",
 			Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
 		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at.Add(2 * time.Hour),
 			Document: &domain.DocumentRecord{ID: "D-1", Requirement: "statement", FileName: "constancia.pdf"}},
@@ -238,7 +240,7 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 	next, outcome, fileNumber, back := "review", "accept", "EX-1", "documents"
 	want := []api.ProcedureEvent{
 		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at, Next: &next},
-		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, Next: &back,
+		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, SendBack: true, Next: &back,
 			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
 		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at.Add(2 * time.Hour),
 			Document: &api.HistoryDocument{Id: "D-1", Document: "statement", FileName: "constancia.pdf"}},

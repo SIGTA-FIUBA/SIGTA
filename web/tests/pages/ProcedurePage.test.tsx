@@ -54,7 +54,7 @@ const detail: Detail = {
       area: { id: 'office', name: 'Dirección de Alumnos' },
       fields: [],
       documents: [],
-      outcomes: [{ id: 'accept', name: 'Aceptar', next: 'documents' }],
+      outcomes: [{ id: 'accept', name: 'Aceptar', next: 'documents', send_back: false }],
       values: [],
       files: [],
     },
@@ -242,6 +242,7 @@ describe('ProcedurePage', () => {
           at: '2026-11-16T15:00:00Z',
           observation: '',
           declared: false,
+          send_back: false,
           returned: false,
         },
         {
@@ -251,6 +252,7 @@ describe('ProcedurePage', () => {
           observation: 'Documentación completa',
           outcome: 'accept',
           declared: false,
+          send_back: false,
           returned: false,
           referral: { from: 'office', to: 'committee', external_file_number: 'EX-2026-00001' },
         },
@@ -260,6 +262,7 @@ describe('ProcedurePage', () => {
           at: '2026-11-20T13:00:00Z',
           observation: 'Dictamen recibido',
           declared: true,
+          send_back: false,
           returned: true,
         },
       ],
@@ -319,8 +322,8 @@ describe('ProcedurePage confirmation', () => {
       {
         ...detail.steps[1]!,
         outcomes: [
-          { id: 'accept', name: 'Aceptar', next: 'evaluate' },
-          { id: 'send_back', name: 'Devolver al titular', next: 'documents' },
+          { id: 'accept', name: 'Aceptar', next: 'evaluate', send_back: false },
+          { id: 'send_back', name: 'Devolver al titular', next: 'documents', send_back: true },
         ],
       },
       {
@@ -593,6 +596,7 @@ describe('ProcedurePage attachment', () => {
           at: '2026-11-17T15:00:00Z',
           observation: '',
           declared: false,
+          send_back: false,
           returned: false,
           document: { id: 'D-2', document: 'record', file_name: 'acta.pdf' },
         },

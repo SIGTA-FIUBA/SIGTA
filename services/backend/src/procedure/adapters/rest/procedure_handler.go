@@ -114,7 +114,7 @@ func procedureStep(s procdetail.Step, names map[string]string) api.ProcedureStep
 		step.Documents = append(step.Documents, documentRequirement(d))
 	}
 	for _, o := range s.Step.Outcomes {
-		step.Outcomes = append(step.Outcomes, api.StepOutcome{Id: o.ID, Name: o.Name, Next: o.Next})
+		step.Outcomes = append(step.Outcomes, api.StepOutcome{Id: o.ID, Name: o.Name, Next: o.Next, SendBack: o.SendBack})
 	}
 	for _, v := range s.Values {
 		step.Values = append(step.Values, procedureValue(v, names))

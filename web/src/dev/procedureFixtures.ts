@@ -92,6 +92,7 @@ const started: Event = {
   at,
   observation: '',
   declared: false,
+  send_back: false,
   returned: false,
   next: 'communicate',
 }
@@ -102,6 +103,7 @@ const attached = (id: string, requirement: string, fileName: string): Event => (
   at: '2026-11-17T15:00:00Z',
   observation: '',
   declared: false,
+  send_back: false,
   returned: false,
   document: { id, document: requirement, file_name: fileName },
 })
