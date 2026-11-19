@@ -30,7 +30,7 @@ type authorizationWorld struct {
 	memberships       *authapp.MembershipService
 	areas             *authapp.AreaService
 	storedAreas       *authmem.AreaRepository
-	administrators    *authmem.Administrators
+	administrators    *authmem.AdministratorRepository
 	storedMemberships *authmem.MembershipRepository
 	procedures        *memory.ProcedureRepository
 	documents         *memory.DocumentRepository
@@ -52,7 +52,7 @@ type authorizationWorld struct {
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	w := &authorizationWorld{
-		administrators:    authmem.NewAdministrators(scenarioAdministrator),
+		administrators:    authmem.NewAdministratorRepository(scenarioAdministrator),
 		storedMemberships: authmem.NewMembershipRepository(),
 		procedures:        memory.NewProcedureRepository(),
 		documents:         memory.NewDocumentRepository(),

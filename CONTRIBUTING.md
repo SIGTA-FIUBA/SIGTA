@@ -28,10 +28,10 @@ El vocabulario es el de la tabla de [AGENTS.md](AGENTS.md#vocabulario): un conce
 Backend:
 
 - Un archivo por concepto, en `snake_case` y en plural cuando guarda o expone una colección: `procedures.go`, `procedure_type_versions.go`. El test de un archivo es `<archivo>_test.go`.
-- Un puerto por archivo, con el nombre del archivo. Los de entrada son lo que el módulo ofrece (`Procedures`, `Areas`, `StaffAuthorizer`); los de salida, `<Concepto>Repository` (`UserRepository`, `ProcedureTypeVersionRepository`). El adaptador de un puerto se llama igual en cada tecnología (`memory/procedure_type_versions.go`, `postgres/procedure_type_versions.go`), y un adaptador REST, `<concepto>_handler.go`.
+- Un puerto por archivo, con el nombre del archivo. Los de entrada son lo que el módulo ofrece (`Procedures`, `Areas`, `StaffAuthorizer`); los de salida que guardan datos de SIGTA, `<Concepto>Repository` (`UserRepository`, `SessionRepository`, `ProcedureTypeVersionRepository`), y los que hablan con un sistema externo se llaman por lo que son (`IdentityProvider`, `Files`). El adaptador de un puerto se llama igual en cada tecnología (`memory/procedure_type_versions.go`, `postgres/procedure_type_versions.go`), y un adaptador REST, `<concepto>_handler.go`.
 - En un repositorio, `Get` busca uno por su clave y `GetBy<Campo>` por otro campo; si no existe, fallan con `Err<Concepto>NotFound`.
 - Los errores son `Err<Concepto><Problema>`: `ErrUserNotFound`, `ErrVersionExists`.
-- Un caso de uso es `<Concepto>Service` en `application/<concepto>.go`.
+- El caso de uso de un puerto de entrada es `<Concepto>Service`, en un archivo de `application/` con el mismo nombre que el de su puerto: `Areas` (`ports/input/areas.go`) lo implementa `AreaService` (`application/areas.go`), y `Authenticator`, `AuthenticatorService`.
 - Un paquete de otro módulo, o cuyo nombre se repite entre módulos, se importa con el alias `<módulo><paquete>`, igual en todo el backend: `authinput`, `authdomain`, `authapp` (de `application/`), `proceduremem` (de `adapters/memory/`), `procedurerest`.
 - Los pasos de `features/<historia>.feature` van en `test/acceptance/<historia>_steps_test.go`. Los pasos que comparten varias historias van en un archivo con el nombre de lo que cubren, como `document_steps_test.go`.
 

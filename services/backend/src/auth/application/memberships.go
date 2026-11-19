@@ -30,7 +30,7 @@ type MembershipService struct {
 	now         func() time.Time
 }
 
-func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, newID func() string, now func() time.Time) *MembershipService {
+func NewMembershipService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, newID func() string, now func() time.Time) *MembershipService {
 	return &MembershipService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,

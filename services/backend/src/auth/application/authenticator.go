@@ -17,29 +17,29 @@ import (
 	"backend/src/auth/ports/output"
 )
 
-var _ input.Authenticator = (*AuthService)(nil)
+var _ input.Authenticator = (*AuthenticatorService)(nil)
 
 type AuthConfig struct {
 	IdleTimeout   time.Duration
 	AllowedDomain string
 }
 
-type AuthService struct {
+type AuthenticatorService struct {
 	config   AuthConfig
 	identity output.IdentityProvider
 	users    output.UserRepository
-	sessions output.SessionStore
+	sessions output.SessionRepository
 	now      func() time.Time
 }
 
-func NewAuthService(
+func NewAuthenticatorService(
 	config AuthConfig,
 	identity output.IdentityProvider,
 	users output.UserRepository,
-	sessions output.SessionStore,
+	sessions output.SessionRepository,
 	now func() time.Time,
-) *AuthService {
-	return &AuthService{
+) *AuthenticatorService {
+	return &AuthenticatorService{
 		config:   config,
 		identity: identity,
 		users:    users,
@@ -48,14 +48,14 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin) {
+func (s *AuthenticatorService) BeginLogin(loginHint string) (string, domain.PendingLogin) {
 	pending := domain.PendingLogin{State: newToken(), Nonce: newToken(), CodeVerifier: newToken()}
 	return s.identity.AuthorizationURL(pending, loginHint), pending
 }
 
 // CompleteLogin registers someone new to SIGTA as an applicant: only a
 // membership makes them staff (ADR-020).
-func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
+func (s *AuthenticatorService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
 	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
 		return "", domain.ErrLoginStateMismatch
 	}
@@ -77,7 +77,7 @@ func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pen
 	return s.openSession(ctx, user.ID)
 }
 
-func (s *AuthService) register(ctx context.Context, email, name string) (domain.User, error) {
+func (s *AuthenticatorService) register(ctx context.Context, email, name string) (domain.User, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = email
@@ -91,7 +91,7 @@ func (s *AuthService) register(ctx context.Context, email, name string) (domain.
 
 // Authenticate extends the session, which expires only after IdleTimeout
 // without requests.
-func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (domain.User, error) {
+func (s *AuthenticatorService) Authenticate(ctx context.Context, sessionToken string) (domain.User, error) {
 	if sessionToken == "" {
 		return domain.User{}, domain.ErrSessionNotFound
 	}
@@ -117,7 +117,7 @@ func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (do
 	return user, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, sessionToken string) error {
+func (s *AuthenticatorService) Logout(ctx context.Context, sessionToken string) error {
 	if sessionToken == "" {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (s *AuthService) Logout(ctx context.Context, sessionToken string) error {
 	return nil
 }
 
-func (s *AuthService) openSession(ctx context.Context, userID string) (string, error) {
+func (s *AuthenticatorService) openSession(ctx context.Context, userID string) (string, error) {
 	token := newToken()
 	session := domain.Session{
 		TokenHash:  hashToken(token),

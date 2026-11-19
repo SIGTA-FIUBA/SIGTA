@@ -7,8 +7,8 @@ import (
 	"backend/src/auth/domain"
 )
 
-// SessionStore stores open sessions by the hash of their token.
-type SessionStore interface {
+// SessionRepository stores open sessions by the hash of their token.
+type SessionRepository interface {
 	Save(ctx context.Context, session domain.Session) error
 	// Get and Touch fail with domain.ErrSessionNotFound if there is no such
 	// session.

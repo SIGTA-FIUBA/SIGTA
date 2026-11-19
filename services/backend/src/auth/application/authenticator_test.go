@@ -22,7 +22,7 @@ var (
 
 type fixture struct {
 	t     *testing.T
-	auth  *application.AuthService
+	auth  *application.AuthenticatorService
 	users *memory.UserRepository
 	now   time.Time
 }
@@ -34,14 +34,14 @@ func newFixture(t *testing.T) *fixture {
 		users: memory.NewUserRepository(applicant, operative),
 		now:   time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC),
 	}
-	f.auth = application.NewAuthService(
+	f.auth = application.NewAuthenticatorService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			AllowedDomain: "fi.uba.ar",
 		},
 		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
 		f.users,
-		memory.NewSessionStore(),
+		memory.NewSessionRepository(),
 		func() time.Time { return f.now },
 	)
 	return f
@@ -141,11 +141,11 @@ func (outsideDomain) Exchange(context.Context, string, domain.PendingLogin) (out
 }
 
 func TestCompleteLoginKeepsTheDomainRejectionOfTheProvider(t *testing.T) {
-	auth := application.NewAuthService(
+	auth := application.NewAuthenticatorService(
 		application.AuthConfig{AllowedDomain: "fi.uba.ar"},
 		outsideDomain{},
 		memory.NewUserRepository(applicant),
-		memory.NewSessionStore(),
+		memory.NewSessionRepository(),
 		time.Now,
 	)
 	pending := domain.PendingLogin{State: "s", Nonce: "n", CodeVerifier: "v"}

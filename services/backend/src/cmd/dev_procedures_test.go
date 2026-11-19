@@ -38,7 +38,7 @@ func TestDevInboxShowsWorkToTheStaff(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewInboxService(application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now))
 
 	mine, err := service.List(ctx, "dev-operative", inbox.Query{View: inbox.ViewMine})
@@ -91,7 +91,7 @@ func TestDevReferralExampleGoesToTheCommitteeAndBack(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewProcedureService(types, procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 
 	for _, step := range []struct {
@@ -140,7 +140,7 @@ func TestDevRulingExampleAsksTheStaffForTheRuling(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	attached := memory.NewDocumentRepository()
 	service := application.NewProcedureService(types, procedures, attached, memberships, func() string { return "id" }, time.Now)
 	files, err := disk.NewFiles(t.TempDir())

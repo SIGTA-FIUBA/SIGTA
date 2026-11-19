@@ -110,7 +110,7 @@ func (w *documentWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(scenarioAdministrator)
+	administrators := authmem.NewAdministratorRepository(scenarioAdministrator)
 	// The authors of the procedure type in the Secretariat, so that it can be
 	// published.
 	stored := authmem.NewMembershipRepository(

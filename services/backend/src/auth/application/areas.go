@@ -37,7 +37,7 @@ type AreaService struct {
 	now         func() time.Time
 }
 
-func NewAreaService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, now func() time.Time) *AreaService {
+func NewAreaService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, now func() time.Time) *AreaService {
 	return &AreaService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,

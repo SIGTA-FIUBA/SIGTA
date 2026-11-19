@@ -128,7 +128,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	t.Helper()
 	ctx := t.Context()
 	areas := authmem.NewAreaRepository(office)
-	administrators := authmem.NewAdministrators("admin")
+	administrators := authmem.NewAdministratorRepository("admin")
 	stored := authmem.NewMembershipRepository()
 	memberships := authapp.NewMembershipService(areas, administrators, stored, func() string { return "M-1" }, time.Now)
 	if _, err := memberships.Grant(ctx, "admin", authinput.MembershipGrant{UserID: reviewer, Area: office.ID, Permissions: []string{"review"}}); err != nil {

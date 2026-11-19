@@ -322,5 +322,5 @@ func areaService() *authapp.AreaService {
 		}
 		areas = append(areas, area)
 	}
-	return authapp.NewAreaService(authmem.NewAreaRepository(areas...), authmem.NewAdministrators(), authmem.NewMembershipRepository(), time.Now)
+	return authapp.NewAreaService(authmem.NewAreaRepository(areas...), authmem.NewAdministratorRepository(), authmem.NewMembershipRepository(), time.Now)
 }

@@ -74,7 +74,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	administrators := memory.NewAdministrators(directory.administrators...)
+	administrators := memory.NewAdministratorRepository(directory.administrators...)
 	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
 	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
 	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
@@ -103,14 +103,14 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
-	auth := application.NewAuthService(
+	auth := application.NewAuthenticatorService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			AllowedDomain: cfg.allowedDomain,
 		},
 		identity,
 		users,
-		memory.NewSessionStore(),
+		memory.NewSessionRepository(),
 		time.Now,
 	)
 

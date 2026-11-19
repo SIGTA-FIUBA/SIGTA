@@ -58,7 +58,7 @@ func newServiceOn(versions output.ProcedureTypeVersionRepository, areas *authmem
 		authdomain.Membership{ID: "m3", UserID: "carla", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "m4", UserID: "dario", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
 	)
-	administrators := authmem.NewAdministrators()
+	administrators := authmem.NewAdministratorRepository()
 	auth := authapp.NewAreaService(areas, administrators, memberships, time.Now)
 	staffAuthorizer := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
 	return NewProcedureTypeService(versions, auth, staffAuthorizer, func() time.Time { return publishedAt })
@@ -446,7 +446,7 @@ func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
 				t.Fatalf("EnsureSecretariat() = %v", err)
 			}
 			memberships := authmem.NewMembershipRepository(tt.memberships...)
-			administrators := authmem.NewAdministrators()
+			administrators := authmem.NewAdministratorRepository()
 			service := NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(),
 				authapp.NewAreaService(areas, administrators, memberships, time.Now),
 				authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now),

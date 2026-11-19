@@ -8,23 +8,23 @@ import (
 	"backend/src/auth/domain"
 )
 
-type SessionStore struct {
+type SessionRepository struct {
 	mu       sync.Mutex
 	sessions map[string]domain.Session
 }
 
-func NewSessionStore() *SessionStore {
-	return &SessionStore{sessions: make(map[string]domain.Session)}
+func NewSessionRepository() *SessionRepository {
+	return &SessionRepository{sessions: make(map[string]domain.Session)}
 }
 
-func (s *SessionStore) Save(_ context.Context, session domain.Session) error {
+func (s *SessionRepository) Save(_ context.Context, session domain.Session) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sessions[session.TokenHash] = session
 	return nil
 }
 
-func (s *SessionStore) Get(_ context.Context, tokenHash string) (domain.Session, error) {
+func (s *SessionRepository) Get(_ context.Context, tokenHash string) (domain.Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	session, ok := s.sessions[tokenHash]
@@ -34,7 +34,7 @@ func (s *SessionStore) Get(_ context.Context, tokenHash string) (domain.Session,
 	return session, nil
 }
 
-func (s *SessionStore) Touch(_ context.Context, tokenHash string, seenAt time.Time) error {
+func (s *SessionRepository) Touch(_ context.Context, tokenHash string, seenAt time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	session, ok := s.sessions[tokenHash]
@@ -46,7 +46,7 @@ func (s *SessionStore) Touch(_ context.Context, tokenHash string, seenAt time.Ti
 	return nil
 }
 
-func (s *SessionStore) Delete(_ context.Context, tokenHash string) error {
+func (s *SessionRepository) Delete(_ context.Context, tokenHash string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.sessions, tokenHash)

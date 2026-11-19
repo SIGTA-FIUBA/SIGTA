@@ -122,7 +122,7 @@ func (w *inboxWorld) setUp() error {
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
 	}
-	administrators := authmem.NewAdministrators(scenarioAdministrator)
+	administrators := authmem.NewAdministratorRepository(scenarioAdministrator)
 	stored := authmem.NewMembershipRepository(
 		authdomain.Membership{ID: "M-proposer", UserID: defaultAuthors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},

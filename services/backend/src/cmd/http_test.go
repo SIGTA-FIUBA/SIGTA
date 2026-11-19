@@ -114,7 +114,7 @@ func TestDevProcedureOpensForTheApplicantAndTheArea(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 
 	for _, tc := range []struct {
@@ -146,7 +146,7 @@ func TestDevReviewProcedureIsConfirmedByTheArea(t *testing.T) {
 	}
 	directory := devPeople()
 	areas := authmem.NewAreaRepository(devAreas()...)
-	memberships := authapp.NewMembershipService(areas, authmem.NewAdministrators(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, authmem.NewAdministratorRepository(directory.administrators...), authmem.NewMembershipRepository(directory.memberships...), func() string { return "id" }, time.Now)
 	service := application.NewProcedureService(application.NewProcedureTypeService(versions, devAreaService(), devStaff(), time.Now), procedures, memory.NewDocumentRepository(), memberships, func() string { return "id" }, time.Now)
 	confirmation := input.StepConfirmation{Step: devReviewStep, Observation: "Revisado"}
 
@@ -232,13 +232,13 @@ func devStaff() *authapp.MembershipService {
 	return authapp.NewMembershipService(areas, administrators, memberships, newID, time.Now)
 }
 
-func devDirectory() (*authmem.AreaRepository, *authmem.Administrators, *authmem.MembershipRepository) {
+func devDirectory() (*authmem.AreaRepository, *authmem.AdministratorRepository, *authmem.MembershipRepository) {
 	areas := authmem.NewAreaRepository(devAreas()...)
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		panic(err)
 	}
 	people := devPeople()
-	return areas, authmem.NewAdministrators(people.administrators...), authmem.NewMembershipRepository(people.memberships...)
+	return areas, authmem.NewAdministratorRepository(people.administrators...), authmem.NewMembershipRepository(people.memberships...)
 }
 
 // TestServeLetsTheRequestsInFlightFinish stops the server while a request is

@@ -91,16 +91,16 @@ func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f
 // server is built on first use, once the Background has set the domain.
 func (w *authenticationWorld) server() http.Handler {
 	if w.handler == nil {
-		auth := application.NewAuthService(
+		auth := application.NewAuthenticatorService(
 			application.AuthConfig{IdleTimeout: idleTimeout, AllowedDomain: w.domain},
 			dev.NewIdentityProvider(baseURL+"/auth/callback", ""),
 			w.users,
-			memory.NewSessionStore(),
+			memory.NewSessionRepository(),
 			func() time.Time { return w.now },
 		)
 		memberships := application.NewMembershipService(
 			memory.NewAreaRepository(w.areas...),
-			memory.NewAdministrators(),
+			memory.NewAdministratorRepository(),
 			w.memberships,
 			func() string { return "M-new" },
 			func() time.Time { return w.now },
