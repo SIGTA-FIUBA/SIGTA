@@ -7,8 +7,11 @@ import (
 )
 
 // AreaRepository keeps every area, deleted or not. List returns only those
-// not deleted, and Get fails with domain.ErrAreaNotFound if there is no such
-// area.
+// not deleted, in the order they were added, and Get fails with
+// domain.ErrAreaNotFound if there is no such area.
+// Save takes the whole area as Get returned it, with its changes: nothing is
+// removed from it, permissions and roles are only added or changed, and the
+// revisions of a role are only added at the end.
 type AreaRepository interface {
 	List(ctx context.Context) ([]domain.Area, error)
 	Get(ctx context.Context, id string) (domain.Area, error)

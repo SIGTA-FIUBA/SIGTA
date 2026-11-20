@@ -1,5 +1,3 @@
-// Package postgres stores the auth module in PostgreSQL, with the tables of
-// src/migrations and the privileges of the application role.
 package postgres
 
 import (
@@ -8,19 +6,10 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/output"
-)
-
-const (
-	serializationFailure = "40001"
-
-	// attempts bounds how many times a write is tried after a serialization
-	// failure.
-	attempts = 3
 )
 
 var _ output.UserRepository = (*UserRepository)(nil)
@@ -41,25 +30,26 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (domain.U
 	return r.one(ctx, "user "+email, "SELECT id, email, name FROM users WHERE email = $1", email)
 }
 
-// Register reads the user again when the insert finds the email taken: the
-// statement cannot return it, since its snapshot may be older than the rival
-// insert. At SERIALIZABLE that rival fails the insert with a serialization
-// failure instead, and Register tries again.
+// Register runs at READ COMMITTED, where an insert that finds the email
+// taken by a rival waits for it and skips the row, instead of failing as it
+// does at SERIALIZABLE. The user is read again after the insert: its
+// statement cannot return it, since its snapshot may be older than the rival.
 func (r *UserRepository) Register(ctx context.Context, user domain.User) (domain.User, error) {
 	user.Email = domain.NormalizeEmail(user.Email)
-	for attempt := 1; ; attempt++ {
-		tag, err := r.pool.Exec(ctx, "INSERT INTO users (id, email, name) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING",
+	var inserted bool
+	err := inReadCommitted(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, "INSERT INTO users (id, email, name) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING",
 			user.ID, user.Email, user.Name)
-		switch {
-		case hasCode(err, serializationFailure) && attempt < attempts:
-			continue
-		case err != nil:
-			return domain.User{}, fmt.Errorf("register user %s: %w", user.Email, err)
-		case tag.RowsAffected() == 1:
-			return user, nil
-		}
-		return r.GetByEmail(ctx, user.Email)
+		inserted = tag.RowsAffected() == 1
+		return err
+	})
+	switch {
+	case err != nil:
+		return domain.User{}, fmt.Errorf("register user %s: %w", user.Email, err)
+	case inserted:
+		return user, nil
 	}
+	return r.GetByEmail(ctx, user.Email)
 }
 
 // one reads the user that sql selects, described by what.
@@ -80,9 +70,4 @@ func (r *UserRepository) one(ctx context.Context, what, sql string, args ...any)
 		return domain.User{}, fmt.Errorf("read %s: %w", what, err)
 	}
 	return u, nil
-}
-
-func hasCode(err error, code string) bool {
-	pgErr, ok := errors.AsType[*pgconn.PgError](err)
-	return ok && pgErr.Code == code
 }
