@@ -226,8 +226,8 @@ func devPeople() people {
 	}
 }
 
-// devAreas are the areas of staff that SIGTA starts with, besides the
-// Secretariat, which EnsureSecretariat adds.
+// devAreas are the example areas of staff that development starts with,
+// besides the Secretariat, which EnsureSecretariat adds everywhere.
 func devAreas() []domain.Area {
 	return []domain.Area{
 		{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{

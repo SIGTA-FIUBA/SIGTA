@@ -18,19 +18,19 @@ type people struct {
 	memberships    []domain.Membership
 }
 
-// addDirectory leaves in the stores the areas of staff on every start and, in
-// development, the synthetic people. It returns the ids of the
-// administrators. Outside development everyone registers by signing in, and
-// memberships are granted only in SIGTA.
+// addDirectory leaves the Secretariat in the stores on every start and, in
+// development, the example areas and the synthetic people. It returns the ids
+// of the administrators. Outside development everyone registers by signing
+// in, and memberships are granted only in SIGTA.
 func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) ([]string, error) {
-	if err := addAreas(ctx, s.areas, devAreas()); err != nil {
-		return nil, err
-	}
 	if err := application.EnsureSecretariat(ctx, s.areas); err != nil {
 		return nil, err
 	}
 	if !cfg.development() {
 		return nil, nil
+	}
+	if err := addAreas(ctx, s.areas, devAreas()); err != nil {
+		return nil, err
 	}
 	return addPeople(ctx, s.users, s.memberships, devPeople(), now)
 }

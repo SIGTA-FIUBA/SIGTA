@@ -73,17 +73,16 @@ func TestAddPeopleKeepsWhatAnAdministratorEnded(t *testing.T) {
 	if _, err := addPeople(ctx, users, memberships, devPeople(), now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	got, err := memberships.ListByUser(ctx, "dev-operative")
-	if err != nil {
-		t.Fatal(err)
+	if got, err := memberships.Get(ctx, "dev-operative-1"); err != nil || got.ActiveAt(now.Add(time.Hour)) || got.EndedBy != "dev-admin" {
+		t.Errorf("dev-operative-1 = %+v, %v; want it still ended by dev-admin", got, err)
 	}
-	if len(got) != 2 || got[0].ActiveAt(now.Add(time.Hour)) {
-		t.Errorf("memberships of dev-operative = %+v, want dev-operative-1 ended and dev-operative-2", got)
+	if got, err := memberships.ListByUser(ctx, "dev-operative"); err != nil || len(got) != 2 {
+		t.Errorf("memberships of dev-operative = %+v, %v; want dev-operative-1 and dev-operative-2", got, err)
 	}
 }
 
-// Outside development nobody is added: people register by signing in, and
-// there is no administrator until one is given.
+// Outside development only the Secretariat is added: people register by
+// signing in, and there is no administrator until one is given.
 func TestAddDirectoryAddsNoPeopleOutsideDevelopment(t *testing.T) {
 	ctx := t.Context()
 	s := stores{users: authmem.NewUserRepository(), areas: authmem.NewAreaRepository(), memberships: authmem.NewMembershipRepository()}
@@ -94,11 +93,16 @@ func TestAddDirectoryAddsNoPeopleOutsideDevelopment(t *testing.T) {
 	if len(administrators) != 0 {
 		t.Errorf("administrators = %v, want none", administrators)
 	}
-	if u, err := s.users.GetByEmail(ctx, devApplicantEmail); err == nil {
-		t.Errorf("found %+v, want no synthetic user", u)
+	for _, synthetic := range devPeople().users {
+		if u, err := s.users.GetByEmail(ctx, synthetic.Email); err == nil {
+			t.Errorf("found %+v, want no synthetic user", u)
+		}
+		if m, err := s.memberships.ListByUser(ctx, synthetic.ID); err != nil || len(m) != 0 {
+			t.Errorf("memberships of %s = %+v, %v; want none", synthetic.ID, m, err)
+		}
 	}
-	if _, err := s.areas.Get(ctx, authinput.SecretariatArea); err != nil {
-		t.Errorf("the Secretariat: %v, want it added", err)
+	if all, err := s.areas.List(ctx); err != nil || len(all) != 1 || all[0].ID != authinput.SecretariatArea {
+		t.Errorf("areas = %+v, %v; want only the Secretariat", all, err)
 	}
 }
 
