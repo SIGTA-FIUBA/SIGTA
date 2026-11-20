@@ -35,13 +35,14 @@ Feature: Send back a step
     Then the history shows, in this order:
       | step    | done by             | on         | observation       | outcome   | send back |
       | request | applicant@fi.uba.ar | 2026-11-16 |                   |           |           |
-      | check   | <sent back by>      | 2026-11-17 | missing signature | send back | yes       |
+      | check   | <sent back by>      | 2026-11-17 | missing signature | <outcome> | yes       |
 
-    # The applicant sees the area of a staff step, not the person (SIG-31).
+    # The applicant sees the area of a staff step, not the person nor the
+    # outcome it chose (SIG-31).
     Examples:
-      | person              | sent back by        |
-      | applicant@fi.uba.ar |                     |
-      | operative@fi.uba.ar | operative@fi.uba.ar |
+      | person              | sent back by        | outcome   |
+      | applicant@fi.uba.ar |                     |           |
+      | operative@fi.uba.ar | operative@fi.uba.ar | send back |
 
   Scenario: a decision that moves the procedure forward is not a send back
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept" with the observation "complete request"

@@ -147,7 +147,7 @@ func TestDocumentsTheApplicantSees(t *testing.T) {
 func TestTheHistoryOfTheApplicant(t *testing.T) {
 	history := []domain.Event{
 		{Step: "request", By: "applicant", Observation: "Mi pedido"},
-		{Step: "review", By: "staff", Observation: "Falta el analítico", Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
+		{Step: "review", By: "staff", Observation: "Falta el analítico", Outcome: "refer", Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
 		{Step: "ruling", By: "commission", Document: &domain.DocumentRecord{ID: "D-2", Requirement: "minutes"}},
 		{Step: "ruling", By: "commission", Document: &domain.DocumentRecord{ID: "D-3", Requirement: "resolution"}},
 		{Step: "ruling", By: "commission", Observation: "Dictamen enviado"},
@@ -161,8 +161,8 @@ func TestTheHistoryOfTheApplicant(t *testing.T) {
 	if seen[0].Observation != "Mi pedido" {
 		t.Errorf("observation of the applicant = %q, want it kept", seen[0].Observation)
 	}
-	if seen[1].Observation != "" || seen[1].Referral == nil || seen[1].Referral.ExternalFileNumber != "" || seen[1].Referral.To != "commission" {
-		t.Errorf("review = %+v %+v, want the referral without observation nor file number", seen[1], seen[1].Referral)
+	if seen[1].Observation != "" || seen[1].Outcome != "" || seen[1].Referral == nil || seen[1].Referral.ExternalFileNumber != "" || seen[1].Referral.To != "commission" {
+		t.Errorf("review = %+v %+v, want the referral without observation, outcome nor file number", seen[1], seen[1].Referral)
 	}
 	if seen[0].By != "applicant" {
 		t.Errorf("request = %+v, want the applicant who did it", seen[0])
@@ -185,14 +185,14 @@ func TestTheHistoryOfTheApplicant(t *testing.T) {
 // that stays among staff steps does not.
 func TestTheApplicantSeesTheReasonOfASendBackToTheirStep(t *testing.T) {
 	history := []domain.Event{
-		{Step: "review", By: "staff", Observation: "Falta el analítico", SendBack: true, Next: "request"},
+		{Step: "review", By: "staff", Observation: "Falta el analítico", Outcome: "incomplete", SendBack: true, Next: "request"},
 		{Step: "ruling", By: "commission", Observation: "Rever la nota", SendBack: true, Next: "review"},
 	}
 
 	seen := detail.ForApplicant(applicantContent(), domain.Procedure{}).History(history)
 
-	if seen[0].Observation != "Falta el analítico" || seen[0].By != "" {
-		t.Errorf("send back to the applicant = %+v, want its reason without who did it", seen[0])
+	if seen[0].Observation != "Falta el analítico" || seen[0].By != "" || seen[0].Outcome != "" || !seen[0].SendBack || seen[0].Next != "request" {
+		t.Errorf("send back to the applicant = %+v, want its reason and where it went, without who did it nor the outcome", seen[0])
 	}
 	if seen[1].Observation != "" {
 		t.Errorf("send back between staff steps = %+v, want no observation", seen[1])
