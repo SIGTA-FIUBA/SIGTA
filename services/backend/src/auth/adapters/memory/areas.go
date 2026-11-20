@@ -81,7 +81,7 @@ func merge(stored, a domain.Area) domain.Area {
 		switch {
 		case i < 0:
 			permissions = append(permissions, p)
-		case permissions[i].Deleted():
+		case permissions[i].Deleted() && !p.System:
 			permissions[i].Name, permissions[i].System = p.Name, p.System
 		default:
 			permissions[i] = p
