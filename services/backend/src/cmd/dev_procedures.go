@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 // steps, with the history of how they got there, so that the inbox has
 // something to show in local development. The applicants are the invented
 // accounts of devPeople (ADR-005), and the dates are relative to now so that
-// ages stay the same whenever the server starts.
+// ages stay the same whenever the server starts with a new database. One
+// that already has them keeps them as they are.
 func addDevInbox(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, now time.Time) error {
 	daysAgo := func(days int) time.Time { return now.Add(-time.Duration(days) * 24 * time.Hour) }
 	rows := []struct {
@@ -75,7 +77,8 @@ func addDevInbox(ctx context.Context, versions output.ProcedureTypeVersionReposi
 		if row.step != "request" {
 			values = devValues(p)
 		}
-		if err := procedures.Add(ctx, output.Start{Procedure: p, Events: events, Values: values}); err != nil {
+		err = procedures.Add(ctx, output.Start{Procedure: p, Events: events, Values: values})
+		if err != nil && !errors.Is(err, output.ErrProcedureExists) {
 			return err
 		}
 	}

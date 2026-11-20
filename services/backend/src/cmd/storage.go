@@ -12,46 +12,74 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	authmem "backend/src/auth/adapters/memory"
+	authpostgres "backend/src/auth/adapters/postgres"
+	authoutput "backend/src/auth/ports/output"
 	"backend/src/migrations"
 	"backend/src/procedure/adapters/disk"
 	proceduremem "backend/src/procedure/adapters/memory"
-	"backend/src/procedure/adapters/postgres"
+	procedurepostgres "backend/src/procedure/adapters/postgres"
 	"backend/src/procedure/ports/output"
 )
 
-// procedureStores are where the published versions and the drafts of the
-// procedure types are kept.
-type procedureStores struct {
-	versions output.ProcedureTypeVersionRepository
-	drafts   output.ProcedureTypeDraftRepository
+// stores are where SIGTA keeps what it knows: the people, their sessions,
+// areas and memberships, the procedure types and the procedures.
+type stores struct {
+	users       authoutput.UserRepository
+	sessions    authoutput.SessionRepository
+	areas       authoutput.AreaRepository
+	memberships authoutput.MembershipRepository
+	versions    output.ProcedureTypeVersionRepository
+	drafts      output.ProcedureTypeDraftRepository
+	procedures  output.ProcedureRepository
+	documents   output.DocumentRepository
 }
 
-// openProcedureStores returns the stores and a function that closes them.
-func openProcedureStores(ctx context.Context, cfg config, logger *slog.Logger) (procedureStores, func(), error) {
+// openStores returns the stores and a function that closes them.
+func openStores(ctx context.Context, cfg config, logger *slog.Logger) (stores, func(), error) {
 	if cfg.databaseURL == "" {
 		// loadConfig asks for a database everywhere but development.
-		logger.Warn("SIGTA_DATABASE_URL is not set: the procedure types are lost when the server stops")
-		return procedureStores{versions: proceduremem.NewProcedureTypeVersionRepository(), drafts: proceduremem.NewProcedureTypeDraftRepository()}, func() {}, nil
+		logger.Warn("SIGTA_DATABASE_URL is not set: everything SIGTA keeps is lost when the server stops")
+		procedures := proceduremem.NewProcedureRepository()
+		return stores{
+			users:       authmem.NewUserRepository(),
+			sessions:    authmem.NewSessionRepository(),
+			areas:       authmem.NewAreaRepository(),
+			memberships: authmem.NewMembershipRepository(),
+			versions:    proceduremem.NewProcedureTypeVersionRepository(),
+			drafts:      proceduremem.NewProcedureTypeDraftRepository(),
+			procedures:  procedures,
+			documents:   proceduremem.NewDocumentRepository(procedures),
+		}, func() {}, nil
 	}
 	// The pool outlives ctx, which only bounds the checks.
 	pool, err := connect(context.WithoutCancel(ctx), cfg.databaseURL, appRole)
 	if err != nil {
-		return procedureStores{}, nil, fmt.Errorf("SIGTA_DATABASE_URL: %w", err)
+		return stores{}, nil, fmt.Errorf("SIGTA_DATABASE_URL: %w", err)
 	}
 	if err := checkDatabase(ctx, pool); err != nil {
 		pool.Close()
-		return procedureStores{}, nil, err
+		return stores{}, nil, err
 	}
-	return procedureStores{versions: postgres.NewProcedureTypeVersionRepository(pool), drafts: postgres.NewProcedureTypeDraftRepository(pool)}, pool.Close, nil
+	return stores{
+		users:       authpostgres.NewUserRepository(pool),
+		sessions:    authpostgres.NewSessionRepository(pool),
+		areas:       authpostgres.NewAreaRepository(pool),
+		memberships: authpostgres.NewMembershipRepository(pool),
+		versions:    procedurepostgres.NewProcedureTypeVersionRepository(pool),
+		drafts:      procedurepostgres.NewProcedureTypeDraftRepository(pool),
+		procedures:  procedurepostgres.NewProcedureRepository(pool),
+		documents:   procedurepostgres.NewDocumentRepository(pool),
+	}, pool.Close, nil
 }
 
 // openFiles returns where the files of the procedures are kept.
 func openFiles(cfg config, logger *slog.Logger) (output.Files, error) {
 	dir := cfg.documentsDir
 	if dir == "" {
-		// loadConfig asks for a directory everywhere but development. A new
-		// one each time, since the records of the documents are in memory and
-		// another user of the machine could have created a fixed one.
+		// loadConfig asks for a directory wherever the records of the
+		// documents outlive the server. A new one each time, since another
+		// user of the machine could have created a fixed one.
 		var err error
 		if dir, err = os.MkdirTemp("", "sigta-documents-"); err != nil {
 			return nil, fmt.Errorf("documents directory: %w", err)

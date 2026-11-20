@@ -74,6 +74,15 @@ func TestGoogleCanBeTriedInDevelopment(t *testing.T) {
 	}
 }
 
+// A temporary directory of documents does not outlive the server, and their
+// records in the database would name files that are gone.
+func TestDevelopmentWithADatabaseNeedsTheDocumentsDirectory(t *testing.T) {
+	_, err := loadConfig(env(map[string]string{"SIGTA_ENV": "development", "SIGTA_DATABASE_URL": "postgres://backend@db/sigta"}))
+	if err == nil || !strings.Contains(err.Error(), "SIGTA_DOCUMENTS_DIR") {
+		t.Fatalf("loadConfig() = %v, want an error about SIGTA_DOCUMENTS_DIR", err)
+	}
+}
+
 func TestRejectedConfigs(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -139,7 +148,7 @@ func TestLoadUsers(t *testing.T) {
 	if !slices.Equal(loaded.administrators, []string{"u3"}) {
 		t.Fatalf("administrators = %v, want [u3]", loaded.administrators)
 	}
-	wantMembership := domain.Membership{ID: "u1-1", UserID: "u1", Area: "office", Permissions: []string{"review"}, Scope: []int64{2}, GrantedBy: "SIGTA_USERS_FILE"}
+	wantMembership := domain.Membership{UserID: "u1", Area: "office", Permissions: []string{"review"}, Scope: []int64{2}, GrantedBy: usersFileGranter}
 	if len(loaded.memberships) != 1 || !reflect.DeepEqual(loaded.memberships[0], wantMembership) {
 		t.Fatalf("memberships = %+v, want only %+v", loaded.memberships, wantMembership)
 	}

@@ -3,18 +3,26 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	"backend/src/migrations"
 	"backend/src/migrations/dbtest"
+	"backend/src/procedure/adapters/disk"
+	"backend/src/procedure/application"
+	"backend/src/procedure/ports/input"
 )
 
 // TestCheckDatabase refuses a schema that is not migrated, and then the role
@@ -155,5 +163,81 @@ func assertOldDatabaseHint(t *testing.T, err error, codes ...string) {
 	}
 	if err == nil || !strings.Contains(err.Error(), migrations.OldDatabaseHint) {
 		t.Errorf("migrate = %v, want the hint to recreate the database", err)
+	}
+}
+
+// TestTheStoresOutliveTheServer starts twice on the same database, as a
+// restart does: the second start finds the session, the procedures and the
+// document of the first, and adds nothing twice.
+func TestTheStoresOutliveTheServer(t *testing.T) {
+	ctx := t.Context()
+	schema := dbtest.NewSchema(t)
+	cfg := config{env: envDevelopment, identityProvider: identityDev, allowedDomain: "fi.uba.ar", databaseURL: schema.MemberURL(t, dbtest.AppRole)}
+	files, err := disk.NewFiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	type started struct {
+		stores    stores
+		documents *application.DocumentService
+	}
+	start := func() started {
+		s, closeStores, err := openStores(ctx, cfg, slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(closeStores)
+		ids, err := addDirectory(ctx, cfg, s, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		administrators := authmem.NewAdministratorRepository(ids...)
+		memberships := authapp.NewMembershipService(s.areas, administrators, s.memberships, newID, time.Now)
+		procedureTypes := application.NewProcedureTypeService(s.versions, authapp.NewAreaService(s.areas, administrators, s.memberships, time.Now), memberships, time.Now)
+		if _, err := addDevExample(ctx, cfg, slog.New(slog.DiscardHandler), s.versions, procedureTypes, s.procedures, s.users); err != nil {
+			t.Fatal(err)
+		}
+		if err := addDevInbox(ctx, s.versions, s.procedures, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		procedures := application.NewProcedureService(procedureTypes, s.procedures, s.documents, memberships, newID, time.Now)
+		documents := application.NewDocumentService(procedures, s.documents, files, newID, time.Now)
+		if _, err := documents.RemoveUnreferencedFiles(ctx); err != nil {
+			t.Fatal(err)
+		}
+		return started{s, documents}
+	}
+
+	first := start()
+	if err := first.stores.sessions.Save(ctx, authdomain.Session{TokenHash: "hash", UserID: devApplicantID, LastSeenAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	attached, err := first.documents.Attach(ctx, devApplicantID, input.Upload{ProcedureID: devProcedureID, Requirement: "statement", FileName: "constancia.pdf", Content: strings.NewReader("%PDF-1.7\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	operative, err := first.stores.memberships.ListByUser(ctx, "dev-operative")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	second := start()
+	if session, err := second.stores.sessions.Get(ctx, "hash"); err != nil || session.UserID != devApplicantID {
+		t.Errorf("session after the restart = %+v, %v; want the one of %s", session, err, devApplicantID)
+	}
+	if again, err := second.stores.memberships.ListByUser(ctx, "dev-operative"); err != nil || len(again) != len(operative) {
+		t.Errorf("memberships of dev-operative after the restart = %+v, %v; want the %d of the first start", again, err, len(operative))
+	}
+	all, err := second.stores.procedures.List(ctx)
+	if err != nil || len(all) != 11 {
+		t.Errorf("procedures after the restart = %d, %v; want the 11 examples once", len(all), err)
+	}
+	document, file, err := second.documents.Open(ctx, devApplicantID, devProcedureID, attached.ID)
+	if err != nil {
+		t.Fatalf("open the document after the restart: %v", err)
+	}
+	defer func() { _ = file.Close() }()
+	if content, err := io.ReadAll(file); err != nil || string(content) != "%PDF-1.7\n" || document.FileName != "constancia.pdf" {
+		t.Errorf("document after the restart = %s with %q, %v; want constancia.pdf with its content", document.FileName, content, err)
 	}
 }

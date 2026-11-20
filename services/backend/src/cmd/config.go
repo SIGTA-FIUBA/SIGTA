@@ -90,7 +90,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 	if !c.development() && c.databaseURL == "" {
 		missing = append(missing, "SIGTA_DATABASE_URL")
 	}
-	if !c.development() && c.documentsDir == "" {
+	if (!c.development() || c.databaseURL != "") && c.documentsDir == "" {
 		missing = append(missing, "SIGTA_DOCUMENTS_DIR")
 	}
 
@@ -148,8 +148,8 @@ type membershipEntry struct {
 	Scope       []int64  `json:"scope,omitempty"`
 }
 
-// people is what SIGTA_USERS_FILE loads, until users and memberships are
-// stored in PostgreSQL and administered from the interface.
+// people is what SIGTA_USERS_FILE loads, and addPeople stores on every
+// start.
 type people struct {
 	users          []domain.User
 	administrators []string
@@ -195,13 +195,12 @@ func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) 
 		}
 		for j, m := range e.Memberships {
 			membership := domain.Membership{
-				ID:          fmt.Sprintf("%s-%d", user.ID, j+1),
 				UserID:      user.ID,
 				Area:        m.Area,
 				Roles:       m.Roles,
 				Permissions: m.Permissions,
 				Scope:       m.Scope,
-				GrantedBy:   "SIGTA_USERS_FILE",
+				GrantedBy:   usersFileGranter,
 			}
 			area, knownArea := known[membership.Area]
 			switch {

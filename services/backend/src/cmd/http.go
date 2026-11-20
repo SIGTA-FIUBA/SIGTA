@@ -22,7 +22,6 @@ import (
 	"backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	authoutput "backend/src/auth/ports/output"
-	proceduremem "backend/src/procedure/adapters/memory"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
 	proceduredomain "backend/src/procedure/domain"
@@ -56,51 +55,38 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
-	areaRepository := memory.NewAreaRepository(devAreas()...)
-	if err := application.EnsureSecretariat(ctx, areaRepository); err != nil {
-		return err
-	}
-	areas, err := areaRepository.List(ctx)
-	if err != nil {
-		return err
-	}
-	directory, err := peopleOf(cfg, areas)
-	if err != nil {
-		return err
-	}
 	identity, err := identityProviderOf(cfg, logger)
 	if err != nil {
 		return err
 	}
 
-	administrators := memory.NewAdministratorRepository(directory.administrators...)
-	membershipRepository := memory.NewMembershipRepository(directory.memberships...)
-	areaService := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
-	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, newID, time.Now)
-
 	// Bounds the start against the database, so one that does not answer
 	// stops it.
 	startup, cancel := context.WithTimeout(stop, 30*time.Second)
 	defer cancel()
-	stores, closeStores, err := openProcedureStores(startup, cfg, logger)
+	stores, closeStores, err := openStores(startup, cfg, logger)
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
 	defer closeStores()
+	administratorIDs, err := addDirectory(startup, cfg, stores, time.Now())
+	if err != nil {
+		return stoppedDuringStartup(stop, err)
+	}
+	administrators := memory.NewAdministratorRepository(administratorIDs...)
+	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, time.Now)
+	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, time.Now)
+
 	versions := stores.versions
 	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
 	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, time.Now)
-	// The procedures and what is recorded about their documents stay in
-	// memory until they are stored in PostgreSQL.
-	procedureRepository := proceduremem.NewProcedureRepository()
-	users := authoutput.UserRepository(memory.NewUserRepository(directory.users...))
+	users := stores.users
 	if cfg.development() {
-		users, err = addDevExample(startup, cfg, logger, versions, procedureTypes, procedureRepository, users)
+		users, err = addDevExample(startup, cfg, logger, versions, procedureTypes, stores.procedures, users)
 		if err != nil {
 			return stoppedDuringStartup(stop, err)
 		}
-		if err := addDevInbox(startup, versions, procedureRepository, time.Now()); err != nil {
+		if err := addDevInbox(startup, versions, stores.procedures, time.Now()); err != nil {
 			return stoppedDuringStartup(stop, fmt.Errorf("add the procedures of the inbox: %w", err))
 		}
 	}
@@ -112,7 +98,7 @@ func run(logger *slog.Logger) error {
 		},
 		identity,
 		users,
-		memory.NewSessionRepository(),
+		stores.sessions,
 		time.Now,
 	)
 
@@ -121,9 +107,8 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	documentRepository := proceduremem.NewDocumentRepository(procedureRepository)
-	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, documentRepository, memberships, newID, time.Now)
-	documents := procedureapp.NewDocumentService(procedures, documentRepository, files, newID, time.Now)
+	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, time.Now)
+	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, time.Now)
 	people := application.NewPeopleService(users)
 	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(startup)
@@ -138,7 +123,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
-		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, files, newID, time.Now), procedures),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, time.Now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
 	)
@@ -149,7 +134,7 @@ func run(logger *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       api.ReadTimeout,
 	}
-	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(directory.users))
+	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider)
 	return serve(stop, server, server.ListenAndServe)
 }
 
@@ -249,8 +234,8 @@ func devPeople() people {
 	}
 }
 
-// devAreas are the areas of staff until they are stored in PostgreSQL, besides
-// the Secretariat, which EnsureSecretariat adds.
+// devAreas are the areas of staff that SIGTA starts with, besides the
+// Secretariat, which EnsureSecretariat adds.
 func devAreas() []domain.Area {
 	return []domain.Area{
 		{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{
@@ -347,7 +332,8 @@ const (
 // addDevProcedure leaves two procedures of the example type, one waiting on
 // the documents of the applicant and one on the review of staff, so that
 // there is something to show and to confirm until procedures can be started
-// and moved from the interface.
+// and moved from the interface. A database that already has them keeps them as they
+// are, with whoever they were given to.
 func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, applicant string) error {
 	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil {
@@ -365,7 +351,8 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRe
 			StartedAt:     now,
 			MovedAt:       now,
 		}
-		if err := procedures.Add(ctx, output.Start{Procedure: p, Values: devValues(p)}); err != nil {
+		err := procedures.Add(ctx, output.Start{Procedure: p, Values: devValues(p)})
+		if err != nil && !errors.Is(err, output.ErrProcedureExists) {
 			return err
 		}
 	}
