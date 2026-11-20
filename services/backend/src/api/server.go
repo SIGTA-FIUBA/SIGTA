@@ -1,11 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const InvalidRequestMessage = "El pedido no es válido."
@@ -99,7 +105,57 @@ func Mount(mux *http.ServeMux, server StrictServerInterface, logger *slog.Logger
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError,
 	})
-	return http.MaxBytesHandler(HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest}), MaxRequestBytes)
+	return http.MaxBytesHandler(storableText(HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})), MaxRequestBytes)
+}
+
+// storableText answers 400 to a request whose path, query or JSON body brings
+// a text that PostgreSQL cannot store: one with a NUL character or, in the
+// path and query, one that is not UTF-8. The JSON decoder already replaces
+// what is not UTF-8 in a body.
+func storableText(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query, _ := url.ParseQuery(r.URL.RawQuery)
+		valid := storable(r.URL.Path)
+		for key, values := range query {
+			valid = valid && storable(key)
+			for _, v := range values {
+				valid = valid && storable(v)
+			}
+		}
+		if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); valid && mediaType == "application/json" && r.Body != nil {
+			body, err := io.ReadAll(r.Body)
+			valid = err == nil && !hasNUL(body)
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+		if !valid {
+			writeError(w, http.StatusBadRequest, InvalidRequestMessage)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func storable(s string) bool {
+	return utf8.ValidString(s) && !strings.ContainsRune(s, 0)
+}
+
+// hasNUL reports whether a string or key of the JSON body has a NUL, which
+// JSON can only bring escaped. A body that is not JSON is left to the
+// handler.
+func hasNUL(body []byte) bool {
+	if !bytes.Contains(body, []byte(`\u0000`)) {
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		if s, ok := token.(string); ok && strings.ContainsRune(s, 0) {
+			return true
+		}
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

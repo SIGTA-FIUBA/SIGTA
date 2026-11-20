@@ -835,7 +835,8 @@ paths:
         el tamaño máximo del documento. Adjuntar otro archivo para el mismo
         documento reemplaza al anterior, que queda registrado. Un trámite
         guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en
-        el historial, sin avanzar el trámite.
+        el historial, sin avanzar el trámite. Si el paso ya no está abierto
+        (otro lo confirmó o el trámite está cerrado), responde 409.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -867,6 +868,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /procedures/{procedureId}/documents/{documentId}/content:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"

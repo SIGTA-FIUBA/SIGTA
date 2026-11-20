@@ -22,6 +22,7 @@ import (
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 type authorizationWorld struct {
@@ -51,11 +52,12 @@ type authorizationWorld struct {
 }
 
 func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
+	procedures := memory.NewProcedureRepository()
 	w := &authorizationWorld{
 		administrators:    authmem.NewAdministratorRepository(scenarioAdministrator),
 		storedMemberships: authmem.NewMembershipRepository(),
-		procedures:        memory.NewProcedureRepository(),
-		documents:         memory.NewDocumentRepository(),
+		procedures:        procedures,
+		documents:         memory.NewDocumentRepository(procedures),
 		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 		typeIDs:           map[string]int64{},
 		steps:             map[string][]definition.Step{},
@@ -293,7 +295,7 @@ func (w *authorizationWorld) givenOwnProcedureOn(applicant, name, step string) e
 		Applicant:     applicant,
 		OpenStep:      step,
 	}
-	if err := w.procedures.Add(context.Background(), p, nil); err != nil {
+	if err := w.procedures.Add(context.Background(), output.Start{Procedure: p}); err != nil {
 		return err
 	}
 	w.current = p.ID

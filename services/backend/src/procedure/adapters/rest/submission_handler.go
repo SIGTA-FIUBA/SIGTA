@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -110,6 +111,12 @@ func submissionHead(body *multipart.Reader) (int64, map[string]submission.Value,
 			return 0, nil, fmt.Errorf("%w: value of %s is neither a text nor a list of texts", errMalformedUpload, id)
 		}
 		values[id] = submission.Value{Items: items}
+	}
+	// PostgreSQL cannot store a text with a NUL character.
+	for id, v := range values {
+		if strings.ContainsRune(id+v.Text+strings.Join(v.Items, ""), 0) {
+			return 0, nil, fmt.Errorf("%w: value of %q has a NUL character", errMalformedUpload, id)
+		}
 	}
 	return procedureType, values, nil
 }

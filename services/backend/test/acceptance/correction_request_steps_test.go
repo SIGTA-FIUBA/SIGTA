@@ -8,7 +8,6 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
@@ -88,7 +87,7 @@ func (w *correctionWorld) thenAsked(requirements, reason string) error {
 	if err != nil {
 		return err
 	}
-	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	details := application.NewProcedureDetailService(w.service, w.documents)
 	shown, err := details.Detail(context.Background(), p.Applicant, w.current)
 	if err != nil {
 		return err

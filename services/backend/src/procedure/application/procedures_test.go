@@ -14,6 +14,7 @@ import (
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 // applicants answers that nobody is staff.
@@ -37,7 +38,7 @@ func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(types, procedures, memory.NewDocumentRepository(), applicants{}, func() string { return "started" }, time.Now)
+	service := NewProcedureService(types, procedures, memory.NewDocumentRepository(procedures), applicants{}, func() string { return "started" }, time.Now)
 
 	started, err := service.Start(ctx, "ana", 1)
 	if err != nil {
@@ -52,7 +53,7 @@ func TestProcedureFollowsItsPinnedVersion(t *testing.T) {
 
 	replaced := started
 	replaced.ID, replaced.VersionDigest = "replaced", "sha256:00"
-	if err := procedures.Add(ctx, replaced, nil); err != nil {
+	if err := procedures.Add(ctx, output.Start{Procedure: replaced}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Open(ctx, "ana", replaced.ID); !errors.Is(err, version.ErrNotPinnedVersion) {
@@ -102,7 +103,8 @@ func (failingAdvance) Advance(context.Context, proceduredomain.Procedure, proced
 	return errStore
 }
 
-func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepository) {
+// confirmationFixture leaves the procedure P-1 waiting on openStep.
+func confirmationFixture(t *testing.T, openStep string) (*ProcedureService, *memory.ProcedureRepository) {
 	t.Helper()
 	d := definition.ProcedureTypeDefinition{
 		Name:   "Equivalencia",
@@ -122,8 +124,8 @@ func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepo
 		"commission@fi.uba.ar": {"commission": {"evaluate"}},
 	}
 	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(), staffAuthorizer, func() string { return "P-1" }, func() time.Time { return confirmedAt })
-	if err := procedures.Add(context.Background(), proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: "file"}, nil); err != nil {
+	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(procedures), staffAuthorizer, func() string { return "P-1" }, func() time.Time { return confirmedAt })
+	if err := procedures.Add(context.Background(), output.Start{Procedure: proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: openStep}}); err != nil {
 		t.Fatal(err)
 	}
 	return service, procedures
@@ -135,7 +137,7 @@ func fileConfirmation() input.StepConfirmation {
 
 func TestConfirmAdvancesAndRecordsWhoAndWhen(t *testing.T) {
 	ctx := context.Background()
-	service, procedures := confirmationFixture(t)
+	service, procedures := confirmationFixture(t, "file")
 
 	event, err := service.Confirm(ctx, "operative@fi.uba.ar", "P-1", fileConfirmation())
 	if err != nil {
@@ -184,12 +186,7 @@ func TestConfirmRejectsAndChangesNothing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			service, procedures := confirmationFixture(t)
-			if tt.openStep != "file" {
-				if err := procedures.Add(ctx, proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: tt.openStep}, nil); err != nil {
-					t.Fatal(err)
-				}
-			}
+			service, procedures := confirmationFixture(t, tt.openStep)
 
 			if _, err := service.Confirm(ctx, tt.user, "P-1", tt.confirmation); !errors.Is(err, tt.want) {
 				t.Fatalf("Confirm = %v, want %v", err, tt.want)
@@ -205,7 +202,7 @@ func TestConfirmRejectsAndChangesNothing(t *testing.T) {
 
 func TestConfirmTheSameStepTwice(t *testing.T) {
 	ctx := context.Background()
-	service, _ := confirmationFixture(t)
+	service, _ := confirmationFixture(t, "file")
 	if _, err := service.Confirm(ctx, "operative@fi.uba.ar", "P-1", fileConfirmation()); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +213,7 @@ func TestConfirmTheSameStepTwice(t *testing.T) {
 
 func TestConfirmWhenStoringFailsLeavesTheProcedureAsItWas(t *testing.T) {
 	ctx := context.Background()
-	service, procedures := confirmationFixture(t)
+	service, procedures := confirmationFixture(t, "file")
 	service.procedures = failingAdvance{procedures}
 
 	if _, err := service.Confirm(ctx, "operative@fi.uba.ar", "P-1", fileConfirmation()); !errors.Is(err, errStore) {
@@ -235,7 +232,7 @@ func fileCorrection() input.CorrectionRequest {
 
 func TestRequestCorrectionLeavesTheProcedureWaitingForTheApplicant(t *testing.T) {
 	ctx := context.Background()
-	service, procedures := confirmationFixture(t)
+	service, procedures := confirmationFixture(t, "file")
 
 	event, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection())
 	if err != nil {
@@ -288,7 +285,7 @@ func TestRequestCorrectionRejectsAndChangesNothing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			service, procedures := confirmationFixture(t)
+			service, procedures := confirmationFixture(t, "file")
 
 			if _, err := service.RequestCorrection(ctx, tt.user, "P-1", tt.request); !errors.Is(err, tt.want) {
 				t.Fatalf("RequestCorrection = %v, want %v", err, tt.want)

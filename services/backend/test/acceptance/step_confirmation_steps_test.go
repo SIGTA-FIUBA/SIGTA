@@ -212,10 +212,22 @@ func (w *confirmationWorld) thenConfirmation(result string) error {
 }
 
 // givenAttached records a file for each document, as attaching it to the
-// step would, without going through the upload.
-func (w *confirmationWorld) givenAttached(documents, step string) error {
+// step would, without going through the upload. The documents of a step
+// that is not open were attached while it was, so the procedure goes back to
+// it and returns.
+func (w *confirmationWorld) givenAttached(documents, step string) (err error) {
+	p, err := w.procedures.Get(context.Background(), w.current)
+	if err != nil {
+		return err
+	}
+	if p.OpenStep != step {
+		if err := moveTo(w.procedures, w.current, step); err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, moveTo(w.procedures, w.current, p.OpenStep)) }()
+	}
 	for _, name := range list(documents) {
-		err := w.documents.Add(context.Background(), domain.Document{
+		d := domain.Document{
 			ID:          w.newID(),
 			Procedure:   w.current,
 			Requirement: idOf(name),
@@ -226,8 +238,16 @@ func (w *confirmationWorld) givenAttached(documents, step string) error {
 			Digest:      "sha256:" + idOf(name),
 			UploadedBy:  "staff@fi.uba.ar",
 			UploadedAt:  w.now,
-		})
-		if err != nil {
+		}
+		attached := domain.Event{
+			ProcedureID: d.Procedure,
+			Step:        d.Step,
+			Action:      definition.ActionUploadDocument,
+			By:          d.UploadedBy,
+			At:          d.UploadedAt,
+			Document:    &domain.DocumentRecord{ID: d.ID, Requirement: d.Requirement, FileName: d.FileName},
+		}
+		if err := w.procedures.Attach(context.Background(), d, attached); err != nil {
 			return err
 		}
 	}
@@ -423,7 +443,7 @@ func (w *confirmationWorld) thenState(state string) error {
 }
 
 func (w *confirmationWorld) thenDetailShowsReferral(area, from string, days int) error {
-	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	details := application.NewProcedureDetailService(w.service, w.documents)
 	shown, err := details.Detail(context.Background(), "applicant@fi.uba.ar", w.current)
 	if err != nil {
 		return err

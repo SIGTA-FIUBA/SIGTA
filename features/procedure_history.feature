@@ -42,12 +42,13 @@ Feature: History of a procedure
     And "approver@fi.uba.ar" confirmed the "record" step
     When "approver@fi.uba.ar" reads the history of the procedure
     Then the history shows, in this order:
-      | step     | action                |
-      | request  | enter_data            |
-      | check    | decide                |
-      | evaluate | confirm_external_fact |
-      | ruling   | upload_document       |
-      | record   | enter_data            |
+      | step     | action                | document |
+      | request  | enter_data            |          |
+      | check    | decide                |          |
+      | evaluate | confirm_external_fact |          |
+      | ruling   | upload_document       | ruling   |
+      | ruling   | upload_document       |          |
+      | record   | enter_data            |          |
 
   @SIG-81
   Scenario: a document attached after the start shows in the history with who attached it, when and what it covers

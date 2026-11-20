@@ -19,14 +19,13 @@ var _ input.Submissions = (*SubmissionService)(nil)
 // Anyone with an account can start one in their own name, staff included.
 type SubmissionService struct {
 	procedures *ProcedureService
-	documents  output.DocumentRepository
 	files      output.Files
 	newID      func() string
 	now        func() time.Time
 }
 
-func NewSubmissionService(procedures *ProcedureService, documents output.DocumentRepository, files output.Files, newID func() string, now func() time.Time) *SubmissionService {
-	return &SubmissionService{procedures: procedures, documents: documents, files: files, newID: newID, now: now}
+func NewSubmissionService(procedures *ProcedureService, files output.Files, newID func() string, now func() time.Time) *SubmissionService {
+	return &SubmissionService{procedures: procedures, files: files, newID: newID, now: now}
 }
 
 func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input.Submission) (input.Started, error) {
@@ -82,17 +81,15 @@ func (s *SubmissionService) Submit(ctx context.Context, userID string, sub input
 			EnteredAt: now,
 		})
 	}
-	// The procedure is recorded last: until then no one can see it. A failure
-	// before that leaves files that no document names, which
-	// RemoveUnreferencedFiles removes at startup, and documents of a procedure
-	// that does not exist, which nothing removes yet: they are to be recorded
-	// together with the procedure in one transaction (ADR-024).
-	for _, d := range documents {
-		if err := s.documents.Add(ctx, d); err != nil {
-			return input.Started{}, fmt.Errorf("record document: %w", err)
-		}
+	// A failure here leaves files that no document names, which
+	// RemoveUnreferencedFiles removes at startup.
+	start := output.Start{
+		Procedure: p,
+		Events:    engine.Open(p, submission.OpeningSteps(def), userID, now),
+		Values:    entered,
+		Documents: documents,
 	}
-	if err := s.procedures.procedures.Add(ctx, p, engine.Open(p, submission.OpeningSteps(def), userID, now), entered...); err != nil {
+	if err := s.procedures.procedures.Add(ctx, start); err != nil {
 		return input.Started{}, fmt.Errorf("start procedure: %w", err)
 	}
 	return input.Started{Procedure: p, State: state}, nil

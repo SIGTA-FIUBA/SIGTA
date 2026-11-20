@@ -96,11 +96,13 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | --- | --- | --- | --- |
 | DU-29 | ¿Dónde se despliega y quién lo financia? (D-04) | Se prepara para la infraestructura de FIUBA, según los requisitos de la Subsecretaría de TICs | Se espera, con la Subsecretaría de TICs |
 | DU-30 | ¿El PostgreSQL de la Subsecretaría de TICs soporta pgvector? (R-17) | Se sigue con pgvector, detrás de un puerto | Se espera, antes de construir el asistente |
+| DU-39 | ¿El entorno de FIUBA registra quién opera la consola, es decir quién corre `backend migrate` y `backend grant-admin`? SIGTA no guarda quién dio el primer administrador (ADR-027) | Queda a cargo del entorno donde se despliegue | Se espera, con la Subsecretaría de TICs |
 
 ## 4. De permisos y configuración
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
+| DU-40 | ¿Con qué áreas se configura el trámite ancla? SIG-83 nombra seis: Dirección Académica, Comisión Curricular, Despacho del Consejo Directivo, Consejo Directivo, Dirección General y Mesa de Entrada. No coincide con lo relevado: la DA es la Dirección de Alumnos; según DU-05 la Directora General es parte del área de la DA, con un rol propio; según DU-34 los pasos del Despacho del Consejo Directivo los confirma la DA y Mesa de Entrada ya no es un área; y en los actores del relevamiento ([docs/13](13-relevamiento-de-tramites.md)) la CC, el Despacho y el CD no usan SIGTA | Ninguna todavía. Son configuración: las carga un administrador desde la pantalla de SIG-76, y si cambian se editan ahí, sin código (ADR-027) | A decidir con el equipo antes de cargar las áreas, y a confirmar con la Secretaría |
 | DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 
 ## 5. Del inicio de un trámite

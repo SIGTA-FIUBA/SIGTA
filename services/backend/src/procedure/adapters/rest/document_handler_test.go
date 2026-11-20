@@ -19,6 +19,7 @@ import (
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/rest"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/ports/input"
 )
 
@@ -194,6 +195,7 @@ func TestAttachAnswersEachRejection(t *testing.T) {
 		{domain.ErrDocumentNotRequested, http.StatusBadRequest, "no pide"},
 		{domain.ErrAccessDenied, http.StatusForbidden, "No podés adjuntar"},
 		{domain.ErrProcedureNotFound, http.StatusNotFound, "No existe el trámite"},
+		{engine.ErrStepNotOpen, http.StatusConflict, "ya no está abierto"},
 		{errors.New("disk full"), http.StatusInternalServerError, "inesperado"},
 	}
 	for _, tt := range tests {

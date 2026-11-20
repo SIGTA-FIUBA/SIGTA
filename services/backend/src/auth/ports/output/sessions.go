@@ -9,6 +9,7 @@ import (
 
 // SessionRepository stores open sessions by the hash of their token.
 type SessionRepository interface {
+	// Save adds a session whose token is new.
 	Save(ctx context.Context, session domain.Session) error
 	// Get and Touch fail with domain.ErrSessionNotFound if there is no such
 	// session.
