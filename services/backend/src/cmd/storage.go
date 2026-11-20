@@ -23,16 +23,18 @@ import (
 )
 
 // stores are where SIGTA keeps what it knows: the people, their sessions,
-// areas and memberships, the procedure types and the procedures.
+// areas and memberships, the administrators, the procedure types and the
+// procedures.
 type stores struct {
-	users       authoutput.UserRepository
-	sessions    authoutput.SessionRepository
-	areas       authoutput.AreaRepository
-	memberships authoutput.MembershipRepository
-	versions    output.ProcedureTypeVersionRepository
-	drafts      output.ProcedureTypeDraftRepository
-	procedures  output.ProcedureRepository
-	documents   output.DocumentRepository
+	users          authoutput.UserRepository
+	sessions       authoutput.SessionRepository
+	areas          authoutput.AreaRepository
+	memberships    authoutput.MembershipRepository
+	administrators authoutput.AdministratorRepository
+	versions       output.ProcedureTypeVersionRepository
+	drafts         output.ProcedureTypeDraftRepository
+	procedures     output.ProcedureRepository
+	documents      output.DocumentRepository
 }
 
 // openStores returns the stores and a function that closes them.
@@ -42,14 +44,15 @@ func openStores(ctx context.Context, cfg config, logger *slog.Logger) (stores, f
 		logger.Warn("SIGTA_DATABASE_URL is not set: everything SIGTA keeps is lost when the server stops")
 		procedures := proceduremem.NewProcedureRepository()
 		return stores{
-			users:       authmem.NewUserRepository(),
-			sessions:    authmem.NewSessionRepository(),
-			areas:       authmem.NewAreaRepository(),
-			memberships: authmem.NewMembershipRepository(),
-			versions:    proceduremem.NewProcedureTypeVersionRepository(),
-			drafts:      proceduremem.NewProcedureTypeDraftRepository(),
-			procedures:  procedures,
-			documents:   proceduremem.NewDocumentRepository(procedures),
+			users:          authmem.NewUserRepository(),
+			sessions:       authmem.NewSessionRepository(),
+			areas:          authmem.NewAreaRepository(),
+			memberships:    authmem.NewMembershipRepository(),
+			administrators: authmem.NewAdministratorRepository(),
+			versions:       proceduremem.NewProcedureTypeVersionRepository(),
+			drafts:         proceduremem.NewProcedureTypeDraftRepository(),
+			procedures:     procedures,
+			documents:      proceduremem.NewDocumentRepository(procedures),
 		}, func() {}, nil
 	}
 	// The pool outlives ctx, which only bounds the checks.
@@ -62,14 +65,15 @@ func openStores(ctx context.Context, cfg config, logger *slog.Logger) (stores, f
 		return stores{}, nil, err
 	}
 	return stores{
-		users:       authpostgres.NewUserRepository(pool),
-		sessions:    authpostgres.NewSessionRepository(pool),
-		areas:       authpostgres.NewAreaRepository(pool),
-		memberships: authpostgres.NewMembershipRepository(pool),
-		versions:    procedurepostgres.NewProcedureTypeVersionRepository(pool),
-		drafts:      procedurepostgres.NewProcedureTypeDraftRepository(pool),
-		procedures:  procedurepostgres.NewProcedureRepository(pool),
-		documents:   procedurepostgres.NewDocumentRepository(pool),
+		users:          authpostgres.NewUserRepository(pool),
+		sessions:       authpostgres.NewSessionRepository(pool),
+		areas:          authpostgres.NewAreaRepository(pool),
+		memberships:    authpostgres.NewMembershipRepository(pool),
+		administrators: authpostgres.NewAdministratorRepository(pool),
+		versions:       procedurepostgres.NewProcedureTypeVersionRepository(pool),
+		drafts:         procedurepostgres.NewProcedureTypeDraftRepository(pool),
+		procedures:     procedurepostgres.NewProcedureRepository(pool),
+		documents:      procedurepostgres.NewDocumentRepository(pool),
 	}, pool.Close, nil
 }
 
@@ -149,16 +153,12 @@ func actAs(config *pgxpool.Config, role string) {
 // runs apart from the server, so the process that serves requests never has
 // that credential.
 func migrateCommand(getenv func(string) string, logger *slog.Logger) error {
-	url := getenv("SIGTA_MIGRATIONS_DATABASE_URL")
-	if url == "" {
-		return errors.New("missing SIGTA_MIGRATIONS_DATABASE_URL")
-	}
 	// Each lock a migration waits for is bounded apart, in migrations.Apply.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	pool, err := connect(ctx, url, migrationsRole)
+	pool, err := connectAsOwner(ctx, getenv)
 	if err != nil {
-		return fmt.Errorf("SIGTA_MIGRATIONS_DATABASE_URL: %w", err)
+		return err
 	}
 	defer pool.Close()
 	applied, err := applyMigrations(ctx, pool, getenv("SIGTA_ENV") == envDevelopment)
@@ -171,6 +171,20 @@ func migrateCommand(getenv func(string) string, logger *slog.Logger) error {
 		logger.Info("migrations applied", "count", applied)
 	}
 	return nil
+}
+
+// connectAsOwner connects with SIGTA_MIGRATIONS_DATABASE_URL, as the role
+// that owns the tables, which only the commands apart from the server have.
+func connectAsOwner(ctx context.Context, getenv func(string) string) (*pgxpool.Pool, error) {
+	url := getenv("SIGTA_MIGRATIONS_DATABASE_URL")
+	if url == "" {
+		return nil, errors.New("missing SIGTA_MIGRATIONS_DATABASE_URL")
+	}
+	pool, err := connect(ctx, url, migrationsRole)
+	if err != nil {
+		return nil, fmt.Errorf("SIGTA_MIGRATIONS_DATABASE_URL: %w", err)
+	}
+	return pool, nil
 }
 
 // SQLSTATE codes that a database created before the migrations role existed

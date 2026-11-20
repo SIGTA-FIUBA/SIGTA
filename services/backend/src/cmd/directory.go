@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	authmem "backend/src/auth/adapters/memory"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	authoutput "backend/src/auth/ports/output"
@@ -19,20 +20,28 @@ type people struct {
 }
 
 // addDirectory leaves the Secretariat in the stores on every start and, in
-// development, the example areas and the synthetic people. It returns the ids
-// of the administrators. Outside development everyone registers by signing
-// in, and memberships are granted only in SIGTA.
-func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) ([]string, error) {
+// development, the example areas and the synthetic people. It returns the
+// administrators: the stored ones and, when anyone can log in as anyone
+// (the dev identity provider), the synthetic one. Outside development
+// everyone registers by signing in, and memberships are granted only in SIGTA.
+func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) (authoutput.AdministratorRepository, error) {
 	if err := application.EnsureSecretariat(ctx, s.areas); err != nil {
 		return nil, err
 	}
 	if !cfg.development() {
-		return nil, nil
+		return s.administrators, nil
 	}
 	if err := addAreas(ctx, s.areas, devAreas()); err != nil {
 		return nil, err
 	}
-	return addPeople(ctx, s.users, s.memberships, devPeople(), now)
+	listed, err := addPeople(ctx, s.users, s.memberships, devPeople(), now)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.identityProvider != identityDev {
+		return s.administrators, nil
+	}
+	return storedOrListedAdministrators{stored: s.administrators, listed: authmem.NewAdministratorRepository(listed...)}, nil
 }
 
 // addAreas adds the areas that are not stored yet. One that is keeps what

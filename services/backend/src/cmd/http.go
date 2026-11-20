@@ -16,7 +16,6 @@ import (
 	"backend/src/api"
 	"backend/src/auth/adapters/dev"
 	"backend/src/auth/adapters/google"
-	"backend/src/auth/adapters/memory"
 	authrest "backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
@@ -33,17 +32,25 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := migrateCommand(os.Getenv, logger); err != nil {
-			logger.Error("migrations failed", "error", err)
-			os.Exit(1)
-		}
-		return
-	}
-	if err := run(logger); err != nil {
-		logger.Error("server stopped", "error", err)
+	if err := command(os.Args[1:], logger); err != nil {
+		logger.Error("stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+// command runs the server, or the command that args names. A command it
+// does not know fails, so that a mistyped one does not start a server.
+func command(args []string, logger *slog.Logger) error {
+	if len(args) == 0 {
+		return run(logger)
+	}
+	switch args[0] {
+	case "migrate":
+		return migrateCommand(os.Getenv, logger)
+	case "grant-admin":
+		return grantAdminCommand(os.Getenv, args[1:], logger)
+	}
+	return fmt.Errorf("unknown command %q: usage: backend [migrate | grant-admin <email>]", args[0])
 }
 
 func run(logger *slog.Logger) error {
@@ -69,11 +76,10 @@ func run(logger *slog.Logger) error {
 		return stoppedDuringStartup(stop, err)
 	}
 	defer closeStores()
-	administratorIDs, err := addDirectory(startup, cfg, stores, now())
+	administrators, err := addDirectory(startup, cfg, stores, now())
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
-	administrators := memory.NewAdministratorRepository(administratorIDs...)
 	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, now)
 	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, now)
 

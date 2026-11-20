@@ -69,6 +69,8 @@ En los comandos, `<entorno>` es `prod` o `dev`, y todos llevan `--region us-east
 | Ver el estado y las revisiones | `gcloud run services describe sigta-<entorno>` y `gcloud run revisions list --service sigta-<entorno>` |
 | Ver los logs | `gcloud logging read 'resource.labels.service_name="sigta-<entorno>"' --freshness 1h`, o la pestaña Logs del servicio en la consola |
 | Volver a la versión anterior | `gcloud run services update-traffic sigta-<entorno> --to-revisions <revisión>=100` |
+| Dar el primer administrador, a alguien que ya ingresó | `gcloud run jobs execute sigta-<entorno>-migrate --args grant-admin,<correo> --wait`: el job de las migraciones, con otro comando. Falla si ya hay un administrador: los demás se dan en SIGTA |
+| Ver quién dio el primer administrador | `gcloud run jobs executions list --job sigta-<entorno>-migrate` y `gcloud run jobs executions describe <ejecución> --format yaml`: cada ejecución guarda la cuenta que la lanzó (`creator` en la API v2 de Cloud Run), pero solo las últimas 1000 de cada job. Lo permanente es el registro de auditoría: `gcloud logging read 'protoPayload.methodName:"Jobs.RunJob" AND resource.labels.job_name="sigta-<entorno>-migrate"'`, con la cuenta en `protoPayload.authenticationInfo`. Ejecutar un job es un registro de acceso a datos (`DATA_WRITE`), que Google deja apagado por defecto: si el proyecto no los tiene habilitados para Cloud Run, esa consulta no trae nada. A qué usuario se le dio queda en los logs de la ejecución |
 | Respaldar la base a pedido | `gcloud sql backups create --instance <instancia>` |
 | Respaldar los documentos | `gcloud storage cp -r gs://summer-function-513519-a1-sigta-<entorno>-documents .` |
 

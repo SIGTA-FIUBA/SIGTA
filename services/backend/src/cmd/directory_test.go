@@ -85,13 +85,13 @@ func TestAddPeopleKeepsWhatAnAdministratorEnded(t *testing.T) {
 // signing in, and there is no administrator until one is given.
 func TestAddDirectoryAddsNoPeopleOutsideDevelopment(t *testing.T) {
 	ctx := t.Context()
-	s := stores{users: authmem.NewUserRepository(), areas: authmem.NewAreaRepository(), memberships: authmem.NewMembershipRepository()}
+	s := stores{users: authmem.NewUserRepository(), areas: authmem.NewAreaRepository(), memberships: authmem.NewMembershipRepository(), administrators: authmem.NewAdministratorRepository()}
 	administrators, err := addDirectory(ctx, config{env: envProduction}, s, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(administrators) != 0 {
-		t.Errorf("administrators = %v, want none", administrators)
+	if got, err := administrators.IsAdministrator(ctx, "dev-admin"); err != nil || got {
+		t.Errorf("dev-admin is an administrator = %v, %v; want false", got, err)
 	}
 	for _, synthetic := range devPeople().users {
 		if u, err := s.users.GetByEmail(ctx, synthetic.Email); err == nil {

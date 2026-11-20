@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 	"backend/src/migrations"
@@ -187,11 +186,10 @@ func TestTheStoresOutliveTheServer(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(closeStores)
-		ids, err := addDirectory(ctx, cfg, s, time.Now())
+		administrators, err := addDirectory(ctx, cfg, s, time.Now())
 		if err != nil {
 			t.Fatal(err)
 		}
-		administrators := authmem.NewAdministratorRepository(ids...)
 		memberships := authapp.NewMembershipService(s.areas, administrators, s.memberships, newID, time.Now)
 		procedureTypes := application.NewProcedureTypeService(s.versions, authapp.NewAreaService(s.areas, administrators, s.memberships, time.Now), memberships, time.Now)
 		if _, err := addDevExample(ctx, cfg, slog.New(slog.DiscardHandler), s.versions, procedureTypes, s.procedures, s.users); err != nil {
