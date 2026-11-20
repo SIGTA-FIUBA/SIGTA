@@ -3,8 +3,6 @@ package rest
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -88,20 +86,10 @@ func (h *ProcedureHandler) AnswerCorrection(ctx context.Context, req api.AnswerC
 func missingAnswerMessage(e *engine.MissingAnswerError) string {
 	names := make([]string, 0, len(e.Fields)+len(e.Documents))
 	for _, f := range e.Fields {
-		names = append(names, fmt.Sprintf("%q", nameOrID(f.Name, f.ID)))
+		names = append(names, nameOrID(f.Name, f.ID))
 	}
 	for _, d := range e.Documents {
-		names = append(names, fmt.Sprintf("%q", nameOrID(d.Name, d.ID)))
+		names = append(names, nameOrID(d.Name, d.ID))
 	}
-	if len(names) == 1 {
-		return "Falta cargar de nuevo " + names[0] + "."
-	}
-	return "Falta cargar de nuevo " + strings.Join(names[:len(names)-1], ", ") + " y " + names[len(names)-1] + "."
-}
-
-func nameOrID(name, id string) string {
-	if name == "" {
-		return id
-	}
-	return name
+	return "Falta cargar de nuevo " + quotedList(names) + "."
 }

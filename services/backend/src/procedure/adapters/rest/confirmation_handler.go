@@ -128,14 +128,30 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 func missingDocumentsMessage(e *engine.MissingDocumentsError) string {
 	names := make([]string, 0, len(e.Documents))
 	for _, d := range e.Documents {
-		name := d.Name
-		if name == "" {
-			name = d.ID
-		}
-		names = append(names, fmt.Sprintf("%q", name))
+		names = append(names, nameOrID(d.Name, d.ID))
 	}
 	if len(names) == 1 {
-		return "Falta adjuntar el documento " + names[0] + "."
+		return "Falta adjuntar el documento " + quotedList(names) + "."
 	}
-	return "Falta adjuntar los documentos " + strings.Join(names[:len(names)-1], ", ") + " y " + names[len(names)-1] + "."
+	return "Falta adjuntar los documentos " + quotedList(names) + "."
+}
+
+// quotedList names each one in quotes, the last one after "y".
+func quotedList(names []string) string {
+	quoted := make([]string, len(names))
+	for i, name := range names {
+		quoted[i] = fmt.Sprintf("%q", name)
+	}
+	if len(quoted) == 1 {
+		return quoted[0]
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " y " + quoted[len(quoted)-1]
+}
+
+// nameOrID is the name of a field or document, or its id if it has none.
+func nameOrID(name, id string) string {
+	if name == "" {
+		return id
+	}
+	return name
 }
