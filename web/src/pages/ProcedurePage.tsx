@@ -222,10 +222,10 @@ function areaName(detail: Detail, id: string) {
 
 // requirementsOf names each field and document the steps ask for, once each,
 // in the order of the steps.
-function requirementsOf(detail: Detail) {
+function requirementsOf(steps: Step[]) {
   const fields = new Map<string, string>()
   const documents = new Map<string, string>()
-  for (const step of detail.steps) {
+  for (const step of steps) {
     for (const field of step.fields) {
       if (!fields.has(field.id)) {
         fields.set(field.id, field.name)
@@ -241,11 +241,11 @@ function requirementsOf(detail: Detail) {
 }
 
 function documentName(detail: Detail, id: string) {
-  return requirementsOf(detail).documents.get(id) ?? id
+  return requirementsOf(detail.steps).documents.get(id) ?? id
 }
 
 function requestedNames(detail: Detail, requested: { fields: string[]; documents: string[] }) {
-  const { fields, documents } = requirementsOf(detail)
+  const { fields, documents } = requirementsOf(detail.steps)
   return [
     ...requested.fields.map((id) => fields.get(id) ?? id),
     ...requested.documents.map((id) => documents.get(id) ?? id),
@@ -669,7 +669,8 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
       reason: (value) => (value.trim() ? null : 'Escribí el motivo.'),
     },
   })
-  const { fields, documents } = requirementsOf(detail)
+  // Only what the steps of the applicant ask for, so the answer lands on one of them.
+  const { fields, documents } = requirementsOf(detail.steps.filter((candidate) => candidate.role === 'applicant'))
   const options = [
     { group: 'Datos', items: [...fields].map(([id, name]) => ({ value: fieldPrefix + id, label: name })) },
     { group: 'Documentos', items: [...documents].map(([id, name]) => ({ value: documentPrefix + id, label: name })) },

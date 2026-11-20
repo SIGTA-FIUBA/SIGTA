@@ -282,7 +282,7 @@ const worstRequests = [
         `Párrafo ${i + 1}: la Comisión Curricular pide ampliar la información con el programa analítico de cada asignatura, la carga horaria y la bibliografía, firmados por la unidad académica de origen.`,
     ).join('\n\n'),
     ['reason', 'url', 'subjects', 'w'],
-    ['ruling', 'record', 'annex'],
+    [],
   ),
   correctionRequest('Falta la firma.', ['w'], []),
   correctionRequest('El enlace no abre.', ['url'], []),

@@ -895,6 +895,32 @@ describe('ProcedurePage correction request', () => {
     ])
   })
 
+  it('offers only what the steps of the applicant ask for', async () => {
+    const ruling = {
+      id: 'ruling',
+      name: 'Dictamen',
+      required: true,
+      accepted_types: ['application/pdf'],
+      max_size: 1024,
+      resolution: false,
+    }
+    stubPost(
+      201,
+      {},
+      {
+        ...asksForSubjects,
+        steps: [asksForSubjects.steps[0]!, { ...asksForSubjects.steps[1]!, documents: [ruling] }],
+      },
+    )
+    renderPage()
+
+    await openForm()
+    await userEvent.click(screen.getByRole('combobox', { name: /Qué falta/ }))
+
+    expect(screen.getByRole('option', { name: 'Constancia' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Dictamen' })).toBeNull()
+  })
+
   it('shows why the server did not take the request', async () => {
     stubPost(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' }, asksForSubjects)
     renderPage()
