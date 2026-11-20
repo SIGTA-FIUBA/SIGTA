@@ -244,11 +244,30 @@ func (w *documentWorld) givenProcedure(applicant, step string) error {
 }
 
 func (w *documentWorld) givenMovedOn(step string) error {
-	w.procedures.openStep[w.procedure.ID] = step
-	return nil
+	return moveTo(w.procedures.ProcedureRepository, w.procedure.ID, step)
 }
 
-// movableProcedures moves a procedure to another step without its advance,
+// moveTo records that the open step of the procedure was confirmed and the
+// procedure moved to step, without the checks of a confirmation, which are
+// another story.
+func moveTo(procedures *memory.ProcedureRepository, procedureID, step string) error {
+	p, err := procedures.Get(context.Background(), procedureID)
+	if err != nil {
+		return err
+	}
+	moved := p
+	moved.OpenStep = step
+	return procedures.Advance(context.Background(), moved, domain.Event{
+		ProcedureID: p.ID,
+		Step:        p.OpenStep,
+		Action:      definition.ActionConfirmExternalFact,
+		By:          "staff@fi.uba.ar",
+		At:          time.Now(),
+		Next:        step,
+	})
+}
+
+// movableProcedures shows a procedure on another step without its advance,
 // and adds values to it after its start, which are other stories.
 type movableProcedures struct {
 	*memory.ProcedureRepository

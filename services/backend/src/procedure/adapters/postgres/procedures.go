@@ -136,7 +136,7 @@ func (s *ProcedureRepository) Advance(ctx context.Context, p domain.Procedure, e
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			if err := lockProcedure(ctx, tx, p.ID); err != nil {
+			if _, err := lockProcedure(ctx, tx, p.ID); err != nil {
 				return err
 			}
 			return engine.ErrStepNotOpen
@@ -151,8 +151,12 @@ func (s *ProcedureRepository) Advance(ctx context.Context, p domain.Procedure, e
 
 func (s *ProcedureRepository) Attach(ctx context.Context, d domain.Document, e domain.Event) error {
 	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
-		if err := lockProcedure(ctx, tx, d.Procedure); err != nil {
+		openStep, err := lockProcedure(ctx, tx, d.Procedure)
+		if err != nil {
 			return err
+		}
+		if openStep != d.Step {
+			return engine.ErrStepNotOpen
 		}
 		if err := insertDocument(ctx, tx, d.Procedure, d); err != nil {
 			return err
@@ -182,15 +186,16 @@ func (s *ProcedureRepository) Events(ctx context.Context, procedureID string) ([
 	return events, nil
 }
 
-// lockProcedure fails with domain.ErrProcedureNotFound if there is no such
+// lockProcedure returns the open step of the procedure, empty if it is
+// closed, and fails with domain.ErrProcedureNotFound if there is no such
 // procedure.
-func lockProcedure(ctx context.Context, tx pgx.Tx, id string) error {
-	var found bool
-	err := tx.QueryRow(ctx, "SELECT true FROM procedures WHERE id = $1 FOR NO KEY UPDATE", id).Scan(&found)
+func lockProcedure(ctx context.Context, tx pgx.Tx, id string) (string, error) {
+	var openStep *string
+	err := tx.QueryRow(ctx, "SELECT open_step FROM procedures WHERE id = $1 FOR NO KEY UPDATE", id).Scan(&openStep)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrProcedureNotFound
+		return "", domain.ErrProcedureNotFound
 	}
-	return err
+	return database.ValueOf(openStep), err
 }
 
 // insertDocument fails with output.ErrDocumentExists if the identifier is

@@ -41,7 +41,8 @@ type ProcedureRepository interface {
 	Advance(ctx context.Context, p domain.Procedure, e domain.Event) error
 	// Attach records a document together with e, its event in the history,
 	// which does not move the procedure. It fails with
-	// domain.ErrProcedureNotFound if there is no such procedure, and with
+	// domain.ErrProcedureNotFound if there is no such procedure, with
+	// engine.ErrStepNotOpen if d.Step is no longer the open step, and with
 	// ErrDocumentExists if the document identifier is already taken.
 	Attach(ctx context.Context, d domain.Document, e domain.Event) error
 	Events(ctx context.Context, procedureID string) ([]domain.Event, error)

@@ -18,6 +18,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
@@ -62,6 +63,9 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	p, content, err := s.procedures.visible(ctx, userID, u.ProcedureID)
 	if err != nil {
 		return domain.Document{}, err
+	}
+	if p.Closed() {
+		return domain.Document{}, fmt.Errorf("procedure %s: %w", p.ID, engine.ErrStepNotOpen)
 	}
 	allowed, err := s.procedures.canAct(ctx, userID, p, content, p.OpenStep)
 	if err != nil {

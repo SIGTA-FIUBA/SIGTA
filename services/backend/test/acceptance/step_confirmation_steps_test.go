@@ -211,8 +211,20 @@ func (w *confirmationWorld) thenConfirmation(result string) error {
 }
 
 // givenAttached records a file for each document, as attaching it to the
-// step would, without going through the upload.
-func (w *confirmationWorld) givenAttached(documents, step string) error {
+// step would, without going through the upload. The documents of a step
+// that is not open were attached while it was, so the procedure goes back to
+// it and returns.
+func (w *confirmationWorld) givenAttached(documents, step string) (err error) {
+	p, err := w.procedures.Get(context.Background(), w.current)
+	if err != nil {
+		return err
+	}
+	if p.OpenStep != step {
+		if err := moveTo(w.procedures, w.current, step); err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, moveTo(w.procedures, w.current, p.OpenStep)) }()
+	}
 	for _, name := range list(documents) {
 		d := domain.Document{
 			ID:          w.newID(),

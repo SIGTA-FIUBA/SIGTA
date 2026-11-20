@@ -124,8 +124,12 @@ func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e d
 func (s *ProcedureRepository) Attach(_ context.Context, d domain.Document, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.procedures[d.Procedure]; !ok {
+	stored, ok := s.procedures[d.Procedure]
+	if !ok {
 		return domain.ErrProcedureNotFound
+	}
+	if stored.Closed() || stored.OpenStep != d.Step {
+		return fmt.Errorf("procedure %s: %w", d.Procedure, engine.ErrStepNotOpen)
 	}
 	if err := s.newDocuments(d); err != nil {
 		return err

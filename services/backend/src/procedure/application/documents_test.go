@@ -20,6 +20,7 @@ import (
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
@@ -279,6 +280,19 @@ func TestAttachRejects(t *testing.T) {
 				t.Errorf("history = %+v, want it empty", events)
 			}
 		})
+	}
+}
+
+func TestAttachToAClosedProcedure(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "")
+	u := upload("statement", "constancia.pdf", pdf(100))
+	u.ProcedureID = "P-2"
+	if _, err := f.service.Attach(t.Context(), applicant, u); !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Fatalf("err = %v, want ErrStepNotOpen", err)
+	}
+	if len(f.files.files) != 0 {
+		t.Error("the store kept a file of a closed procedure")
 	}
 }
 

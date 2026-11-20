@@ -36,6 +36,7 @@ func TestProcedureRepository(t *testing.T, newStores func(t *testing.T) Procedur
 	t.Run("unknown procedure", func(t *testing.T) { unknownProcedure(t, published(t, newStores(t))) })
 	t.Run("attach", func(t *testing.T) { attach(t, published(t, newStores(t))) })
 	t.Run("attach whole or nothing", func(t *testing.T) { attachWholeOrNothing(t, published(t, newStores(t))) })
+	t.Run("attach to a step that is not open", func(t *testing.T) { attachToAStepNotOpen(t, published(t, newStores(t))) })
 	t.Run("no shared memory", func(t *testing.T) { procedureCopies(t, published(t, newStores(t))) })
 	t.Run("concurrent confirmations", func(t *testing.T) { concurrentConfirmations(t, published(t, newStores(t))) })
 	t.Run("concurrent attachments", func(t *testing.T) { concurrentAttachments(t, published(t, newStores(t))) })
@@ -329,6 +330,27 @@ func attach(t *testing.T, s ProcedureStores) {
 	}
 }
 
+// attachToAStepNotOpen attaches documents of a step that a confirmation
+// already closed, as when both requests read the procedure before either was
+// saved.
+func attachToAStepNotOpen(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	start := fullStart("P-1")
+	add(t, s, start)
+	closed := procedure("P-2", "")
+	add(t, s, output.Start{Procedure: closed})
+
+	another := document("D-1", "P-1", "statement")
+	another.Step = "approve"
+	for _, d := range []domain.Document{another, document("D-2", "P-2", "statement")} {
+		if err := s.Procedures.Attach(ctx, d, attachedEvent(d)); !errors.Is(err, engine.ErrStepNotOpen) {
+			t.Errorf("Attach(%s) of step %s = %v, want ErrStepNotOpen", d.Procedure, d.Step, err)
+		}
+	}
+	wantRecorded(t, s, start.Procedure, start.Events, start.Values, start.Documents)
+	wantRecorded(t, s, closed, nil, nil, nil)
+}
+
 func attachWholeOrNothing(t *testing.T, s ProcedureStores) {
 	ctx := t.Context()
 	start := fullStart("P-1")
@@ -366,6 +388,7 @@ func procedureCopies(t *testing.T, s ProcedureStores) {
 		t.Fatal(err)
 	}
 	d := document("D-3", "P-1", "statement")
+	d.Step = "evaluate"
 	attached := attachedEvent(d)
 	if err := s.Procedures.Attach(ctx, d, attached); err != nil {
 		t.Fatal(err)
