@@ -46,6 +46,18 @@ type InboxServer interface {
 	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
 }
 
+type ProcedureTypeDraftServer interface {
+	CreateProcedureType(ctx context.Context, request CreateProcedureTypeRequestObject) (CreateProcedureTypeResponseObject, error)
+	ListProcedureTypeDrafts(ctx context.Context, request ListProcedureTypeDraftsRequestObject) (ListProcedureTypeDraftsResponseObject, error)
+	GetProcedureTypeDraft(ctx context.Context, request GetProcedureTypeDraftRequestObject) (GetProcedureTypeDraftResponseObject, error)
+	OpenProcedureTypeDraft(ctx context.Context, request OpenProcedureTypeDraftRequestObject) (OpenProcedureTypeDraftResponseObject, error)
+	EditProcedureTypeDraft(ctx context.Context, request EditProcedureTypeDraftRequestObject) (EditProcedureTypeDraftResponseObject, error)
+	DiscardProcedureTypeDraft(ctx context.Context, request DiscardProcedureTypeDraftRequestObject) (DiscardProcedureTypeDraftResponseObject, error)
+	ProposeProcedureTypeDraft(ctx context.Context, request ProposeProcedureTypeDraftRequestObject) (ProposeProcedureTypeDraftResponseObject, error)
+	RejectProcedureTypeDraft(ctx context.Context, request RejectProcedureTypeDraftRequestObject) (RejectProcedureTypeDraftResponseObject, error)
+	ApproveProcedureTypeDraft(ctx context.Context, request ApproveProcedureTypeDraftRequestObject) (ApproveProcedureTypeDraftResponseObject, error)
+}
+
 // A test that only calls one module can leave the others nil.
 type Server struct {
 	AuthServer
@@ -54,12 +66,13 @@ type Server struct {
 	DocumentServer
 	ProcedureServer
 	InboxServer
+	ProcedureTypeDraftServer
 }
 
 var _ StrictServerInterface = Server{}
 
-func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer, procedures ProcedureServer, inbox InboxServer) Server {
-	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents, ProcedureServer: procedures, InboxServer: inbox}
+func NewServer(auth AuthServer, catalog CatalogServer, administration AdministrationServer, documents DocumentServer, procedures ProcedureServer, inbox InboxServer, drafts ProcedureTypeDraftServer) Server {
+	return Server{AuthServer: auth, CatalogServer: catalog, AdministrationServer: administration, DocumentServer: documents, ProcedureServer: procedures, InboxServer: inbox, ProcedureTypeDraftServer: drafts}
 }
 
 // MaxRequestBytes bounds the body of every request, so an upload is cut there

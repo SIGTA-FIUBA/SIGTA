@@ -267,7 +267,9 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Se cierra D-07. Queda D-08: quién puede proponer y quién aprobar.
 - El editor deja de estar fuera del alcance; lo que queda afuera es publicar sin la aprobación de otra persona.
 - La documentación del modelo, en CONTRIBUTING, sigue siendo un entregable del cierre, ahora como referencia para quien edita.
-- La interfaz de edición y su endpoint van en "Edición y publicación de tipos de trámite" (US72), con estimación provisoria. A confirmar: cómo se publica el trámite ancla mientras no exista. Hasta entonces, los borradores de los cinco trámites se validan fuera del repositorio, con el test `TestDrafts`, porque describen procesos que la Secretaría no confirmó.
+- La edición y su API salen en US72 (SIG-74): un borrador por tipo de trámite, que se edita, se propone, se rechaza con un motivo o se aprueba. Al aprobarlo se publica la versión, con quien la propuso y quien la aprobó; el borrador recuerda a todos los que lo editaron, ninguno de ellos ni quien lo propuso lo aprueba o lo rechaza, y el servidor controla los dos permisos. La pantalla de edición todavía no existe: sale en SIG-84.
+- Los dos permisos son los de plataforma de la Secretaría, `edit_procedure_types` y `publish_procedure_types` (ADR-020), que en desarrollo tienen dos usuarios sintéticos distintos. A quién se le dan sigue en D-08.
+- Los borradores de los cinco trámites se siguen validando fuera del repositorio, con el test `TestDrafts`, porque describen procesos que la Secretaría no confirmó.
 - Cambian cuatro criterios de "Modelo de definición de trámite": el archivo versionado, los estados, la validación al arrancar y los requisitos compartidos entre trámites. A actualizar en Linear con el equipo.
 - No aparece la persona administrador técnico (P4) que preveía ADR-001.
 - El riesgo R-02 baja, pero sigue abierto hasta resolver D-08.

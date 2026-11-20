@@ -44,6 +44,10 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"procedure_types":                 {table: []string{"SELECT", "INSERT"}},
 		"current_procedure_type_versions": {table: []string{"SELECT"}},
 		"procedures":                      {table: []string{"SELECT", "INSERT"}},
+		"procedure_type_drafts": {
+			table:     []string{"SELECT", "INSERT", "DELETE"},
+			updatable: []string{"definition", "status", "revision", "edited_by", "edited_at", "editors", "proposed_by", "proposed_at", "rejected_by", "rejected_at", "rejection_reason"},
+		},
 	}
 	for _, table := range migrations.AppendOnlyTables() {
 		if _, ok := granted[table]; ok {
@@ -104,7 +108,10 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 			if r.view {
 				statements = []string{"DROP VIEW " + name, "CREATE OR REPLACE VIEW " + name + " AS SELECT 1"}
 			} else {
-				statements = append(statements, "DELETE FROM "+name, "TRUNCATE "+name)
+				statements = append(statements, "TRUNCATE "+name)
+				if !slices.Contains(g.table, "DELETE") {
+					statements = append(statements, "DELETE FROM "+name)
+				}
 				for _, column := range columns {
 					if !slices.Contains(g.updatable, column) {
 						statements = append(statements, "UPDATE "+name+" SET "+column+" = "+column)

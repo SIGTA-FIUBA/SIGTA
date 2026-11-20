@@ -145,6 +145,262 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogEntry"
+    post:
+      operationId: createProcedureType
+      summary: Crea el borrador de un tipo de trámite nuevo
+      description: >
+        Para quien tiene el permiso de proponer en el área de diseño de
+        trámites, sin alcance limitado a algunos tipos (ADR-013). El tipo de
+        trámite recibe un número que no tiene otro tipo ni otro borrador, y no
+        aparece en el catálogo hasta que se aprueba su primera versión. El
+        borrador puede estar incompleto: problems dice qué le falta.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProcedureType"
+      responses:
+        "201":
+          description: Borrador creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /procedure-type-drafts:
+    get:
+      operationId: listProcedureTypeDrafts
+      summary: Borradores de tipos de trámite
+      description: >
+        Los que la persona puede proponer o aprobar, por número de tipo de
+        trámite.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Borradores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /procedure-types/{procedureTypeId}/draft:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    get:
+      operationId: getProcedureTypeDraft
+      summary: Borrador de un tipo de trámite
+      description: Para quien puede proponerlo o aprobarlo.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: El borrador
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: openProcedureTypeDraft
+      summary: Abre el borrador de una versión nueva
+      description: >
+        Para quien puede proponer en ese tipo de trámite. Empieza con la
+        definición de la última versión publicada. Un tipo de trámite tiene a
+        lo sumo un borrador.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "201":
+          description: Borrador abierto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    put:
+      operationId: editProcedureTypeDraft
+      summary: Reemplaza la definición del borrador
+      description: >
+        Para quien puede proponer en ese tipo de trámite, mientras el borrador
+        no está propuesto. revision es la del borrador que se editó: si cambió
+        desde entonces, no se guarda.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftEdit"
+      responses:
+        "200":
+          description: Borrador editado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: discardProcedureTypeDraft
+      summary: Descarta el borrador
+      description: >
+        Para quien puede proponer en ese tipo de trámite, mientras el borrador
+        no está propuesto.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: revision
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Borrador descartado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedure-types/{procedureTypeId}/draft/proposal:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: proposeProcedureTypeDraft
+      summary: Propone el borrador para que otra persona lo apruebe
+      description: >
+        Para quien puede proponer en ese tipo de trámite. La definición tiene
+        que ser válida con las áreas actuales: si no, responde 422 con los
+        problemas. Mientras está propuesto, el borrador no se edita.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRevision"
+      responses:
+        "200":
+          description: Borrador propuesto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/InvalidDefinition"
+  /procedure-types/{procedureTypeId}/draft/rejection:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: rejectProcedureTypeDraft
+      summary: Rechaza la propuesta y la devuelve a edición
+      description: >
+        Para quien puede aprobar en ese tipo de trámite y no la propuso. El
+        motivo queda en el borrador hasta que se vuelve a proponer.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRejectionRequest"
+      responses:
+        "200":
+          description: Propuesta rechazada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedure-types/{procedureTypeId}/draft/approval:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: approveProcedureTypeDraft
+      summary: Aprueba la propuesta y la publica como versión nueva
+      description: >
+        Para quien puede aprobar en ese tipo de trámite y no la propuso. Valida
+        la definición con las áreas actuales y la publica con quién la
+        propuso, quién la aprobó y la fecha; el borrador se borra. Una versión
+        publicada no cambia, y los trámites en curso siguen con la suya. Si
+        otra versión se publicó desde que se abrió el borrador, responde 409.
+        Si la definición es igual a la última versión, no publica nada y
+        devuelve esa versión.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRevision"
+      responses:
+        "200":
+          description: Versión publicada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishedVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/InvalidDefinition"
   /areas:
     post:
       operationId: createArea
@@ -634,6 +890,13 @@ components:
       required: true
       schema:
         type: string
+    ProcedureTypeId:
+      name: procedureTypeId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   responses:
     NotFound:
       description: >
@@ -662,11 +925,20 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     Conflict:
-      description: El trámite cambió mientras tanto, por ejemplo porque otra persona ya confirmó el paso
+      description: >
+        El estado cambió o no admite la acción: por ejemplo, otra persona ya
+        confirmó el paso, el borrador cambió desde que se leyó o se publicó otra
+        versión
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    InvalidDefinition:
+      description: La definición no es válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidDefinition"
   schemas:
     Error:
       type: object
@@ -937,6 +1209,259 @@ components:
           description: Áreas responsables presentes en la vista, para filtrar
           items:
             $ref: "#/components/schemas/NamedOption"
+    ProcedureTypeDefinition:
+      type: object
+      description: >
+        Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer
+        paso, y un paso sin next ni outcomes lo cierra.
+      required: [name, steps]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        deadlines:
+          type: array
+          items:
+            type: string
+        admissibility:
+          type: array
+          items:
+            type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionField"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionDocument"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionStep"
+    DefinitionField:
+      type: object
+      required: [id, name, type]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: text, long_text, number, date, option, degree o subject_list
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldOption"
+    FieldOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    DefinitionDocument:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        accepted_types:
+          type: array
+          items:
+            type: string
+        max_size:
+          type: integer
+          format: int64
+    DefinitionStep:
+      type: object
+      required: [id, name, action]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          description: applicant o staff
+        area:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        action:
+          type: string
+          description: enter_data, upload_document, confirm_external_fact o decide
+        fields:
+          type: array
+          items:
+            type: string
+        optional_fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
+        optional_documents:
+          type: array
+          items:
+            type: string
+        outcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepOutcome"
+        next:
+          type: string
+    DefinitionProblem:
+      type: object
+      description: >
+        Algo que falla en una definición. code es estable: la pantalla arma su
+        propio texto con él y ubica el problema con path, del elemento más
+        externo al más interno. text está en inglés, para registros.
+      required: [code, path, text]
+      properties:
+        code:
+          type: string
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemElement"
+        value:
+          type: string
+        other:
+          type: string
+        text:
+          type: string
+    ProblemElement:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          description: definition, area, permission, field, option, document, step, outcome, deadline o admissibility
+        id:
+          type: string
+        position:
+          type: integer
+          description: Para plazos y condiciones, que no tienen id. Empieza en 1
+    InvalidDefinition:
+      type: object
+      required: [message, problems]
+      properties:
+        message:
+          type: string
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionProblem"
+    DraftStatus:
+      type: string
+      description: editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+      enum: [editing, proposed]
+    DraftRejection:
+      type: object
+      required: [by, at, reason]
+      properties:
+        by:
+          type: string
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+    ProcedureTypeDraft:
+      type: object
+      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        base:
+          type: integer
+          description: La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna
+        revision:
+          type: integer
+          description: Crece con cada cambio. Cada cambio dice sobre cuál se hizo
+        status:
+          $ref: "#/components/schemas/DraftStatus"
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+        edited_by:
+          type: string
+        edited_at:
+          type: string
+          format: date-time
+        editors:
+          type: array
+          description: Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
+          items:
+            type: string
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        rejection:
+          $ref: "#/components/schemas/DraftRejection"
+        problems:
+          type: array
+          description: Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
+          items:
+            $ref: "#/components/schemas/DefinitionProblem"
+    NewProcedureType:
+      type: object
+      required: [definition]
+      properties:
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+    DraftEdit:
+      type: object
+      required: [revision, definition]
+      properties:
+        revision:
+          type: integer
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+    DraftRevision:
+      type: object
+      required: [revision]
+      properties:
+        revision:
+          type: integer
+    DraftRejectionRequest:
+      type: object
+      required: [revision, reason]
+      properties:
+        revision:
+          type: integer
+        reason:
+          type: string
+    PublishedVersion:
+      type: object
+      required: [procedure_type_id, number, digest, proposed_by, approved_by, published_at]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        digest:
+          type: string
+        proposed_by:
+          type: string
+        approved_by:
+          type: string
+        published_at:
+          type: string
+          format: date-time
     User:
       type: object
       required: [id, email, name, staff, administrator]

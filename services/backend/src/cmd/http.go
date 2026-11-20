@@ -83,12 +83,14 @@ func run(logger *slog.Logger) error {
 	// stops it.
 	startup, cancel := context.WithTimeout(stop, 30*time.Second)
 	defer cancel()
-	versions, closeVersions, err := openProcedureTypeVersions(startup, cfg, logger)
+	stores, closeStores, err := openProcedureStores(startup, cfg, logger)
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
-	defer closeVersions()
+	defer closeStores()
+	versions := stores.versions
 	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
+	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, time.Now)
 	// The procedures and what is recorded about their documents stay in
 	// memory until they are stored in PostgreSQL.
 	procedureRepository := proceduremem.NewProcedureRepository()
@@ -138,6 +140,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
+		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
 	)
 
 	server := &http.Server{

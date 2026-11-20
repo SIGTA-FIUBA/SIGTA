@@ -34,7 +34,7 @@ func (f *fakeInbox) List(_ context.Context, userID string, q inbox.Query) (inbox
 // empty.
 func listInbox(t *testing.T, box *fakeInbox, cookie, query string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, nil, rest.NewInboxHandler(fakeAuth{}, fakePeople{}, box))
+	server := api.NewServer(nil, nil, nil, nil, nil, rest.NewInboxHandler(fakeAuth{}, fakePeople{}, box), nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedures"+query, http.NoBody)
 	if cookie != "" {
