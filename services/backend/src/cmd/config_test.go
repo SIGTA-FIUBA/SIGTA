@@ -1,14 +1,8 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-	"reflect"
-	"slices"
 	"strings"
 	"testing"
-
-	"backend/src/auth/domain"
 )
 
 func env(values map[string]string) func(string) string {
@@ -23,7 +17,6 @@ func production() map[string]string {
 		"SIGTA_ALLOWED_DOMAIN":       "fi.uba.ar",
 		"SIGTA_GOOGLE_CLIENT_ID":     "client",
 		"SIGTA_GOOGLE_CLIENT_SECRET": "secret",
-		"SIGTA_USERS_FILE":           "/run/secrets/users.json",
 		"SIGTA_DATABASE_URL":         "postgres://backend@db/sigta",
 		"SIGTA_DOCUMENTS_DIR":        "/var/lib/sigta/documents",
 	}
@@ -34,8 +27,8 @@ func TestDevelopmentNeedsOnlyItsEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.identityProvider != identityDev || cfg.allowedDomain != "fi.uba.ar" || cfg.usersFile != "" || cfg.databaseURL != "" || cfg.documentsDir != "" {
-		t.Fatalf("provider %q, domain %q, users file %q, database %q, documents %q; want %q, %q, none, none and none", cfg.identityProvider, cfg.allowedDomain, cfg.usersFile, cfg.databaseURL, cfg.documentsDir, identityDev, "fi.uba.ar")
+	if cfg.identityProvider != identityDev || cfg.allowedDomain != "fi.uba.ar" || cfg.databaseURL != "" || cfg.documentsDir != "" {
+		t.Fatalf("provider %q, domain %q, database %q, documents %q; want %q, %q, none and none", cfg.identityProvider, cfg.allowedDomain, cfg.databaseURL, cfg.documentsDir, identityDev, "fi.uba.ar")
 	}
 	if cfg.callbackURL() != "http://localhost:8080/auth/callback" || cfg.loginURL() != "http://localhost:5173/login" {
 		t.Fatalf("callback %s, login %s; want http://localhost:8080/auth/callback and http://localhost:5173/login", cfg.callbackURL(), cfg.loginURL())
@@ -95,7 +88,6 @@ func TestRejectedConfigs(t *testing.T) {
 		{"unknown provider", func(e map[string]string) { e["SIGTA_IDENTITY_PROVIDER"] = "github" }, "SIGTA_IDENTITY_PROVIDER"},
 		{"no client ID", func(e map[string]string) { delete(e, "SIGTA_GOOGLE_CLIENT_ID") }, "SIGTA_GOOGLE_CLIENT_ID"},
 		{"no client secret", func(e map[string]string) { delete(e, "SIGTA_GOOGLE_CLIENT_SECRET") }, "SIGTA_GOOGLE_CLIENT_SECRET"},
-		{"no users file", func(e map[string]string) { delete(e, "SIGTA_USERS_FILE") }, "SIGTA_USERS_FILE"},
 		{"no database", func(e map[string]string) { delete(e, "SIGTA_DATABASE_URL") }, "SIGTA_DATABASE_URL"},
 		{"no documents directory", func(e map[string]string) { delete(e, "SIGTA_DOCUMENTS_DIR") }, "SIGTA_DOCUMENTS_DIR"},
 		{"no public URL", func(e map[string]string) { delete(e, "SIGTA_PUBLIC_URL") }, "SIGTA_PUBLIC_URL"},
@@ -116,72 +108,5 @@ func TestRejectedConfigs(t *testing.T) {
 				t.Fatalf("error %q does not mention %q", err, tt.says)
 			}
 		})
-	}
-}
-
-func usersFile(t *testing.T, content string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "users.json")
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-var testAreas = []domain.Area{{ID: "office", Name: "Secretaría", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}}}
-
-func TestLoadUsers(t *testing.T) {
-	path := usersFile(t, `[
-		{"id": "u1", "email": " Operativo@FI.UBA.AR ", "name": "Operativo de prueba", "memberships": [{"area": "office", "permissions": ["review"], "scope": [2]}]},
-		{"id": "u2", "email": "titular@fi.uba.ar", "name": "Titular de prueba"},
-		{"id": "u3", "email": "admin@fi.uba.ar", "name": "Administración de prueba", "administrator": true}
-	]`)
-
-	loaded, err := loadUsers(path, "fi.uba.ar", testAreas)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := domain.User{ID: "u1", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba"}
-	if len(loaded.users) != 3 || loaded.users[0] != want {
-		t.Fatalf("users = %+v, want 3 users starting with %+v", loaded.users, want)
-	}
-	if !slices.Equal(loaded.administrators, []string{"u3"}) {
-		t.Fatalf("administrators = %v, want [u3]", loaded.administrators)
-	}
-	wantMembership := domain.Membership{UserID: "u1", Area: "office", Permissions: []string{"review"}, Scope: []int64{2}, GrantedBy: usersFileGranter}
-	if len(loaded.memberships) != 1 || !reflect.DeepEqual(loaded.memberships[0], wantMembership) {
-		t.Fatalf("memberships = %+v, want only %+v", loaded.memberships, wantMembership)
-	}
-}
-
-func TestLoadUsersRejectsTheWholeFile(t *testing.T) {
-	tests := map[string]string{
-		"repeated id":         `[{"id":"u1","email":"a@fi.uba.ar","name":"A"},{"id":"u1","email":"b@fi.uba.ar","name":"B"}]`,
-		"empty id":            `[{"id":"","email":"a@fi.uba.ar","name":"A"}]`,
-		"repeated email":      `[{"id":"u1","email":"a@fi.uba.ar","name":"A"},{"id":"u2","email":"A@fi.uba.ar","name":"B"}]`,
-		"email outside":       `[{"id":"u1","email":"a@fi.uba.ar.evil.com","name":"A"}]`,
-		"empty name":          `[{"id":"u1","email":"a@fi.uba.ar","name":" "}]`,
-		"old role key":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","role":"staff_operative"}]`,
-		"unknown area":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"dean","permissions":["review"]}]}]`,
-		"unknown permission":  `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["sign"]}]}]`,
-		"no permissions":      `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":[]}]}]`,
-		"unknown role":        `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","roles":["clerk"]}]}]`,
-		"old profile key":     `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","profile":"staff_operative"}]}]`,
-		"repeated membership": `[{"id":"u1","email":"a@fi.uba.ar","name":"A","memberships":[{"area":"office","permissions":["review"]},{"area":"office","permissions":["approve"]}]}]`,
-		"unknown key":         `[{"id":"u1","email":"a@fi.uba.ar","name":"A","password":"x"}]`,
-		"not a list of users": `{"id":"u1"}`,
-	}
-	for name, content := range tests {
-		t.Run(name, func(t *testing.T) {
-			if loaded, err := loadUsers(usersFile(t, content), "fi.uba.ar", testAreas); err == nil {
-				t.Fatalf("loaded %+v", loaded)
-			}
-		})
-	}
-}
-
-func TestLoadUsersNeedsTheFile(t *testing.T) {
-	if _, err := loadUsers(filepath.Join(t.TempDir(), "missing.json"), "fi.uba.ar", testAreas); err == nil {
-		t.Fatal("loaded a missing file")
 	}
 }

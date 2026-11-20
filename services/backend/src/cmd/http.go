@@ -173,14 +173,6 @@ func serve(stop context.Context, server *http.Server, listen func() error) error
 	return nil
 }
 
-func peopleOf(cfg config, areas []domain.Area) (people, error) {
-	if cfg.usersFile != "" {
-		return loadUsers(cfg.usersFile, cfg.allowedDomain, areas)
-	}
-	// loadConfig asks for a users file everywhere but development.
-	return devPeople(), nil
-}
-
 func newID() string {
 	return rand.Text()
 }

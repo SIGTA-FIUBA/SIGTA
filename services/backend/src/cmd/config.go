@@ -2,15 +2,10 @@ package main
 
 import (
 	"cmp"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"slices"
 	"strings"
-
-	"backend/src/auth/domain"
 )
 
 const (
@@ -30,7 +25,6 @@ type config struct {
 	appURL           string
 	allowedDomain    string
 	googleClient     struct{ id, secret string }
-	usersFile        string
 	// databaseURL connects as the application role. Without it, development
 	// keeps everything in memory.
 	databaseURL string
@@ -56,7 +50,6 @@ func loadConfig(getenv func(string) string) (config, error) {
 		publicURL:        getenv("SIGTA_PUBLIC_URL"),
 		appURL:           getenv("SIGTA_APP_URL"),
 		allowedDomain:    getenv("SIGTA_ALLOWED_DOMAIN"),
-		usersFile:        getenv("SIGTA_USERS_FILE"),
 		databaseURL:      getenv("SIGTA_DATABASE_URL"),
 		documentsDir:     getenv("SIGTA_DOCUMENTS_DIR"),
 	}
@@ -83,9 +76,6 @@ func loadConfig(getenv func(string) string) (config, error) {
 		if v.value == "" {
 			missing = append(missing, v.name)
 		}
-	}
-	if !c.development() && c.usersFile == "" {
-		missing = append(missing, "SIGTA_USERS_FILE")
 	}
 	if !c.development() && c.databaseURL == "" {
 		missing = append(missing, "SIGTA_DATABASE_URL")
@@ -128,98 +118,4 @@ func secureOrLocal(raw string) bool {
 		return false
 	}
 	return u.Scheme == "https" || (u.Scheme == "http" && u.Hostname() == "localhost")
-}
-
-// userEntry is one person in SIGTA_USERS_FILE. The file holds real names and
-// emails, so it lives with the deployment's secrets and never in the
-// repository. Someone without memberships is an applicant.
-type userEntry struct {
-	ID            string            `json:"id"`
-	Email         string            `json:"email"`
-	Name          string            `json:"name"`
-	Administrator bool              `json:"administrator,omitempty"`
-	Memberships   []membershipEntry `json:"memberships,omitempty"`
-}
-
-type membershipEntry struct {
-	Area        string   `json:"area"`
-	Roles       []string `json:"roles,omitempty"`
-	Permissions []string `json:"permissions,omitempty"`
-	Scope       []int64  `json:"scope,omitempty"`
-}
-
-// people is what SIGTA_USERS_FILE loads, and addPeople stores on every
-// start.
-type people struct {
-	users          []domain.User
-	administrators []string
-	memberships    []domain.Membership
-}
-
-// loadUsers reads the people who can log in. It rejects the whole file on any
-// invalid entry, so a typo does not silently leave someone out.
-func loadUsers(path, allowedDomain string, areas []domain.Area) (people, error) {
-	file, err := os.Open(path) //nolint:gosec // G304: the path comes from configuration.
-	if err != nil {
-		return people{}, err
-	}
-	defer func() { _ = file.Close() }()
-	var entries []userEntry
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&entries); err != nil {
-		return people{}, fmt.Errorf("%s: %w", path, err)
-	}
-
-	known := map[string]domain.Area{}
-	for _, a := range areas {
-		known[a.ID] = a
-	}
-	ids, emails := map[string]bool{}, map[string]bool{}
-	var problems []error
-	var loaded people
-	for i, e := range entries {
-		user := domain.User{ID: e.ID, Email: domain.NormalizeEmail(e.Email), Name: strings.TrimSpace(e.Name)}
-		switch {
-		case user.ID == "" || ids[user.ID]:
-			problems = append(problems, fmt.Errorf("entry %d: empty or repeated id %q", i, user.ID))
-		case !domain.InDomain(user.Email, allowedDomain) || emails[user.Email]:
-			problems = append(problems, fmt.Errorf("entry %d: email outside %s or repeated", i, allowedDomain))
-		case user.Name == "":
-			problems = append(problems, fmt.Errorf("entry %d: empty name", i))
-		}
-		ids[user.ID], emails[user.Email] = true, true
-		loaded.users = append(loaded.users, user)
-		if e.Administrator {
-			loaded.administrators = append(loaded.administrators, user.ID)
-		}
-		for j, m := range e.Memberships {
-			membership := domain.Membership{
-				UserID:      user.ID,
-				Area:        m.Area,
-				Roles:       m.Roles,
-				Permissions: m.Permissions,
-				Scope:       m.Scope,
-				GrantedBy:   usersFileGranter,
-			}
-			area, knownArea := known[membership.Area]
-			switch {
-			case !knownArea:
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: unknown area %q", i, j+1, m.Area))
-			case len(m.Roles) == 0 && len(m.Permissions) == 0:
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: no roles nor permissions", i, j+1))
-			case slices.ContainsFunc(m.Permissions, func(p string) bool { return !area.HasActivePermission(p) }):
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: area %q lacks one of the permissions %v", i, j+1, m.Area, m.Permissions))
-			case slices.ContainsFunc(m.Roles, func(r string) bool { return !area.HasActiveRole(r) }):
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: area %q lacks one of the roles %v", i, j+1, m.Area, m.Roles))
-			case slices.ContainsFunc(loaded.memberships, membership.Overlaps):
-				problems = append(problems, fmt.Errorf("entry %d: membership %d: repeats area %q with the same scope", i, j+1, m.Area))
-			}
-			loaded.memberships = append(loaded.memberships, membership)
-		}
-	}
-	if len(problems) > 0 {
-		return people{}, fmt.Errorf("%s: %w", path, errors.Join(problems...))
-	}
-	return loaded, nil
 }
