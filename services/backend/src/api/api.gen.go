@@ -245,12 +245,39 @@ func (e SubmissionProblemKind) Valid() bool {
 	}
 }
 
+// Administrator defines model for Administrator.
+type Administrator struct {
+	From      time.Time        `json:"from"`
+	GrantedBy *Person          `json:"granted_by,omitempty"`
+	Id        string           `json:"id"`
+	Person    RegisteredPerson `json:"person"`
+}
+
 // Area defines model for Area.
 type Area struct {
 	Id          string       `json:"id"`
 	Name        string       `json:"name"`
 	Permissions []Permission `json:"permissions"`
 	Roles       []Role       `json:"roles"`
+
+	// System Si viene con SIGTA, como la Secretaría. No se puede dar de baja
+	System bool `json:"system"`
+}
+
+// AreaMembership defines model for AreaMembership.
+type AreaMembership struct {
+	From        time.Time        `json:"from"`
+	GrantedBy   Person           `json:"granted_by"`
+	Id          string           `json:"id"`
+	Permissions []string         `json:"permissions"`
+	Person      RegisteredPerson `json:"person"`
+	Roles       []string         `json:"roles"`
+
+	// Scope Tipos de trámite a los que se limita. Vacío vale para todos
+	Scope []int64 `json:"scope"`
+
+	// Until Ausente si vale hasta que se la termine
+	Until *time.Time `json:"until,omitempty"`
 }
 
 // CatalogEntry defines model for CatalogEntry.
@@ -440,6 +467,15 @@ type Membership struct {
 	UserId      string     `json:"user_id"`
 }
 
+// MembershipPermissions Necesita al menos un rol o un permiso del área
+type MembershipPermissions struct {
+	// Permissions Identificadores de permisos del área, sueltos
+	Permissions []string `json:"permissions"`
+
+	// Roles Identificadores de roles del área
+	Roles []string `json:"roles"`
+}
+
 // MyProcedure defines model for MyProcedure.
 type MyProcedure struct {
 	Id string `json:"id"`
@@ -461,6 +497,11 @@ type MyProcedure struct {
 type NamedOption struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// NewAdministrator defines model for NewAdministrator.
+type NewAdministrator struct {
+	UserId string `json:"user_id"`
 }
 
 // NewArea defines model for NewArea.
@@ -531,6 +572,9 @@ type NewRole struct {
 type Permission struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
+
+	// System Si es un permiso de plataforma, que trae SIGTA, como los de la Secretaría para editar y publicar tipos de trámite. No se puede dar de baja
+	System bool `json:"system"`
 }
 
 // Person defines model for Person.
@@ -815,6 +859,13 @@ type Referral struct {
 	To string `json:"to"`
 }
 
+// RegisteredPerson defines model for RegisteredPerson.
+type RegisteredPerson struct {
+	Email openapi_types.Email `json:"email"`
+	Id    string              `json:"id"`
+	Name  string              `json:"name"`
+}
+
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
 type Role struct {
 	Id   string `json:"id"`
@@ -910,6 +961,12 @@ type User struct {
 	Staff bool `json:"staff"`
 }
 
+// AreaId defines model for AreaId.
+type AreaId = string
+
+// MembershipId defines model for MembershipId.
+type MembershipId = string
+
 // ProcedureId defines model for ProcedureId.
 type ProcedureId = string
 
@@ -931,14 +988,47 @@ type Conflict = Error
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
 
+// InUse defines model for InUse.
+type InUse = Error
+
 // NotFound defines model for NotFound.
 type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// ListAdministratorsParams defines parameters for ListAdministrators.
+type ListAdministratorsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// GrantAdministratorParams defines parameters for GrantAdministrator.
+type GrantAdministratorParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// EndAdministratorParams defines parameters for EndAdministrator.
+type EndAdministratorParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ListAreasParams defines parameters for ListAreas.
+type ListAreasParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // CreateAreaParams defines parameters for CreateArea.
 type CreateAreaParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// DeleteAreaParams defines parameters for DeleteArea.
+type DeleteAreaParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ListAreaMembershipsParams defines parameters for ListAreaMemberships.
+type ListAreaMembershipsParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -947,8 +1037,18 @@ type CreatePermissionParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// DeletePermissionParams defines parameters for DeletePermission.
+type DeletePermissionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // CreateRoleParams defines parameters for CreateRole.
 type CreateRoleParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// DeleteRoleParams defines parameters for DeleteRole.
+type DeleteRoleParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -991,6 +1091,22 @@ type ListMyProceduresParams struct {
 
 // GrantMembershipParams defines parameters for GrantMembership.
 type GrantMembershipParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// EndMembershipParams defines parameters for EndMembership.
+type EndMembershipParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ChangeMembershipPermissionsParams defines parameters for ChangeMembershipPermissions.
+type ChangeMembershipPermissionsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// FindPersonParams defines parameters for FindPerson.
+type FindPersonParams struct {
+	Email        string         `form:"email" json:"email"`
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -1109,6 +1225,9 @@ type RequestCorrectionParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// GrantAdministratorJSONRequestBody defines body for GrantAdministrator for application/json ContentType.
+type GrantAdministratorJSONRequestBody = NewAdministrator
+
 // CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
 type CreateAreaJSONRequestBody = NewArea
 
@@ -1123,6 +1242,9 @@ type UpdateRolePermissionsJSONRequestBody = RolePermissions
 
 // GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
 type GrantMembershipJSONRequestBody = NewMembership
+
+// ChangeMembershipPermissionsJSONRequestBody defines body for ChangeMembershipPermissions for application/json ContentType.
+type ChangeMembershipPermissionsJSONRequestBody = MembershipPermissions
 
 // CreateProcedureTypeJSONRequestBody defines body for CreateProcedureType for application/json ContentType.
 type CreateProcedureTypeJSONRequestBody = NewProcedureType
@@ -1153,15 +1275,39 @@ type RequestCorrectionJSONRequestBody = NewCorrectionRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAdministrators Lista los administradores vigentes
+	// (GET /administrators)
+	ListAdministrators(w http.ResponseWriter, r *http.Request, params ListAdministratorsParams)
+	// GrantAdministrator Hace administradora a una persona registrada
+	// (POST /administrators)
+	GrantAdministrator(w http.ResponseWriter, r *http.Request, params GrantAdministratorParams)
+	// EndAdministrator Le quita la administración a una persona
+	// (DELETE /administrators/{administratorId})
+	EndAdministrator(w http.ResponseWriter, r *http.Request, administratorId string, params EndAdministratorParams)
+	// ListAreas Lista las áreas del personal con sus permisos y roles
+	// (GET /areas)
+	ListAreas(w http.ResponseWriter, r *http.Request, params ListAreasParams)
 	// CreateArea Crea un área del personal
 	// (POST /areas)
 	CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams)
+	// DeleteArea Da de baja un área del personal
+	// (DELETE /areas/{areaId})
+	DeleteArea(w http.ResponseWriter, r *http.Request, areaId AreaId, params DeleteAreaParams)
+	// ListAreaMemberships Lista las membresías de un área que no terminaron
+	// (GET /areas/{areaId}/memberships)
+	ListAreaMemberships(w http.ResponseWriter, r *http.Request, areaId AreaId, params ListAreaMembershipsParams)
 	// CreatePermission Crea un permiso en un área del personal
 	// (POST /areas/{areaId}/permissions)
 	CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams)
+	// DeletePermission Da de baja un permiso de un área
+	// (DELETE /areas/{areaId}/permissions/{permissionId})
+	DeletePermission(w http.ResponseWriter, r *http.Request, areaId AreaId, permissionId string, params DeletePermissionParams)
 	// CreateRole Crea un rol en un área del personal
 	// (POST /areas/{areaId}/roles)
 	CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams)
+	// DeleteRole Da de baja un rol de un área
+	// (DELETE /areas/{areaId}/roles/{roleId})
+	DeleteRole(w http.ResponseWriter, r *http.Request, areaId AreaId, roleId string, params DeleteRoleParams)
 	// UpdateRolePermissions Reemplaza los permisos de un rol
 	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
 	UpdateRolePermissions(w http.ResponseWriter, r *http.Request, areaId string, roleId string, params UpdateRolePermissionsParams)
@@ -1183,6 +1329,15 @@ type ServerInterface interface {
 	// GrantMembership Otorga una membresía a una persona
 	// (POST /memberships)
 	GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams)
+	// EndMembership Termina una membresía
+	// (DELETE /memberships/{membershipId})
+	EndMembership(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params EndMembershipParams)
+	// ChangeMembershipPermissions Cambia los roles y permisos de una membresía
+	// (PUT /memberships/{membershipId}/permissions)
+	ChangeMembershipPermissions(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params ChangeMembershipPermissionsParams)
+	// FindPerson Busca una persona registrada por su correo
+	// (GET /people)
+	FindPerson(w http.ResponseWriter, r *http.Request, params FindPersonParams)
 	// ListProcedureTypeDrafts Borradores de tipos de trámite
 	// (GET /procedure-type-drafts)
 	ListProcedureTypeDrafts(w http.ResponseWriter, r *http.Request, params ListProcedureTypeDraftsParams)
@@ -1248,6 +1403,155 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// ListAdministrators operation middleware
+func (siw *ServerInterfaceWrapper) ListAdministrators(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAdministratorsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdministrators(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GrantAdministrator operation middleware
+func (siw *ServerInterfaceWrapper) GrantAdministrator(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GrantAdministratorParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantAdministrator(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EndAdministrator operation middleware
+func (siw *ServerInterfaceWrapper) EndAdministrator(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "administratorId" -------------
+	var administratorId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "administratorId", r.PathValue("administratorId"), &administratorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "administratorId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EndAdministratorParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndAdministrator(w, r, administratorId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAreas operation middleware
+func (siw *ServerInterfaceWrapper) ListAreas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAreasParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAreas(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateArea operation middleware
 func (siw *ServerInterfaceWrapper) CreateArea(w http.ResponseWriter, r *http.Request) {
 
@@ -1274,6 +1578,94 @@ func (siw *ServerInterfaceWrapper) CreateArea(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateArea(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteArea operation middleware
+func (siw *ServerInterfaceWrapper) DeleteArea(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId AreaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAreaParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteArea(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAreaMemberships operation middleware
+func (siw *ServerInterfaceWrapper) ListAreaMemberships(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId AreaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAreaMembershipsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAreaMemberships(w, r, areaId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1327,6 +1719,59 @@ func (siw *ServerInterfaceWrapper) CreatePermission(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// DeletePermission operation middleware
+func (siw *ServerInterfaceWrapper) DeletePermission(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId AreaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "permissionId" -------------
+	var permissionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "permissionId", r.PathValue("permissionId"), &permissionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "permissionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePermissionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePermission(w, r, areaId, permissionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateRole operation middleware
 func (siw *ServerInterfaceWrapper) CreateRole(w http.ResponseWriter, r *http.Request) {
 
@@ -1362,6 +1807,59 @@ func (siw *ServerInterfaceWrapper) CreateRole(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateRole(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteRole operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId AreaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "roleId" -------------
+	var roleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roleId", r.PathValue("roleId"), &roleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteRoleParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRole(w, r, areaId, roleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1662,6 +2160,142 @@ func (siw *ServerInterfaceWrapper) GrantMembership(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GrantMembership(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EndMembership operation middleware
+func (siw *ServerInterfaceWrapper) EndMembership(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EndMembershipParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndMembership(w, r, membershipId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeMembershipPermissions operation middleware
+func (siw *ServerInterfaceWrapper) ChangeMembershipPermissions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ChangeMembershipPermissionsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeMembershipPermissions(w, r, membershipId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FindPerson operation middleware
+func (siw *ServerInterfaceWrapper) FindPerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FindPersonParams
+
+	// ------------- Required query parameter "email" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "email", r.URL.Query(), &params.Email, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "email"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		}
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FindPerson(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2637,11 +3271,22 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/proposal", wrapper.ProposeProcedureTypeDraft)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/rejection", wrapper.RejectProcedureTypeDraft)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/approval", wrapper.ApproveProcedureTypeDraft)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/areas", wrapper.ListAreas)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas", wrapper.CreateArea)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/areas/{areaId}", wrapper.DeleteArea)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/areas/{areaId}/permissions/{permissionId}", wrapper.DeletePermission)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}", wrapper.DeleteRole)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/areas/{areaId}/memberships", wrapper.ListAreaMemberships)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/permissions", wrapper.CreatePermission)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/roles", wrapper.CreateRole)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}/permissions", wrapper.UpdateRolePermissions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/memberships/{membershipId}", wrapper.EndMembership)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/memberships/{membershipId}/permissions", wrapper.ChangeMembershipPermissions)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/people", wrapper.FindPerson)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/administrators", wrapper.ListAdministrators)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/administrators", wrapper.GrantAdministrator)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/administrators/{administratorId}", wrapper.EndAdministrator)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures", wrapper.ListProcedures)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
@@ -2660,11 +3305,265 @@ type ConflictJSONResponse Error
 
 type ForbiddenJSONResponse Error
 
+type InUseJSONResponse Error
+
 type InvalidDefinitionJSONResponse InvalidDefinition
 
 type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type ListAdministratorsRequestObject struct {
+	Params ListAdministratorsParams
+}
+
+type ListAdministratorsResponseObject interface {
+	VisitListAdministratorsResponse(w http.ResponseWriter) error
+}
+
+type ListAdministrators200JSONResponse []Administrator
+
+func (response ListAdministrators200JSONResponse) VisitListAdministratorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdministrators401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAdministrators401JSONResponse) VisitListAdministratorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdministrators403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAdministrators403JSONResponse) VisitListAdministratorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantAdministratorRequestObject struct {
+	Params GrantAdministratorParams
+	Body   *GrantAdministratorJSONRequestBody
+}
+
+type GrantAdministratorResponseObject interface {
+	VisitGrantAdministratorResponse(w http.ResponseWriter) error
+}
+
+type GrantAdministrator201JSONResponse Administrator
+
+func (response GrantAdministrator201JSONResponse) VisitGrantAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantAdministrator400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GrantAdministrator400JSONResponse) VisitGrantAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantAdministrator401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GrantAdministrator401JSONResponse) VisitGrantAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantAdministrator403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GrantAdministrator403JSONResponse) VisitGrantAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantAdministrator409JSONResponse struct{ InUseJSONResponse }
+
+func (response GrantAdministrator409JSONResponse) VisitGrantAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndAdministratorRequestObject struct {
+	AdministratorId string `json:"administratorId"`
+	Params          EndAdministratorParams
+}
+
+type EndAdministratorResponseObject interface {
+	VisitEndAdministratorResponse(w http.ResponseWriter) error
+}
+
+type EndAdministrator204Response struct {
+}
+
+func (response EndAdministrator204Response) VisitEndAdministratorResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndAdministrator401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EndAdministrator401JSONResponse) VisitEndAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndAdministrator403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EndAdministrator403JSONResponse) VisitEndAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndAdministrator404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EndAdministrator404JSONResponse) VisitEndAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndAdministrator409JSONResponse struct{ InUseJSONResponse }
+
+func (response EndAdministrator409JSONResponse) VisitEndAdministratorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreasRequestObject struct {
+	Params ListAreasParams
+}
+
+type ListAreasResponseObject interface {
+	VisitListAreasResponse(w http.ResponseWriter) error
+}
+
+type ListAreas200JSONResponse []Area
+
+func (response ListAreas200JSONResponse) VisitListAreasResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreas401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAreas401JSONResponse) VisitListAreasResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreas403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAreas403JSONResponse) VisitListAreasResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type CreateAreaRequestObject struct {
 	Params CreateAreaParams
@@ -2727,6 +3626,144 @@ func (response CreateArea403JSONResponse) VisitCreateAreaResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAreaRequestObject struct {
+	AreaId AreaId `json:"areaId"`
+	Params DeleteAreaParams
+}
+
+type DeleteAreaResponseObject interface {
+	VisitDeleteAreaResponse(w http.ResponseWriter) error
+}
+
+type DeleteArea204Response struct {
+}
+
+func (response DeleteArea204Response) VisitDeleteAreaResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteArea401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteArea401JSONResponse) VisitDeleteAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteArea403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteArea403JSONResponse) VisitDeleteAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteArea404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteArea404JSONResponse) VisitDeleteAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteArea409JSONResponse struct{ InUseJSONResponse }
+
+func (response DeleteArea409JSONResponse) VisitDeleteAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreaMembershipsRequestObject struct {
+	AreaId AreaId `json:"areaId"`
+	Params ListAreaMembershipsParams
+}
+
+type ListAreaMembershipsResponseObject interface {
+	VisitListAreaMembershipsResponse(w http.ResponseWriter) error
+}
+
+type ListAreaMemberships200JSONResponse []AreaMembership
+
+func (response ListAreaMemberships200JSONResponse) VisitListAreaMembershipsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreaMemberships401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAreaMemberships401JSONResponse) VisitListAreaMembershipsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreaMemberships403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAreaMemberships403JSONResponse) VisitListAreaMembershipsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAreaMemberships404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListAreaMemberships404JSONResponse) VisitListAreaMembershipsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2797,6 +3834,80 @@ func (response CreatePermission403JSONResponse) VisitCreatePermissionResponse(w 
 	return err
 }
 
+type DeletePermissionRequestObject struct {
+	AreaId       AreaId `json:"areaId"`
+	PermissionId string `json:"permissionId"`
+	Params       DeletePermissionParams
+}
+
+type DeletePermissionResponseObject interface {
+	VisitDeletePermissionResponse(w http.ResponseWriter) error
+}
+
+type DeletePermission204Response struct {
+}
+
+func (response DeletePermission204Response) VisitDeletePermissionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePermission401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeletePermission401JSONResponse) VisitDeletePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePermission403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeletePermission403JSONResponse) VisitDeletePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePermission404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeletePermission404JSONResponse) VisitDeletePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePermission409JSONResponse struct{ InUseJSONResponse }
+
+func (response DeletePermission409JSONResponse) VisitDeletePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateRoleRequestObject struct {
 	AreaId string `json:"areaId"`
 	Params CreateRoleParams
@@ -2859,6 +3970,80 @@ func (response CreateRole403JSONResponse) VisitCreateRoleResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRoleRequestObject struct {
+	AreaId AreaId `json:"areaId"`
+	RoleId string `json:"roleId"`
+	Params DeleteRoleParams
+}
+
+type DeleteRoleResponseObject interface {
+	VisitDeleteRoleResponse(w http.ResponseWriter) error
+}
+
+type DeleteRole204Response struct {
+}
+
+func (response DeleteRole204Response) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteRole401JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteRole403JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteRole404JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole409JSONResponse struct{ InUseJSONResponse }
+
+func (response DeleteRole409JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3171,6 +4356,237 @@ func (response GrantMembership403JSONResponse) VisitGrantMembershipResponse(w ht
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndMembershipRequestObject struct {
+	MembershipId MembershipId `json:"membershipId"`
+	Params       EndMembershipParams
+}
+
+type EndMembershipResponseObject interface {
+	VisitEndMembershipResponse(w http.ResponseWriter) error
+}
+
+type EndMembership204Response struct {
+}
+
+func (response EndMembership204Response) VisitEndMembershipResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndMembership401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EndMembership401JSONResponse) VisitEndMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndMembership403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EndMembership403JSONResponse) VisitEndMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndMembership404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EndMembership404JSONResponse) VisitEndMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndMembership409JSONResponse struct{ InUseJSONResponse }
+
+func (response EndMembership409JSONResponse) VisitEndMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissionsRequestObject struct {
+	MembershipId MembershipId `json:"membershipId"`
+	Params       ChangeMembershipPermissionsParams
+	Body         *ChangeMembershipPermissionsJSONRequestBody
+}
+
+type ChangeMembershipPermissionsResponseObject interface {
+	VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error
+}
+
+type ChangeMembershipPermissions200JSONResponse Membership
+
+func (response ChangeMembershipPermissions200JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissions400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ChangeMembershipPermissions400JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ChangeMembershipPermissions401JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ChangeMembershipPermissions403JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissions404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ChangeMembershipPermissions404JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeMembershipPermissions409JSONResponse struct{ InUseJSONResponse }
+
+func (response ChangeMembershipPermissions409JSONResponse) VisitChangeMembershipPermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindPersonRequestObject struct {
+	Params FindPersonParams
+}
+
+type FindPersonResponseObject interface {
+	VisitFindPersonResponse(w http.ResponseWriter) error
+}
+
+type FindPerson200JSONResponse RegisteredPerson
+
+func (response FindPerson200JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindPerson401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response FindPerson401JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindPerson403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FindPerson403JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindPerson404JSONResponse Error
+
+func (response FindPerson404JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -4450,15 +5866,39 @@ func (response RequestCorrection409JSONResponse) VisitRequestCorrectionResponse(
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAdministrators Lista los administradores vigentes
+	// (GET /administrators)
+	ListAdministrators(ctx context.Context, request ListAdministratorsRequestObject) (ListAdministratorsResponseObject, error)
+	// GrantAdministrator Hace administradora a una persona registrada
+	// (POST /administrators)
+	GrantAdministrator(ctx context.Context, request GrantAdministratorRequestObject) (GrantAdministratorResponseObject, error)
+	// EndAdministrator Le quita la administración a una persona
+	// (DELETE /administrators/{administratorId})
+	EndAdministrator(ctx context.Context, request EndAdministratorRequestObject) (EndAdministratorResponseObject, error)
+	// ListAreas Lista las áreas del personal con sus permisos y roles
+	// (GET /areas)
+	ListAreas(ctx context.Context, request ListAreasRequestObject) (ListAreasResponseObject, error)
 	// CreateArea Crea un área del personal
 	// (POST /areas)
 	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
+	// DeleteArea Da de baja un área del personal
+	// (DELETE /areas/{areaId})
+	DeleteArea(ctx context.Context, request DeleteAreaRequestObject) (DeleteAreaResponseObject, error)
+	// ListAreaMemberships Lista las membresías de un área que no terminaron
+	// (GET /areas/{areaId}/memberships)
+	ListAreaMemberships(ctx context.Context, request ListAreaMembershipsRequestObject) (ListAreaMembershipsResponseObject, error)
 	// CreatePermission Crea un permiso en un área del personal
 	// (POST /areas/{areaId}/permissions)
 	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
+	// DeletePermission Da de baja un permiso de un área
+	// (DELETE /areas/{areaId}/permissions/{permissionId})
+	DeletePermission(ctx context.Context, request DeletePermissionRequestObject) (DeletePermissionResponseObject, error)
 	// CreateRole Crea un rol en un área del personal
 	// (POST /areas/{areaId}/roles)
 	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
+	// DeleteRole Da de baja un rol de un área
+	// (DELETE /areas/{areaId}/roles/{roleId})
+	DeleteRole(ctx context.Context, request DeleteRoleRequestObject) (DeleteRoleResponseObject, error)
 	// UpdateRolePermissions Reemplaza los permisos de un rol
 	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
 	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
@@ -4480,6 +5920,15 @@ type StrictServerInterface interface {
 	// GrantMembership Otorga una membresía a una persona
 	// (POST /memberships)
 	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
+	// EndMembership Termina una membresía
+	// (DELETE /memberships/{membershipId})
+	EndMembership(ctx context.Context, request EndMembershipRequestObject) (EndMembershipResponseObject, error)
+	// ChangeMembershipPermissions Cambia los roles y permisos de una membresía
+	// (PUT /memberships/{membershipId}/permissions)
+	ChangeMembershipPermissions(ctx context.Context, request ChangeMembershipPermissionsRequestObject) (ChangeMembershipPermissionsResponseObject, error)
+	// FindPerson Busca una persona registrada por su correo
+	// (GET /people)
+	FindPerson(ctx context.Context, request FindPersonRequestObject) (FindPersonResponseObject, error)
 	// ListProcedureTypeDrafts Borradores de tipos de trámite
 	// (GET /procedure-type-drafts)
 	ListProcedureTypeDrafts(ctx context.Context, request ListProcedureTypeDraftsRequestObject) (ListProcedureTypeDraftsResponseObject, error)
@@ -4575,6 +6024,118 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
+// ListAdministrators operation middleware
+func (sh *strictHandler) ListAdministrators(w http.ResponseWriter, r *http.Request, params ListAdministratorsParams) {
+	var request ListAdministratorsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAdministrators(ctx, request.(ListAdministratorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAdministrators")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAdministratorsResponseObject); ok {
+		if err := validResponse.VisitListAdministratorsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantAdministrator operation middleware
+func (sh *strictHandler) GrantAdministrator(w http.ResponseWriter, r *http.Request, params GrantAdministratorParams) {
+	var request GrantAdministratorRequestObject
+
+	request.Params = params
+
+	var body GrantAdministratorJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantAdministrator(ctx, request.(GrantAdministratorRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantAdministrator")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantAdministratorResponseObject); ok {
+		if err := validResponse.VisitGrantAdministratorResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EndAdministrator operation middleware
+func (sh *strictHandler) EndAdministrator(w http.ResponseWriter, r *http.Request, administratorId string, params EndAdministratorParams) {
+	var request EndAdministratorRequestObject
+
+	request.AdministratorId = administratorId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EndAdministrator(ctx, request.(EndAdministratorRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndAdministrator")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EndAdministratorResponseObject); ok {
+		if err := validResponse.VisitEndAdministratorResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAreas operation middleware
+func (sh *strictHandler) ListAreas(w http.ResponseWriter, r *http.Request, params ListAreasParams) {
+	var request ListAreasRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAreas(ctx, request.(ListAreasRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAreas")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAreasResponseObject); ok {
+		if err := validResponse.VisitListAreasResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateArea operation middleware
 func (sh *strictHandler) CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams) {
 	var request CreateAreaRequestObject
@@ -4601,6 +6162,60 @@ func (sh *strictHandler) CreateArea(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateAreaResponseObject); ok {
 		if err := validResponse.VisitCreateAreaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteArea operation middleware
+func (sh *strictHandler) DeleteArea(w http.ResponseWriter, r *http.Request, areaId AreaId, params DeleteAreaParams) {
+	var request DeleteAreaRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteArea(ctx, request.(DeleteAreaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteArea")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAreaResponseObject); ok {
+		if err := validResponse.VisitDeleteAreaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAreaMemberships operation middleware
+func (sh *strictHandler) ListAreaMemberships(w http.ResponseWriter, r *http.Request, areaId AreaId, params ListAreaMembershipsParams) {
+	var request ListAreaMembershipsRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAreaMemberships(ctx, request.(ListAreaMembershipsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAreaMemberships")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAreaMembershipsResponseObject); ok {
+		if err := validResponse.VisitListAreaMembershipsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4642,6 +6257,34 @@ func (sh *strictHandler) CreatePermission(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// DeletePermission operation middleware
+func (sh *strictHandler) DeletePermission(w http.ResponseWriter, r *http.Request, areaId AreaId, permissionId string, params DeletePermissionParams) {
+	var request DeletePermissionRequestObject
+
+	request.AreaId = areaId
+	request.PermissionId = permissionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePermission(ctx, request.(DeletePermissionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePermission")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePermissionResponseObject); ok {
+		if err := validResponse.VisitDeletePermissionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateRole operation middleware
 func (sh *strictHandler) CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams) {
 	var request CreateRoleRequestObject
@@ -4669,6 +6312,34 @@ func (sh *strictHandler) CreateRole(w http.ResponseWriter, r *http.Request, area
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateRoleResponseObject); ok {
 		if err := validResponse.VisitCreateRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteRole operation middleware
+func (sh *strictHandler) DeleteRole(w http.ResponseWriter, r *http.Request, areaId AreaId, roleId string, params DeleteRoleParams) {
+	var request DeleteRoleRequestObject
+
+	request.AreaId = areaId
+	request.RoleId = roleId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRole(ctx, request.(DeleteRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteRoleResponseObject); ok {
+		if err := validResponse.VisitDeleteRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4867,6 +6538,93 @@ func (sh *strictHandler) GrantMembership(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GrantMembershipResponseObject); ok {
 		if err := validResponse.VisitGrantMembershipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EndMembership operation middleware
+func (sh *strictHandler) EndMembership(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params EndMembershipParams) {
+	var request EndMembershipRequestObject
+
+	request.MembershipId = membershipId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EndMembership(ctx, request.(EndMembershipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndMembership")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EndMembershipResponseObject); ok {
+		if err := validResponse.VisitEndMembershipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangeMembershipPermissions operation middleware
+func (sh *strictHandler) ChangeMembershipPermissions(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params ChangeMembershipPermissionsParams) {
+	var request ChangeMembershipPermissionsRequestObject
+
+	request.MembershipId = membershipId
+	request.Params = params
+
+	var body ChangeMembershipPermissionsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangeMembershipPermissions(ctx, request.(ChangeMembershipPermissionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangeMembershipPermissions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangeMembershipPermissionsResponseObject); ok {
+		if err := validResponse.VisitChangeMembershipPermissionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FindPerson operation middleware
+func (sh *strictHandler) FindPerson(w http.ResponseWriter, r *http.Request, params FindPersonParams) {
+	var request FindPersonRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FindPerson(ctx, request.(FindPersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FindPerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FindPersonResponseObject); ok {
+		if err := validResponse.VisitFindPersonResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

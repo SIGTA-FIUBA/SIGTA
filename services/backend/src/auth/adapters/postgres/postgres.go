@@ -10,3 +10,5 @@ const (
 	membershipsLockKey    = 7_365_829_107
 	administratorsLockKey = 7_365_829_108
 )
+
+const uniqueViolation = "23505"

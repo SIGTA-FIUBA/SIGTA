@@ -59,23 +59,23 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	if err := database.Lock(ctx, tx, areasLockKey); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, deleted_at, deleted_by)
-		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5 FROM areas
+	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, created_at, created_by, deleted_at, deleted_by)
+		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7 FROM areas
 		ON CONFLICT (id) DO UPDATE SET name = excluded.name, system = excluded.system,
 			deleted_at = coalesce(areas.deleted_at, excluded.deleted_at),
 			deleted_by = coalesce(areas.deleted_by, excluded.deleted_by)`,
-		a.ID, a.Name, a.System, database.NullableTime(a.DeletedAt), database.Nullable(a.DeletedBy)); err != nil {
+		a.ID, a.Name, a.System, database.NullableTime(a.CreatedAt), database.Nullable(a.CreatedBy), database.NullableTime(a.DeletedAt), database.Nullable(a.DeletedBy)); err != nil {
 		return err
 	}
 	for _, p := range a.Permissions {
-		if _, err := tx.Exec(ctx, `INSERT INTO area_permissions (area_id, id, number, name, system, deleted_at, deleted_by)
-			SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5, $6 FROM area_permissions WHERE area_id = $1
+		if _, err := tx.Exec(ctx, `INSERT INTO area_permissions (area_id, id, number, name, system, created_at, created_by, deleted_at, deleted_by)
+			SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5, $6, $7, $8 FROM area_permissions WHERE area_id = $1
 			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name, system = excluded.system,
 				deleted_at = CASE WHEN excluded.system THEN excluded.deleted_at
 					ELSE coalesce(area_permissions.deleted_at, excluded.deleted_at) END,
 				deleted_by = CASE WHEN excluded.system THEN excluded.deleted_by
 					ELSE coalesce(area_permissions.deleted_by, excluded.deleted_by) END`,
-			a.ID, p.ID, p.Name, p.System, database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
+			a.ID, p.ID, p.Name, p.System, database.NullableTime(p.CreatedAt), database.Nullable(p.CreatedBy), database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
 			return err
 		}
 	}
@@ -110,15 +110,16 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
-	rows, err := tx.Query(ctx, "SELECT id, name, system, deleted_at, deleted_by FROM areas "+where+" ORDER BY number", args...)
+	rows, err := tx.Query(ctx, "SELECT id, name, system, created_at, created_by, deleted_at, deleted_by FROM areas "+where+" ORDER BY number", args...)
 	if err != nil {
 		return nil, err
 	}
 	areas, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Area, error) {
 		var a domain.Area
-		var deletedAt *time.Time
-		var deletedBy *string
-		err := row.Scan(&a.ID, &a.Name, &a.System, &deletedAt, &deletedBy)
+		var createdAt, deletedAt *time.Time
+		var createdBy, deletedBy *string
+		err := row.Scan(&a.ID, &a.Name, &a.System, &createdAt, &createdBy, &deletedAt, &deletedBy)
+		a.CreatedAt, a.CreatedBy = database.TimeOf(createdAt), database.ValueOf(createdBy)
 		a.DeletedAt, a.DeletedBy = database.TimeOf(deletedAt), database.ValueOf(deletedBy)
 		return a, err
 	})
@@ -132,16 +133,17 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 		ids[i] = areas[i].ID
 	}
 
-	rows, err = tx.Query(ctx, `SELECT area_id, id, name, system, deleted_at, deleted_by FROM area_permissions
+	rows, err = tx.Query(ctx, `SELECT area_id, id, name, system, created_at, created_by, deleted_at, deleted_by FROM area_permissions
 		WHERE area_id = ANY($1) ORDER BY area_id, number`, ids)
 	if err != nil {
 		return nil, err
 	}
 	var areaID string
 	var p domain.Permission
-	var deletedAt *time.Time
-	var deletedBy *string
-	if _, err := pgx.ForEachRow(rows, []any{&areaID, &p.ID, &p.Name, &p.System, &deletedAt, &deletedBy}, func() error {
+	var createdAt, deletedAt *time.Time
+	var createdBy, deletedBy *string
+	if _, err := pgx.ForEachRow(rows, []any{&areaID, &p.ID, &p.Name, &p.System, &createdAt, &createdBy, &deletedAt, &deletedBy}, func() error {
+		p.CreatedAt, p.CreatedBy = database.TimeOf(createdAt), database.ValueOf(createdBy)
 		p.DeletedAt, p.DeletedBy = database.TimeOf(deletedAt), database.ValueOf(deletedBy)
 		index[areaID].Permissions = append(index[areaID].Permissions, p)
 		return nil

@@ -245,13 +245,97 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Lista las áreas del personal con sus permisos y roles
+         * @description Solo para administradores (ADR-020). Trae las áreas que no están dadas de baja, en el orden en que se crearon, cada una con sus permisos y roles que no están dados de baja.
+         */
+        get: operations["listAreas"];
         put?: never;
         /**
          * Crea un área del personal
          * @description Solo para administradores (ADR-020). El identificador queda fijo: va en minúsculas, empieza con una letra y no puede ser el de un área existente o dada de baja, ni el de la Secretaría (secretariat), que trae SIGTA. El nombre no puede repetir el de otra área. El área empieza sin permisos ni roles.
          */
         post: operations["createArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Da de baja un área del personal
+         * @description Solo para administradores (ADR-020). El área queda registrada con quién la dio de baja y cuándo, y la historia la sigue nombrando. No se puede dar de baja la Secretaría, que trae SIGTA, ni un área con membresías que no terminaron.
+         */
+        delete: operations["deleteArea"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/permissions/{permissionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Da de baja un permiso de un área
+         * @description Solo para administradores (ADR-020). El permiso queda registrado con quién lo dio de baja y cuándo. No se pueden dar de baja los permisos de plataforma de la Secretaría, ni un permiso que es parte de un rol o que tiene una membresía que no terminó.
+         */
+        delete: operations["deletePermission"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Da de baja un rol de un área
+         * @description Solo para administradores (ADR-020). El rol queda registrado con quién lo dio de baja y cuándo. No se puede dar de baja un rol que tiene una membresía que no terminó.
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista las membresías de un área que no terminaron
+         * @description Solo para administradores (ADR-020). Trae las membresías vigentes y las que empiezan más adelante, en el orden en que se otorgaron, con la persona y quién las otorgó.
+         */
+        get: operations["listAreaMemberships"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -333,6 +417,110 @@ export interface paths {
          */
         post: operations["grantMembership"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memberships/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Termina una membresía
+         * @description Solo para administradores (ADR-020). La membresía termina ahora y queda registrada con quién la terminó; nunca se borra, para que lo que la persona hizo con ella le siga atribuido.
+         */
+        delete: operations["endMembership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memberships/{membershipId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambia los roles y permisos de una membresía
+         * @description Solo para administradores (ADR-020). Termina la membresía y otorga otra a la misma persona, en la misma área, con el mismo alcance y el mismo fin, y con los roles y permisos nuevos. La nueva vale desde ahora, o desde el inicio de la anterior si todavía no empezó. Así la historia dice qué permisos tuvo la persona en cada momento.
+         */
+        put: operations["changeMembershipPermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Busca una persona registrada por su correo
+         * @description Solo para administradores (ADR-020), para otorgarle una membresía o la administración. Una persona queda registrada al entrar a SIGTA con su cuenta. La búsqueda es por el correo completo, sin distinguir mayúsculas, para no listar a quienes entraron.
+         */
+        get: operations["findPerson"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/administrators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista los administradores vigentes
+         * @description Solo para administradores (ADR-020), en el orden en que empezaron.
+         */
+        get: operations["listAdministrators"];
+        put?: never;
+        /**
+         * Hace administradora a una persona registrada
+         * @description Solo para administradores (ADR-020). Vale desde ahora y queda registrado quién la otorgó. Administrar no da acceso a los trámites.
+         */
+        post: operations["grantAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/administrators/{administratorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Le quita la administración a una persona
+         * @description Solo para administradores (ADR-020). El período termina ahora y queda registrado quién lo terminó; nunca se borra. No se puede terminar el último administrador vigente: SIGTA nunca queda sin administradores.
+         */
+        delete: operations["endAdministrator"];
         options?: never;
         head?: never;
         patch?: never;
@@ -754,6 +942,8 @@ export interface components {
         Area: {
             id: string;
             name: string;
+            /** @description Si viene con SIGTA, como la Secretaría. No se puede dar de baja */
+            system: boolean;
             permissions: components["schemas"]["Permission"][];
             roles: components["schemas"]["Role"][];
         };
@@ -783,6 +973,8 @@ export interface components {
         Permission: {
             id: string;
             name: string;
+            /** @description Si es un permiso de plataforma, que trae SIGTA, como los de la Secretaría para editar y publicar tipos de trámite. No se puede dar de baja */
+            system: boolean;
         };
         NewPermission: {
             /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
@@ -823,6 +1015,46 @@ export interface components {
             /** Format: date-time */
             until?: string;
             granted_by: string;
+        };
+        /** @description Necesita al menos un rol o un permiso del área */
+        MembershipPermissions: {
+            /** @description Identificadores de roles del área */
+            roles: string[];
+            /** @description Identificadores de permisos del área, sueltos */
+            permissions: string[];
+        };
+        AreaMembership: {
+            id: string;
+            person: components["schemas"]["RegisteredPerson"];
+            roles: string[];
+            permissions: string[];
+            /** @description Tipos de trámite a los que se limita. Vacío vale para todos */
+            scope: number[];
+            /** Format: date-time */
+            from: string;
+            /**
+             * Format: date-time
+             * @description Ausente si vale hasta que se la termine
+             */
+            until?: string;
+            granted_by: components["schemas"]["Person"];
+        };
+        RegisteredPerson: {
+            id: string;
+            name: string;
+            /** Format: email */
+            email: string;
+        };
+        Administrator: {
+            id: string;
+            person: components["schemas"]["RegisteredPerson"];
+            /** Format: date-time */
+            from: string;
+            /** @description Ausente en el primer administrador, que se otorga por consola */
+            granted_by?: components["schemas"]["Person"];
+        };
+        NewAdministrator: {
+            user_id: string;
         };
         StepConfirmation: {
             /** @description Qué se hizo o se verificó. No puede quedar vacía */
@@ -1051,6 +1283,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Lo que se quiere dar de baja o cambiar está en uso o ya no admite el cambio: por ejemplo, un área con membresías que no terminaron, un permiso que es parte de un rol o el último administrador. El mensaje dice por qué */
+        InUse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description La definición no es válida */
         InvalidDefinition: {
             headers: {
@@ -1066,6 +1307,8 @@ export interface components {
         ProcedureId: string;
         StepId: string;
         ProcedureTypeId: number;
+        AreaId: string;
+        MembershipId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1480,6 +1723,30 @@ export interface operations {
             422: components["responses"]["InvalidDefinition"];
         };
     };
+    listAreas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Áreas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     createArea: {
         parameters: {
             query?: never;
@@ -1507,6 +1774,113 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: components["parameters"]["AreaId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Área dada de baja */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    deletePermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: components["parameters"]["AreaId"];
+                permissionId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permiso dado de baja */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: components["parameters"]["AreaId"];
+                roleId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rol dado de baja */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    listAreaMemberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: components["parameters"]["AreaId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membresías */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaMembership"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     createPermission: {
@@ -1639,6 +2013,180 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    endMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membresía terminada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    changeMembershipPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipPermissions"];
+            };
+        };
+        responses: {
+            /** @description La membresía nueva */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    findPerson: {
+        parameters: {
+            query: {
+                email: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La persona */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredPerson"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Nadie entró a SIGTA con ese correo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdministrators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Administradores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Administrator"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    grantAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAdministrator"];
+            };
+        };
+        responses: {
+            /** @description Administración otorgada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Administrator"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["InUse"];
+        };
+    };
+    endAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                administratorId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Administración terminada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InUse"];
         };
     };
     listProcedures: {

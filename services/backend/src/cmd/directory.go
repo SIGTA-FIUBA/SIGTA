@@ -23,7 +23,7 @@ type people struct {
 // log in as anyone (the dev identity provider), the synthetic one. Outside
 // development everyone registers by signing in, and memberships are granted
 // only in SIGTA.
-func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) (authoutput.AdministratorRepository, error) {
+func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) (authoutput.AdministratorPeriodRepository, error) {
 	if !cfg.development() {
 		return s.administrators, nil
 	}
@@ -37,7 +37,7 @@ func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) (aut
 	if cfg.identityProvider != identityDev {
 		return s.administrators, nil
 	}
-	return storedOrListedAdministrators{stored: s.administrators, listed: authmem.NewAdministratorRepository(listed...)}, nil
+	return storedOrListedAdministrators{AdministratorPeriodRepository: s.administrators, listed: authmem.NewAdministratorRepository(listed...)}, nil
 }
 
 // addAreas adds the areas that are not stored yet. One that is keeps what

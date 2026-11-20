@@ -10,21 +10,36 @@ import (
 
 	authpostgres "backend/src/auth/adapters/postgres"
 	"backend/src/auth/application"
+	"backend/src/auth/domain"
 	authoutput "backend/src/auth/ports/output"
 	"backend/src/migrations"
 )
 
 // storedOrListedAdministrators answers for the administrators that the
-// stores keep and for the synthetic one of development, which is not stored.
+// stores keep and for the synthetic one of development, which is not stored:
+// it is listed first, and it cannot be ended or counted to end the others.
 type storedOrListedAdministrators struct {
-	stored, listed authoutput.AdministratorRepository
+	authoutput.AdministratorPeriodRepository
+	listed authoutput.AdministratorPeriodRepository
 }
 
 func (a storedOrListedAdministrators) IsAdministrator(ctx context.Context, userID string) (bool, error) {
 	if listed, err := a.listed.IsAdministrator(ctx, userID); err != nil || listed {
 		return listed, err
 	}
-	return a.stored.IsAdministrator(ctx, userID)
+	return a.AdministratorPeriodRepository.IsAdministrator(ctx, userID)
+}
+
+func (a storedOrListedAdministrators) ListActive(ctx context.Context, at time.Time) ([]domain.Administrator, error) {
+	listed, err := a.listed.ListActive(ctx, at)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := a.AdministratorPeriodRepository.ListActive(ctx, at)
+	if err != nil {
+		return nil, err
+	}
+	return append(listed, stored...), nil
 }
 
 // grantAdminCommand makes the person who signed in with the email of args the

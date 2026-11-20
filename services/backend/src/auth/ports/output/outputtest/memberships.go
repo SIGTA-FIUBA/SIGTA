@@ -20,6 +20,7 @@ func TestMembershipRepository(t *testing.T, newRepository func(t *testing.T) out
 	t.Run("end a membership", func(t *testing.T) { endMembership(t, newRepository(t)) })
 	t.Run("only the validity of a membership changes", func(t *testing.T) { changeOnlyValidity(t, newRepository(t)) })
 	t.Run("concurrent grants", func(t *testing.T) { concurrentGrants(t, newRepository(t)) })
+	t.Run("replace a membership", func(t *testing.T) { replaceMembership(t, newRepository(t)) })
 }
 
 func membership(id, userID, area string) domain.Membership {
@@ -32,6 +33,7 @@ func membership(id, userID, area string) domain.Membership {
 		Scope:       []int64{3, 1},
 		From:        at,
 		GrantedBy:   "admin",
+		GrantedAt:   at.Add(-time.Hour),
 	}
 }
 
@@ -134,5 +136,24 @@ func concurrentGrants(t *testing.T, r output.MembershipRepository) {
 	}
 	if list, err := r.ListByUser(t.Context(), "U-1"); err != nil || len(list) != grants {
 		t.Errorf("ListByUser() = %d memberships, %v; want %d", len(list), err, grants)
+	}
+}
+
+// Replace ends one membership and grants the one that follows it, both or
+// neither.
+func replaceMembership(t *testing.T, r output.MembershipRepository) {
+	old := membership("M-1", "U-1", "office")
+	grantAll(t, r, old)
+	ended := old
+	ended.Until, ended.EndedBy = at.Add(time.Hour), "admin"
+	granted := membership("M-2", "U-1", "office")
+	granted.Roles, granted.Permissions = nil, []string{"review"}
+	granted.From, granted.GrantedAt = ended.Until, ended.Until
+	if err := r.Replace(t.Context(), ended, granted); err != nil {
+		t.Fatalf("Replace() = %v", err)
+	}
+	got, err := r.ListByUser(t.Context(), "U-1")
+	if want := []domain.Membership{ended, granted}; err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("ListByUser() after Replace() = %+v, %v; want %+v", got, err, want)
 	}
 }

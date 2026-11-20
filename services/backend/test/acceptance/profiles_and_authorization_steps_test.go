@@ -79,7 +79,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	sc.Step(`^"([^"]*)" grants "([^"]*)" a membership in "([^"]*)" with the role "([^"]*)"(?: and the permissions? "([^"]*)")?$`, w.grantRole)
 	sc.When(`^"([^"]*)" changes the permissions of the role "([^"]*)" of "([^"]*)" to "([^"]*)"$`, w.changeRole)
 	sc.When(`^"([^"]*)" proposes and "([^"]*)" approves a version of "([^"]*)"$`, w.proposeAndApprove)
-	sc.When(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
+	sc.Step(`^"([^"]*)" ends the membership of "([^"]*)" in "([^"]*)"$`, w.end)
 	sc.When(`^it is "([^"]*)"$`, w.itIs)
 	sc.When(`^"([^"]*)" starts a "([^"]*)" procedure$`, w.start)
 	sc.When(`^"([^"]*)" acts on that step$`, w.actOnOpenStep)

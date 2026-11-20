@@ -18,8 +18,10 @@ var (
 )
 
 const (
-	actionGrant = "grant membership"
-	actionEnd   = "end membership"
+	actionGrant  = "grant membership"
+	actionEnd    = "end membership"
+	actionChange = "change membership"
+	actionList   = "list memberships"
 )
 
 type MembershipService struct {
@@ -90,11 +92,12 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 		From:        g.From,
 		Until:       g.Until,
 		GrantedBy:   administratorID,
+		GrantedAt:   s.now().UTC(),
 	}
 	if m.From.IsZero() {
-		m.From = s.now().UTC()
+		m.From = m.GrantedAt
 	}
-	if err := s.validate(ctx, m); err != nil {
+	if err := s.validate(ctx, m, ""); err != nil {
 		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
 	}
 	if err := s.memberships.Save(ctx, m); err != nil {
@@ -109,29 +112,118 @@ func (s *MembershipService) End(ctx context.Context, administratorID, membership
 	if err := s.requireAdministrator(ctx, administratorID, actionEnd); err != nil {
 		return err
 	}
-	m, err := s.memberships.Get(ctx, membershipID)
+	m, err := s.unended(ctx, membershipID)
 	if err != nil {
-		return fmt.Errorf("membership %s: %w", membershipID, err)
+		return err
 	}
-	now := s.now().UTC()
-	if !m.Until.IsZero() && !now.Before(m.Until) {
-		return fmt.Errorf("%w: membership %s already ended", domain.ErrInvalidMembership, membershipID)
-	}
-	m.Until = now
-	if m.From.After(now) {
-		m.From = now
-	}
-	m.EndedBy = administratorID
-	if err := s.memberships.Save(ctx, m); err != nil {
+	if err := s.memberships.Save(ctx, ended(m, s.now().UTC(), administratorID)); err != nil {
 		return fmt.Errorf("end membership %s: %w", membershipID, err)
 	}
 	return nil
 }
 
+// Change ends the membership and grants another with these roles and
+// permissions, for the same person, area, scope and end, so that the history
+// tells what the person could do at each moment. The new one starts now, or
+// when the old one started if it had not yet.
+func (s *MembershipService) Change(ctx context.Context, administratorID, membershipID string, roles, permissions []string) (domain.Membership, error) {
+	if err := s.requireAdministrator(ctx, administratorID, actionChange); err != nil {
+		return domain.Membership{}, err
+	}
+	old, err := s.unended(ctx, membershipID)
+	if err != nil {
+		return domain.Membership{}, err
+	}
+	if sameIDs(old.Roles, roles) && sameIDs(old.Permissions, permissions) {
+		return domain.Membership{}, fmt.Errorf("%w: membership %s already has those roles and permissions", domain.ErrInvalidMembership, membershipID)
+	}
+	now := s.now().UTC()
+	m := domain.Membership{
+		ID:          s.newID(),
+		UserID:      old.UserID,
+		Area:        old.Area,
+		Roles:       slices.Clone(roles),
+		Permissions: slices.Clone(permissions),
+		Scope:       slices.Clone(old.Scope),
+		From:        laterOf(now, old.From),
+		Until:       old.Until,
+		GrantedBy:   administratorID,
+		GrantedAt:   now,
+	}
+	if err := s.validate(ctx, m, old.ID); err != nil {
+		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
+	}
+	if err := s.memberships.Replace(ctx, ended(old, now, administratorID), m); err != nil {
+		return domain.Membership{}, fmt.Errorf("change membership %s: %w", membershipID, err)
+	}
+	return m, nil
+}
+
+// ListByArea returns the memberships of the area that have not ended, active
+// or future, in the order they were granted.
+func (s *MembershipService) ListByArea(ctx context.Context, administratorID, areaID string) ([]domain.Membership, error) {
+	if err := s.requireAdministrator(ctx, administratorID, actionList); err != nil {
+		return nil, err
+	}
+	area, err := s.areas.Get(ctx, areaID)
+	if err == nil && area.Deleted() {
+		err = domain.ErrAreaNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("area %s: %w", areaID, err)
+	}
+	memberships, err := s.memberships.ListByArea(ctx, areaID)
+	if err != nil {
+		return nil, fmt.Errorf("memberships of area %s: %w", areaID, err)
+	}
+	now := s.now().UTC()
+	return slices.DeleteFunc(memberships, func(m domain.Membership) bool { return hasEnded(m, now) }), nil
+}
+
+func (s *MembershipService) unended(ctx context.Context, membershipID string) (domain.Membership, error) {
+	m, err := s.memberships.Get(ctx, membershipID)
+	if err != nil {
+		return domain.Membership{}, fmt.Errorf("membership %s: %w", membershipID, err)
+	}
+	if hasEnded(m, s.now().UTC()) {
+		return domain.Membership{}, fmt.Errorf("%w: %w: %s", domain.ErrInvalidMembership, domain.ErrMembershipEnded, membershipID)
+	}
+	return m, nil
+}
+
+func hasEnded(m domain.Membership, now time.Time) bool {
+	return !m.Until.IsZero() && !now.Before(m.Until)
+}
+
+// ended returns m ended at now. One that had not started yet also moves its
+// start, so that it never holds.
+func ended(m domain.Membership, now time.Time, by string) domain.Membership {
+	m.Until, m.EndedBy = now, by
+	if m.From.After(now) {
+		m.From = now
+	}
+	return m
+}
+
+func laterOf(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
+}
+
+func sameIDs(a, b []string) bool {
+	a, b = slices.Clone(a), slices.Clone(b)
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Equal(a, b)
+}
+
 // validate leaves the scope unchecked: a procedure type that does not exist
 // matches no procedure, so checking it would only make auth depend on
-// procedure.
-func (s *MembershipService) validate(ctx context.Context, m domain.Membership) error {
+// procedure. replaced is the membership that m follows, if any, which does
+// not count as an overlap.
+func (s *MembershipService) validate(ctx context.Context, m domain.Membership, replaced string) error {
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
 	}
@@ -159,7 +251,7 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership) e
 	if err != nil {
 		return fmt.Errorf("memberships of %s: %w", m.UserID, err)
 	}
-	if slices.ContainsFunc(existing, m.Overlaps) {
+	if slices.ContainsFunc(existing, func(other domain.Membership) bool { return other.ID != replaced && m.Overlaps(other) }) {
 		return fmt.Errorf("%s already has a membership in area %q with the same scope", m.UserID, m.Area)
 	}
 	return nil

@@ -403,6 +403,28 @@ paths:
         "422":
           $ref: "#/components/responses/InvalidDefinition"
   /areas:
+    get:
+      operationId: listAreas
+      summary: Lista las áreas del personal con sus permisos y roles
+      description: >
+        Solo para administradores (ADR-020). Trae las áreas que no están dadas
+        de baja, en el orden en que se crearon, cada una con sus permisos y
+        roles que no están dados de baja.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Áreas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Area"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       operationId: createArea
       summary: Crea un área del personal
@@ -433,6 +455,110 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}:
+    delete:
+      operationId: deleteArea
+      summary: Da de baja un área del personal
+      description: >
+        Solo para administradores (ADR-020). El área queda registrada con quién
+        la dio de baja y cuándo, y la historia la sigue nombrando. No se puede
+        dar de baja la Secretaría, que trae SIGTA, ni un área con membresías
+        que no terminaron.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/AreaId"
+      responses:
+        "204":
+          description: Área dada de baja
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /areas/{areaId}/permissions/{permissionId}:
+    delete:
+      operationId: deletePermission
+      summary: Da de baja un permiso de un área
+      description: >
+        Solo para administradores (ADR-020). El permiso queda registrado con
+        quién lo dio de baja y cuándo. No se pueden dar de baja los permisos de
+        plataforma de la Secretaría, ni un permiso que es parte de un rol o que
+        tiene una membresía que no terminó.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/AreaId"
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Permiso dado de baja
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /areas/{areaId}/roles/{roleId}:
+    delete:
+      operationId: deleteRole
+      summary: Da de baja un rol de un área
+      description: >
+        Solo para administradores (ADR-020). El rol queda registrado con quién
+        lo dio de baja y cuándo. No se puede dar de baja un rol que tiene una
+        membresía que no terminó.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/AreaId"
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Rol dado de baja
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /areas/{areaId}/memberships:
+    get:
+      operationId: listAreaMemberships
+      summary: Lista las membresías de un área que no terminaron
+      description: >
+        Solo para administradores (ADR-020). Trae las membresías vigentes y las
+        que empiezan más adelante, en el orden en que se otorgaron, con la
+        persona y quién las otorgó.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/AreaId"
+      responses:
+        "200":
+          description: Membresías
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AreaMembership"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /areas/{areaId}/permissions:
     post:
       operationId: createPermission
@@ -580,6 +706,172 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /memberships/{membershipId}:
+    delete:
+      operationId: endMembership
+      summary: Termina una membresía
+      description: >
+        Solo para administradores (ADR-020). La membresía termina ahora y queda
+        registrada con quién la terminó; nunca se borra, para que lo que la
+        persona hizo con ella le siga atribuido.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/MembershipId"
+      responses:
+        "204":
+          description: Membresía terminada
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /memberships/{membershipId}/permissions:
+    put:
+      operationId: changeMembershipPermissions
+      summary: Cambia los roles y permisos de una membresía
+      description: >
+        Solo para administradores (ADR-020). Termina la membresía y otorga otra
+        a la misma persona, en la misma área, con el mismo alcance y el mismo
+        fin, y con los roles y permisos nuevos. La nueva vale desde ahora, o
+        desde el inicio de la anterior si todavía no empezó. Así la historia
+        dice qué permisos tuvo la persona en cada momento.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/MembershipId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipPermissions"
+      responses:
+        "200":
+          description: La membresía nueva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /people:
+    get:
+      operationId: findPerson
+      summary: Busca una persona registrada por su correo
+      description: >
+        Solo para administradores (ADR-020), para otorgarle una membresía o la
+        administración. Una persona queda registrada al entrar a SIGTA con su
+        cuenta. La búsqueda es por el correo completo, sin distinguir
+        mayúsculas, para no listar a quienes entraron.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: La persona
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisteredPerson"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Nadie entró a SIGTA con ese correo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /administrators:
+    get:
+      operationId: listAdministrators
+      summary: Lista los administradores vigentes
+      description: Solo para administradores (ADR-020), en el orden en que empezaron.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Administradores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Administrator"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: grantAdministrator
+      summary: Hace administradora a una persona registrada
+      description: >
+        Solo para administradores (ADR-020). Vale desde ahora y queda
+        registrado quién la otorgó. Administrar no da acceso a los trámites.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAdministrator"
+      responses:
+        "201":
+          description: Administración otorgada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Administrator"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/InUse"
+  /administrators/{administratorId}:
+    delete:
+      operationId: endAdministrator
+      summary: Le quita la administración a una persona
+      description: >
+        Solo para administradores (ADR-020). El período termina ahora y queda
+        registrado quién lo terminó; nunca se borra. No se puede terminar el
+        último administrador vigente: SIGTA nunca queda sin administradores.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: administratorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Administración terminada
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InUse"
   /procedures:
     get:
       operationId: listProcedures
@@ -948,6 +1240,18 @@ components:
       schema:
         type: integer
         format: int64
+    AreaId:
+      name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+    MembershipId:
+      name: membershipId
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
     NotFound:
       description: >
@@ -980,6 +1284,16 @@ components:
         El estado cambió o no admite la acción: por ejemplo, otra persona ya
         confirmó el paso, el borrador cambió desde que se leyó o se publicó otra
         versión
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InUse:
+      description: >
+        Lo que se quiere dar de baja o cambiar está en uso o ya no admite el
+        cambio: por ejemplo, un área con membresías que no terminaron, un
+        permiso que es parte de un rol o el último administrador. El mensaje
+        dice por qué
       content:
         application/json:
           schema:
@@ -1550,12 +1864,15 @@ components:
           description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites
     Area:
       type: object
-      required: [id, name, permissions, roles]
+      required: [id, name, system, permissions, roles]
       properties:
         id:
           type: string
         name:
           type: string
+        system:
+          type: boolean
+          description: Si viene con SIGTA, como la Secretaría. No se puede dar de baja
         permissions:
           type: array
           items:
@@ -1614,12 +1931,18 @@ components:
           type: string
     Permission:
       type: object
-      required: [id, name]
+      required: [id, name, system]
       properties:
         id:
           type: string
         name:
           type: string
+        system:
+          type: boolean
+          description: >
+            Si es un permiso de plataforma, que trae SIGTA, como los de la
+            Secretaría para editar y publicar tipos de trámite. No se puede dar
+            de baja
     NewPermission:
       type: object
       required: [id, name]
@@ -1695,6 +2018,83 @@ components:
           type: string
           format: date-time
         granted_by:
+          type: string
+    MembershipPermissions:
+      type: object
+      required: [roles, permissions]
+      description: Necesita al menos un rol o un permiso del área
+      properties:
+        roles:
+          type: array
+          description: Identificadores de roles del área
+          items:
+            type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, sueltos
+          items:
+            type: string
+    AreaMembership:
+      type: object
+      required: [id, person, roles, permissions, scope, from, granted_by]
+      properties:
+        id:
+          type: string
+        person:
+          $ref: "#/components/schemas/RegisteredPerson"
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        scope:
+          type: array
+          description: Tipos de trámite a los que se limita. Vacío vale para todos
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+          description: Ausente si vale hasta que se la termine
+        granted_by:
+          $ref: "#/components/schemas/Person"
+    RegisteredPerson:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+    Administrator:
+      type: object
+      required: [id, person, from]
+      properties:
+        id:
+          type: string
+        person:
+          $ref: "#/components/schemas/RegisteredPerson"
+        from:
+          type: string
+          format: date-time
+        granted_by:
+          $ref: "#/components/schemas/Person"
+          description: Ausente en el primer administrador, que se otorga por consola
+    NewAdministrator:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
           type: string
     StepConfirmation:
       type: object

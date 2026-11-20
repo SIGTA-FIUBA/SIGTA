@@ -22,9 +22,11 @@ func PlatformPermission(area, permission string) bool {
 }
 
 // List returns the areas that are not deleted, each with the permissions and
-// roles that are not deleted.
+// roles that are not deleted. ListToAdminister returns the same, only to an
+// administrator.
 type Areas interface {
 	List(ctx context.Context) ([]domain.Area, error)
+	ListToAdminister(ctx context.Context, administratorID string) ([]domain.Area, error)
 	Create(ctx context.Context, administratorID string, a domain.Area) (domain.Area, error)
 	Delete(ctx context.Context, administratorID, areaID string) error
 	CreatePermission(ctx context.Context, administratorID, areaID string, p domain.Permission) (domain.Permission, error)

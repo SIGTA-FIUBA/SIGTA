@@ -16,8 +16,8 @@ const OldDatabaseHint = "if the database was created before the migrations role 
 
 // ErrPrivileged means the role of the server can change what the schema
 // promises to keep: a published version, an event, a document, a value
-// entered, the version a procedure follows, who started it or a revision of a
-// role.
+// entered, the version a procedure follows, who started it, a revision of a
+// role, or who created an area, granted a membership or an administrator.
 var ErrPrivileged = errors.New("the role can change rows that must not change")
 
 // immutable lists the tables, and their columns, whose stored values the
@@ -34,6 +34,10 @@ var immutable = []struct {
 	{table: "procedure_field_values"},
 	{table: "area_role_revisions"},
 	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest", "applicant", "started_at"}},
+	{table: "areas", columns: []string{"created_at", "created_by"}},
+	{table: "area_permissions", columns: []string{"created_at", "created_by"}},
+	{table: "memberships", columns: []string{"user_id", "area_id", "roles", "permissions", "scope", "granted_by", "granted_at"}},
+	{table: "administrators", columns: []string{"user_id", "valid_from", "grant_source", "granted_by"}},
 }
 
 // CheckApplicationRole fails with ErrPrivileged if the role of pool, the

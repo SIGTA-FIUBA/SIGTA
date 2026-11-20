@@ -9,11 +9,14 @@ import (
 var (
 	ErrInvalidMembership  = errors.New("invalid membership")
 	ErrMembershipNotFound = errors.New("membership not found")
+	ErrMembershipEnded    = errors.New("the membership has ended")
 	ErrAccessDenied       = errors.New("access denied")
 )
 
 // Membership puts a person in an area with some of its roles and loose
-// permissions. A zero Until means it holds until it is ended.
+// permissions. A zero Until means it holds until it is ended. GrantedAt is
+// when it was granted, which From may follow; it is zero in those granted
+// before SIGTA recorded it.
 type Membership struct {
 	ID          string
 	UserID      string
@@ -24,6 +27,7 @@ type Membership struct {
 	From        time.Time
 	Until       time.Time
 	GrantedBy   string
+	GrantedAt   time.Time
 	EndedBy     string
 }
 

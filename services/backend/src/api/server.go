@@ -33,6 +33,17 @@ type AdministrationServer interface {
 	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
 	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
 	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
+	ListAreas(ctx context.Context, request ListAreasRequestObject) (ListAreasResponseObject, error)
+	DeleteArea(ctx context.Context, request DeleteAreaRequestObject) (DeleteAreaResponseObject, error)
+	DeletePermission(ctx context.Context, request DeletePermissionRequestObject) (DeletePermissionResponseObject, error)
+	DeleteRole(ctx context.Context, request DeleteRoleRequestObject) (DeleteRoleResponseObject, error)
+	ListAreaMemberships(ctx context.Context, request ListAreaMembershipsRequestObject) (ListAreaMembershipsResponseObject, error)
+	EndMembership(ctx context.Context, request EndMembershipRequestObject) (EndMembershipResponseObject, error)
+	ChangeMembershipPermissions(ctx context.Context, request ChangeMembershipPermissionsRequestObject) (ChangeMembershipPermissionsResponseObject, error)
+	FindPerson(ctx context.Context, request FindPersonRequestObject) (FindPersonResponseObject, error)
+	ListAdministrators(ctx context.Context, request ListAdministratorsRequestObject) (ListAdministratorsResponseObject, error)
+	GrantAdministrator(ctx context.Context, request GrantAdministratorRequestObject) (GrantAdministratorResponseObject, error)
+	EndAdministrator(ctx context.Context, request EndAdministratorRequestObject) (EndAdministratorResponseObject, error)
 }
 
 type DocumentServer interface {

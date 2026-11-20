@@ -16,6 +16,7 @@ import (
 var _ input.Areas = (*AreaService)(nil)
 
 const (
+	actionListAreas        = "list areas"
 	actionCreateArea       = "create area"
 	actionDeleteArea       = "delete area"
 	actionCreatePermission = "create permission"
@@ -116,6 +117,15 @@ func (s *AreaService) List(ctx context.Context) ([]domain.Area, error) {
 	return areas, nil
 }
 
+// ListToAdminister is List for an administrator, who sees which areas and
+// permissions come with SIGTA.
+func (s *AreaService) ListToAdminister(ctx context.Context, administratorID string) ([]domain.Area, error) {
+	if err := s.requireAdministrator(ctx, administratorID, actionListAreas); err != nil {
+		return nil, err
+	}
+	return s.List(ctx)
+}
+
 // Create refuses the ID of a deleted area too: memberships and published
 // versions may still name it, and they would end up naming another area. It
 // also refuses the ID of the Secretariat, even before it exists.
@@ -123,7 +133,7 @@ func (s *AreaService) Create(ctx context.Context, administratorID string, a doma
 	if err := s.requireAdministrator(ctx, administratorID, actionCreateArea); err != nil {
 		return domain.Area{}, err
 	}
-	area := domain.Area{ID: a.ID, Name: strings.TrimSpace(a.Name)}
+	area := domain.Area{ID: a.ID, Name: strings.TrimSpace(a.Name), CreatedAt: s.now().UTC(), CreatedBy: administratorID}
 	if err := s.validate(ctx, area); err != nil {
 		return domain.Area{}, fmt.Errorf("%w: %w", domain.ErrInvalidArea, err)
 	}
@@ -146,14 +156,14 @@ func (s *AreaService) Delete(ctx context.Context, administratorID, areaID string
 		return err
 	}
 	if area.System {
-		return fmt.Errorf("%w: area %s comes with SIGTA", domain.ErrInvalidArea, areaID)
+		return fmt.Errorf("%w: %w: %s", domain.ErrInvalidArea, domain.ErrSystemArea, areaID)
 	}
 	memberships, err := s.unendedMemberships(ctx, areaID)
 	if err != nil {
 		return err
 	}
 	if len(memberships) > 0 {
-		return fmt.Errorf("%w: area %s has memberships that have not ended", domain.ErrInvalidArea, areaID)
+		return fmt.Errorf("%w: %w: %s", domain.ErrInvalidArea, domain.ErrAreaHasMemberships, areaID)
 	}
 	area.DeletedAt = s.now().UTC()
 	area.DeletedBy = administratorID
@@ -202,7 +212,7 @@ func (s *AreaService) CreatePermission(ctx context.Context, administratorID, are
 	if err != nil {
 		return domain.Permission{}, err
 	}
-	permission := domain.Permission{ID: p.ID, Name: strings.TrimSpace(p.Name)}
+	permission := domain.Permission{ID: p.ID, Name: strings.TrimSpace(p.Name), CreatedAt: s.now().UTC(), CreatedBy: administratorID}
 	if err := validatePermission(area, permission); err != nil {
 		return domain.Permission{}, fmt.Errorf("%w: %w", domain.ErrInvalidPermission, err)
 	}
@@ -230,17 +240,17 @@ func (s *AreaService) DeletePermission(ctx context.Context, administratorID, are
 		return fmt.Errorf("permission %s of area %s: %w", permissionID, areaID, domain.ErrPermissionNotFound)
 	}
 	if area.Permissions[i].System {
-		return fmt.Errorf("%w: permission %s of area %s comes with SIGTA", domain.ErrInvalidPermission, permissionID, areaID)
+		return fmt.Errorf("%w: %w: %s of area %s", domain.ErrInvalidPermission, domain.ErrSystemPermission, permissionID, areaID)
 	}
 	if slices.ContainsFunc(area.ActiveRoles(), func(r domain.Role) bool { return slices.Contains(r.Permissions(), permissionID) }) {
-		return fmt.Errorf("%w: permission %s of area %s is part of a role", domain.ErrInvalidPermission, permissionID, areaID)
+		return fmt.Errorf("%w: %w: %s of area %s", domain.ErrInvalidPermission, domain.ErrPermissionInRole, permissionID, areaID)
 	}
 	memberships, err := s.unendedMemberships(ctx, areaID)
 	if err != nil {
 		return err
 	}
 	if slices.ContainsFunc(memberships, func(m domain.Membership) bool { return slices.Contains(m.Permissions, permissionID) }) {
-		return fmt.Errorf("%w: permission %s of area %s is held by memberships that have not ended", domain.ErrInvalidPermission, permissionID, areaID)
+		return fmt.Errorf("%w: %w: %s of area %s", domain.ErrInvalidPermission, domain.ErrPermissionHeld, permissionID, areaID)
 	}
 	area.Permissions[i].DeletedAt = s.now().UTC()
 	area.Permissions[i].DeletedBy = administratorID
@@ -314,7 +324,7 @@ func (s *AreaService) DeleteRole(ctx context.Context, administratorID, areaID, r
 		return err
 	}
 	if slices.ContainsFunc(memberships, func(m domain.Membership) bool { return slices.Contains(m.Roles, roleID) }) {
-		return fmt.Errorf("%w: role %s of area %s is held by memberships that have not ended", domain.ErrInvalidRole, roleID, areaID)
+		return fmt.Errorf("%w: %w: %s of area %s", domain.ErrInvalidRole, domain.ErrRoleHeld, roleID, areaID)
 	}
 	area.Roles[i].DeletedAt = s.now().UTC()
 	area.Roles[i].DeletedBy = administratorID

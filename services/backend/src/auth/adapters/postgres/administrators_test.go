@@ -20,6 +20,33 @@ func TestAdministratorRepository(t *testing.T) {
 	})
 }
 
+// The server grants and ends administrators as the application role.
+func TestAdministratorPeriodRepository(t *testing.T) {
+	outputtest.TestAdministratorPeriodRepository(t, func(t *testing.T) output.AdministratorPeriodRepository {
+		return postgres.NewAdministratorRepository(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
+	})
+}
+
+// The application role only ends an open period: it cannot reopen one nor
+// move when it ended.
+func TestApplicationRoleOnlyEndsOpenPeriods(t *testing.T) {
+	schema := dbtest.NewSchema(t)
+	owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+	if _, err := owner.Exec(t.Context(), `INSERT INTO administrators (id, user_id, valid_from, valid_until, grant_source, granted_by, ended_by)
+		VALUES ('A-1', 'U-1', now() - interval '2 days', now() - interval '1 day', 'administrator', 'U-3', 'U-3')`); err != nil {
+		t.Fatal(err)
+	}
+	app := schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted)
+	for _, statement := range []string{
+		"UPDATE administrators SET valid_until = NULL, ended_by = NULL WHERE id = 'A-1'",
+		"UPDATE administrators SET valid_until = now() WHERE id = 'A-1'",
+	} {
+		if tag, err := app.Exec(t.Context(), statement); err != nil || tag.RowsAffected() != 0 {
+			t.Errorf("%s as the application role = %v, %v; want no row changed", statement, tag, err)
+		}
+	}
+}
+
 // The first administrator is the initial grant of the system: nobody typed
 // who granted it.
 func TestGrantFirstIsTheInitialGrant(t *testing.T) {
@@ -101,8 +128,8 @@ func TestAFutureAdministratorDoesNotCount(t *testing.T) {
 	}
 }
 
-// The server connects as the application role, so a session can never make
-// itself an administrator.
+// The server connects as the application role, which grants administrators
+// only as an administrator: the initial grant stays with grant-admin.
 func TestApplicationRoleCannotGrantAdministrators(t *testing.T) {
 	schema := dbtest.NewSchema(t)
 	app := postgres.NewAdministratorRepository(schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
