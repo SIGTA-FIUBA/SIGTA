@@ -211,8 +211,12 @@ func TestAnAttachmentAfterTheAnswerIsRefused(t *testing.T) {
 
 	_, err := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "dos.pdf", Content: bytes.NewReader(pdf(120))})
 
-	if !errors.Is(err, engine.ErrNoCorrectionPending) {
-		t.Errorf("err = %v, want ErrNoCorrectionPending", err)
+	// The same as for an attachment that comes after the answer.
+	if !errors.Is(err, proceduredomain.ErrAccessDenied) {
+		t.Errorf("err = %v, want ErrAccessDenied", err)
+	}
+	if _, after := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "tres.pdf", Content: bytes.NewReader(pdf(140))}); !errors.Is(after, proceduredomain.ErrAccessDenied) {
+		t.Errorf("after the answer: err = %v, want ErrAccessDenied", after)
 	}
 	if recorded, _ := documents.List(ctx, "P-1"); len(recorded) != 1 || recorded[0].FileName != "uno.pdf" {
 		t.Errorf("documents = %+v, want only the one attached before the answer", recorded)

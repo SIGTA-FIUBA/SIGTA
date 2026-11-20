@@ -1201,8 +1201,10 @@ paths:
         subsanación, cuentan solo los adjuntados desde el último pedido que
         nombra ese documento. Cada archivo adjuntado queda en el historial,
         sin avanzar el trámite. Si el paso ya no está abierto (otro lo
-        confirmó o el trámite está cerrado), o la subsanación que pedía el
-        documento ya se respondió, responde 409.
+        confirmó o el trámite está cerrado), responde 409. Si quien adjunta
+        no puede hacer el paso abierto, responde 403, también al titular
+        cuya subsanación ya se respondió, llegue antes o después de la
+        respuesta.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:

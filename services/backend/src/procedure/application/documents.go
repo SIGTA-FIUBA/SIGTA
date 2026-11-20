@@ -97,8 +97,9 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	}
 	err = s.procedures.procedures.Attach(ctx, d, attachedEvent(d))
 	if errors.Is(err, engine.ErrStepNotOpen) && step != p.OpenStep {
-		// An answer to the corrections came first.
-		err = engine.ErrNoCorrectionPending
+		// An answer to the corrections came first: the applicant is where
+		// whereToAttach leaves them with nothing pending, and is told the same.
+		err = denied(userID, actionAttach+" on "+step)
 	}
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
