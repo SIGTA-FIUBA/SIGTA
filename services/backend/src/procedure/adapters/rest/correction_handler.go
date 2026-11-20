@@ -19,7 +19,7 @@ var invalidCorrectionRequests = []struct {
 }{
 	{engine.ErrNoReason, "Falta el motivo."},
 	{engine.ErrNothingRequested, "Falta indicar qué datos o documentos se piden."},
-	{engine.ErrNotARequirement, "Se pide un dato o documento que el tipo de trámite no tiene."},
+	{engine.ErrNotAnApplicantRequirement, "Solo se puede pedir lo que el titular carga en sus pasos."},
 	{engine.ErrRepeatedRequirement, "Se pide dos veces el mismo dato o documento."},
 	{engine.ErrCorrectionOnApplicant, "El paso abierto es del titular: no hay nada que pedirle sobre él."},
 }

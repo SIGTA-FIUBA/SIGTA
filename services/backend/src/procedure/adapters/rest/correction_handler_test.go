@@ -79,7 +79,7 @@ func TestRequestCorrectionErrors(t *testing.T) {
 		{"a step that is no longer open", session, body, engine.ErrStepNotOpen, http.StatusConflict},
 		{"an empty reason", session, `{"reason":" ","fields":["subjects"]}`, engine.ErrNoReason, http.StatusBadRequest},
 		{"nothing asked for", session, `{"reason":"faltan"}`, engine.ErrNothingRequested, http.StatusBadRequest},
-		{"a requirement the type does not have", session, body, engine.ErrNotARequirement, http.StatusBadRequest},
+		{"a requirement the applicant does not provide", session, body, engine.ErrNotAnApplicantRequirement, http.StatusBadRequest},
 		{"a requirement twice", session, body, engine.ErrRepeatedRequirement, http.StatusBadRequest},
 		{"a step of the applicant", session, body, engine.ErrCorrectionOnApplicant, http.StatusBadRequest},
 		{"an unexpected failure", session, body, errors.New("store down"), http.StatusInternalServerError},

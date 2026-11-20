@@ -615,7 +615,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Decisión.**
 - **Un pedido sobre el paso abierto.** Quien puede hacer el paso abierto del personal puede pedirle una subsanación al titular, cualquiera sea la acción del paso. No es una acción ni una salida del tipo de trámite: no se configura y vale para todos los tipos.
-- **Qué falta y por qué.** El pedido nombra datos y documentos del tipo de trámite, al menos uno, y lleva el motivo, que es obligatorio. Así el titular completa lo pedido sobre el mismo trámite (US34) con requisitos que la plataforma ya sabe validar.
+- **Qué falta y por qué.** El pedido nombra datos y documentos que piden los pasos del titular, al menos uno, y lleva el motivo, que es obligatorio. Así el titular completa lo pedido sobre el mismo trámite (US34) con requisitos que la plataforma ya sabe validar, y la respuesta queda en uno de sus pasos, donde la ve.
 - **El trámite no se mueve.** El paso abierto sigue siendo el mismo, y el trámite guarda los pedidos pendientes. Mientras haya alguno, el estado es `with_applicant`, aunque esté derivado, el paso no se confirma y deja de requerir acción en la bandeja. Cuando el titular responde (US34), sigue en el mismo paso.
 - **Más de una.** Se pueden pedir varias, también con otra pendiente.
 - **Historial.** Cada pedido es un evento sobre el paso abierto, con quién, cuándo, el motivo en la observación y lo que pide.
@@ -625,10 +625,11 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Alternativas descartadas.**
 - Modelarla en la configuración, como una salida hacia un paso del titular que vuelve al que decide: lo que se pide quedaría fijo de antemano y solo se podría pedir desde una decisión que lo prevea. Cada tipo nuevo tendría que acordarse de agregarla.
 - Un texto libre en lugar de requisitos: el titular no tendría dónde cargar la respuesta, ni la plataforma qué validar.
+- Pedir cualquier dato o documento del tipo de trámite: lo que solo pide un paso del personal, como el acta de una comisión, quedaría en un paso que el titular no ve, y no vería lo que respondió.
 - Una sola subsanación pendiente por vez: la Secretaría no podría sumar algo que notó después sin esperar la respuesta.
 
 **Consecuencias.**
 - El estado del trámite se deriva del paso abierto y de los pedidos pendientes (`domain.StateOf`).
 - La API suma `POST /procedures/{procedureId}/steps/{stepId}/correction-requests`, los pedidos pendientes en el detalle (`correction_requests`) y lo que pide cada uno en los eventos del historial (`correction_request`).
 - US34 define cómo responde el titular y cómo deja de estar pendiente cada pedido.
-- Si un pedido necesita algo que el tipo de trámite no tiene, se corrige el tipo (ADR-006).
+- Si un pedido necesita algo que los pasos del titular no piden, se corrige el tipo (ADR-006).

@@ -470,10 +470,10 @@ type NewArea struct {
 
 // NewCorrectionRequest defines model for NewCorrectionRequest.
 type NewCorrectionRequest struct {
-	// Documents Identificadores de los documentos del tipo de trámite que se piden. Entre datos y documentos se pide al menos uno
+	// Documents Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno
 	Documents *[]string `json:"documents,omitempty"`
 
-	// Fields Identificadores de los datos del tipo de trámite que se piden
+	// Fields Identificadores de los datos que se piden, de los que piden los pasos del titular
 	Fields *[]string `json:"fields,omitempty"`
 
 	// Reason Por qué se pide. No puede quedar vacío

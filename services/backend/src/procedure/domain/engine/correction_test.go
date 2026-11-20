@@ -12,8 +12,11 @@ import (
 
 var withRequirements = func() definition.ProcedureTypeDefinition {
 	d := equivalence
-	d.Fields = []definition.Field{{ID: "subjects"}, {ID: "plan"}}
-	d.Documents = []definition.Document{{ID: "transcript"}}
+	d.Steps = slices.Clone(d.Steps)
+	d.Steps[0].Fields, d.Steps[0].OptionalFields, d.Steps[0].Documents = []string{"subjects"}, []string{"plan"}, []string{"transcript"}
+	d.Steps[2].Documents = []string{"ruling"}
+	d.Fields = []definition.Field{{ID: "subjects"}, {ID: "plan"}, {ID: "grades"}}
+	d.Documents = []definition.Document{{ID: "transcript"}, {ID: "ruling"}}
 	return d
 }()
 
@@ -59,9 +62,11 @@ func TestRequestCorrectionRejects(t *testing.T) {
 		{"a step of the applicant", on("request"), correction("request", []string{"subjects"}, nil), engine.ErrCorrectionOnApplicant},
 		{"no reason", on("file"), noReason, engine.ErrNoReason},
 		{"nothing asked for", on("file"), correction("file", nil, nil), engine.ErrNothingRequested},
-		{"a field the type does not have", on("file"), correction("file", []string{"grades"}, nil), engine.ErrNotARequirement},
-		{"a document asked for as a field", on("file"), correction("file", []string{"transcript"}, nil), engine.ErrNotARequirement},
-		{"a field asked for as a document", on("file"), correction("file", nil, []string{"subjects"}), engine.ErrNotARequirement},
+		{"a field the type does not have", on("file"), correction("file", []string{"age"}, nil), engine.ErrNotAnApplicantRequirement},
+		{"a field no step asks for", on("file"), correction("file", []string{"grades"}, nil), engine.ErrNotAnApplicantRequirement},
+		{"a document only a staff step asks for", on("file"), correction("file", nil, []string{"ruling"}), engine.ErrNotAnApplicantRequirement},
+		{"a document asked for as a field", on("file"), correction("file", []string{"transcript"}, nil), engine.ErrNotAnApplicantRequirement},
+		{"a field asked for as a document", on("file"), correction("file", nil, []string{"subjects"}), engine.ErrNotAnApplicantRequirement},
 		{"the same field twice", on("file"), correction("file", []string{"subjects", "subjects"}, nil), engine.ErrRepeatedRequirement},
 	}
 	for _, tt := range tests {

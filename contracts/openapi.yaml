@@ -766,8 +766,8 @@ paths:
       summary: Pide una subsanación al titular sobre el paso abierto
       description: >
         La pide quien puede confirmar el paso abierto, que tiene que ser del
-        personal. Dice qué falta, con datos y documentos del tipo de trámite,
-        y por qué. El trámite no cambia de paso: queda con el titular, y el paso
+        personal. Dice qué falta, con datos y documentos que piden los pasos
+        del titular, y por qué. El trámite no cambia de paso: queda con el titular, y el paso
         no se confirma, hasta que el titular responda. Se puede pedir más de una
         sobre el mismo trámite. También canaliza lo que pide ampliar un
         evaluador externo. Quién la pide y cuándo los pone el servidor.
@@ -1715,14 +1715,14 @@ components:
           description: Por qué se pide. No puede quedar vacío
         fields:
           type: array
-          description: Identificadores de los datos del tipo de trámite que se piden
+          description: Identificadores de los datos que se piden, de los que piden los pasos del titular
           items:
             type: string
         documents:
           type: array
           description: >
-            Identificadores de los documentos del tipo de trámite que se piden.
-            Entre datos y documentos se pide al menos uno
+            Identificadores de los documentos que se piden, de los que piden los
+            pasos del titular. Entre datos y documentos se pide al menos uno
           items:
             type: string
     CorrectionRequest:

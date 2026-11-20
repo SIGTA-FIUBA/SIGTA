@@ -413,7 +413,7 @@ export interface paths {
         put?: never;
         /**
          * Pide una subsanación al titular sobre el paso abierto
-         * @description La pide quien puede confirmar el paso abierto, que tiene que ser del personal. Dice qué falta, con datos y documentos del tipo de trámite, y por qué. El trámite no cambia de paso: queda con el titular, y el paso no se confirma, hasta que el titular responda. Se puede pedir más de una sobre el mismo trámite. También canaliza lo que pide ampliar un evaluador externo. Quién la pide y cuándo los pone el servidor.
+         * @description La pide quien puede confirmar el paso abierto, que tiene que ser del personal. Dice qué falta, con datos y documentos que piden los pasos del titular, y por qué. El trámite no cambia de paso: queda con el titular, y el paso no se confirma, hasta que el titular responda. Se puede pedir más de una sobre el mismo trámite. También canaliza lo que pide ampliar un evaluador externo. Quién la pide y cuándo los pone el servidor.
          */
         post: operations["requestCorrection"];
         delete?: never;
@@ -835,9 +835,9 @@ export interface components {
         NewCorrectionRequest: {
             /** @description Por qué se pide. No puede quedar vacío */
             reason: string;
-            /** @description Identificadores de los datos del tipo de trámite que se piden */
+            /** @description Identificadores de los datos que se piden, de los que piden los pasos del titular */
             fields?: string[];
-            /** @description Identificadores de los documentos del tipo de trámite que se piden. Entre datos y documentos se pide al menos uno */
+            /** @description Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno */
             documents?: string[];
         };
         /** @description Subsanación pedida que el titular todavía no respondió */

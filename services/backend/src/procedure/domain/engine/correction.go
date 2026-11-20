@@ -11,16 +11,16 @@ import (
 )
 
 var (
-	ErrInvalidCorrectionRequest = errors.New("invalid correction request")
-	ErrNoReason                 = fmt.Errorf("%w: a reason is required", ErrInvalidCorrectionRequest)
-	ErrNothingRequested         = fmt.Errorf("%w: it asks for no field or document", ErrInvalidCorrectionRequest)
-	ErrNotARequirement          = fmt.Errorf("%w: it asks for a field or document the procedure type does not have", ErrInvalidCorrectionRequest)
-	ErrRepeatedRequirement      = fmt.Errorf("%w: it asks for the same field or document twice", ErrInvalidCorrectionRequest)
-	ErrCorrectionOnApplicant    = fmt.Errorf("%w: the open step is the applicant's", ErrInvalidCorrectionRequest)
+	ErrInvalidCorrectionRequest  = errors.New("invalid correction request")
+	ErrNoReason                  = fmt.Errorf("%w: a reason is required", ErrInvalidCorrectionRequest)
+	ErrNothingRequested          = fmt.Errorf("%w: it asks for no field or document", ErrInvalidCorrectionRequest)
+	ErrNotAnApplicantRequirement = fmt.Errorf("%w: it asks for a field or document no step of the applicant asks for", ErrInvalidCorrectionRequest)
+	ErrRepeatedRequirement       = fmt.Errorf("%w: it asks for the same field or document twice", ErrInvalidCorrectionRequest)
+	ErrCorrectionOnApplicant     = fmt.Errorf("%w: the open step is the applicant's", ErrInvalidCorrectionRequest)
 )
 
 // RequestCorrection asks the applicant, on the open step of staff, for some
-// fields and documents of the procedure type and says why. The procedure
+// fields and documents that their own steps ask for, and says why. The procedure
 // stays on its step, waiting for the applicant. Who may ask is checked by the
 // use case, as for a confirmation.
 func RequestCorrection(p domain.Procedure, d definition.ProcedureTypeDefinition, r domain.CorrectionRequest) (domain.CorrectionRequest, domain.Event, error) {
@@ -40,10 +40,11 @@ func RequestCorrection(p domain.Procedure, d definition.ProcedureTypeDefinition,
 	if len(r.Fields)+len(r.Documents) == 0 {
 		return domain.CorrectionRequest{}, domain.Event{}, ErrNothingRequested
 	}
-	if err := requirements(r.Fields, d.Fields, func(f definition.Field) string { return f.ID }); err != nil {
+	fields, documents := applicantRequirements(d)
+	if err := requirements(r.Fields, fields); err != nil {
 		return domain.CorrectionRequest{}, domain.Event{}, err
 	}
-	if err := requirements(r.Documents, d.Documents, func(doc definition.Document) string { return doc.ID }); err != nil {
+	if err := requirements(r.Documents, documents); err != nil {
 		return domain.CorrectionRequest{}, domain.Event{}, err
 	}
 	event := domain.Event{
@@ -57,13 +58,25 @@ func RequestCorrection(p domain.Procedure, d definition.ProcedureTypeDefinition,
 	return r, event, nil
 }
 
-// requirements checks that each id asked for is declared once in the
-// procedure type.
-func requirements[T any](asked []string, declared []T, id func(T) string) error {
+// applicantRequirements returns the ids of the fields and documents the steps
+// of the applicant ask for, so that what they send back lands on one of their
+// steps.
+func applicantRequirements(d definition.ProcedureTypeDefinition) (fields, documents []string) {
+	for _, s := range d.Steps {
+		if s.Role == definition.RoleApplicant {
+			fields = slices.Concat(fields, s.Fields, s.OptionalFields)
+			documents = slices.Concat(documents, s.Documents, s.OptionalDocuments)
+		}
+	}
+	return fields, documents
+}
+
+// requirements checks that each id asked for is one of the applicant's, once.
+func requirements(asked, applicant []string) error {
 	seen := map[string]bool{}
 	for _, a := range asked {
-		if !slices.ContainsFunc(declared, func(item T) bool { return id(item) == a }) {
-			return ErrNotARequirement
+		if !slices.Contains(applicant, a) {
+			return ErrNotAnApplicantRequirement
 		}
 		if seen[a] {
 			return ErrRepeatedRequirement
