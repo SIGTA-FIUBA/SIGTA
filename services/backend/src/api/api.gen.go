@@ -275,6 +275,9 @@ type DefinitionDocument struct {
 	Id            string    `json:"id"`
 	MaxSize       *int64    `json:"max_size,omitempty"`
 	Name          string    `json:"name"`
+
+	// Resolution Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009).
+	Resolution *bool `json:"resolution,omitempty"`
 }
 
 // DefinitionField defines model for DefinitionField.

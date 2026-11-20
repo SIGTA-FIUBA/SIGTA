@@ -1292,6 +1292,12 @@ components:
         max_size:
           type: integer
           format: int64
+        resolution:
+          type: boolean
+          description: >
+            Si es la resolución del trámite: el documento que su titular
+            descarga cuando el trámite se cierra. Es una marca y no un
+            resultado (ADR-009).
     DefinitionStep:
       type: object
       required: [id, name, action]

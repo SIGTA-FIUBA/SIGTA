@@ -625,6 +625,8 @@ export interface components {
             accepted_types?: string[];
             /** Format: int64 */
             max_size?: number;
+            /** @description Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009). */
+            resolution?: boolean;
         };
         DefinitionStep: {
             id: string;
