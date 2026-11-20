@@ -51,6 +51,7 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"area_permissions":                {table: []string{"SELECT", "INSERT"}, updatable: []string{"name", "deleted_at", "deleted_by"}},
 		"area_roles":                      {table: []string{"SELECT", "INSERT"}, updatable: []string{"name", "deleted_at", "deleted_by"}},
 		"memberships":                     {table: []string{"SELECT", "INSERT"}, updatable: []string{"valid_from", "valid_until", "ended_by"}},
+		"administrators":                  {table: []string{"SELECT"}},
 		"procedure_type_drafts": {
 			table:     []string{"SELECT", "INSERT", "DELETE"},
 			updatable: []string{"definition", "status", "revision", "edited_by", "edited_at", "editors", "proposed_by", "proposed_at", "rejected_by", "rejected_at", "rejection_reason"},

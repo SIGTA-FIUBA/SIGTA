@@ -135,6 +135,17 @@ Feature: Staff areas
       | edit_procedure_types    |
       | publish_procedure_types |
 
+  Scenario Outline: no area takes the identifier of a permission to edit or publish procedure types
+    When "admin@fi.uba.ar" creates the permission "<permission>" named "Another" in "<area>"
+    Then the permission is not created
+
+    Examples:
+      | permission              | area            |
+      | edit_procedure_types    | secretariat     |
+      | publish_procedure_types | secretariat     |
+      | edit_procedure_types    | student affairs |
+      | publish_procedure_types | student affairs |
+
   Scenario: the Secretariat takes permissions for its steps like any other area
     When "admin@fi.uba.ar" creates the permission "register" named "Register" in "secretariat"
     Then "admin@fi.uba.ar" can grant "new@fi.uba.ar" a membership in "secretariat" with the permission "register"

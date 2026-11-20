@@ -14,7 +14,6 @@ import (
 
 	"backend/src/api"
 	"backend/src/auth/adapters/google"
-	"backend/src/auth/adapters/memory"
 	authrest "backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
 	authoutput "backend/src/auth/ports/output"
@@ -25,17 +24,32 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := migrateCommand(os.Getenv, logger); err != nil {
-			logger.Error("migrations failed", "error", err)
-			os.Exit(1)
+	if err := command(os.Args[1:], logger); err != nil {
+		name := "server"
+		if len(os.Args) > 1 {
+			name = os.Args[1]
 		}
-		return
-	}
-	if err := run(logger); err != nil {
-		logger.Error("server stopped", "error", err)
+		logger.Error(name+" failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+// command runs the server, or the command that args names. A command it
+// does not know fails, so that a mistyped one does not start a server.
+func command(args []string, logger *slog.Logger) error {
+	if len(args) == 0 {
+		return run(logger)
+	}
+	switch args[0] {
+	case "migrate":
+		if len(args) > 1 {
+			return errors.New("usage: backend migrate")
+		}
+		return migrateCommand(os.Getenv, logger)
+	case "grant-admin":
+		return grantAdminCommand(os.Getenv, args[1:], logger)
+	}
+	return fmt.Errorf("unknown command %q: usage: backend [migrate | grant-admin <email>]", args[0])
 }
 
 func run(logger *slog.Logger) error {
@@ -86,18 +100,13 @@ type started struct {
 	documents      *procedureapp.DocumentService
 }
 
-// start adds the Secretariat if it is missing, wires the services over the
-// stores and removes the files that no document names. It adds nothing else:
-// people, memberships and procedure types come from those who use SIGTA.
+// start wires the services over the stores and removes the files that no
+// document names. It adds nothing: the Secretariat comes with the stores
+// (openStores), the first administrator from the grant-admin command, and
+// people, memberships and procedure types from those who use SIGTA.
 func start(ctx context.Context, cfg config, stores stores, files output.Files, identity authoutput.IdentityProvider, logger *slog.Logger) (started, error) {
-	if err := application.EnsureSecretariat(ctx, stores.areas); err != nil {
-		return started{}, err
-	}
-	// Nobody is an administrator yet: the mark is not stored, and nothing
-	// gives it.
-	administrators := memory.NewAdministratorRepository()
-	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, now)
-	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, now)
+	areaService := application.NewAreaService(stores.areas, stores.administrators, stores.memberships, now)
+	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, newID, now)
 
 	procedureTypes := procedureapp.NewProcedureTypeService(stores.versions, areaService, memberships, now)
 	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)
