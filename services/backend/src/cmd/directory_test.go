@@ -80,6 +80,20 @@ func TestAddPeopleFollowsTheUsersFile(t *testing.T) {
 	}
 }
 
+// Listing the same permissions in another order is not a change.
+func TestAddPeopleIgnoresTheOrderOfTheFile(t *testing.T) {
+	ctx := t.Context()
+	users, memberships := authmem.NewUserRepository(), authmem.NewMembershipRepository()
+	for i, p := range []people{fileMember("ana", "review", "approve"), fileMember("ana", "approve", "review")} {
+		if _, err := addPeople(ctx, users, memberships, testAreas, p, counter(), time.Now()); err != nil {
+			t.Fatalf("start %d: %v", i+1, err)
+		}
+	}
+	if ana, err := memberships.ListByUser(ctx, "ana"); err != nil || len(ana) != 1 || !ana[0].Until.IsZero() {
+		t.Errorf("memberships of ana = %+v, %v; want only the first, active", ana, err)
+	}
+}
+
 // The file decides who has which membership: one of its memberships that an
 // administrator ended is granted again on the next start.
 func TestAddPeopleGrantsAgainWhatTheFileStillLists(t *testing.T) {

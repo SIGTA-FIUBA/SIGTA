@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -137,6 +138,13 @@ func grantFileMemberships(ctx context.Context, memberships authoutput.Membership
 }
 
 func sameGrant(a, b domain.Membership) bool {
-	return a.UserID == b.UserID && a.Area == b.Area && slices.Equal(a.Roles, b.Roles) &&
-		slices.Equal(a.Permissions, b.Permissions) && slices.Equal(a.Scope, b.Scope)
+	return a.UserID == b.UserID && a.Area == b.Area && sameSet(a.Roles, b.Roles) &&
+		sameSet(a.Permissions, b.Permissions) && sameSet(a.Scope, b.Scope)
+}
+
+func sameSet[T cmp.Ordered](a, b []T) bool {
+	a, b = slices.Clone(a), slices.Clone(b)
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Equal(a, b)
 }
