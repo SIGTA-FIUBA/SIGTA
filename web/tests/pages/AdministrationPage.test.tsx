@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AdministrationPage } from '../../src/pages/AdministrationPage'
 import { render } from '../test-utils/render'
@@ -39,7 +39,9 @@ const administrator = {
   from: '2026-10-01T12:00:00Z',
 }
 
-type Answer = { status: number; body?: unknown }
+// after holds the answer back until it settles, to see the page while the
+// change runs.
+type Answer = { status: number; body?: unknown; after?: Promise<void> }
 
 // stubApi plays the API: GETs answer from reads, and every other request
 // from changes, keyed by method and path, or 204 when it is not there.
@@ -48,6 +50,7 @@ function stubApi(reads: Record<string, Answer>, changes: Record<string, Answer> 
     const url = new URL(request.url)
     const key = `${request.method} ${url.pathname.replace(/^\/api/, '')}`
     const answer = request.method === 'GET' ? reads[url.pathname.replace(/^\/api/, '')] : changes[key]
+    await answer?.after
     if (answer === undefined) {
       return request.method === 'GET'
         ? Response.json({ message: 'No existe.' }, { status: 404 })
@@ -82,11 +85,12 @@ async function sent(fetch: ReturnType<typeof stubApi>) {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const router = createMemoryRouter([{ path: '/administration', element: <AdministrationPage /> }], {
+    initialEntries: ['/administration'],
+  })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <AdministrationPage />
-      </MemoryRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -230,13 +234,165 @@ describe('AdministrationPage', () => {
     )
   })
 
+  it('creates a permission', async () => {
+    const fetch = stubApi(reads, { 'POST /areas/office/permissions': { status: 201, body: {} } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Agregar un permiso' }))
+    await userEvent.type(within(panel).getByLabelText('Nombre'), 'Firmar')
+    await userEvent.type(within(panel).getByLabelText(/Identificador/), 'sign')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Agregar permiso' }))
+
+    await vi.waitFor(async () =>
+      expect(await sent(fetch)).toEqual([
+        { request: 'POST /areas/office/permissions', body: { id: 'sign', name: 'Firmar' } },
+      ]),
+    )
+  })
+
+  it('creates a role with its permissions', async () => {
+    const fetch = stubApi(reads, { 'POST /areas/office/roles': { status: 201, body: {} } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Agregar un rol' }))
+    await userEvent.type(within(panel).getByLabelText('Nombre'), 'Jefatura')
+    await userEvent.type(within(panel).getByLabelText(/Identificador/), 'head')
+    await userEvent.click(within(panel).getByRole('combobox', { name: 'Permisos del rol' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Aprobar' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Agregar rol' }))
+
+    await vi.waitFor(async () =>
+      expect(await sent(fetch)).toEqual([
+        { request: 'POST /areas/office/roles', body: { id: 'head', name: 'Jefatura', permissions: ['approve'] } },
+      ]),
+    )
+  })
+
+  it('removes a permission after asking again', async () => {
+    const fetch = stubApi(reads)
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dar de baja el permiso Aprobar' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dar de baja' }))
+
+    await vi.waitFor(async () =>
+      expect(await sent(fetch)).toEqual([{ request: 'DELETE /areas/office/permissions/approve', body: undefined }]),
+    )
+  })
+
+  it('says why the API refused to remove a role, next to the question', async () => {
+    const message =
+      'Hay membresías vigentes o futuras con este rol: cambiá sus permisos o terminalas antes de darlo de baja.'
+    stubApi(reads, { 'DELETE /areas/office/roles/clerk': { status: 409, body: { message } } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dar de baja el rol Administrativo' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dar de baja' }))
+
+    expect(await within(panel).findByRole('alert')).toHaveTextContent(message)
+    expect(within(panel).getByText('¿Dar de baja el rol?')).toBeVisible()
+  })
+
+  it('changes the permissions of a role', async () => {
+    const fetch = stubApi(reads, { 'PUT /areas/office/roles/clerk/permissions': { status: 200, body: {} } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Cambiar los permisos del rol Administrativo' }))
+    expect(within(panel).getByRole('combobox', { name: 'Permisos del rol' })).toHaveFocus()
+    await userEvent.click(within(panel).getByRole('combobox', { name: 'Permisos del rol' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Aprobar' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Guardar permisos' }))
+
+    await vi.waitFor(async () =>
+      expect(await sent(fetch)).toEqual([
+        { request: 'PUT /areas/office/roles/clerk/permissions', body: { permissions: ['review', 'approve'] } },
+      ]),
+    )
+    await vi.waitFor(() => expect(within(panel).queryByRole('button', { name: 'Guardar permisos' })).toBeNull())
+  })
+
+  it('keeps asking while the change runs and cannot be confirmed twice', async () => {
+    let answer = () => {}
+    const after = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    const fetch = stubApi(reads, { 'DELETE /memberships/m1': { status: 204, after } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Terminar la membresía de Persona Dos' }))
+    const confirm = within(panel).getByRole('button', { name: 'Terminar membresía' })
+    await userEvent.click(confirm)
+
+    await vi.waitFor(() => expect(confirm).toBeDisabled())
+    expect(within(panel).getByText('¿Terminar la membresía ahora?')).toBeVisible()
+    await userEvent.click(confirm)
+    expect(await sent(fetch)).toEqual([{ request: 'DELETE /memberships/m1', body: undefined }])
+
+    answer()
+    await vi.waitFor(() => expect(within(panel).queryByText('¿Terminar la membresía ahora?')).toBeNull())
+  })
+
+  it('grants a membership for some procedure types, until today at the earliest', async () => {
+    const fetch = stubApi(
+      { ...reads, '/procedure-types': { status: 200, body: [{ id: 1, name: 'Equivalencia' }] } },
+      { 'POST /memberships': { status: 201, body: {} } },
+    )
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await within(panel).findByRole('button', { name: 'Elegir otra persona' })
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())
+    expect(within(panel).getByLabelText(/Hasta/)).toHaveAttribute('min', today)
+    await userEvent.click(within(panel).getByRole('combobox', { name: /Roles/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Administrativo' }))
+    await userEvent.click(within(panel).getByRole('combobox', { name: /Alcance/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Equivalencia' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar membresía' }))
+
+    await vi.waitFor(async () =>
+      expect(await sent(fetch)).toEqual([
+        {
+          request: 'POST /memberships',
+          body: { user_id: 'u2', area: 'office', roles: ['clerk'], permissions: [], scope: [1] },
+        },
+      ]),
+    )
+  })
+
+  it('forgets a refused grant when the form opens again', async () => {
+    const message =
+      'No se pudo otorgar la membresía: revisá el área, sus roles y permisos, las fechas y que la persona no tenga ya una membresía vigente en esa área con el mismo alcance.'
+    stubApi(reads, { 'POST /memberships': { status: 422, body: { message } } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Otorgar membresía' }))
+    expect(await within(panel).findByRole('alert')).toHaveTextContent(message)
+    await userEvent.click(within(panel).getByRole('button', { name: 'Cancelar' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+
+    expect(within(panel).queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('lists the administrators and grants the administration', async () => {
     const fetch = stubApi(reads, { 'POST /administrators': { status: 201, body: {} } })
     renderPage()
 
     await userEvent.click(await screen.findByRole('tab', { name: 'Personas administradoras' }))
     expect(await screen.findByText('Persona Uno')).toBeVisible()
-    expect(screen.getByText(/Otorgada por consola\./)).toBeVisible()
+    expect(screen.getByText(/Primera persona administradora, dada al instalar SIGTA\./)).toBeVisible()
     // The last administrator cannot be removed: SIGTA never runs out of them.
     expect(screen.getByText('Única persona administradora')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Quitarle la administración/ })).not.toBeInTheDocument()

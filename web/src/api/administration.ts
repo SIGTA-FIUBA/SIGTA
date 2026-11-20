@@ -40,13 +40,15 @@ function forbiddenOr<T>(path: string, data: T | undefined, response: Response): 
   return data
 }
 
-// Every query of the administration shares this prefix, so a change refreshes
-// all of them: ending a membership can free an area to be deleted.
-const administration = ['administration']
+// Each key follows the route of the API. A change refreshes every query of the
+// administration, since ending a membership can free an area to be deleted:
+// the memberships of an area share the prefix of the areas.
+const areasKey = ['areas']
+const administratorsKey = ['administrators']
 
 export function useAreas() {
   return useQuery({
-    queryKey: [...administration, 'areas'],
+    queryKey: areasKey,
     queryFn: async () => {
       const { data, response } = await api.GET('/areas')
       return forbiddenOr('/areas', data, response)
@@ -56,7 +58,7 @@ export function useAreas() {
 
 export function useAreaMemberships(areaId: string) {
   return useQuery({
-    queryKey: [...administration, 'areas', areaId, 'memberships'],
+    queryKey: [...areasKey, areaId, 'memberships'],
     queryFn: async () => {
       const { data, response } = await api.GET('/areas/{areaId}/memberships', { params: { path: { areaId } } })
       return forbiddenOr(`/areas/${areaId}/memberships`, data, response)
@@ -66,7 +68,7 @@ export function useAreaMemberships(areaId: string) {
 
 export function useAdministrators() {
   return useQuery({
-    queryKey: [...administration, 'administrators'],
+    queryKey: administratorsKey,
     queryFn: async () => {
       const { data, response } = await api.GET('/administrators')
       return forbiddenOr('/administrators', data, response)
@@ -105,6 +107,8 @@ export const actions = {
     run(api.POST('/areas/{areaId}/roles', { params: { path: { areaId } }, body })),
   deleteRole: (areaId: string, roleId: string) =>
     run(api.DELETE('/areas/{areaId}/roles/{roleId}', { params: { path: { areaId, roleId } } })),
+  changeRole: (areaId: string, roleId: string, body: { permissions: string[] }) =>
+    run(api.PUT('/areas/{areaId}/roles/{roleId}/permissions', { params: { path: { areaId, roleId } }, body })),
   grantMembership: (body: NewMembership) => run(api.POST('/memberships', { body })),
   changeMembership: (membershipId: string, body: { roles: string[]; permissions: string[] }) =>
     run(api.PUT('/memberships/{membershipId}/permissions', { params: { path: { membershipId } }, body })),
@@ -121,6 +125,10 @@ export function useAdministrationChange<T>(change: (input: T) => Promise<void>) 
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: change,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: administration }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: areasKey }),
+        queryClient.invalidateQueries({ queryKey: administratorsKey }),
+      ]),
   })
 }

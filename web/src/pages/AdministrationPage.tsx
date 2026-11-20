@@ -15,7 +15,7 @@ import {
 } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router'
+import { useRevalidator, useSearchParams } from 'react-router'
 import {
   actions,
   findPerson,
@@ -31,6 +31,7 @@ import type { components } from '../api/schema'
 type Area = components['schemas']['Area']
 type AreaMembership = components['schemas']['AreaMembership']
 type Administrator = components['schemas']['Administrator']
+type Role = components['schemas']['Role']
 type RegisteredPerson = components['schemas']['RegisteredPerson']
 
 // focusOnMount moves the focus to what appears in place of what was clicked,
@@ -39,7 +40,9 @@ type RegisteredPerson = components['schemas']['RegisteredPerson']
 const focusOnMount = (node: HTMLElement | null) => node?.focus()
 
 // ConfirmButton asks again before a change that cannot be undone from the
-// screen, like ending a membership.
+// screen, like ending a membership. The question stays while the change runs,
+// so it cannot be confirmed twice, and after a refusal, next to the reason;
+// onConfirm gets done, to close it when the change goes through.
 function ConfirmButton({
   label,
   question,
@@ -53,7 +56,7 @@ function ConfirmButton({
   confirmLabel: string
   ariaLabel: string
   pending: boolean
-  onConfirm: () => void
+  onConfirm: (done: () => void) => void
 }) {
   const [asking, setAsking] = useState(false)
   if (!asking) {
@@ -66,18 +69,10 @@ function ConfirmButton({
   return (
     <Group gap="xs" justify="flex-end">
       <Text size="sm">{question}</Text>
-      <Button
-        variant="default"
-        size="xs"
-        loading={pending}
-        onClick={() => {
-          onConfirm()
-          setAsking(false)
-        }}
-      >
+      <Button variant="default" size="xs" loading={pending} onClick={() => onConfirm(() => setAsking(false))}>
         {confirmLabel}
       </Button>
-      <Button variant="subtle" size="xs" ref={focusOnMount} onClick={() => setAsking(false)}>
+      <Button variant="subtle" size="xs" ref={focusOnMount} disabled={pending} onClick={() => setAsking(false)}>
         Cancelar
       </Button>
     </Group>
@@ -85,7 +80,7 @@ function ConfirmButton({
 }
 
 // PersonSearch finds a registered person by the whole email, to grant them a
-// membership or the administration. SIGTA does not list who entered it.
+// membership or the administration. SIGTA does not list who logged in to it.
 function PersonSearch({
   person,
   onChange,
@@ -109,7 +104,7 @@ function PersonSearch({
     try {
       const found = await findPerson(email.trim())
       if (found === null) {
-        setFailure('No hay una persona registrada con ese correo. Tiene que entrar a SIGTA una vez con su cuenta.')
+        setFailure('No hay una persona registrada con ese correo. Tiene que ingresar a SIGTA una vez con su cuenta.')
       }
       onChange(found)
     } catch (error) {
@@ -139,7 +134,7 @@ function PersonSearch({
       <Group align="flex-end" gap="xs">
         <TextInput
           label="Correo de la persona"
-          description="El correo completo con el que entró a SIGTA."
+          description="El correo completo con el que ingresó a SIGTA."
           type="email"
           autoComplete="off"
           spellCheck={false}
@@ -176,6 +171,12 @@ const dateFormat = new Intl.DateTimeFormat('es-AR', {
 // A membership is valid until the end of the day picked, in Buenos Aires.
 function endOfDay(date: string) {
   return new Date(`${date}T23:59:59-03:00`).toISOString()
+}
+
+// today is the date in Buenos Aires as YYYY-MM-DD, the first day a membership
+// can end on.
+function today() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())
 }
 
 function names(ids: string[], options: { id: string; name: string }[]) {
@@ -317,7 +318,7 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
               question="¿Terminar la membresía ahora?"
               confirmLabel="Terminar membresía"
               pending={end.isPending}
-              onConfirm={() => end.mutate(undefined)}
+              onConfirm={(done) => end.mutate(undefined, { onSuccess: done })}
             />
           </Group>
         )}
@@ -374,6 +375,7 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
             label="Hasta"
             description="Opcional. Sin fecha, vale hasta que se la termine."
             type="date"
+            min={today()}
             value={until}
             onChange={(event) => setUntil(event.currentTarget.value)}
           />
@@ -416,14 +418,13 @@ function MembershipsSection({ area }: { area: Area }) {
         </Alert>
       )}
       {memberships.isSuccess && memberships.data.length === 0 && (
-        <Text c="dimmed">Nadie tiene una membresía vigente en esta área.</Text>
+        <Text c="dimmed">Nadie tiene una membresía en esta área.</Text>
       )}
       {memberships.data?.map((membership) => (
         <MembershipCard key={membership.id} area={area} membership={membership} />
       ))}
-      <Reveal label="Otorgar una membresía" onClose={() => {}}>
-        {(close) => <GrantMembership area={area} onDone={close} />}
-      </Reveal>
+      {/* GrantMembership holds its own change, so closing it forgets a refusal. */}
+      <Reveal label="Otorgar una membresía">{(close) => <GrantMembership area={area} onDone={close} />}</Reveal>
     </Stack>
   )
 }
@@ -439,7 +440,7 @@ function Reveal({
   children,
 }: {
   label: string
-  onClose: () => void
+  onClose?: () => void
   children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -447,7 +448,7 @@ function Reveal({
   const close = () => {
     setOpen(false)
     setClosed(true)
-    onClose()
+    onClose?.()
   }
   if (!open) {
     return (
@@ -583,7 +584,7 @@ function Permissions({ area }: { area: Area }) {
                 question="¿Dar de baja el permiso?"
                 confirmLabel="Dar de baja"
                 pending={remove.isPending}
-                onConfirm={() => remove.mutate(permission.id)}
+                onConfirm={(done) => remove.mutate(permission.id, { onSuccess: done })}
               />
             )
           }
@@ -616,37 +617,121 @@ function Permissions({ area }: { area: Area }) {
   )
 }
 
+// RoleRow shows a role with what it grants, and changes its permissions in
+// place, like MembershipCard.
+function RoleRow({
+  area,
+  role,
+  removing,
+  onRemove,
+}: {
+  area: Area
+  role: Role
+  removing: boolean
+  onRemove: (done: () => void) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  // A permission that was dropped from the area is not offered, so saving
+  // leaves it out.
+  const active = (ids: string[]) => ids.filter((id) => area.permissions.some((permission) => permission.id === id))
+  const [permissions, setPermissions] = useState(() => active(role.permissions))
+  const change = useAdministrationChange(() => actions.changeRole(area.id, role.id, { permissions }))
+  const cancel = () => {
+    setEditing(false)
+    setPermissions(active(role.permissions))
+    change.reset()
+  }
+  return (
+    <Stack gap="xs">
+      <EntryRow
+        name={role.name}
+        id={role.id}
+        action={
+          !editing && (
+            <Group gap="xs" justify="flex-end">
+              <Button
+                variant="subtle"
+                size="xs"
+                aria-label={`Cambiar los permisos del rol ${role.name}`}
+                onClick={() => {
+                  setPermissions(active(role.permissions))
+                  setEditing(true)
+                }}
+              >
+                Cambiar permisos
+              </Button>
+              <ConfirmButton
+                label="Dar de baja"
+                ariaLabel={`Dar de baja el rol ${role.name}`}
+                question="¿Dar de baja el rol?"
+                confirmLabel="Dar de baja"
+                pending={removing}
+                onConfirm={onRemove}
+              />
+            </Group>
+          )
+        }
+      >
+        {!editing && (
+          <Text size="sm" c="dimmed">
+            Permisos: {names(role.permissions, area.permissions)}
+          </Text>
+        )}
+      </EntryRow>
+      {editing && (
+        <Stack gap="xs">
+          <MultiSelect
+            label="Permisos del rol"
+            placeholder="Elegí uno o más…"
+            data={area.permissions.map((permission) => ({ value: permission.id, label: permission.name }))}
+            value={permissions}
+            onChange={setPermissions}
+            ref={focusOnMount}
+          />
+          <Text size="sm" c="dimmed">
+            Cambia al instante lo que puede hacer cada persona con este rol.
+          </Text>
+          {change.error && (
+            <Alert color="red" role="alert">
+              {change.error.message}
+            </Alert>
+          )}
+          <Group gap="xs">
+            <Button
+              variant="default"
+              loading={change.isPending}
+              onClick={() => change.mutate(undefined, { onSuccess: () => setEditing(false) })}
+            >
+              Guardar permisos
+            </Button>
+            <Button variant="subtle" disabled={change.isPending} onClick={cancel}>
+              Cancelar
+            </Button>
+          </Group>
+        </Stack>
+      )}
+    </Stack>
+  )
+}
+
 function Roles({ area }: { area: Area }) {
   const [permissions, setPermissions] = useState<string[]>([])
   const create = useAdministrationChange((role: { id: string; name: string }) =>
     actions.createRole(area.id, { ...role, permissions }),
   )
   const remove = useAdministrationChange((roleId: string) => actions.deleteRole(area.id, roleId))
-  const permissionName = (id: string) => area.permissions.find((permission) => permission.id === id)?.name ?? id
   return (
     <Stack gap="sm">
       <Title order={3}>Roles</Title>
       {area.roles.length === 0 && <Text c="dimmed">El área todavía no tiene roles.</Text>}
       {area.roles.map((role) => (
-        <EntryRow
+        <RoleRow
           key={role.id}
-          name={role.name}
-          id={role.id}
-          action={
-            <ConfirmButton
-              label="Dar de baja"
-              ariaLabel={`Dar de baja el rol ${role.name}`}
-              question="¿Dar de baja el rol?"
-              confirmLabel="Dar de baja"
-              pending={remove.isPending}
-              onConfirm={() => remove.mutate(role.id)}
-            />
-          }
-        >
-          <Text size="sm" c="dimmed">
-            Permisos: {role.permissions.map(permissionName).join(', ')}
-          </Text>
-        </EntryRow>
+          area={area}
+          role={role}
+          removing={remove.isPending}
+          onRemove={(done) => remove.mutate(role.id, { onSuccess: done })}
+        />
       ))}
       {remove.error && (
         <Alert color="red" role="alert">
@@ -711,7 +796,7 @@ function AreaPanel({ area }: { area: Area }) {
               question="¿Dar de baja el área?"
               confirmLabel="Dar de baja"
               pending={remove.isPending}
-              onConfirm={() => remove.mutate(undefined)}
+              onConfirm={(done) => remove.mutate(undefined, { onSuccess: done })}
             />
           </Group>
         )}
@@ -772,6 +857,9 @@ function Areas() {
 
 function AdministratorRow({ administrator, last }: { administrator: Administrator; last: boolean }) {
   const end = useAdministrationChange(() => actions.endAdministrator(administrator.id))
+  // Whoever removes themselves stops being an administrator: reading /me
+  // again, through the loaders, takes Administración off the menu.
+  const revalidator = useRevalidator()
   const person = administrator.person.name
   return (
     <Paper withBorder p="sm">
@@ -786,7 +874,7 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
               Desde el {dateFormat.format(new Date(administrator.from))}.{' '}
               {administrator.granted_by
                 ? `Otorgada por ${administrator.granted_by.name || 'una persona que ya no está registrada'}.`
-                : 'Otorgada por consola.'}
+                : 'Primera persona administradora, dada al instalar SIGTA.'}
             </Text>
           </Stack>
           {last ? (
@@ -798,7 +886,14 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
               question="¿Quitarle la administración?"
               confirmLabel="Quitar administración"
               pending={end.isPending}
-              onConfirm={() => end.mutate(undefined)}
+              onConfirm={(done) =>
+                end.mutate(undefined, {
+                  onSuccess: () => {
+                    done()
+                    void revalidator.revalidate()
+                  },
+                })
+              }
             />
           )}
         </Group>

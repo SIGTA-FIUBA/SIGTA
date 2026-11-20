@@ -26,11 +26,11 @@ export function AdministrationPreview() {
   const client = useMemo(() => {
     const data = fixtures[fixture]
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-    seeded.setQueryData(['administration', 'areas'], data.areas)
+    seeded.setQueryData(['areas'], data.areas)
     for (const [area, memberships] of Object.entries(data.memberships)) {
-      seeded.setQueryData(['administration', 'areas', area, 'memberships'], memberships)
+      seeded.setQueryData(['areas', area, 'memberships'], memberships)
     }
-    seeded.setQueryData(['administration', 'administrators'], data.administrators)
+    seeded.setQueryData(['administrators'], data.administrators)
     seeded.setQueryData(['procedure-types'], data.procedureTypes)
     return seeded
   }, [fixture])
