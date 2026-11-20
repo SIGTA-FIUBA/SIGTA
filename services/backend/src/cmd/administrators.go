@@ -10,22 +10,8 @@ import (
 
 	authpostgres "backend/src/auth/adapters/postgres"
 	"backend/src/auth/application"
-	authoutput "backend/src/auth/ports/output"
 	"backend/src/migrations"
 )
-
-// storedOrListedAdministrators answers for the administrators that the
-// stores keep and for the synthetic one of development, which is not stored.
-type storedOrListedAdministrators struct {
-	stored, listed authoutput.AdministratorRepository
-}
-
-func (a storedOrListedAdministrators) IsAdministrator(ctx context.Context, userID string) (bool, error) {
-	if listed, err := a.listed.IsAdministrator(ctx, userID); err != nil || listed {
-		return listed, err
-	}
-	return a.stored.IsAdministrator(ctx, userID)
-}
 
 // grantAdminCommand makes the person who signed in with the email of args the
 // first administrator of an environment, as the initial grant of the system.
