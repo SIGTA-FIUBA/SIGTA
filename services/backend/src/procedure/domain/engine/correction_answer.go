@@ -131,6 +131,33 @@ func declared[T any](all []T, id string, idOf func(T) string, fallback T) T {
 	return fallback
 }
 
+// AttachedSinceRequest counts the files attached for a document after the last
+// correction request that asks for it.
+func AttachedSinceRequest(history []domain.Event, document string) int {
+	n := 0
+	for _, e := range history {
+		switch {
+		case e.CorrectionRequest != nil && slices.Contains(e.CorrectionRequest.Documents, document):
+			n = 0
+		case e.Document != nil && e.Document.Requirement == document:
+			n++
+		}
+	}
+	return n
+}
+
+// CorrectionRequestsIn counts the correction requests a history records. It
+// only grows, so a different count means a request came in between.
+func CorrectionRequestsIn(history []domain.Event) int {
+	n := 0
+	for _, e := range history {
+		if e.CorrectionRequest != nil {
+			n++
+		}
+	}
+	return n
+}
+
 func appendNew(list []string, ids ...string) []string {
 	for _, id := range ids {
 		if !slices.Contains(list, id) {

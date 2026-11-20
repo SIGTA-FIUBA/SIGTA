@@ -27,11 +27,12 @@ type ProcedureRepository interface {
 	// them.
 	EnterValue(ctx context.Context, v domain.FieldValue, e domain.Event) error
 	// AnswerCorrection stores the procedure without its pending corrections,
-	// together with the event of the answer, as one change. It fails with
-	// engine.ErrCorrectionsChanged if the pending corrections are not the ones
-	// p was read with, so that a request made in between is not answered
-	// unseen.
-	AnswerCorrection(ctx context.Context, p domain.Procedure, answered int, e domain.Event) error
+	// together with the event of the answer, as one change. requested is how
+	// many correction requests the history had when the answer was made: it
+	// fails with engine.ErrCorrectionsChanged if the history has more by now,
+	// so that a request made in between is not answered unseen, and with
+	// engine.ErrNoCorrectionPending if another answer came first.
+	AnswerCorrection(ctx context.Context, p domain.Procedure, requested int, e domain.Event) error
 	// Record appends an event that does not move the procedure, and fails
 	// with domain.ErrProcedureNotFound if there is no such procedure.
 	Record(ctx context.Context, e domain.Event) error

@@ -126,14 +126,17 @@ func (s *ProcedureRepository) EnterValue(_ context.Context, v domain.FieldValue,
 	return nil
 }
 
-func (s *ProcedureRepository) AnswerCorrection(_ context.Context, p domain.Procedure, answered int, e domain.Event) error {
+func (s *ProcedureRepository) AnswerCorrection(_ context.Context, p domain.Procedure, requested int, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored, ok := s.procedures[p.ID]
 	if !ok {
 		return domain.ErrProcedureNotFound
 	}
-	if len(stored.CorrectionRequests) != answered || stored.OpenStep != p.OpenStep {
+	if !stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrNoCorrectionPending)
+	}
+	if engine.CorrectionRequestsIn(s.events[p.ID]) != requested || stored.OpenStep != p.OpenStep {
 		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrCorrectionsChanged)
 	}
 	s.procedures[p.ID] = cloneProcedure(p)

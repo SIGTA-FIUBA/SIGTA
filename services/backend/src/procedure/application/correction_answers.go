@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -13,10 +12,6 @@ import (
 )
 
 const actionAnswer = "answer a correction of"
-
-// ErrInvalidValue is a value that is not valid for its field, by the same
-// rules as when the procedure is submitted.
-var ErrInvalidValue = errors.New("the value is not valid for its field")
 
 // EnterValue records a value the applicant enters in answer to a pending
 // correction, on the step of theirs that asks for the field. Only the
@@ -39,7 +34,7 @@ func (s *ProcedureService) EnterValue(ctx context.Context, userID, procedureID, 
 	}
 	clean, ok := submission.CheckValue(content.Definition.Fields[i], v)
 	if !ok {
-		return domain.FieldValue{}, fmt.Errorf("procedure %s field %q: %w", p.ID, fieldID, ErrInvalidValue)
+		return domain.FieldValue{}, fmt.Errorf("procedure %s field %q: %w", p.ID, fieldID, submission.ErrInvalidValue)
 	}
 	at := s.now()
 	value := domain.FieldValue{Procedure: p.ID, Field: fieldID, Step: step.ID, Text: clean.Text, Items: clean.Items, EnteredBy: userID, EnteredAt: at}
@@ -68,7 +63,7 @@ func (s *ProcedureService) AnswerCorrection(ctx context.Context, userID, procedu
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("procedure %s: %w", p.ID, err)
 	}
-	if err := s.procedures.AnswerCorrection(ctx, answered, len(p.CorrectionRequests), event); err != nil {
+	if err := s.procedures.AnswerCorrection(ctx, answered, engine.CorrectionRequestsIn(history), event); err != nil {
 		return domain.Event{}, fmt.Errorf("answer the corrections of procedure %s: %w", p.ID, err)
 	}
 	return event, nil
