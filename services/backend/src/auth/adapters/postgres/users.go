@@ -33,15 +33,15 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (domain.U
 	return r.one(ctx, "user "+email, "SELECT id, email, name FROM users WHERE email = $1", email)
 }
 
-// Search folds name and email as domain.FoldForSearch does: translate first,
-// since lower leaves accented capitals alone in a database without a locale.
-// The order follows the folded name, so "Álvaro" goes with the A. The text
-// is matched literally, with the wildcards of LIKE escaped.
+// Search folds name and email as domain.FoldForSearch does, with translate
+// and not lower, whose result depends on the locale of the database. The
+// order follows the folded name, so "Álvaro" goes with the A. The text is
+// matched literally, with the wildcards of LIKE escaped.
 func (r *UserRepository) Search(ctx context.Context, text string, limit int) ([]domain.User, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, email, name FROM users
-		WHERE lower(translate(name, $1, $2)) LIKE $3 ESCAPE '\' OR lower(translate(email, $1, $2)) LIKE $3 ESCAPE '\'
-		ORDER BY lower(translate(name, $1, $2)) COLLATE "C", email COLLATE "C" LIMIT $4`,
-		domain.SearchAccents, domain.SearchPlain, "%"+likeEscaper.Replace(text)+"%", limit)
+		WHERE translate(name, $1, $2) LIKE $3 ESCAPE '\' OR translate(email, $1, $2) LIKE $3 ESCAPE '\'
+		ORDER BY translate(name, $1, $2) COLLATE "C", email COLLATE "C" LIMIT $4`,
+		domain.SearchFrom, domain.SearchTo, "%"+likeEscaper.Replace(text)+"%", limit)
 	if err != nil {
 		return nil, fmt.Errorf("search users with %q: %w", text, err)
 	}

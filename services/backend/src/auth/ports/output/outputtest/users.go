@@ -86,7 +86,10 @@ func search(t *testing.T, r output.UserRepository) {
 	alvaro := domain.User{ID: "U-2", Email: "alvaro@fi.uba.ar", Name: "ÁLVARO GÓMEZ"}
 	luz := domain.User{ID: "U-3", Email: "luz_rey@fi.uba.ar", Name: "Luz Rey"}
 	lucia := domain.User{ID: "U-4", Email: "luzarey@fi.uba.ar", Name: "Lucía Rey"}
-	for _, u := range []domain.User{luz, ana, lucia, alvaro} {
+	joao := domain.User{ID: "U-5", Email: "joao@example.org", Name: "João Conceição"}
+	ozge := domain.User{ID: "U-6", Email: "ozge@example.org", Name: "ÖZGE ÇELIK"}
+	slash := domain.User{ID: "U-7", Email: "slash@example.org", Name: `Back\Slash`}
+	for _, u := range []domain.User{luz, ana, lucia, alvaro, joao, ozge, slash} {
 		if _, err := r.Register(ctx, u); err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +103,11 @@ func search(t *testing.T, r output.UserRepository) {
 		{"alvaro gomez", 10, []domain.User{alvaro}},
 		{"fi.uba", 10, []domain.User{alvaro, ana, lucia, luz}},
 		{"fi.uba", 2, []domain.User{alvaro, ana}},
+		{"conceicao", 10, []domain.User{joao}},
+		{"ozge cel", 10, []domain.User{ozge}},
+		{"example", 10, []domain.User{slash, joao, ozge}},
 		{"luz_", 10, []domain.User{luz}},
+		{`k\s`, 10, []domain.User{slash}},
 		{"%", 10, nil},
 		{"nadie", 10, nil},
 	} {

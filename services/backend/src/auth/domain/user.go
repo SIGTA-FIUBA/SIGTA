@@ -19,26 +19,34 @@ func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-// SearchAccents are the accented letters that a search of people takes as
-// the letter in the same place of SearchPlain, so that "perez" finds "Pérez".
+// SearchFrom are the letters that a search of people takes as the letter in
+// the same place of SearchTo: capitals and accented Latin letters, so that
+// "perez" finds "PÉREZ" and "joao" finds "João". Any other letter is compared
+// as it is. The fold is a mapping of single characters, which a database
+// applies with translate whatever its locale, so both adapters agree.
 const (
-	SearchAccents = "áéíóúüñÁÉÍÓÚÜÑàèìòùÀÈÌÒÙ"
-	SearchPlain   = "aeiouunAEIOUUNaeiouAEIOU"
+	SearchFrom = "áàâäãåéèêëíìîïóòôöõúùûüñçýÿ" + "ÁÀÂÄÃÅÉÈÊËÍÌÎÏÓÒÔÖÕÚÙÛÜÑÇÝŸ" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	SearchTo   = "aaaaaaeeeeiiiiooooouuuuncyy" + "aaaaaaeeeeiiiiooooouuuuncyy" + "abcdefghijklmnopqrstuvwxyz"
 )
 
-var searchFolding = func() *strings.Replacer {
-	accents, plain := []rune(SearchAccents), []rune(SearchPlain)
-	pairs := make([]string, 0, 2*len(accents))
-	for i := range accents {
-		pairs = append(pairs, string(accents[i]), string(plain[i]))
+var searchFolding = func() map[rune]rune {
+	from, to := []rune(SearchFrom), []rune(SearchTo)
+	folding := make(map[rune]rune, len(from))
+	for i := range from {
+		folding[from[i]] = to[i]
 	}
-	return strings.NewReplacer(pairs...)
+	return folding
 }()
 
-// FoldForSearch is text as a search of people compares it: without the
-// accents of SearchAccents and in lowercase.
+// FoldForSearch is text as a search of people compares it: each letter of
+// SearchFrom replaced by its letter in SearchTo.
 func FoldForSearch(text string) string {
-	return strings.ToLower(searchFolding.Replace(text))
+	return strings.Map(func(r rune) rune {
+		if folded, ok := searchFolding[r]; ok {
+			return folded
+		}
+		return r
+	}, text)
 }
 
 // InDomain tells whether a normalized email belongs to the given domain, such
