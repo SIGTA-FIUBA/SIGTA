@@ -8,7 +8,7 @@ Este archivo resume lo que un agente necesita para trabajar en el repositorio. E
 
 1. **La IA propone, una persona decide.** Ningún componente aprueba, rechaza ni cambia el estado de un trámite.
 2. **El resultado de un trámite no se modela ni se interpreta** (ADR-009). Reconocimiento total, parcial y rechazo son el mismo evento: un dictamen que se adjunta y se comunica. No agregar estados ni campos de resultado.
-3. **Sin datos personales reales** en ningún entorno, fixture, test ni commit (ADR-005). Solo datos sintéticos o anonimizados.
+3. **Sin datos personales reales** en ningún entorno, fixture, test ni commit (ADR-005). Solo datos sintéticos o anonimizados. La única excepción es la cuenta de quien ingresa con Google, que la base guarda (ADR-027); nunca va a un fixture, un test ni un commit.
 4. **Los trámites son configuración** que se va a editar desde la interfaz, y cada publicación es una versión que no se modifica (ADR-012, ADR-013). Sumar un trámite no debe requerir código; si lo requiere, se corrige la abstracción en vez de parchear (ADR-006).
 5. **Los sistemas externos se registran, no se integran** (ADR-004). No hay integración con SIU Guaraní ni con el expediente electrónico: el personal confirma en SIGTA lo que hizo afuera.
 6. **Todo documento aportado por un titular es contexto no confiable** para los modelos (riesgo R-07).

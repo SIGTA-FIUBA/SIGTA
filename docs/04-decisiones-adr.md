@@ -96,6 +96,7 @@ Todo paso que ocurre fuera de la plataforma se modela como un paso de tipo *conf
 ## ADR-005: Sin datos personales reales en ningún entorno
 
 **Estado:** aceptada
+**Modificada por:** ADR-027: la base guarda el correo y el nombre de las cuentas reales que ingresan con Google, en todos los entornos. Los trámites, sus documentos y los datos de las pruebas siguen siendo sintéticos.
 
 **Contexto.**
 El proyecto trabaja sobre trámites que en producción involucran datos personales. La disponibilidad de datos reales depende además de tiempos burocráticos que el proyecto no controla.
@@ -642,7 +643,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 ## ADR-027: Las personas y las membresías viven solo en la base, sin archivo de usuarios ni datos de ejemplo
 
 **Estado:** propuesta, a acordar con el equipo
-**Modifica:** ADR-020, en la carga de las membresías iniciales; ADR-010, en la identidad del entorno local; ADR-013, en quién tiene los permisos de publicación
+**Modifica:** ADR-020, en la carga de las membresías iniciales; ADR-010, en la identidad del entorno local; ADR-013, en quién tiene los permisos de publicación; ADR-005, en las cuentas que guarda la base
 
 **Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que se hubieran dado de baja, y daba de baja las que dejaba de listar. Cuando un administrador pueda dar de baja una membresía desde SIGTA, con su registro de quién y cuándo, esa decisión podría deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corrían con `SIGTA_ENV=development`, que en cada arranque cargaba usuarios sintéticos con sus membresías, dos áreas de prueba, tres tipos de trámite de ejemplo y trámites inventados para la bandeja, y en local ofrecía un adaptador de identidad que dejaba entrar como cualquier correo. Esos usuarios eran otra lista fija de personas y membresías, escrita en el código, con el mismo problema que el archivo.
 
@@ -666,5 +667,5 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Las bases de los entornos desplegados conservan los tipos de trámite de ejemplo ya publicados, porque las versiones no se borran, y sus pasos nombran áreas de prueba que ya no se crean. Se limpian recreando la base de cada entorno.
 - Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien solo se puede haciendo en la base.
 - Ya no hay un archivo con datos personales entre los secretos del despliegue.
-- Las únicas personas que guarda la base son las cuentas reales que ingresan con Google (su correo, su nombre y sus sesiones), como ya pasaba en los entornos desplegados. Los trámites y los documentos siguen siendo sintéticos, cargados por quien prueba. ADR-005 pide datos sintéticos en todos los entornos, así que guardar esas cuentas queda a acordar con el equipo.
+- Las únicas personas que guarda la base son las cuentas reales que ingresan con Google (su correo, su nombre y sus sesiones), como ya pasaba en los entornos desplegados. Los trámites y los documentos siguen siendo sintéticos, cargados por quien prueba. Es una excepción a ADR-005, que pedía datos sintéticos en todos los entornos: las cuentas se guardan porque ingresar con Google es la única forma de entrar.
 - El despliegue en Google Cloud pasa a `SIGTA_ENV=production`, que exige la base y la carpeta de documentos que ya tenía.
