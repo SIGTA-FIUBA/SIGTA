@@ -164,6 +164,10 @@ En la web, a quien es titular la página del trámite le dice además qué se es
 
 En la web, son las primeras secciones del inicio (`pages/HomePage.tsx`), adonde se llega al ingresar: "Mis trámites en curso" y, si hay alguno, "Mis trámites cerrados", con la fecha de cierre. Cada trámite lleva a su detalle.
 
+### Administración
+
+En la web, la administración está en `/administration` (`pages/AdministrationPage.tsx`), y el menú lateral la muestra solo a quien `/me` dice administrador; el servidor igual valida cada pedido, y si no lo es, la página se lo dice. Tiene dos pestañas, con la elegida en `?tab=`: las áreas, cada una con sus permisos, roles y membresías vigentes o futuras, y las personas administradoras. Cada alta está detrás de su botón, y cada baja pide confirmación y muestra el motivo si la API la rechaza. A una persona se la busca por el correo completo (`GET /people`), así que tiene que haber ingresado a SIGTA alguna vez. El "Hasta" de una membresía es el final de ese día en Buenos Aires. Al último administrador no se le ofrece quitarle la administración. En `npm run dev`, `/dev/administration?data=demo|worst|empty` muestra la página con datos de prueba extremos (`web/src/dev/`).
+
 ## Base de datos
 
 Las tablas del servicio de trámites se crean con las migraciones de `services/backend/src/migrations/`, un archivo `.sql` numerado por migración que va dentro del binario (ADR-022). Las tablas son del rol `backend_migrations`; el rol de la aplicación, `backend`, solo tiene los permisos que le otorga cada migración.

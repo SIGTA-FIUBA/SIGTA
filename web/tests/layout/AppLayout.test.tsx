@@ -10,7 +10,15 @@ const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', staff:
 
 // stubApi plays the API: /me answers while the session is open, with no
 // procedures of its own, and a successful /auth/logout closes it.
-function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStatus?: number }) {
+function stubApi({
+  session,
+  logoutStatus = 204,
+  account = user,
+}: {
+  session: boolean
+  logoutStatus?: number
+  account?: typeof user
+}) {
   let open = session
   const fetch = vi.fn(async (request: Request) => {
     if (request.url.endsWith('/auth/logout')) {
@@ -22,7 +30,7 @@ function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStat
     if (!open) {
       return Response.json({ message: 'Sin sesión' }, { status: 401 })
     }
-    return Response.json(request.url.endsWith('/me/procedures') ? [] : user)
+    return Response.json(request.url.endsWith('/me/procedures') ? [] : account)
   })
   vi.stubGlobal('fetch', fetch)
   return fetch
@@ -56,6 +64,15 @@ describe('AppLayout', () => {
     // The applicant has no inbox, and the menu says who has the session.
     expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
     expect(within(menu).getByText('Titular')).toBeVisible()
+    expect(within(menu).queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument()
+  })
+
+  it('takes an administrator to the administration', async () => {
+    stubApi({ session: true, account: { ...user, administrator: true } })
+    renderAt('/')
+
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
+    expect(within(menu).getByRole('link', { name: 'Administración' })).toHaveAttribute('href', '/administration')
   })
 
   it('keeps the menu on the catalog for whoever has a session, to go back', async () => {
