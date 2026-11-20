@@ -9,6 +9,7 @@ const document = (id: string) => ({
   required: true,
   accepted_types: ['application/pdf'],
   max_size: 20 * megabyte,
+  resolution: false,
 })
 
 const file = (size: number) => new File([new Uint8Array(size)], 'archivo.pdf', { type: 'application/pdf' })

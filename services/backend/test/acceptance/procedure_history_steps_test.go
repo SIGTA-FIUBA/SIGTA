@@ -134,24 +134,28 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 	}
 	for i, row := range rows {
 		e := w.history[i]
-		var document, file string
+		var document, file, fileNumber string
 		if e.Document != nil {
 			document, file = e.Document.Requirement, e.Document.FileName
+		}
+		if e.Referral != nil {
+			fileNumber = e.Referral.ExternalFileNumber
 		}
 		var sendBack string
 		if e.SendBack {
 			sendBack = "yes"
 		}
 		got := map[string]string{
-			"step":        e.Step,
-			"done by":     e.By,
-			"on":          e.At.Format(time.DateOnly),
-			"observation": e.Observation,
-			"outcome":     e.Outcome,
-			"send back":   sendBack,
-			"action":      string(e.Action),
-			"document":    document,
-			"file":        file,
+			"step":                 e.Step,
+			"done by":              e.By,
+			"on":                   e.At.Format(time.DateOnly),
+			"observation":          e.Observation,
+			"outcome":              e.Outcome,
+			"send back":            sendBack,
+			"action":               string(e.Action),
+			"document":             document,
+			"file":                 file,
+			"external file number": fileNumber,
 		}
 		for column, want := range row {
 			if column == "outcome" || column == "document" {

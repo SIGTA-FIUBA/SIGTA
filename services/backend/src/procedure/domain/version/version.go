@@ -48,6 +48,7 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 	if err := json.Unmarshal(v.EncodedContent, &head); err != nil {
 		return Content{}, fmt.Errorf("decode content: %w", err)
 	}
+	var c Content
 	switch {
 	case head.Format < 1 || head.Format > ContentFormat:
 		return Content{}, fmt.Errorf("%w %d, want 1 to %d", ErrUnknownFormat, head.Format, ContentFormat)
@@ -56,17 +57,22 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 		if err := decodeStrict(v.EncodedContent, &legacy); err != nil {
 			return Content{}, err
 		}
-		return legacy.convert(), nil
-	}
-	var c Content
-	if err := decodeStrict(v.EncodedContent, &c); err != nil {
-		return Content{}, err
-	}
-	if c.Format < sendBackFormat && hasSendBack(c.Definition) {
-		return Content{}, fmt.Errorf("decode content: format %d has no send backs", c.Format)
-	}
-	if c.Format < ContentFormat {
+		c = legacy.convert()
+	default:
+		if err := decodeStrict(v.EncodedContent, &c); err != nil {
+			return Content{}, err
+		}
+		// Read as the current format, so that publishing the same
+		// definition again does not add a version that changes nothing.
 		c.Format = ContentFormat
+	}
+	// Compared with the format that added each key, not with the current one,
+	// so that a later format does not reject what a version could say.
+	if head.Format < sendBackFormat && hasSendBack(c.Definition) {
+		return Content{}, fmt.Errorf("decode content: format %d has no send backs, format %d added them", head.Format, sendBackFormat)
+	}
+	if head.Format < resolutionFormat && slices.ContainsFunc(c.Definition.Documents, func(d definition.Document) bool { return d.Resolution }) {
+		return Content{}, fmt.Errorf("decode content: format %d has no resolution, format %d added it", head.Format, resolutionFormat)
 	}
 	return c, nil
 }

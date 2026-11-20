@@ -241,7 +241,7 @@ func TestListSendsWhichDocumentsAreCurrent(t *testing.T) {
 	if len(got) != 2 || got[0].Current || !got[1].Current {
 		t.Errorf("body = %s; want D-2 as the current one", recorder.Body)
 	}
-	if got[0].UploadedBy != (api.Person{Id: "ana", Name: "Ana Prueba"}) || got[1].UploadedBy != (api.Person{Id: "gone"}) {
+	if *got[0].UploadedBy != (api.Person{Id: "ana", Name: "Ana Prueba"}) || *got[1].UploadedBy != (api.Person{Id: "gone"}) {
 		t.Errorf("uploaded by %+v and %+v; want the name only of who is registered", got[0].UploadedBy, got[1].UploadedBy)
 	}
 }

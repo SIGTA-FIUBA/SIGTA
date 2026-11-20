@@ -18,6 +18,7 @@ const detail: Detail = {
   applicant: { id: 'a-1', name: 'Titular Uno' },
   open_step: 'review',
   can_act: true,
+  as_applicant: false,
   steps: [
     {
       id: 'documents',
@@ -26,8 +27,22 @@ const detail: Detail = {
       role: 'applicant',
       fields: [],
       documents: [
-        { id: 'statement', name: 'Constancia', required: true, accepted_types: ['application/pdf'], max_size: 1024 },
-        { id: 'annex', name: 'Anexo', required: false, accepted_types: ['application/pdf'], max_size: 1024 },
+        {
+          id: 'statement',
+          name: 'Constancia',
+          required: true,
+          accepted_types: ['application/pdf'],
+          max_size: 1024,
+          resolution: false,
+        },
+        {
+          id: 'annex',
+          name: 'Anexo',
+          required: false,
+          accepted_types: ['application/pdf'],
+          max_size: 1024,
+          resolution: false,
+        },
       ],
       outcomes: [],
       next: 'review',
@@ -219,6 +234,117 @@ describe('ProcedurePage', () => {
 
     expect(await screen.findByText('Cerrado')).toBeDefined()
     expect(screen.getByText('Sin paso abierto')).toBeDefined()
+  })
+
+  it('tells the applicant what the procedure waits for now', async () => {
+    stubApi(200, { ...detail, as_applicant: true, can_act: false })
+    renderPage()
+
+    expect(await screen.findByText('Qué se espera ahora')).toBeDefined()
+    expect(screen.getByText('Revisar la solicitud, a cargo de Dirección de Alumnos.')).toBeDefined()
+  })
+
+  it('tells the applicant when the procedure waits for them', async () => {
+    stubApi(200, { ...detail, as_applicant: true, open_step: 'documents', state: 'with_applicant' })
+    renderPage()
+
+    expect(await screen.findByText('Adjuntar documentos, a cargo del titular.')).toBeDefined()
+  })
+
+  it('tells the applicant when the procedure is out for evaluation', async () => {
+    stubApi(200, {
+      ...detail,
+      as_applicant: true,
+      can_act: false,
+      state: 'referred',
+      referral: {
+        area: { id: 'committee', name: 'Comisión Curricular' },
+        from: { id: 'office', name: 'Dirección de Alumnos' },
+        days_without_return: 4,
+      },
+    })
+    renderPage()
+
+    expect(
+      await screen.findByText(
+        'Revisar la solicitud, en evaluación de Comisión Curricular, fuera de Dirección de Alumnos.',
+      ),
+    ).toBeDefined()
+  })
+
+  it('does not tell staff what the procedure waits for, since they see the open step', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    await screen.findByText('Revisar la solicitud · Dirección de Alumnos')
+    expect(screen.queryByText('Qué se espera ahora')).toBeNull()
+  })
+
+  it('offers the resolution once the procedure closes', async () => {
+    const resolve = {
+      ...detail.steps[1]!,
+      id: 'resolve',
+      name: 'Resolución',
+      action: 'upload_document' as const,
+      outcomes: [],
+      documents: [
+        {
+          id: 'resolution',
+          name: 'Resolución de Decano',
+          required: true,
+          accepted_types: ['application/pdf'],
+          max_size: 1024,
+          resolution: true,
+        },
+      ],
+      files: [
+        {
+          id: 'D-9',
+          document: 'resolution',
+          step: 'resolve',
+          file_name: 'resolucion.pdf',
+          media_type: 'application/pdf',
+          size: 2048,
+          uploaded_by: { id: 's-1', name: 'Operativa' },
+          uploaded_at: '2026-11-20T12:00:00Z',
+          current: true,
+        },
+      ],
+    }
+    stubApi(200, {
+      ...detail,
+      as_applicant: true,
+      state: 'closed',
+      open_step: undefined,
+      can_act: false,
+      steps: [...detail.steps, resolve],
+    })
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Resolución' })
+    const section = heading.parentElement!
+    expect(within(section).getByText('Resolución de Decano')).toBeDefined()
+    expect(within(section).getByText('resolucion.pdf')).toBeDefined()
+    expect(within(section).queryByText('constancia.pdf')).toBeNull()
+    expect(screen.getByText('Nada: el trámite está cerrado.')).toBeDefined()
+  })
+
+  it('says when a closed procedure has no resolution attached', async () => {
+    stubApi(200, { ...detail, as_applicant: true, state: 'closed', open_step: undefined, can_act: false })
+    renderPage()
+
+    expect(await screen.findByText('El trámite se cerró sin un documento resolutivo adjunto.')).toBeDefined()
+  })
+
+  it('names the area instead of the person when the applicant cannot see who did a step', async () => {
+    stubApi(200, {
+      ...detail,
+      as_applicant: true,
+      history: [{ step: 'review', at: '2026-11-16T12:00:00Z', observation: '', declared: false, returned: false }],
+    })
+    renderPage()
+
+    expect(await screen.findByText(/^Dirección de Alumnos · /)).toBeDefined()
   })
 
   it('shows the history in the order it was recorded, with who, when and what', async () => {
@@ -471,6 +597,7 @@ describe('ProcedurePage attachment', () => {
     required: true,
     accepted_types: ['application/pdf'],
     max_size: 1024,
+    resolution: false,
   }
   const asksForRecord: Detail = {
     ...detail,

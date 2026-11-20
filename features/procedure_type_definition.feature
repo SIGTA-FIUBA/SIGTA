@@ -57,6 +57,7 @@ Feature: Define and publish a procedure type
       | a step unreachable from the first one                    |
       | a step that never reaches a closing step                 |
       | a send back that goes forward                            |
+      | a resolution that a step of the applicant asks for       |
       | a field no step uses                                     |
       | a staff step without permissions                         |
       | a step that asks for a permission its area does not have |

@@ -27,6 +27,7 @@ func TestScenarios(t *testing.T) {
 			confirmations := registerConfirmationSteps(sc, authorization)
 			registerHistorySteps(sc, confirmations)
 			registerMyProceduresSteps(sc, confirmations)
+			registerMyProcedureDetailSteps(sc, confirmations)
 			registerDetailSteps(sc, registerDocumentSteps(sc))
 			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)

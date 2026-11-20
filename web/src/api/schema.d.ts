@@ -82,8 +82,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Trámites en curso de la persona con sesión abierta
-         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, que todavía no se cerraron. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         * Trámites de la persona con sesión abierta
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
          */
         get: operations["listMyProcedures"];
         put?: never;
@@ -371,7 +371,7 @@ export interface paths {
         };
         /**
          * Detalle de un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Para quien no lo ve, el trámite no existe.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Al titular no le muestra lo que el personal escribe en cada área: ni quién hizo cada paso del personal (ve el área), ni las observaciones, ni el número de expediente externo, ni los datos y documentos de los pasos del personal, salvo la resolución cuando el trámite se cierra (as_applicant). Para quien no lo ve, el trámite no existe.
          */
         get: operations["getProcedure"];
         put?: never;
@@ -413,7 +413,7 @@ export interface paths {
         };
         /**
          * Documentos adjuntos a un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó. Al titular le muestra solo los que ve en el detalle: los de sus pasos y la resolución cuando el trámite se cierra.
          */
         get: operations["listProcedureDocuments"];
         put?: never;
@@ -440,7 +440,7 @@ export interface paths {
         };
         /**
          * Descarga el archivo de un documento adjunto
-         * @description Para quien puede ver el trámite. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
+         * @description Para quien puede ver el trámite. Al titular, un documento que no ve en el detalle le responde como uno que no existe. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
          */
         get: operations["downloadProcedureDocument"];
         put?: never;
@@ -514,6 +514,8 @@ export interface components {
              * @description Tamaño máximo en bytes
              */
             max_size: number;
+            /** @description Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009). */
+            resolution: boolean;
         };
         CatalogEntry: {
             /** Format: int64 */
@@ -574,7 +576,7 @@ export interface components {
             procedure_type: number;
             procedure_type_name: string;
             applicant: components["schemas"]["Person"];
-            /** @description Paso abierto, el que se espera ahora */
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name: string;
             /** @description Área del paso abierto; ausente si lo hace el titular */
             area?: components["schemas"]["NamedOption"];
@@ -585,7 +587,7 @@ export interface components {
             started_at: string;
             /**
              * Format: date-time
-             * @description Cuándo el trámite llegó al paso abierto
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
             /** @description Días desde que empezó el trámite */
@@ -625,6 +627,8 @@ export interface components {
             accepted_types?: string[];
             /** Format: int64 */
             max_size?: number;
+            /** @description Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009). */
+            resolution?: boolean;
         };
         DefinitionStep: {
             id: string;
@@ -811,7 +815,8 @@ export interface components {
         ProcedureEvent: {
             /** @description Paso hecho, o el paso abierto en el que se adjuntó el documento */
             step: string;
-            by: components["schemas"]["Person"];
+            /** @description Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             observation: string;
@@ -849,14 +854,14 @@ export interface components {
             /** Format: int64 */
             procedure_type: number;
             procedure_type_name: string;
-            /** @description Paso abierto, el que se espera ahora */
-            step_name: string;
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
+            step_name?: string;
             state: components["schemas"]["ProcedureState"];
             /** Format: date-time */
             started_at: string;
             /**
              * Format: date-time
-             * @description Cuándo el trámite llegó al paso abierto
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
         };
@@ -877,6 +882,8 @@ export interface components {
             open_step?: string;
             /** @description Si quien mira puede hacer el paso abierto */
             can_act: boolean;
+            /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
+            as_applicant: boolean;
             referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
@@ -942,7 +949,8 @@ export interface components {
              * @description Tamaño en bytes
              */
             size: number;
-            uploaded_by: components["schemas"]["Person"];
+            /** @description Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución. */
+            uploaded_by?: components["schemas"]["Person"];
             /** Format: date-time */
             uploaded_at: string;
             /** @description Si es el último que se adjuntó para ese documento; los anteriores quedan registrados */
@@ -1127,7 +1135,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Trámites en curso, vacío si no hay ninguno */
+            /** @description Trámites de la persona, vacío si no hay ninguno */
             200: {
                 headers: {
                     [name: string]: unknown;

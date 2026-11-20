@@ -110,16 +110,17 @@ paths:
   /me/procedures:
     get:
       operationId: listMyProcedures
-      summary: Trámites en curso de la persona con sesión abierta
+      summary: Trámites de la persona con sesión abierta
       description: >
         Los trámites que inició quien tiene la sesión, sea o no del personal,
-        que todavía no se cerraron. Primero los que se movieron más
+        en curso y cerrados: un trámite cerrado se lista para que su titular
+        llegue a la resolución. Primero los que se movieron más
         recientemente. Cada uno se abre con su detalle.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
         "200":
-          description: Trámites en curso, vacío si no hay ninguno
+          description: Trámites de la persona, vacío si no hay ninguno
           content:
             application/json:
               schema:
@@ -698,7 +699,12 @@ paths:
         por las que pasa. Muestra su estado, su titular, el paso abierto y los
         pasos de la versión con la que se inició, con quién hace cada uno, los
         datos y documentos que pide y sus salidas, y el historial de los pasos
-        hechos. Para quien no lo ve, el trámite no existe.
+        hechos. Al titular no le muestra lo que el personal escribe en cada
+        área: ni quién hizo cada paso del personal (ve el área), ni las
+        observaciones, ni el número de expediente externo, ni los datos y
+        documentos de los pasos del personal, salvo la resolución cuando el
+        trámite se cierra (as_applicant). Para quien no lo ve, el
+        trámite no existe.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/ProcedureId"
@@ -762,7 +768,9 @@ paths:
       description: >
         Para quien puede ver el trámite: su titular y el personal de las áreas
         por las que pasa. Están en el orden en que se adjuntaron, incluidos los
-        que otro documento reemplazó.
+        que otro documento reemplazó. Al titular le muestra solo los que ve en
+        el detalle: los de sus pasos y la resolución cuando el trámite se
+        cierra.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -835,9 +843,10 @@ paths:
       operationId: downloadProcedureDocument
       summary: Descarga el archivo de un documento adjunto
       description: >
-        Para quien puede ver el trámite. Las cabeceras piden al navegador que
-        guarde el archivo en vez de mostrarlo, y que no lo interprete si igual
-        lo abre.
+        Para quien puede ver el trámite. Al titular, un documento que no ve
+        en el detalle le responde como uno que no existe. Las cabeceras piden
+        al navegador que guarde el archivo en vez de mostrarlo, y que no lo
+        interprete si igual lo abre.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -1030,7 +1039,7 @@ components:
       enum: [text, long_text, number, date, option, degree, subject_list]
     DocumentRequirement:
       type: object
-      required: [id, name, required, accepted_types, max_size]
+      required: [id, name, required, accepted_types, max_size, resolution]
       properties:
         id:
           type: string
@@ -1047,6 +1056,12 @@ components:
           type: integer
           format: int64
           description: Tamaño máximo en bytes
+        resolution:
+          type: boolean
+          description: >
+            Si es el documento que resuelve el trámite, que su titular descarga
+            cuando se cierra. No dice cuál fue el resultado, que no se modela
+            (ADR-009).
     CatalogEntry:
       type: object
       required:
@@ -1177,7 +1192,7 @@ components:
           $ref: "#/components/schemas/Person"
         step_name:
           type: string
-          description: Paso abierto, el que se espera ahora
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         area:
           description: Área del paso abierto; ausente si lo hace el titular
           allOf:
@@ -1193,7 +1208,7 @@ components:
         last_moved_at:
           type: string
           format: date-time
-          description: Cuándo el trámite llegó al paso abierto
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
         age_days:
           type: integer
           description: Días desde que empezó el trámite
@@ -1284,6 +1299,12 @@ components:
         max_size:
           type: integer
           format: int64
+        resolution:
+          type: boolean
+          description: >
+            Si es la resolución del trámite: el documento que su titular
+            descarga cuando el trámite se cierra. Es una marca y no un
+            resultado (ADR-009).
     DefinitionStep:
       type: object
       required: [id, name, action]
@@ -1651,13 +1672,17 @@ components:
           description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
     ProcedureEvent:
       type: object
-      required: [step, by, at, observation, declared, send_back, returned]
+      required: [step, at, observation, declared, send_back, returned]
       properties:
         step:
           type: string
           description: Paso hecho, o el paso abierto en el que se adjuntó el documento
         by:
-          $ref: "#/components/schemas/Person"
+          description: >
+            Quién lo hizo. Ausente para el titular en los pasos del personal:
+            ve el área del paso, no la persona.
+          allOf:
+            - $ref: "#/components/schemas/Person"
         at:
           type: string
           format: date-time
@@ -1716,7 +1741,7 @@ components:
           type: string
     MyProcedure:
       type: object
-      required: [id, procedure_type, procedure_type_name, step_name, state, started_at, last_moved_at]
+      required: [id, procedure_type, procedure_type_name, state, started_at, last_moved_at]
       properties:
         id:
           type: string
@@ -1727,7 +1752,7 @@ components:
           type: string
         step_name:
           type: string
-          description: Paso abierto, el que se espera ahora
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         state:
           $ref: "#/components/schemas/ProcedureState"
         started_at:
@@ -1736,10 +1761,11 @@ components:
         last_moved_at:
           type: string
           format: date-time
-          description: Cuándo el trámite llegó al paso abierto
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
     ProcedureDetail:
       type: object
-      required: [id, procedure_type, version, name, state, applicant, can_act, steps, history]
+      required:
+        [id, procedure_type, version, name, state, applicant, can_act, as_applicant, steps, history]
       properties:
         id:
           type: string
@@ -1763,6 +1789,13 @@ components:
         can_act:
           type: boolean
           description: Si quien mira puede hacer el paso abierto
+        as_applicant:
+          type: boolean
+          description: >
+            Si quien mira es el titular, que ve solo parte del trámite: lo que
+            cargó y adjuntó, las fechas y las áreas de cada paso, sin las
+            personas del personal, y la resolución cuando se cierra. Vale también si es del personal de
+            un área por la que pasa.
         referral:
           $ref: "#/components/schemas/ProcedureReferral"
         steps:
@@ -1879,7 +1912,7 @@ components:
           format: date-time
     ProcedureDocument:
       type: object
-      required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]
+      required: [id, document, step, file_name, media_type, size, uploaded_at, current]
       properties:
         id:
           type: string
@@ -1899,7 +1932,11 @@ components:
           format: int64
           description: Tamaño en bytes
         uploaded_by:
-          $ref: "#/components/schemas/Person"
+          description: >
+            Quién lo adjuntó. Ausente para el titular en un documento del
+            personal, como la resolución.
+          allOf:
+            - $ref: "#/components/schemas/Person"
         uploaded_at:
           type: string
           format: date-time

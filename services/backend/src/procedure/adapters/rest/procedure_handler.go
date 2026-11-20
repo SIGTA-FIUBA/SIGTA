@@ -67,6 +67,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		State:         api.ProcedureState(d.State),
 		Applicant:     person(p.Applicant, names),
 		CanAct:        d.CanAct,
+		AsApplicant:   d.AsApplicant,
 		Steps:         make([]api.ProcedureStep, 0, len(d.Steps)),
 		History:       make([]api.ProcedureEvent, 0, len(d.History)),
 	}
@@ -153,7 +154,7 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 			Id:                m.Procedure.ID,
 			ProcedureType:     m.Procedure.ProcedureType,
 			ProcedureTypeName: m.Name,
-			StepName:          m.StepName,
+			StepName:          stringIfAny(m.StepName),
 			State:             api.ProcedureState(m.State),
 			StartedAt:         m.Procedure.StartedAt,
 			LastMovedAt:       m.Procedure.MovedAt,

@@ -314,6 +314,11 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 	case "a send back that goes forward":
 		d.Steps[decision].Outcomes[0].SendBack = true
 		w.problem = definition.CodeSendBackForward
+	case "a resolution that a step of the applicant asks for":
+		for i := range d.Documents {
+			d.Documents[i].Resolution = slices.Contains(d.Steps[document].Documents, d.Documents[i].ID)
+		}
+		w.problem = definition.CodeResolutionFromApplicant
 	case "a field no step uses":
 		d.Fields = append(d.Fields, definition.Field{ID: "unused", Name: extraName, Type: definition.FieldText})
 		w.problem = definition.CodeUnusedField

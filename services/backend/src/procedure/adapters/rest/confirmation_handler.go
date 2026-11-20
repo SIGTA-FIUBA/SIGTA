@@ -79,7 +79,7 @@ func confirmationError(err error) (api.ConfirmStepResponseObject, error) {
 func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent {
 	event := api.ProcedureEvent{
 		Step:        e.Step,
-		By:          person(e.By, names),
+		By:          personIfAny(e.By, names),
 		At:          e.At,
 		Observation: e.Observation,
 		Declared:    e.Declared,

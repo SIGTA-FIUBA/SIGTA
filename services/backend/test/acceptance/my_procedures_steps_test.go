@@ -13,7 +13,7 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-// myProceduresWorld lists the procedures in progress of a person over the
+// myProceduresWorld lists the procedures of a person over the
 // procedures and the service of the confirmations, so that a scenario can
 // move a procedure before listing it.
 type myProceduresWorld struct {
@@ -24,7 +24,7 @@ type myProceduresWorld struct {
 func registerMyProceduresSteps(sc *godog.ScenarioContext, confirmations *confirmationWorld) {
 	w := &myProceduresWorld{confirmationWorld: confirmations}
 
-	sc.When(`^"([^"]*)" lists their procedures in progress$`, w.listMine)
+	sc.When(`^"([^"]*)" looks at their procedures$`, w.listMine)
 	sc.Then(`^they see these procedures:$`, w.thenSee)
 	sc.Then(`^they see no procedures$`, func() error { return w.thenSee(nil) })
 	sc.Then(`^"([^"]*)" can open the detail of each one$`, w.thenOpensEach)
@@ -47,6 +47,7 @@ func (w *myProceduresWorld) thenSee(table *godog.Table) error {
 		domain.StateWithApplicant: "with the applicant",
 		domain.StateInOffice:      "in an office",
 		domain.StateReferred:      "referred",
+		domain.StateClosed:        "closed",
 	}
 	var want []string
 	if table != nil {

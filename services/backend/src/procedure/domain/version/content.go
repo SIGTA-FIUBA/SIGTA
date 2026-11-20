@@ -19,10 +19,15 @@ import (
 // ask for permissions of their area instead of a fixed profile (ADR-020):
 // formats 1 and 2 are converted when read (see legacy_formats.go). Format 4
 // lets an outcome be a send back; format 3 reads as it was, with no send backs.
-const ContentFormat = 4
+// Format 5 lets a document be the resolution of the procedure, optional in the
+// encoding, so formats 3 and 4 still read.
+const ContentFormat = 5
 
 // sendBackFormat is the format that introduced send backs.
 const sendBackFormat = 4
+
+// resolutionFormat is the format that added the resolution of a document.
+const resolutionFormat = 5
 
 // Content carries the staff areas its steps use, with the permissions they ask
 // for, so that a version reads the same after either is renamed.
