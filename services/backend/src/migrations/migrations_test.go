@@ -255,6 +255,35 @@ func TestSecretariatMigration(t *testing.T) {
 			t.Errorf("Secretariat = %+v, want %+v", got, want)
 		}
 	})
+	// The names are the administrators': a platform permission that is
+	// already one keeps the name it has.
+	t.Run("a database that has it complete", func(t *testing.T) {
+		ctx := t.Context()
+		schema := dbtest.NewEmptySchema(t)
+		owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+		if _, err := migrations.ApplyFrom(ctx, owner, migrationsBefore(t, "0007")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := owner.Exec(ctx, `
+			INSERT INTO areas (id, number, name, system) VALUES ('secretariat', 1, 'Secretaría', true);
+			INSERT INTO area_permissions (area_id, id, number, name, system) VALUES
+				('secretariat', 'edit_procedure_types', 1, 'Editar', true),
+				('secretariat', 'publish_procedure_types', 2, 'Publicar', true)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := migrations.Apply(ctx, owner); err != nil {
+			t.Fatal(err)
+		}
+		got := secretariatRows(t, owner)
+		want := []secretariatRow{
+			{ID: "secretariat", Name: "Secretaría", System: true},
+			{ID: "edit_procedure_types", Name: "Editar", System: true},
+			{ID: "publish_procedure_types", Name: "Publicar", System: true},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Secretariat = %+v, want %+v", got, want)
+		}
+	})
 }
 
 // migrationsBefore returns the embedded migrations numbered before number.

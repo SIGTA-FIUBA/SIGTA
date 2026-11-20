@@ -93,7 +93,7 @@ func (w *authenticationWorld) server() http.Handler {
 	if w.handler == nil {
 		auth := application.NewAuthenticatorService(
 			application.AuthConfig{IdleTimeout: idleTimeout, AllowedDomain: w.domain},
-			dev.NewIdentityProvider(baseURL+"/auth/callback", ""),
+			dev.NewIdentityProvider(baseURL+"/auth/callback"),
 			w.users,
 			memory.NewSessionRepository(),
 			func() time.Time { return w.now },

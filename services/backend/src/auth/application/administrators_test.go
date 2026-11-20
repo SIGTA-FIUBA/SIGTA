@@ -33,8 +33,8 @@ func TestGrantFirstAdministratorOnlyOnce(t *testing.T) {
 	}
 
 	_, err := application.GrantFirstAdministrator(t.Context(), users, administrators, operative.Email, newAdministratorID, time.Now())
-	if !errors.Is(err, application.ErrHasAdministrators) {
-		t.Errorf("GrantFirstAdministrator() with an administrator = %v, want ErrHasAdministrators", err)
+	if !errors.Is(err, application.ErrAdministratorExists) {
+		t.Errorf("GrantFirstAdministrator() with an administrator = %v, want ErrAdministratorExists", err)
 	}
 	if ok, _ := administrators.IsAdministrator(t.Context(), operative.ID); ok {
 		t.Error("a second administrator was granted from the console")
@@ -44,8 +44,8 @@ func TestGrantFirstAdministratorOnlyOnce(t *testing.T) {
 func TestGrantFirstAdministratorNeedsTheUserToHaveSignedIn(t *testing.T) {
 	administrators := memory.NewAdministratorRepository()
 	_, err := application.GrantFirstAdministrator(t.Context(), memory.NewUserRepository(applicant), administrators, operative.Email, newAdministratorID, time.Now())
-	if !errors.Is(err, application.ErrNotSignedIn) {
-		t.Errorf("GrantFirstAdministrator() of an email nobody signed in with = %v, want ErrNotSignedIn", err)
+	if !errors.Is(err, application.ErrUserNotSignedIn) {
+		t.Errorf("GrantFirstAdministrator() of an email nobody signed in with = %v, want ErrUserNotSignedIn", err)
 	}
 	if ok, _ := administrators.IsAdministrator(t.Context(), operative.ID); ok {
 		t.Error("GrantFirstAdministrator() granted it anyway")

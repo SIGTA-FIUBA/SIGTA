@@ -20,12 +20,12 @@ const (
 )
 
 var (
-	// ErrNotSignedIn means the email has no user yet. SIGTA keeps no
+	// ErrUserNotSignedIn means the email has no user yet. SIGTA keeps no
 	// password, so a person becomes a user by signing in.
-	ErrNotSignedIn = errors.New("nobody signed in with that email")
-	// ErrHasAdministrators means the first administrator was granted
+	ErrUserNotSignedIn = errors.New("nobody signed in with that email")
+	// ErrAdministratorExists means the first administrator was granted
 	// already: the others are granted in SIGTA, which records who did it.
-	ErrHasAdministrators = errors.New("there is an administrator already: this command only grants the first one")
+	ErrAdministratorExists = errors.New("there is an administrator already: this command only grants the first one")
 )
 
 // GrantFirstAdministrator makes the user with email the first administrator,
@@ -35,7 +35,7 @@ func GrantFirstAdministrator(ctx context.Context, users output.UserRepository, a
 	email = domain.NormalizeEmail(email)
 	user, err := users.GetByEmail(ctx, email)
 	if errors.Is(err, domain.ErrUserNotFound) {
-		return domain.User{}, fmt.Errorf("%w: %s has to sign in to SIGTA once first", ErrNotSignedIn, email)
+		return domain.User{}, fmt.Errorf("%w: %s has to sign in to SIGTA once first", ErrUserNotSignedIn, email)
 	}
 	if err != nil {
 		return domain.User{}, err
@@ -45,7 +45,7 @@ func GrantFirstAdministrator(ctx context.Context, users output.UserRepository, a
 		return domain.User{}, err
 	}
 	if !granted {
-		return domain.User{}, ErrHasAdministrators
+		return domain.User{}, ErrAdministratorExists
 	}
 	return user, nil
 }
