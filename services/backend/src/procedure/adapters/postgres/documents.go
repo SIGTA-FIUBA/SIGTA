@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -32,7 +34,7 @@ func (r *DocumentRepository) List(ctx context.Context, procedureID string) ([]do
 	if err != nil {
 		return nil, fmt.Errorf("documents of %s: %w", procedureID, err)
 	}
-	return list(documents), nil
+	return database.List(documents), nil
 }
 
 func (r *DocumentRepository) Get(ctx context.Context, procedureID, documentID string) (domain.Document, error) {
@@ -59,7 +61,7 @@ func (r *DocumentRepository) Digests(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("digests of the documents: %w", err)
 	}
-	return list(digests), nil
+	return database.List(digests), nil
 }
 
 func scanDocument(row pgx.CollectableRow) (domain.Document, error) {

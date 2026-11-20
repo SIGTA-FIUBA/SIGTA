@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -49,14 +51,14 @@ func (r *MembershipRepository) Get(ctx context.Context, id string) (domain.Membe
 }
 
 func (r *MembershipRepository) Save(ctx context.Context, m domain.Membership) error {
-	err := inReadCommitted(ctx, r.pool, func(tx pgx.Tx) error {
-		if err := lock(ctx, tx, membershipsLockKey); err != nil {
+	err := database.InReadCommitted(ctx, r.pool, func(tx pgx.Tx) error {
+		if err := database.Lock(ctx, tx, membershipsLockKey); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO memberships (id, number, user_id, area_id, roles, permissions, scope, valid_from, valid_until, granted_by, ended_by)
 			SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7, $8, $9, $10 FROM memberships
 			ON CONFLICT (id) DO UPDATE SET valid_from = excluded.valid_from, valid_until = excluded.valid_until, ended_by = excluded.ended_by`,
-			m.ID, m.UserID, m.Area, array(m.Roles), array(m.Permissions), array(m.Scope), m.From, nullableTime(m.Until), m.GrantedBy, nullable(m.EndedBy))
+			m.ID, m.UserID, m.Area, database.Array(m.Roles), database.Array(m.Permissions), database.Array(m.Scope), m.From, database.NullableTime(m.Until), m.GrantedBy, database.Nullable(m.EndedBy))
 		return err
 	})
 	if err != nil {
@@ -86,7 +88,7 @@ func scanMembership(row pgx.CollectableRow) (domain.Membership, error) {
 	if err := row.Scan(&m.ID, &m.UserID, &m.Area, &m.Roles, &m.Permissions, &m.Scope, &m.From, &until, &m.GrantedBy, &endedBy); err != nil {
 		return domain.Membership{}, err
 	}
-	m.Roles, m.Permissions, m.Scope = list(m.Roles), list(m.Permissions), list(m.Scope)
-	m.From, m.Until, m.EndedBy = m.From.UTC(), timeOf(until), valueOf(endedBy)
+	m.Roles, m.Permissions, m.Scope = database.List(m.Roles), database.List(m.Permissions), database.List(m.Scope)
+	m.From, m.Until, m.EndedBy = m.From.UTC(), database.TimeOf(until), database.ValueOf(endedBy)
 	return m, nil
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,10 +42,10 @@ const (
 
 func (s *ProcedureRepository) Add(ctx context.Context, start output.Start) error {
 	p := start.Procedure
-	err := inReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
+	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
 		from, to, since := referralArgs(p.Referral)
 		if _, err := tx.Exec(ctx, "INSERT INTO procedures ("+procedureColumns+") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-			p.ID, p.ProcedureType, p.Version, p.VersionDigest, p.Applicant, nullable(p.OpenStep), from, to, since, p.StartedAt, p.MovedAt); err != nil {
+			p.ID, p.ProcedureType, p.Version, p.VersionDigest, p.Applicant, database.Nullable(p.OpenStep), from, to, since, p.StartedAt, p.MovedAt); err != nil {
 			if hasCode(err, uniqueViolation) {
 				return fmt.Errorf("%w: %s: %w", output.ErrProcedureExists, p.ID, err)
 			}
@@ -56,7 +58,7 @@ func (s *ProcedureRepository) Add(ctx context.Context, start output.Start) error
 		}
 		for i, v := range start.Values {
 			if _, err := tx.Exec(ctx, "INSERT INTO procedure_field_values (number, "+valueColumns+") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-				i+1, p.ID, v.Field, v.Step, v.Text, array(v.Items), v.EnteredBy, v.EnteredAt); err != nil {
+				i+1, p.ID, v.Field, v.Step, v.Text, database.Array(v.Items), v.EnteredBy, v.EnteredAt); err != nil {
 				return err
 			}
 		}
@@ -110,7 +112,7 @@ func (s *ProcedureRepository) Values(ctx context.Context, procedureID string) ([
 	values, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.FieldValue, error) {
 		var v domain.FieldValue
 		err := row.Scan(&v.Procedure, &v.Field, &v.Step, &v.Text, &v.Items, &v.EnteredBy, &v.EnteredAt)
-		v.Items = list(v.Items)
+		v.Items = database.List(v.Items)
 		v.EnteredAt = v.EnteredAt.UTC()
 		return v, err
 	})
@@ -124,12 +126,12 @@ func (s *ProcedureRepository) Values(ctx context.Context, procedureID string) ([
 // the update checks again once it holds the lock on the row, so of two
 // confirmations of the same step only the first one moves it.
 func (s *ProcedureRepository) Advance(ctx context.Context, p domain.Procedure, e domain.Event) error {
-	err := inReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
+	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
 		from, to, since := referralArgs(p.Referral)
 		tag, err := tx.Exec(ctx, `UPDATE procedures
 			SET open_step = $2, referral_from = $3, referral_to = $4, referral_since = $5, moved_at = $6
 			WHERE id = $1 AND open_step = $7`,
-			p.ID, nullable(p.OpenStep), from, to, since, p.MovedAt, e.Step)
+			p.ID, database.Nullable(p.OpenStep), from, to, since, p.MovedAt, e.Step)
 		if err != nil {
 			return err
 		}
@@ -148,7 +150,7 @@ func (s *ProcedureRepository) Advance(ctx context.Context, p domain.Procedure, e
 }
 
 func (s *ProcedureRepository) Attach(ctx context.Context, d domain.Document, e domain.Event) error {
-	err := inReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
+	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
 		if err := lockProcedure(ctx, tx, d.Procedure); err != nil {
 			return err
 		}
@@ -208,7 +210,7 @@ func insertDocument(ctx context.Context, tx pgx.Tx, procedureID string, d domain
 func insertEvent(ctx context.Context, tx pgx.Tx, procedureID string, e domain.Event) error {
 	var from, to, fileNumber, documentID, requirement, fileName *string
 	if e.Referral != nil {
-		from, to, fileNumber = &e.Referral.From, &e.Referral.To, nullable(e.Referral.ExternalFileNumber)
+		from, to, fileNumber = &e.Referral.From, &e.Referral.To, database.Nullable(e.Referral.ExternalFileNumber)
 	}
 	if e.Document != nil {
 		documentID, requirement, fileName = &e.Document.ID, &e.Document.Requirement, &e.Document.FileName
@@ -216,8 +218,8 @@ func insertEvent(ctx context.Context, tx pgx.Tx, procedureID string, e domain.Ev
 	_, err := tx.Exec(ctx, "INSERT INTO procedure_events (number, "+eventColumns+`)
 		SELECT coalesce(max(number), 0) + 1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 		FROM procedure_events WHERE procedure_id = $1`,
-		procedureID, e.Step, string(e.Action), e.By, e.At, nullable(e.Observation), nullable(e.Outcome), e.Declared, e.SendBack,
-		nullable(e.Next), from, to, fileNumber, e.Returned, documentID, requirement, fileName)
+		procedureID, e.Step, string(e.Action), e.By, e.At, database.Nullable(e.Observation), database.Nullable(e.Outcome), e.Declared, e.SendBack,
+		database.Nullable(e.Next), from, to, fileNumber, e.Returned, documentID, requirement, fileName)
 	return err
 }
 
@@ -240,9 +242,9 @@ func scanProcedure(row pgx.CollectableRow) (domain.Procedure, error) {
 	if err := row.Scan(&p.ID, &p.ProcedureType, &p.Version, &p.VersionDigest, &p.Applicant, &openStep, &from, &to, &since, &startedAt, &movedAt); err != nil {
 		return domain.Procedure{}, err
 	}
-	p.OpenStep = valueOf(openStep)
+	p.OpenStep = database.ValueOf(openStep)
 	if from != nil {
-		p.Referral = &domain.Referral{From: *from, To: valueOf(to), Since: timeOf(since)}
+		p.Referral = &domain.Referral{From: *from, To: database.ValueOf(to), Since: database.TimeOf(since)}
 	}
 	p.StartedAt, p.MovedAt = startedAt.UTC(), movedAt.UTC()
 	return p, nil
@@ -262,45 +264,12 @@ func scanEvent(row pgx.CollectableRow) (domain.Event, error) {
 	}
 	e.Action = definition.Action(action)
 	e.At = e.At.UTC()
-	e.Observation, e.Outcome, e.Next = valueOf(observation), valueOf(outcome), valueOf(next)
+	e.Observation, e.Outcome, e.Next = database.ValueOf(observation), database.ValueOf(outcome), database.ValueOf(next)
 	if from != nil {
-		e.Referral = &domain.ReferralRecord{From: *from, To: valueOf(to), ExternalFileNumber: valueOf(fileNumber)}
+		e.Referral = &domain.ReferralRecord{From: *from, To: database.ValueOf(to), ExternalFileNumber: database.ValueOf(fileNumber)}
 	}
 	if documentID != nil {
-		e.Document = &domain.DocumentRecord{ID: *documentID, Requirement: valueOf(requirement), FileName: valueOf(fileName)}
+		e.Document = &domain.DocumentRecord{ID: *documentID, Requirement: database.ValueOf(requirement), FileName: database.ValueOf(fileName)}
 	}
 	return e, nil
-}
-
-// inReadCommitted runs write in a READ COMMITTED transaction whatever the
-// default of the database. Its writes need no stricter level: each one locks
-// the row of its procedure first, and each statement after the lock sees what
-// the previous holder committed, which at a stricter level it would not.
-func inReadCommitted(ctx context.Context, pool *pgxpool.Pool, write func(tx pgx.Tx) error) error {
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if err := write(tx); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
-// array keeps an empty list as an empty array: the column is NOT NULL, and
-// pgx sends a nil slice as NULL.
-func array[T any](s []T) []T {
-	if s == nil {
-		return []T{}
-	}
-	return s
-}
-
-// list reads an empty array back as nil, as the memory adapter keeps it.
-func list[T any](s []T) []T {
-	if len(s) == 0 {
-		return nil
-	}
-	return s
 }

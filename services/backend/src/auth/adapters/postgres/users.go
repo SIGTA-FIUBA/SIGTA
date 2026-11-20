@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -37,7 +39,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (domain.U
 func (r *UserRepository) Register(ctx context.Context, user domain.User) (domain.User, error) {
 	user.Email = domain.NormalizeEmail(user.Email)
 	var inserted bool
-	err := inReadCommitted(ctx, r.pool, func(tx pgx.Tx) error {
+	err := database.InReadCommitted(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, "INSERT INTO users (id, email, name) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING",
 			user.ID, user.Email, user.Name)
 		inserted = tag.RowsAffected() == 1

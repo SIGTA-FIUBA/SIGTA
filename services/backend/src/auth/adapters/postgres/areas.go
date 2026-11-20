@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -45,21 +47,21 @@ func (r *AreaRepository) Get(ctx context.Context, id string) (domain.Area, error
 }
 
 func (r *AreaRepository) Save(ctx context.Context, a domain.Area) error {
-	if err := inReadCommitted(ctx, r.pool, func(tx pgx.Tx) error { return save(ctx, tx, a) }); err != nil {
+	if err := database.InReadCommitted(ctx, r.pool, func(tx pgx.Tx) error { return save(ctx, tx, a) }); err != nil {
 		return fmt.Errorf("save area %s: %w", a.ID, err)
 	}
 	return nil
 }
 
 func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
-	if err := lock(ctx, tx, areasLockKey); err != nil {
+	if err := database.Lock(ctx, tx, areasLockKey); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, deleted_at, deleted_by)
 		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5 FROM areas
 		ON CONFLICT (id) DO UPDATE SET name = excluded.name, system = excluded.system,
 			deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
-		a.ID, a.Name, a.System, nullableTime(a.DeletedAt), nullable(a.DeletedBy)); err != nil {
+		a.ID, a.Name, a.System, database.NullableTime(a.DeletedAt), database.Nullable(a.DeletedBy)); err != nil {
 		return err
 	}
 	for i, p := range a.Permissions {
@@ -67,7 +69,7 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name, system = excluded.system,
 				deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
-			a.ID, p.ID, i+1, p.Name, p.System, nullableTime(p.DeletedAt), nullable(p.DeletedBy)); err != nil {
+			a.ID, p.ID, i+1, p.Name, p.System, database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
 			return err
 		}
 	}
@@ -76,13 +78,13 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name,
 				deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
-			a.ID, role.ID, i+1, role.Name, nullableTime(role.DeletedAt), nullable(role.DeletedBy)); err != nil {
+			a.ID, role.ID, i+1, role.Name, database.NullableTime(role.DeletedAt), database.Nullable(role.DeletedBy)); err != nil {
 			return err
 		}
 		for j, revision := range role.Revisions {
 			if _, err := tx.Exec(ctx, `INSERT INTO area_role_revisions (area_id, role_id, number, permissions, revised_at, revised_by)
 				VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
-				a.ID, role.ID, j+1, array(revision.Permissions), revision.At, revision.By); err != nil {
+				a.ID, role.ID, j+1, database.Array(revision.Permissions), revision.At, revision.By); err != nil {
 				return err
 			}
 		}
@@ -108,7 +110,7 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 		var deletedAt *time.Time
 		var deletedBy *string
 		err := row.Scan(&a.ID, &a.Name, &a.System, &deletedAt, &deletedBy)
-		a.DeletedAt, a.DeletedBy = timeOf(deletedAt), valueOf(deletedBy)
+		a.DeletedAt, a.DeletedBy = database.TimeOf(deletedAt), database.ValueOf(deletedBy)
 		return a, err
 	})
 	if err != nil || len(areas) == 0 {
@@ -131,7 +133,7 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 	var deletedAt *time.Time
 	var deletedBy *string
 	if _, err := pgx.ForEachRow(rows, []any{&areaID, &p.ID, &p.Name, &p.System, &deletedAt, &deletedBy}, func() error {
-		p.DeletedAt, p.DeletedBy = timeOf(deletedAt), valueOf(deletedBy)
+		p.DeletedAt, p.DeletedBy = database.TimeOf(deletedAt), database.ValueOf(deletedBy)
 		index[areaID].Permissions = append(index[areaID].Permissions, p)
 		return nil
 	}); err != nil {
@@ -145,7 +147,7 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 	}
 	var role domain.Role
 	if _, err := pgx.ForEachRow(rows, []any{&areaID, &role.ID, &role.Name, &deletedAt, &deletedBy}, func() error {
-		role.DeletedAt, role.DeletedBy = timeOf(deletedAt), valueOf(deletedBy)
+		role.DeletedAt, role.DeletedBy = database.TimeOf(deletedAt), database.ValueOf(deletedBy)
 		index[areaID].Roles = append(index[areaID].Roles, role)
 		return nil
 	}); err != nil {
@@ -164,7 +166,7 @@ func (r *AreaRepository) read(ctx context.Context, where string, args ...any) ([
 		for i := range roles {
 			if roles[i].ID == roleID {
 				roles[i].Revisions = append(roles[i].Revisions, domain.RoleRevision{
-					Permissions: list(revision.Permissions), At: revision.At.UTC(), By: revision.By,
+					Permissions: database.List(revision.Permissions), At: revision.At.UTC(), By: revision.By,
 				})
 			}
 		}
