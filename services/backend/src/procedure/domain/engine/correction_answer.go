@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"backend/src/procedure/domain"
@@ -14,18 +15,28 @@ var (
 	ErrNoCorrectionPending = errors.New("the applicant has no correction to make")
 	ErrNotRequested        = errors.New("no pending correction asks for it")
 	ErrCorrectionsChanged  = errors.New("the pending corrections changed while answering them")
+	ErrMissingAnswer       = errors.New("the answer misses what a correction asks for")
 )
 
 // MissingAnswerError names what the pending corrections ask for and the
 // applicant has not loaded since they were asked.
 type MissingAnswerError struct {
-	Fields    []string
-	Documents []string
+	Fields    []definition.Field
+	Documents []definition.Document
 }
 
 func (e *MissingAnswerError) Error() string {
-	return fmt.Sprintf("the answer misses fields %v and documents %v", e.Fields, e.Documents)
+	ids := make([]string, 0, len(e.Fields)+len(e.Documents))
+	for _, f := range e.Fields {
+		ids = append(ids, f.ID)
+	}
+	for _, d := range e.Documents {
+		ids = append(ids, d.ID)
+	}
+	return fmt.Sprintf("%v: %s", ErrMissingAnswer, strings.Join(ids, ", "))
 }
+
+func (e *MissingAnswerError) Unwrap() error { return ErrMissingAnswer }
 
 // CorrectionField returns the step of the applicant that asks for a field a
 // pending correction names: what they enter in answer lands there, where they
@@ -64,7 +75,7 @@ func correctionStep(p domain.Procedure, d definition.ProcedureTypeDefinition, id
 // the last request that asks for it, as the history records it: the order of the history, not
 // the time, says what came after. The procedure goes back to staff on the same
 // open step, without pending corrections.
-func AnswerCorrection(p domain.Procedure, history []domain.Event, by string, at time.Time) (domain.Procedure, domain.Event, error) {
+func AnswerCorrection(p domain.Procedure, d definition.ProcedureTypeDefinition, history []domain.Event, by string, at time.Time) (domain.Procedure, domain.Event, error) {
 	if !p.AwaitingApplicant() {
 		return p, domain.Event{}, ErrNoCorrectionPending
 	}
@@ -77,7 +88,7 @@ func AnswerCorrection(p domain.Procedure, history []domain.Event, by string, at 
 	for _, f := range asked.Fields {
 		if !loadedAfterRequest(history, func(e domain.Event) bool { return e.By == p.Applicant && e.Value != nil && e.Value.Field == f },
 			func(r *domain.CorrectionRecord) bool { return slices.Contains(r.Fields, f) }) {
-			missing.Fields = append(missing.Fields, f)
+			missing.Fields = append(missing.Fields, declared(d.Fields, f, func(field definition.Field) string { return field.ID }, definition.Field{ID: f}))
 		}
 	}
 	for _, doc := range asked.Documents {
@@ -85,7 +96,7 @@ func AnswerCorrection(p domain.Procedure, history []domain.Event, by string, at 
 			return e.By == p.Applicant && e.Document != nil && e.Document.Requirement == doc
 		},
 			func(r *domain.CorrectionRecord) bool { return slices.Contains(r.Documents, doc) }) {
-			missing.Documents = append(missing.Documents, doc)
+			missing.Documents = append(missing.Documents, declared(d.Documents, doc, func(document definition.Document) string { return document.ID }, definition.Document{ID: doc}))
 		}
 	}
 	if len(missing.Fields)+len(missing.Documents) > 0 {
@@ -109,6 +120,15 @@ func loadedAfterRequest(history []domain.Event, loads func(domain.Event) bool, a
 		}
 	}
 	return loaded
+}
+
+// declared returns the field or document of the definition with the id, or
+// fallback, which names it only by its id.
+func declared[T any](all []T, id string, idOf func(T) string, fallback T) T {
+	if i := slices.IndexFunc(all, func(item T) bool { return idOf(item) == id }); i >= 0 {
+		return all[i]
+	}
+	return fallback
 }
 
 func appendNew(list []string, ids ...string) []string {

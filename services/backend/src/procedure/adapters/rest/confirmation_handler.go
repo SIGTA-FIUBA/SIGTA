@@ -111,6 +111,12 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 	if e.Document != nil {
 		event.Document = &api.HistoryDocument{Id: e.Document.ID, Document: e.Document.Requirement, FileName: e.Document.FileName}
 	}
+	if e.Value != nil {
+		event.Value = &api.HistoryValue{Field: e.Value.Field}
+	}
+	if r := e.CorrectionAnswer; r != nil {
+		event.CorrectionAnswer = &api.HistoryCorrectionRequest{Fields: orEmpty(r.Fields), Documents: orEmpty(r.Documents)}
+	}
 	if r := e.CorrectionRequest; r != nil {
 		event.CorrectionRequest = &api.HistoryCorrectionRequest{Fields: orEmpty(r.Fields), Documents: orEmpty(r.Documents)}
 	}

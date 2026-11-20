@@ -53,7 +53,7 @@ func (s *ProcedureService) EnterValue(ctx context.Context, userID, procedureID, 
 // AnswerCorrection sends what the pending corrections asked for, once the
 // applicant loaded all of it, and takes the procedure back to staff.
 func (s *ProcedureService) AnswerCorrection(ctx context.Context, userID, procedureID string) (domain.Event, error) {
-	p, _, err := s.visible(ctx, userID, procedureID)
+	p, content, err := s.visible(ctx, userID, procedureID)
 	if err != nil {
 		return domain.Event{}, err
 	}
@@ -64,7 +64,7 @@ func (s *ProcedureService) AnswerCorrection(ctx context.Context, userID, procedu
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("history of %s: %w", p.ID, err)
 	}
-	answered, event, err := engine.AnswerCorrection(p, history, userID, s.now())
+	answered, event, err := engine.AnswerCorrection(p, content.Definition, history, userID, s.now())
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("procedure %s: %w", p.ID, err)
 	}

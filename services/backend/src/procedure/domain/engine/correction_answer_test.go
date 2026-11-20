@@ -63,7 +63,7 @@ func TestAnswerCorrectionTakesTheProcedureBackToStaffOnTheSameStep(t *testing.T)
 	)
 	history = append(history, entered(applicant, "subjects"), attached(applicant, "transcript"))
 
-	answered, event, err := engine.AnswerCorrection(p, history, applicant, monday)
+	answered, event, err := engine.AnswerCorrection(p, withRequirements, history, applicant, monday)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,16 +90,16 @@ func TestAnswerCorrectionNamesWhatWasNotLoadedAgain(t *testing.T) {
 	p.CorrectionRequests = append(p.CorrectionRequests, second)
 	history = append(history, domain.Event{Step: "file", CorrectionRequest: &domain.CorrectionRecord{Fields: second.Fields}})
 
-	_, _, err := engine.AnswerCorrection(p, history, applicant, monday)
+	_, _, err := engine.AnswerCorrection(p, withRequirements, history, applicant, monday)
 
 	var missing *engine.MissingAnswerError
-	if !errors.As(err, &missing) || !slices.Equal(missing.Fields, []string{"subjects"}) || !slices.Equal(missing.Documents, []string{"transcript"}) {
+	if !errors.As(err, &missing) || len(missing.Fields) != 1 || missing.Fields[0].ID != "subjects" || len(missing.Documents) != 1 || missing.Documents[0].ID != "transcript" {
 		t.Errorf("err = %v, want subjects and transcript missing", err)
 	}
 }
 
 func TestAnswerCorrectionNeedsAPendingCorrection(t *testing.T) {
-	if _, _, err := engine.AnswerCorrection(on("file"), nil, applicant, monday); !errors.Is(err, engine.ErrNoCorrectionPending) {
+	if _, _, err := engine.AnswerCorrection(on("file"), withRequirements, nil, applicant, monday); !errors.Is(err, engine.ErrNoCorrectionPending) {
 		t.Errorf("err = %v, want ErrNoCorrectionPending", err)
 	}
 }

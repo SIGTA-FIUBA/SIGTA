@@ -170,6 +170,7 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 			ProcedureTypeName: m.Name,
 			StepName:          stringIfAny(m.StepName),
 			State:             api.ProcedureState(m.State),
+			CorrectionPending: m.Procedure.AwaitingApplicant(),
 			StartedAt:         m.Procedure.StartedAt,
 			LastMovedAt:       m.Procedure.MovedAt,
 		})
