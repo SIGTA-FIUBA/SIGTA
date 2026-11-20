@@ -19,6 +19,7 @@ const detail: Detail = {
   open_step: 'review',
   can_act: true,
   as_applicant: false,
+  correction_requests: [],
   steps: [
     {
       id: 'documents',

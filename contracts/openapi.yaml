@@ -731,7 +731,8 @@ paths:
         deriva, y volver al área de la que salió es el retorno (ADR-020). Un
         paso que ocurrió fuera de SIGTA queda registrado como declarado por
         quien lo confirma (ADR-004). Los pasos del titular no se confirman: los
-        completa el titular.
+        completa el titular. Mientras haya una subsanación pendiente, el paso
+        no se confirma.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/ProcedureId"
@@ -745,6 +746,44 @@ paths:
       responses:
         "201":
           description: Confirmación registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/steps/{stepId}/correction-requests:
+    post:
+      operationId: requestCorrection
+      summary: Pide una subsanación al titular sobre el paso abierto
+      description: >
+        La pide quien puede confirmar el paso abierto, que tiene que ser del
+        personal. Dice qué falta, con datos y documentos del tipo de trámite,
+        y por qué. El trámite no cambia de paso: queda con el titular, y el paso
+        no se confirma, hasta que el titular responda. Se puede pedir más de una
+        sobre el mismo trámite. También canaliza lo que pide ampliar un
+        evaluador externo. Quién la pide y cuándo los pone el servidor.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCorrectionRequest"
+      responses:
+        "201":
+          description: Subsanación pedida
           content:
             application/json:
               schema:
@@ -1667,6 +1706,63 @@ components:
         external_file_number:
           type: string
           description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
+    NewCorrectionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: Por qué se pide. No puede quedar vacío
+        fields:
+          type: array
+          description: Identificadores de los datos del tipo de trámite que se piden
+          items:
+            type: string
+        documents:
+          type: array
+          description: >
+            Identificadores de los documentos del tipo de trámite que se piden.
+            Entre datos y documentos se pide al menos uno
+          items:
+            type: string
+    CorrectionRequest:
+      type: object
+      description: Subsanación pedida que el titular todavía no respondió
+      required: [step, by, at, reason, fields, documents]
+      properties:
+        step:
+          type: string
+          description: Paso abierto sobre el que se pidió
+        by:
+          $ref: "#/components/schemas/Person"
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
+    HistoryCorrectionRequest:
+      type: object
+      description: >
+        Lo que pide una subsanación; ausente en los demás eventos. El motivo es
+        la observación. Pedirla no avanza el trámite.
+      required: [fields, documents]
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
     ProcedureEvent:
       type: object
       required: [step, at, observation, declared, send_back, returned]
@@ -1708,6 +1804,8 @@ components:
           description: Si devuelve el trámite al área de la que se había derivado
         document:
           $ref: "#/components/schemas/HistoryDocument"
+        correction_request:
+          $ref: "#/components/schemas/HistoryCorrectionRequest"
     HistoryDocument:
       type: object
       description: >
@@ -1762,7 +1860,7 @@ components:
     ProcedureDetail:
       type: object
       required:
-        [id, procedure_type, version, name, state, applicant, can_act, as_applicant, steps, history]
+        [id, procedure_type, version, name, state, applicant, can_act, as_applicant, correction_requests, steps, history]
       properties:
         id:
           type: string
@@ -1785,7 +1883,9 @@ components:
           description: Identificador del paso que espera ahora; ausente si el trámite está cerrado
         can_act:
           type: boolean
-          description: Si quien mira puede hacer el paso abierto
+          description: >
+            Si quien mira puede hacer el paso abierto: confirmarlo o pedir una
+            subsanación sobre él
         as_applicant:
           type: boolean
           description: >
@@ -1795,6 +1895,14 @@ components:
             un área por la que pasa.
         referral:
           $ref: "#/components/schemas/ProcedureReferral"
+        correction_requests:
+          type: array
+          description: >
+            Las subsanaciones pedidas que el titular todavía no respondió, en el
+            orden en que se pidieron. Mientras haya alguna, el trámite está con
+            el titular y el paso abierto no se confirma.
+          items:
+            $ref: "#/components/schemas/CorrectionRequest"
         steps:
           type: array
           description: >
@@ -1807,8 +1915,9 @@ components:
           type: array
           description: >
             Los pasos hechos, en el orden en que se registraron: los del
-            titular al iniciar el trámite, cada confirmación y cada documento
-            adjuntado después. No se puede cambiar ni borrar.
+            titular al iniciar el trámite, cada confirmación, cada documento
+            adjuntado después y cada subsanación pedida. No se puede cambiar ni
+            borrar.
           items:
             $ref: "#/components/schemas/ProcedureEvent"
     ProcedureReferral:

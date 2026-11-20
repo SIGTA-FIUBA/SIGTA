@@ -191,9 +191,10 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	recorder := getProcedure(t, fakeProcedures{detail: openedDetail(false)}, session)
 
 	var got struct {
-		CanAct  bool            `json:"can_act"`
-		History json.RawMessage `json:"history"`
-		Steps   []struct {
+		CanAct             bool            `json:"can_act"`
+		CorrectionRequests json.RawMessage `json:"correction_requests"`
+		History            json.RawMessage `json:"history"`
+		Steps              []struct {
 			Fields    json.RawMessage `json:"fields"`
 			Documents json.RawMessage `json:"documents"`
 			Outcomes  json.RawMessage `json:"outcomes"`
@@ -222,6 +223,30 @@ func TestGetProcedureAnswersEmptyListsAsArrays(t *testing.T) {
 	if string(got.History) != "[]" {
 		t.Errorf("history of a procedure with no steps done = %s, want []", got.History)
 	}
+	if string(got.CorrectionRequests) != "[]" {
+		t.Errorf("correction requests of a procedure with none pending = %s, want []", got.CorrectionRequests)
+	}
+}
+
+func TestGetProcedureShowsThePendingCorrectionRequests(t *testing.T) {
+	at := time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)
+	d := openedDetail(true)
+	d.Procedure.OpenStep = "review"
+	d.Procedure.CorrectionRequests = []domain.CorrectionRequest{
+		{Step: "review", By: "staff-1", At: at, Reason: "faltan los códigos", Fields: []string{"subjects"}},
+		{Step: "review", By: "staff-1", At: at.Add(time.Hour), Reason: "falta la firma", Documents: []string{"statement"}},
+	}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	staff := api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}
+	want := []api.CorrectionRequest{
+		{Step: "review", By: staff, At: at, Reason: "faltan los códigos", Fields: []string{"subjects"}, Documents: []string{}},
+		{Step: "review", By: staff, At: at.Add(time.Hour), Reason: "falta la firma", Fields: []string{}, Documents: []string{"statement"}},
+	}
+	if !reflect.DeepEqual(got.CorrectionRequests, want) {
+		t.Errorf("correction requests = %+v, want %+v", got.CorrectionRequests, want)
+	}
 }
 
 func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
@@ -233,6 +258,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 			Referral: &domain.ReferralRecord{From: "office", To: "commission", ExternalFileNumber: "EX-1"}},
 		{ProcedureID: "P-1", Step: "documents", Action: definition.ActionUploadDocument, By: "ana", At: at.Add(2 * time.Hour),
 			Document: &domain.DocumentRecord{ID: "D-1", Requirement: "statement", FileName: "constancia.pdf"}},
+		{ProcedureID: "P-1", Step: "review", By: "staff-1", At: at.Add(3 * time.Hour), Observation: "faltan los códigos",
+			CorrectionRequest: &domain.CorrectionRecord{Fields: []string{"subjects"}}},
 	}
 
 	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
@@ -245,6 +272,8 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
 		{Step: "documents", By: &ana, At: at.Add(2 * time.Hour),
 			Document: &api.HistoryDocument{Id: "D-1", Document: "statement", FileName: "constancia.pdf"}},
+		{Step: "review", By: &sofia, At: at.Add(3 * time.Hour), Observation: "faltan los códigos",
+			CorrectionRequest: &api.HistoryCorrectionRequest{Fields: []string{"subjects"}, Documents: []string{}}},
 	}
 	if !reflect.DeepEqual(got.History, want) {
 		t.Errorf("history = %+v, want %+v", got.History, want)

@@ -83,6 +83,7 @@ function detail(
     open_step: 'communicate',
     can_act: true,
     as_applicant: false,
+    correction_requests: [],
     steps: [request, communicate],
     history,
   }

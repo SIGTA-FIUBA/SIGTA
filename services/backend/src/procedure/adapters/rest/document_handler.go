@@ -253,9 +253,11 @@ func stringIfAny(s string) *string {
 	return &s
 }
 
-func valueOf(s *string) string {
-	if s == nil {
-		return ""
+// valueOf reads an optional value of a request as its zero value when absent.
+func valueOf[T any](v *T) T {
+	if v == nil {
+		var zero T
+		return zero
 	}
-	return *s
+	return *v
 }

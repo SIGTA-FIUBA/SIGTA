@@ -116,6 +116,7 @@ func TestConfirmStepErrors(t *testing.T) {
 		{"an outcome that is not of the step", session, `{"observation":"ok","outcome":"x"}`, engine.ErrInvalidOutcome, http.StatusBadRequest},
 		{"a file number without referral", session, `{"observation":"ok","external_file_number":"EX-1"}`, engine.ErrNotAReferral, http.StatusBadRequest},
 		{"a step of the applicant", session, `{"observation":"ok"}`, engine.ErrApplicantStep, http.StatusBadRequest},
+		{"a correction pending", session, `{"observation":"ok"}`, engine.ErrAwaitingApplicant, http.StatusConflict},
 		{"an unexpected failure", session, `{"observation":"ok"}`, errors.New("store down"), http.StatusInternalServerError},
 	}
 	for _, tt := range tests {
