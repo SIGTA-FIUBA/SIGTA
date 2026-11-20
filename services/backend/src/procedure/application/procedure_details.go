@@ -26,8 +26,10 @@ func NewProcedureDetailService(procedures *ProcedureService, documents output.Do
 	return &ProcedureDetailService{procedures: procedures, documents: documents}
 }
 
-// Detail fails, and the server answers 500, if the open step is not in the
-// version the procedure started with.
+// Detail shows the applicant only what detail.Applicant leaves, also when
+// they are staff of an area it passes through. It fails, and the server
+// answers 500, if the open step is not in the version the procedure started
+// with.
 func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID string) (input.ProcedureDetail, error) {
 	p, content, err := s.procedures.visible(ctx, userID, procedureID)
 	if err != nil {
@@ -55,14 +57,21 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	if err != nil {
 		return input.ProcedureDetail{}, fmt.Errorf("history of %s: %w", procedureID, err)
 	}
+	steps := detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values)
+	asApplicant := p.Applicant == userID
+	if asApplicant {
+		applicant := detail.ForApplicant(content, p)
+		steps, history = applicant.Steps(steps), applicant.History(history)
+	}
 	return input.ProcedureDetail{
-		Procedure: p,
-		Name:      content.Definition.Name,
-		State:     state,
-		Steps:     detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values),
-		CanAct:    canAct,
-		Referral:  detail.ReferralOf(p, content, s.procedures.now()),
-		History:   history,
+		Procedure:   p,
+		Name:        content.Definition.Name,
+		State:       state,
+		Steps:       steps,
+		CanAct:      canAct,
+		AsApplicant: asApplicant,
+		Referral:    detail.ReferralOf(p, content, s.procedures.now()),
+		History:     history,
 	}, nil
 }
 

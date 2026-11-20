@@ -76,6 +76,7 @@ func documentRequirement(r definition.DocumentRequirement) api.DocumentRequireme
 		Required:      r.Required,
 		AcceptedTypes: orEmpty(r.Document.AcceptedTypes),
 		MaxSize:       r.Document.MaxSizeBytes,
+		Resolution:    r.Document.Resolution,
 	}
 }
 

@@ -371,7 +371,7 @@ export interface paths {
         };
         /**
          * Detalle de un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Para quien no lo ve, el trámite no existe.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Al titular no le muestra lo que el personal escribe en cada área: ni las observaciones, ni el número de expediente externo, ni los datos y documentos de los pasos del personal, salvo la resolución cuando el trámite se cierra (as_applicant). Para quien no lo ve, el trámite no existe.
          */
         get: operations["getProcedure"];
         put?: never;
@@ -413,7 +413,7 @@ export interface paths {
         };
         /**
          * Documentos adjuntos a un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó. Al titular le muestra solo los que ve en el detalle: los de sus pasos y la resolución cuando el trámite se cierra.
          */
         get: operations["listProcedureDocuments"];
         put?: never;
@@ -440,7 +440,7 @@ export interface paths {
         };
         /**
          * Descarga el archivo de un documento adjunto
-         * @description Para quien puede ver el trámite. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
+         * @description Para quien puede ver el trámite. Al titular, un documento que no ve en el detalle le responde como uno que no existe. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
          */
         get: operations["downloadProcedureDocument"];
         put?: never;
@@ -512,6 +512,8 @@ export interface components {
              * @description Tamaño máximo en bytes
              */
             max_size: number;
+            /** @description Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009). */
+            resolution: boolean;
         };
         CatalogEntry: {
             /** Format: int64 */
@@ -873,6 +875,8 @@ export interface components {
             open_step?: string;
             /** @description Si quien mira puede hacer el paso abierto */
             can_act: boolean;
+            /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
+            as_applicant: boolean;
             referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];

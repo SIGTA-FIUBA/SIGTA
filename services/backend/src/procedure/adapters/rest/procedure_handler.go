@@ -67,6 +67,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		State:         api.ProcedureState(d.State),
 		Applicant:     person(p.Applicant, names),
 		CanAct:        d.CanAct,
+		AsApplicant:   d.AsApplicant,
 		Steps:         make([]api.ProcedureStep, 0, len(d.Steps)),
 		History:       make([]api.ProcedureEvent, 0, len(d.History)),
 	}

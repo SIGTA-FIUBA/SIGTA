@@ -698,7 +698,11 @@ paths:
         por las que pasa. Muestra su estado, su titular, el paso abierto y los
         pasos de la versión con la que se inició, con quién hace cada uno, los
         datos y documentos que pide y sus salidas, y el historial de los pasos
-        hechos. Para quien no lo ve, el trámite no existe.
+        hechos. Al titular no le muestra lo que el personal escribe en cada
+        área: ni las observaciones, ni el número de expediente externo, ni los
+        datos y documentos de los pasos del personal, salvo la resolución
+        cuando el trámite se cierra (as_applicant). Para quien no lo ve, el
+        trámite no existe.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/ProcedureId"
@@ -762,7 +766,9 @@ paths:
       description: >
         Para quien puede ver el trámite: su titular y el personal de las áreas
         por las que pasa. Están en el orden en que se adjuntaron, incluidos los
-        que otro documento reemplazó.
+        que otro documento reemplazó. Al titular le muestra solo los que ve en
+        el detalle: los de sus pasos y la resolución cuando el trámite se
+        cierra.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -832,9 +838,10 @@ paths:
       operationId: downloadProcedureDocument
       summary: Descarga el archivo de un documento adjunto
       description: >
-        Para quien puede ver el trámite. Las cabeceras piden al navegador que
-        guarde el archivo en vez de mostrarlo, y que no lo interprete si igual
-        lo abre.
+        Para quien puede ver el trámite. Al titular, un documento que no ve
+        en el detalle le responde como uno que no existe. Las cabeceras piden
+        al navegador que guarde el archivo en vez de mostrarlo, y que no lo
+        interprete si igual lo abre.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -1024,7 +1031,7 @@ components:
       enum: [text, long_text, number, date, option, degree, subject_list]
     DocumentRequirement:
       type: object
-      required: [id, name, required, accepted_types, max_size]
+      required: [id, name, required, accepted_types, max_size, resolution]
       properties:
         id:
           type: string
@@ -1041,6 +1048,12 @@ components:
           type: integer
           format: int64
           description: Tamaño máximo en bytes
+        resolution:
+          type: boolean
+          description: >
+            Si es el documento que resuelve el trámite, que su titular descarga
+            cuando se cierra. No dice cuál fue el resultado, que no se modela
+            (ADR-009).
     CatalogEntry:
       type: object
       required:
@@ -1728,7 +1741,8 @@ components:
           description: Cuándo el trámite llegó al paso abierto
     ProcedureDetail:
       type: object
-      required: [id, procedure_type, version, name, state, applicant, can_act, steps, history]
+      required:
+        [id, procedure_type, version, name, state, applicant, can_act, as_applicant, steps, history]
       properties:
         id:
           type: string
@@ -1752,6 +1766,13 @@ components:
         can_act:
           type: boolean
           description: Si quien mira puede hacer el paso abierto
+        as_applicant:
+          type: boolean
+          description: >
+            Si quien mira es el titular, que ve solo parte del trámite: lo que
+            cargó y adjuntó, las fechas y las áreas de cada paso, y la
+            resolución cuando se cierra. Vale también si es del personal de
+            un área por la que pasa.
         referral:
           $ref: "#/components/schemas/ProcedureReferral"
         steps:

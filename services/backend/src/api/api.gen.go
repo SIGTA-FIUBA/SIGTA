@@ -325,6 +325,9 @@ type DocumentRequirement struct {
 	MaxSize  int64  `json:"max_size"`
 	Name     string `json:"name"`
 	Required bool   `json:"required"`
+
+	// Resolution Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009).
+	Resolution bool `json:"resolution"`
 }
 
 // DraftEdit defines model for DraftEdit.
@@ -517,6 +520,9 @@ type ProblemElement struct {
 // ProcedureDetail defines model for ProcedureDetail.
 type ProcedureDetail struct {
 	Applicant Person `json:"applicant"`
+
+	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
+	AsApplicant bool `json:"as_applicant"`
 
 	// CanAct Si quien mira puede hacer el paso abierto
 	CanAct bool `json:"can_act"`

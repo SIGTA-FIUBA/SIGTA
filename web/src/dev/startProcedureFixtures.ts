@@ -37,7 +37,7 @@ const document = (
   acceptedTypes: string[],
   maxSize: number,
   required = true,
-): DocumentRequirement => ({ id, name, required, accepted_types: acceptedTypes, max_size: maxSize })
+): DocumentRequirement => ({ id, name, required, accepted_types: acceptedTypes, max_size: maxSize, resolution: false })
 
 const demo = entry(
   'Equivalencia entre asignaturas',
