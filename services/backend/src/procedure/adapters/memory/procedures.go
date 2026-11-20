@@ -111,6 +111,36 @@ func (s *ProcedureRepository) RequestCorrection(_ context.Context, r domain.Corr
 	return nil
 }
 
+func (s *ProcedureRepository) EnterValue(_ context.Context, v domain.FieldValue, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[e.ProcedureID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if !stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", e.ProcedureID, engine.ErrNoCorrectionPending)
+	}
+	s.values[e.ProcedureID] = append(s.values[e.ProcedureID], cloneValues([]domain.FieldValue{v})...)
+	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
+	return nil
+}
+
+func (s *ProcedureRepository) AnswerCorrection(_ context.Context, p domain.Procedure, answered int, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[p.ID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if len(stored.CorrectionRequests) != answered || stored.OpenStep != p.OpenStep {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrCorrectionsChanged)
+	}
+	s.procedures[p.ID] = cloneProcedure(p)
+	s.events[p.ID] = append(s.events[p.ID], cloneEvent(e))
+	return nil
+}
+
 func (s *ProcedureRepository) Record(_ context.Context, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -158,6 +188,16 @@ func cloneEvent(e domain.Event) domain.Event {
 	if e.Document != nil {
 		d := *e.Document
 		e.Document = &d
+	}
+	if e.Value != nil {
+		v := *e.Value
+		e.Value = &v
+	}
+	if e.CorrectionAnswer != nil {
+		e.CorrectionAnswer = &domain.CorrectionRecord{
+			Fields:    slices.Clone(e.CorrectionAnswer.Fields),
+			Documents: slices.Clone(e.CorrectionAnswer.Documents),
+		}
 	}
 	if e.CorrectionRequest != nil {
 		e.CorrectionRequest = &domain.CorrectionRecord{

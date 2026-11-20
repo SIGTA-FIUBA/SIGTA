@@ -50,7 +50,7 @@ func CheckValues(def definition.ProcedureTypeDefinition, values map[string]Value
 			}
 			continue
 		}
-		cleaned, ok := checkValue(r.Field, v)
+		cleaned, ok := CheckValue(r.Field, v)
 		if !ok {
 			problems = append(problems, FieldProblem(CodeInvalid, r.Field.ID))
 			continue
@@ -73,7 +73,9 @@ func CheckValues(def definition.ProcedureTypeDefinition, values map[string]Value
 	return clean, nil
 }
 
-func checkValue(f definition.Field, v Value) (Value, bool) {
+// CheckValue returns the value as it is kept, without the spaces around it,
+// and whether it is a valid value of f.
+func CheckValue(f definition.Field, v Value) (Value, bool) {
 	if f.Type == definition.FieldSubjectList {
 		if v.Text != "" || len(v.Items) == 0 || len(v.Items) > MaxItems {
 			return Value{}, false

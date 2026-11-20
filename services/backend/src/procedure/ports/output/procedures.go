@@ -21,6 +21,17 @@ type ProcedureRepository interface {
 	// engine.ErrStepNotOpen if the procedure is no longer on the step the
 	// request was made on.
 	RequestCorrection(ctx context.Context, r domain.CorrectionRequest, e domain.Event) error
+	// EnterValue records a value the applicant entered in answer to a
+	// correction, together with its event, as one change. It fails with
+	// engine.ErrNoCorrectionPending if the procedure no longer waits for
+	// them.
+	EnterValue(ctx context.Context, v domain.FieldValue, e domain.Event) error
+	// AnswerCorrection stores the procedure without its pending corrections,
+	// together with the event of the answer, as one change. It fails with
+	// engine.ErrCorrectionsChanged if the pending corrections are not the ones
+	// p was read with, so that a request made in between is not answered
+	// unseen.
+	AnswerCorrection(ctx context.Context, p domain.Procedure, answered int, e domain.Event) error
 	// Record appends an event that does not move the procedure, and fails
 	// with domain.ErrProcedureNotFound if there is no such procedure.
 	Record(ctx context.Context, e domain.Event) error

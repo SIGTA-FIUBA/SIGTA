@@ -12,21 +12,23 @@ import (
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
+	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/ports/input"
 )
 
 var _ api.DocumentServer = (*DocumentHandler)(nil)
 
 const (
-	messageSignIn       = "Iniciá sesión para continuar."
-	messageNoProcedure  = "No existe el trámite."
-	messageNoDocument   = "No existe el documento."
-	messageCannotAttach = "No podés adjuntar documentos en este paso del trámite."
-	messageNotRequested = "El paso abierto del trámite no pide ese documento."
-	messageType         = "El archivo no es de un tipo que acepte ese documento."
-	messageTooLarge     = "El archivo supera el tamaño máximo de ese documento."
-	messageEmpty        = "El archivo está vacío."
-	messageTooMany      = "El trámite ya tiene la cantidad máxima de archivos para ese documento."
+	messageSignIn          = "Iniciá sesión para continuar."
+	messageNoProcedure     = "No existe el trámite."
+	messageNoDocument      = "No existe el documento."
+	messageCannotAttach    = "No podés adjuntar documentos en este paso del trámite."
+	messageNotRequested    = "El paso abierto del trámite no pide ese documento."
+	messageNotInCorrection = "Ninguna subsanación pendiente pide ese documento."
+	messageType            = "El archivo no es de un tipo que acepte ese documento."
+	messageTooLarge        = "El archivo supera el tamaño máximo de ese documento."
+	messageEmpty           = "El archivo está vacío."
+	messageTooMany         = "El trámite ya tiene la cantidad máxima de archivos para ese documento."
 )
 
 const (
@@ -204,6 +206,8 @@ func rejection(err error) (string, bool) {
 		return api.InvalidRequestMessage, true
 	case errors.Is(err, domain.ErrDocumentNotRequested):
 		return messageNotRequested, true
+	case errors.Is(err, engine.ErrNotRequested):
+		return messageNotInCorrection, true
 	case errors.Is(err, domain.ErrDocumentTypeNotAccepted):
 		return messageType, true
 	case errors.Is(err, domain.ErrDocumentEmpty):

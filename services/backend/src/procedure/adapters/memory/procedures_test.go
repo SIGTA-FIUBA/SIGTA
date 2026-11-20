@@ -310,3 +310,57 @@ func TestStoredCorrectionRequestsCannotBeChangedFromOutside(t *testing.T) {
 		t.Errorf("stored request = %+v and event = %+v, want them unchanged", stored.CorrectionRequests[0], *storedEvents[0].CorrectionRequest)
 	}
 }
+
+func TestEnterValueOnlyWhileACorrectionIsPending(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	v := domain.FieldValue{Procedure: "P-1", Field: "subjects", Step: "request", Items: []string{"61.03"}}
+	e := domain.Event{ProcedureID: "P-1", Step: "request", Value: &domain.ValueRecord{Field: "subjects"}}
+	if err := s.EnterValue(ctx, v, e); !errors.Is(err, engine.ErrNoCorrectionPending) {
+		t.Errorf("nothing pending: err = %v, want ErrNoCorrectionPending", err)
+	}
+
+	r, requestEvent := requested("file")
+	if err := s.RequestCorrection(ctx, r, requestEvent); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.EnterValue(ctx, v, e); err != nil {
+		t.Fatal(err)
+	}
+	values, _ := s.Values(ctx, "P-1")
+	events, _ := s.Events(ctx, "P-1")
+	if len(values) != 1 || values[0].Field != "subjects" || len(events) != 2 || events[1].Value == nil || events[1].Value.Field != "subjects" {
+		t.Errorf("values = %+v, events = %+v; want the value and its event", values, events)
+	}
+}
+
+func TestAnswerCorrectionRefusesWhenAnotherRequestCameInBetween(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		r, e := requested("file")
+		if err := s.RequestCorrection(ctx, r, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	answered := onStep("file")
+	answer := domain.Event{ProcedureID: "P-1", Step: "file", CorrectionAnswer: &domain.CorrectionRecord{}}
+
+	if err := s.AnswerCorrection(ctx, answered, 1, answer); !errors.Is(err, engine.ErrCorrectionsChanged) {
+		t.Errorf("answering one of two: err = %v, want ErrCorrectionsChanged", err)
+	}
+	if err := s.AnswerCorrection(ctx, answered, 2, answer); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Get(ctx, "P-1")
+	events, _ := s.Events(ctx, "P-1")
+	if got.AwaitingApplicant() || len(events) != 3 || events[2].CorrectionAnswer == nil {
+		t.Errorf("procedure = %+v, events = %+v; want no pending corrections and the answer last", got, events)
+	}
+}
