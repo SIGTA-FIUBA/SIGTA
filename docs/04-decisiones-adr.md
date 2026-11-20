@@ -588,7 +588,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Decisión.**
 - **Una marca en la salida.** Una salida de una decisión puede declararse devolución (`send_back`). Sigue siendo una salida, no una acción ni un estado (ADR-009): elige el paso al que lleva y el trámite sigue abierto.
-- **El destino es un paso anterior.** Al validar la definición, una devolución tiene que llevar a un paso desde el que se vuelve a llegar al paso que decide. Una que va hacia adelante se rechaza (`send_back_forward`).
+- **El destino es un paso anterior.** Al validar la definición, una devolución tiene que llevar a un paso al que se llega desde el primer paso sin pasar por el que decide, y desde el que se vuelve a llegar a este. Así un ciclo no hace pasar por anterior a un paso que viene después. Una que va hacia adelante se rechaza (`send_back_forward`).
 - **El motivo es la observación.** Confirmar una devolución exige la observación, como toda confirmación, y el evento queda marcado como devolución, con quién, cuándo y el motivo.
 - **El titular.** Una devolución involucra al titular cuando el paso al que vuelve es suyo: lo ve en el historial y en un aviso mientras el trámite está de vuelta en ese paso.
 - **Formato 4.** La marca sube el contenido de las versiones al formato 4. El formato 3 se sigue leyendo como contenido actual, sin devoluciones, así que ninguna versión publicada cambia: una salida que se publicó sin la marca sigue siendo una salida común hasta que se publique una versión nueva.

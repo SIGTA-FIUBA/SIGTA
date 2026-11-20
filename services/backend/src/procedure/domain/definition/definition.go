@@ -1,6 +1,7 @@
 package definition
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
@@ -135,13 +136,30 @@ func validateFlow(steps []Step) []ValidationProblem {
 		if !closes[s.ID] {
 			problems = append(problems, ValidationProblem{Code: CodeStepNeverCloses, Path: []Element{{Kind: KindStep, ID: s.ID}}})
 		}
-		for _, o := range s.Outcomes {
-			if o.SendBack && !walk([]string{o.Next}, next)[s.ID] {
-				problems = append(problems, ValidationProblem{Code: CodeSendBackForward, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindOutcome, ID: o.ID}}})
+		if backwards := backwardsFrom(s, steps[0].ID, next); backwards != nil {
+			for _, o := range s.Outcomes {
+				if o.SendBack && !backwards(o.Next) {
+					problems = append(problems, ValidationProblem{Code: CodeSendBackForward, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindOutcome, ID: o.ID}}})
+				}
 			}
 		}
 	}
 	return problems
+}
+
+// backwardsFrom tells whether a step is earlier than s: reached from the first
+// step without going through s, and leading back to s. It is nil if s has no
+// send backs.
+func backwardsFrom(s Step, first string, next map[string][]string) func(id string) bool {
+	if !slices.ContainsFunc(s.Outcomes, func(o Outcome) bool { return o.SendBack }) {
+		return nil
+	}
+	around := maps.Clone(next)
+	around[s.ID] = nil
+	before := walk([]string{first}, around)
+	return func(id string) bool {
+		return id != s.ID && before[id] && walk([]string{id}, next)[s.ID]
+	}
 }
 
 func walk(from []string, edges map[string][]string) map[string]bool {
