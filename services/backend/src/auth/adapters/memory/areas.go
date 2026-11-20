@@ -70,7 +70,10 @@ func (r *AreaRepository) Save(_ context.Context, a domain.Area) error {
 }
 
 // merge applies to stored the changes of a, which may have been read before
-// stored was saved.
+// stored was saved. Unlike PostgreSQL, it also changes whether an area or a
+// permission is a system one, and restores a system permission saved without
+// its deletion: in memory there are no migrations, so EnsureSecretariat puts
+// back what the code needs.
 func merge(stored, a domain.Area) domain.Area {
 	if stored.Deleted() {
 		a.DeletedAt, a.DeletedBy = stored.DeletedAt, stored.DeletedBy

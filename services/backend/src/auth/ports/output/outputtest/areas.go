@@ -19,7 +19,6 @@ func TestAreaRepository(t *testing.T, newRepository func(t *testing.T) output.Ar
 	t.Run("list in the order added, without the deleted", func(t *testing.T) { listAreas(t, newRepository(t)) })
 	t.Run("changes keep what was there", func(t *testing.T) { changeArea(t, newRepository(t)) })
 	t.Run("an area read before another save does not undo it", func(t *testing.T) { saveOlderCopy(t, newRepository(t)) })
-	t.Run("a platform permission saved without its deletion is restored", func(t *testing.T) { restorePlatformPermission(t, newRepository(t)) })
 	t.Run("concurrent new areas", func(t *testing.T) { concurrentNewAreas(t, newRepository(t)) })
 }
 
@@ -115,10 +114,10 @@ func changeArea(t *testing.T, r output.AreaRepository) {
 		},
 		func(a *domain.Area) { a.Permissions[0].DeletedAt, a.Permissions[0].DeletedBy = at, "admin" },
 		func(a *domain.Area) {
-			a.Permissions[0].Name, a.Permissions[0].System = "Revisar casos", true
+			a.Permissions[0].Name = "Revisar casos"
 		},
 		func(a *domain.Area) { a.Roles[0].DeletedAt, a.Roles[0].DeletedBy = at, "admin" },
-		func(a *domain.Area) { a.Name, a.System = "Mesa de entradas", true },
+		func(a *domain.Area) { a.Name = "Mesa de entradas" },
 		func(a *domain.Area) { a.DeletedAt, a.DeletedBy = at, "admin" },
 	}
 	for i, change := range steps {
@@ -165,20 +164,6 @@ func saveOlderCopy(t *testing.T, r output.AreaRepository) {
 	}
 	if got := getArea(t, r, "office"); !reflect.DeepEqual(got, want) {
 		t.Errorf("Get() = %+v, want %+v", got, want)
-	}
-}
-
-func restorePlatformPermission(t *testing.T, r output.AreaRepository) {
-	deleted := domain.Area{ID: "office", Name: "Mesa", System: true, Permissions: []domain.Permission{
-		{ID: "edit", Name: "Editar", System: true, DeletedAt: at, DeletedBy: "admin"},
-	}}
-	saveAreas(t, r, deleted)
-	restored := getArea(t, r, "office")
-	restored.Permissions[0].DeletedAt, restored.Permissions[0].DeletedBy = time.Time{}, ""
-	saveAreas(t, r, restored)
-
-	if got := getArea(t, r, "office"); !reflect.DeepEqual(got, restored) {
-		t.Errorf("Get() = %+v, want %+v", got, restored)
 	}
 }
 

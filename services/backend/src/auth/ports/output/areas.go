@@ -14,8 +14,7 @@ import (
 // revisions of a role are only added at the end. An area read before another
 // Save does not undo it: what that Save added or deleted stays, and the
 // revisions of a role that are not stored yet go after the stored ones.
-// Only a platform permission saved without its deletion is restored: SIGTA
-// never deletes one, so its deletion was made by hand.
+// Whether an area or a permission is a system one is set when it is added.
 type AreaRepository interface {
 	List(ctx context.Context) ([]domain.Area, error)
 	Get(ctx context.Context, id string) (domain.Area, error)
