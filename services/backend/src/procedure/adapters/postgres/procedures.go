@@ -51,11 +51,6 @@ func (s *ProcedureRepository) Add(ctx context.Context, start output.Start) error
 			}
 			return err
 		}
-		for _, d := range start.Documents {
-			if err := insertDocument(ctx, tx, p.ID, d); err != nil {
-				return err
-			}
-		}
 		for i, v := range start.Values {
 			if _, err := tx.Exec(ctx, "INSERT INTO procedure_field_values (number, "+valueColumns+") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 				i+1, p.ID, v.Field, v.Step, v.Text, database.Array(v.Items), v.EnteredBy, v.EnteredAt); err != nil {
@@ -64,6 +59,11 @@ func (s *ProcedureRepository) Add(ctx context.Context, start output.Start) error
 		}
 		for _, e := range start.Events {
 			if err := insertEvent(ctx, tx, p.ID, e); err != nil {
+				return err
+			}
+		}
+		for _, d := range start.Documents {
+			if err := insertDocument(ctx, tx, p.ID, d); err != nil {
 				return err
 			}
 		}

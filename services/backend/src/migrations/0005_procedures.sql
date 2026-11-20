@@ -60,7 +60,7 @@ ALTER TABLE procedure_events
         (referral_from IS NULL) = (referral_to IS NULL) AND (external_file_number IS NULL OR referral_from IS NOT NULL)),
     ADD CONSTRAINT document_record_is_whole CHECK (
         (document_id IS NULL) = (document_requirement IS NULL) AND (document_id IS NULL) = (document_file_name IS NULL)),
-    ADD FOREIGN KEY (procedure_id, document_id) REFERENCES documents (procedure_id, id);
+    ADD FOREIGN KEY (procedure_id, document_id) REFERENCES documents (procedure_id, id) DEFERRABLE INITIALLY DEFERRED;
 
 CREATE TABLE procedure_field_values (
     procedure_id text NOT NULL REFERENCES procedures (id),

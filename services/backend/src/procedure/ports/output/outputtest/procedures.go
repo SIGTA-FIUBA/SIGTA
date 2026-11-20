@@ -199,6 +199,9 @@ func startWholeOrNothing(t *testing.T, s ProcedureStores) {
 			if values, err := s.Procedures.Values(ctx, "P-2"); err != nil || len(values) != 0 {
 				t.Errorf("Values(P-2) = %+v, %v; want none", values, err)
 			}
+			if _, err := s.Procedures.Events(ctx, "P-2"); !errors.Is(err, domain.ErrProcedureNotFound) {
+				t.Errorf("Events(P-2) = %v, want ErrProcedureNotFound", err)
+			}
 			if documents, err := s.Documents.List(ctx, "P-2"); err != nil || len(documents) != 0 {
 				t.Errorf("List(P-2) = %+v, %v; want none", documents, err)
 			}
