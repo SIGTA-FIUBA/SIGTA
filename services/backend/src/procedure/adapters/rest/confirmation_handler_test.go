@@ -20,16 +20,24 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
+// fakeSteps answers event or err to a confirmation or a correction request,
+// and keeps what it received.
 type fakeSteps struct {
 	input.Procedures
-	event    domain.Event
-	err      error
-	user     string
-	received input.StepConfirmation
+	event      domain.Event
+	err        error
+	user       string
+	received   input.StepConfirmation
+	correction input.CorrectionRequest
 }
 
 func (f *fakeSteps) Confirm(_ context.Context, userID, _ string, c input.StepConfirmation) (domain.Event, error) {
 	f.user, f.received = userID, c
+	return f.event, f.err
+}
+
+func (f *fakeSteps) RequestCorrection(_ context.Context, userID, _ string, r input.CorrectionRequest) (domain.Event, error) {
+	f.user, f.correction = userID, r
 	return f.event, f.err
 }
 

@@ -85,6 +85,20 @@ function stubApi(status: number, body: unknown) {
   )
 }
 
+// stubPost answers the detail with current, and any POST with status.
+function stubPost(status: number, body: unknown, current: Detail) {
+  const fetch = vi.fn(async (request: Request) =>
+    request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
+  )
+  vi.stubGlobal('fetch', fetch)
+  return fetch
+}
+
+async function sentPosts(fetch: ReturnType<typeof stubPost>) {
+  const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+  return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
+}
+
 function renderPage(state?: unknown) {
   const router = createMemoryRouter([{ path: '/procedures/:id', element: <ProcedurePage /> }], {
     initialEntries: [{ pathname: '/procedures/P-1', state }],
@@ -464,26 +478,12 @@ describe('ProcedurePage confirmation', () => {
     ],
   }
 
-  // stubConfirmation answers the detail, and the confirmation with status.
-  function stubConfirmation(status: number, body: unknown, current: Detail = referable) {
-    const fetch = vi.fn(async (request: Request) =>
-      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
-    )
-    vi.stubGlobal('fetch', fetch)
-    return fetch
-  }
-
-  async function sent(fetch: ReturnType<typeof stubConfirmation>) {
-    const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
-    return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
-  }
-
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
   it('offers to confirm only an open step of the staff that the person can do', async () => {
-    stubConfirmation(201, {})
+    stubPost(201, {}, referable)
     renderPage()
     expect(await screen.findByRole('heading', { level: 2, name: 'Confirmar Revisar la solicitud' })).toBeDefined()
   })
@@ -492,25 +492,25 @@ describe('ProcedurePage confirmation', () => {
     ['who cannot act', { ...referable, can_act: false }],
     ['a step of the applicant', { ...referable, open_step: 'documents', state: 'with_applicant' as const }],
   ])('does not offer to confirm to %s', async (_, current) => {
-    stubConfirmation(201, {}, current)
+    stubPost(201, {}, current)
     renderPage()
     await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByRole('button', { name: 'Confirmar el paso' })).toBeNull()
   })
 
   it('asks for an outcome and an observation before sending', async () => {
-    const fetch = stubConfirmation(201, {})
+    const fetch = stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar el paso' }))
 
     expect(screen.getByText('Elegí una salida.')).toBeDefined()
     expect(screen.getByText('Escribí una observación.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([])
+    expect(await sentPosts(fetch)).toEqual([])
   })
 
   it('asks for the external file number only when the outcome refers the procedure', async () => {
-    stubConfirmation(201, {})
+    stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
@@ -523,7 +523,7 @@ describe('ProcedurePage confirmation', () => {
   })
 
   it('sends the confirmation and says it is in the history', async () => {
-    const fetch = stubConfirmation(201, {})
+    const fetch = stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
@@ -533,7 +533,7 @@ describe('ProcedurePage confirmation', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
 
     expect(await screen.findByText('Paso confirmado. Quedó en el historial.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([
+    expect(await sentPosts(fetch)).toEqual([
       {
         url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/confirmation$/),
         body: { observation: 'Documentación completa', outcome: 'accept', external_file_number: 'EX-2026-00001' },
@@ -544,7 +544,7 @@ describe('ProcedurePage confirmation', () => {
   })
 
   it('asks for the reason of a send back and says who sees it', async () => {
-    const fetch = stubConfirmation(201, {})
+    const fetch = stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
@@ -554,11 +554,11 @@ describe('ProcedurePage confirmation', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
     expect(screen.getByText('Escribí el motivo de la devolución.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([])
+    expect(await sentPosts(fetch)).toEqual([])
   })
 
   it('sends a send back with its reason', async () => {
-    const fetch = stubConfirmation(201, {})
+    const fetch = stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
@@ -567,7 +567,7 @@ describe('ProcedurePage confirmation', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
 
     expect(await screen.findByText('Paso confirmado. Quedó en el historial.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([
+    expect(await sentPosts(fetch)).toEqual([
       {
         url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/confirmation$/),
         body: { observation: 'Falta la firma', outcome: 'send_back' },
@@ -576,7 +576,7 @@ describe('ProcedurePage confirmation', () => {
   })
 
   it('shows why the server did not take the confirmation', async () => {
-    stubConfirmation(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' })
+    stubPost(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' }, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
@@ -603,14 +603,6 @@ describe('ProcedurePage attachment', () => {
   const asksForRecord: Detail = {
     ...detail,
     steps: [detail.steps[0]!, { ...detail.steps[1]!, documents: [record] }],
-  }
-
-  function stubAttachment(status: number, body: unknown, current: Detail = asksForRecord) {
-    const fetch = vi.fn(async (request: Request) =>
-      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
-    )
-    vi.stubGlobal('fetch', fetch)
-    return fetch
   }
 
   function pdf(name: string) {
@@ -642,7 +634,7 @@ describe('ProcedurePage attachment', () => {
   }
 
   it('offers the documents of the open step that have no file yet', async () => {
-    stubAttachment(201, {})
+    stubPost(201, {}, asksForRecord)
     renderPage()
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })).toBeDefined()
@@ -708,7 +700,7 @@ describe('ProcedurePage attachment', () => {
   })
 
   it('asks for a file before sending', async () => {
-    const fetch = stubAttachment(201, {})
+    const fetch = stubPost(201, {}, asksForRecord)
     renderPage()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Adjuntar Acta' }))
@@ -718,7 +710,7 @@ describe('ProcedurePage attachment', () => {
   })
 
   it('sends the file for its document and says it is in the history', async () => {
-    const fetch = stubAttachment(201, {})
+    const fetch = stubPost(201, {}, asksForRecord)
     renderPage()
 
     await screen.findByRole('button', { name: 'Adjuntar Acta' })
@@ -735,7 +727,7 @@ describe('ProcedurePage attachment', () => {
   })
 
   it('shows why the server did not take the file', async () => {
-    stubAttachment(400, { message: 'El archivo no es de un tipo que acepte ese documento.' })
+    stubPost(400, { message: 'El archivo no es de un tipo que acepte ese documento.' }, asksForRecord)
     renderPage()
 
     await screen.findByRole('button', { name: 'Adjuntar Acta' })
@@ -853,20 +845,6 @@ describe('ProcedurePage correction request', () => {
   }
   const awaiting: Detail = { ...asksForSubjects, state: 'with_applicant', correction_requests: [request] }
 
-  // stubRequest answers the detail, and the correction request with status.
-  function stubRequest(status: number, body: unknown, current: Detail = asksForSubjects) {
-    const fetch = vi.fn(async (request: Request) =>
-      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
-    )
-    vi.stubGlobal('fetch', fetch)
-    return fetch
-  }
-
-  async function sent(fetch: ReturnType<typeof stubRequest>) {
-    const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
-    return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
-  }
-
   async function openForm() {
     await userEvent.click(await screen.findByRole('button', { name: 'Pedir una subsanación' }))
   }
@@ -879,14 +857,14 @@ describe('ProcedurePage correction request', () => {
     ['who cannot act', { ...asksForSubjects, can_act: false }],
     ['a step of the applicant', { ...asksForSubjects, open_step: 'documents', state: 'with_applicant' as const }],
   ])('does not offer to request a correction to %s', async (_, current) => {
-    stubRequest(201, {}, current)
+    stubPost(201, {}, current)
     renderPage()
     await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByRole('button', { name: 'Pedir una subsanación' })).toBeNull()
   })
 
   it('asks what is missing and why before sending', async () => {
-    const fetch = stubRequest(201, {})
+    const fetch = stubPost(201, {}, asksForSubjects)
     renderPage()
 
     await openForm()
@@ -894,11 +872,11 @@ describe('ProcedurePage correction request', () => {
 
     expect(screen.getByText('Elegí qué falta.')).toBeDefined()
     expect(screen.getByText('Escribí el motivo.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([])
+    expect(await sentPosts(fetch)).toEqual([])
   })
 
   it('sends the fields and documents asked for with the reason and says it is in the history', async () => {
-    const fetch = stubRequest(201, {})
+    const fetch = stubPost(201, {}, asksForSubjects)
     renderPage()
 
     await openForm()
@@ -909,7 +887,7 @@ describe('ProcedurePage correction request', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Pedir la subsanación' }))
 
     expect(await screen.findByText('Subsanación pedida. Quedó en el historial.')).toBeDefined()
-    expect(await sent(fetch)).toEqual([
+    expect(await sentPosts(fetch)).toEqual([
       {
         url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/correction-requests$/),
         body: { reason: 'Falta el código de cada materia.', fields: ['subjects'], documents: ['statement'] },
@@ -918,7 +896,7 @@ describe('ProcedurePage correction request', () => {
   })
 
   it('shows why the server did not take the request', async () => {
-    stubRequest(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' })
+    stubPost(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' }, asksForSubjects)
     renderPage()
 
     await openForm()
@@ -934,7 +912,7 @@ describe('ProcedurePage correction request', () => {
   })
 
   it('shows what is pending and does not offer to confirm the step until the applicant answers', async () => {
-    stubRequest(201, {}, awaiting)
+    stubPost(201, {}, awaiting)
     renderPage()
 
     expect(await screen.findByText('Subsanación pendiente')).toBeDefined()
@@ -946,7 +924,7 @@ describe('ProcedurePage correction request', () => {
   })
 
   it('shows a correction request in the history with what it asks for and why', async () => {
-    stubRequest(
+    stubPost(
       201,
       {},
       {

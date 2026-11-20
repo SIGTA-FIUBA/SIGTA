@@ -1,7 +1,6 @@
 package rest_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,20 +19,7 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-type fakeCorrections struct {
-	input.Procedures
-	event    domain.Event
-	err      error
-	user     string
-	received input.CorrectionRequest
-}
-
-func (f *fakeCorrections) RequestCorrection(_ context.Context, userID, _ string, r input.CorrectionRequest) (domain.Event, error) {
-	f.user, f.received = userID, r
-	return f.event, f.err
-}
-
-func requestCorrection(t *testing.T, steps *fakeCorrections, cookie, body string) *httptest.ResponseRecorder {
+func requestCorrection(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, fakeProcedures{}, nil, steps), nil, nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
@@ -47,7 +33,7 @@ func requestCorrection(t *testing.T, steps *fakeCorrections, cookie, body string
 
 func TestRequestCorrectionAnswersTheRecordedEvent(t *testing.T) {
 	at := time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)
-	steps := &fakeCorrections{event: domain.Event{
+	steps := &fakeSteps{event: domain.Event{
 		ProcedureID:       "P-1",
 		Step:              "check",
 		By:                "staff-1",
@@ -62,8 +48,8 @@ func TestRequestCorrectionAnswersTheRecordedEvent(t *testing.T) {
 		t.Fatalf("status %d: %s", recorder.Code, recorder.Body)
 	}
 	want := input.CorrectionRequest{Step: "check", Reason: "faltan los códigos", Fields: []string{"subjects"}, Documents: []string{"transcript"}}
-	if steps.user != "ana" || !reflect.DeepEqual(steps.received, want) {
-		t.Errorf("RequestCorrection got user %q and %+v, want ana and %+v", steps.user, steps.received, want)
+	if steps.user != "ana" || !reflect.DeepEqual(steps.correction, want) {
+		t.Errorf("RequestCorrection got user %q and %+v, want ana and %+v", steps.user, steps.correction, want)
 	}
 	var got api.ProcedureEvent
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
@@ -100,7 +86,7 @@ func TestRequestCorrectionErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			steps := &fakeCorrections{}
+			steps := &fakeSteps{}
 			if tt.err != nil {
 				steps.err = fmt.Errorf("procedure P-1: %w", tt.err)
 			}

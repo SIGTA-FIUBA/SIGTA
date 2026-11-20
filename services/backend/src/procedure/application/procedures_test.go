@@ -254,7 +254,11 @@ func TestRequestCorrectionLeavesTheProcedureWaitingForTheApplicant(t *testing.T)
 	if _, err := service.Confirm(ctx, "operative@fi.uba.ar", "P-1", fileConfirmation()); !errors.Is(err, engine.ErrAwaitingApplicant) {
 		t.Errorf("Confirm = %v, want ErrAwaitingApplicant", err)
 	}
-	summary, err := NewInboxService(service).summary(ctx, "operative@fi.uba.ar", p, mustContent(t, service, p))
+	content, err := service.content(ctx, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := NewInboxService(service).summary(ctx, "operative@fi.uba.ar", p, content)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,13 +300,4 @@ func TestRequestCorrectionRejectsAndChangesNothing(t *testing.T) {
 			}
 		})
 	}
-}
-
-func mustContent(t *testing.T, s *ProcedureService, p proceduredomain.Procedure) version.Content {
-	t.Helper()
-	c, err := s.content(context.Background(), p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return c
 }
