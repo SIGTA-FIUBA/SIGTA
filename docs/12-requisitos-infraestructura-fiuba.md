@@ -82,7 +82,7 @@ La Subsecretaría de TICs ofrece MariaDB 10.1.45 o PostgreSQL 11.9, como mínimo
 | Acceso restringido por rol y registro de quién consulta o modifica datos sensibles | A confirmar | La trazabilidad de los trámites está en el alcance. Falta definir si incluye las consultas |
 | Derechos de acceso, rectificación y supresión | A confirmar | No está definido |
 | Plazo de conservación y eliminación o anonimización | A confirmar | Pendiente con la Secretaría (D-09) |
-| Sin datos reales en desarrollo y test | A confirmar | ADR-005: los trámites y documentos de desarrollo y de las pruebas son sintéticos. Las pruebas automáticas no guardan personas reales, pero en los entornos desplegados y en local la base guarda el correo y el nombre de quien ingresa con Google (ADR-027) |
+| Sin datos reales en desarrollo y test | Cumple | ADR-005: los trámites y documentos de desarrollo y de las pruebas son sintéticos, y las pruebas automáticas no guardan personas reales. La única excepción es la cuenta de quien ingresa con Google: la base guarda su correo y su nombre (ADR-027) |
 | Sin transferir datos personales a terceros, en especial fuera del país, sin acordarlo | A confirmar | ADR-018: a un modelo por API solo llega contenido académico, después de quitar los datos identificatorios dentro de SIGTA, y solo con proveedores que no entrenen con los datos y con retención nula o acotada. Falta elegir el proveedor y validarlo con la facultad |
 
 ## Buenas prácticas

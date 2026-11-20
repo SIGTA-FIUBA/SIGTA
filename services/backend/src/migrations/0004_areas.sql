@@ -5,8 +5,6 @@
 -- number keeps the order in which they were added, which is the order the
 -- application lists them in. There are no sequences, so it is computed when
 -- the row is inserted.
--- deleted_at can go back to NULL: SIGTA restores a platform permission of the
--- Secretariat that was deleted by hand.
 CREATE TABLE areas (
     id         text PRIMARY KEY,
     number     integer NOT NULL UNIQUE CHECK (number >= 1),
@@ -71,6 +69,5 @@ CREATE TABLE memberships (
 );
 
 GRANT SELECT, INSERT ON areas, area_permissions, area_roles, area_role_revisions, memberships TO backend;
-GRANT UPDATE (name, system, deleted_at, deleted_by) ON areas, area_permissions TO backend;
-GRANT UPDATE (name, deleted_at, deleted_by) ON area_roles TO backend;
+GRANT UPDATE (name, deleted_at, deleted_by) ON areas, area_permissions, area_roles TO backend;
 GRANT UPDATE (valid_from, valid_until, ended_by) ON memberships TO backend;

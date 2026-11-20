@@ -61,7 +61,7 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, created_at, created_by, deleted_at, deleted_by)
 		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7 FROM areas
-		ON CONFLICT (id) DO UPDATE SET name = excluded.name, system = excluded.system,
+		ON CONFLICT (id) DO UPDATE SET name = excluded.name,
 			deleted_at = coalesce(areas.deleted_at, excluded.deleted_at),
 			deleted_by = coalesce(areas.deleted_by, excluded.deleted_by)`,
 		a.ID, a.Name, a.System, database.NullableTime(a.CreatedAt), database.Nullable(a.CreatedBy), database.NullableTime(a.DeletedAt), database.Nullable(a.DeletedBy)); err != nil {
@@ -70,11 +70,9 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	for _, p := range a.Permissions {
 		if _, err := tx.Exec(ctx, `INSERT INTO area_permissions (area_id, id, number, name, system, created_at, created_by, deleted_at, deleted_by)
 			SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5, $6, $7, $8 FROM area_permissions WHERE area_id = $1
-			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name, system = excluded.system,
-				deleted_at = CASE WHEN excluded.system THEN excluded.deleted_at
-					ELSE coalesce(area_permissions.deleted_at, excluded.deleted_at) END,
-				deleted_by = CASE WHEN excluded.system THEN excluded.deleted_by
-					ELSE coalesce(area_permissions.deleted_by, excluded.deleted_by) END`,
+			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name,
+				deleted_at = coalesce(area_permissions.deleted_at, excluded.deleted_at),
+				deleted_by = coalesce(area_permissions.deleted_by, excluded.deleted_by)`,
 			a.ID, p.ID, p.Name, p.System, database.NullableTime(p.CreatedAt), database.Nullable(p.CreatedBy), database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
 			return err
 		}
