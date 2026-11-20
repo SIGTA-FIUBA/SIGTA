@@ -21,6 +21,9 @@ import (
 // lets an outcome be a send back; format 3 reads as it was, with no send backs.
 const ContentFormat = 4
 
+// sendBackFormat is the format that introduced send backs.
+const sendBackFormat = 4
+
 // Content carries the staff areas its steps use, with the permissions they ask
 // for, so that a version reads the same after either is renamed.
 type Content struct {

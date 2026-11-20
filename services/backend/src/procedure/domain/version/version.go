@@ -62,10 +62,10 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 	if err := decodeStrict(v.EncodedContent, &c); err != nil {
 		return Content{}, err
 	}
+	if c.Format < sendBackFormat && hasSendBack(c.Definition) {
+		return Content{}, fmt.Errorf("decode content: format %d has no send backs", c.Format)
+	}
 	if c.Format < ContentFormat {
-		if hasSendBack(c.Definition) {
-			return Content{}, fmt.Errorf("decode content: format %d has no send backs", c.Format)
-		}
 		c.Format = ContentFormat
 	}
 	return c, nil
