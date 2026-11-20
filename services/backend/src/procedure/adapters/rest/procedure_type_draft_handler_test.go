@@ -90,7 +90,7 @@ func proposedView() input.DraftView {
 			Base:            2,
 			Definition: definition.ProcedureTypeDefinition{
 				Name:      "Equivalencias",
-				Documents: []definition.Document{{ID: "transcript", Name: "Historia académica", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024}},
+				Documents: []definition.Document{{ID: "transcript", Name: "Historia académica", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024, Resolution: true}},
 				Steps:     []definition.Step{{ID: "documents", Name: "Adjuntar", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, Documents: []string{"transcript"}}},
 			},
 			Status:     draft.StatusProposed,
@@ -133,7 +133,7 @@ func TestGetProcedureTypeDraftShowsTheDraft(t *testing.T) {
 		t.Errorf("proposed by %v, rejection %v", got.ProposedBy, got.Rejection)
 	}
 	documents := *got.Definition.Documents
-	if got.Definition.Name != "Equivalencias" || len(documents) != 1 || *documents[0].MaxSize != 1024 || got.Definition.Steps[0].Documents == nil {
+	if got.Definition.Name != "Equivalencias" || len(documents) != 1 || *documents[0].MaxSize != 1024 || documents[0].Resolution == nil || !*documents[0].Resolution || got.Definition.Steps[0].Documents == nil {
 		t.Errorf("definition = %+v", got.Definition)
 	}
 	if !strings.Contains(recorder.Body.String(), `"problems":[]`) {
@@ -168,14 +168,14 @@ func TestDraftProblemsSayWhereTheyAre(t *testing.T) {
 
 func TestEditProcedureTypeDraftPassesTheDefinition(t *testing.T) {
 	drafts := &fakeDrafts{view: proposedView()}
-	body := `{"revision": 3, "definition": {"name": "Equivalencias", "documents": [{"id": "transcript", "name": "Historia", "max_size": 2048}], "steps": [{"id": "documents", "name": "Adjuntar", "role": "applicant", "action": "upload_document", "documents": ["transcript"]}]}}`
+	body := `{"revision": 3, "definition": {"name": "Equivalencias", "documents": [{"id": "transcript", "name": "Historia", "max_size": 2048, "resolution": true}], "steps": [{"id": "documents", "name": "Adjuntar", "role": "applicant", "action": "upload_document", "documents": ["transcript"]}]}}`
 	recorder := callDrafts(t, drafts, http.MethodPut, "/procedure-types/7/draft", body)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", recorder.Code, recorder.Body)
 	}
 	d := drafts.definition
-	if drafts.user != "ana" || drafts.revision != 3 || d.Name != "Equivalencias" || len(d.Documents) != 1 || d.Documents[0].MaxSizeBytes != 2048 || d.Steps[0].Role != definition.RoleApplicant {
+	if drafts.user != "ana" || drafts.revision != 3 || d.Name != "Equivalencias" || len(d.Documents) != 1 || d.Documents[0].MaxSizeBytes != 2048 || !d.Documents[0].Resolution || d.Steps[0].Role != definition.RoleApplicant {
 		t.Errorf("edited by %s at revision %d with %+v", drafts.user, drafts.revision, d)
 	}
 }

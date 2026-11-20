@@ -18,6 +18,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
@@ -118,13 +119,19 @@ func attachedEvent(d domain.Document) domain.Event {
 	}
 }
 
+// List shows the applicant only the documents they see (detail.Applicant),
+// and which of those is current for each requirement.
 func (s *DocumentService) List(ctx context.Context, userID, procedureID string) ([]input.AttachedDocument, error) {
-	if _, _, err := s.procedures.visible(ctx, userID, procedureID); err != nil {
+	p, content, err := s.procedures.visible(ctx, userID, procedureID)
+	if err != nil {
 		return nil, err
 	}
 	documents, err := s.documents.List(ctx, procedureID)
 	if err != nil {
 		return nil, fmt.Errorf("documents of %s: %w", procedureID, err)
+	}
+	if p.Applicant == userID {
+		documents = detail.ForApplicant(content, p).Documents(documents)
 	}
 	current := map[string]bool{}
 	for _, d := range domain.Current(documents) {
@@ -137,13 +144,19 @@ func (s *DocumentService) List(ctx context.Context, userID, procedureID string) 
 	return attached, nil
 }
 
+// Open answers to the applicant, for a document they do not see, as for one
+// that does not exist.
 func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documentID string) (domain.Document, io.ReadCloser, error) {
-	if _, _, err := s.procedures.visible(ctx, userID, procedureID); err != nil {
+	p, procedureContent, err := s.procedures.visible(ctx, userID, procedureID)
+	if err != nil {
 		return domain.Document{}, nil, err
 	}
 	d, err := s.documents.Get(ctx, procedureID, documentID)
 	if err != nil {
 		return domain.Document{}, nil, fmt.Errorf("document %s of %s: %w", documentID, procedureID, err)
+	}
+	if p.Applicant == userID && !detail.ForApplicant(procedureContent, p).Sees(d) {
+		return domain.Document{}, nil, fmt.Errorf("document %s of %s: %w", documentID, procedureID, domain.ErrDocumentNotFound)
 	}
 	content, err := s.files.Open(ctx, d.Digest)
 	if err != nil {

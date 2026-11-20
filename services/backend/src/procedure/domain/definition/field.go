@@ -38,6 +38,10 @@ type Document struct {
 	// AcceptedTypes are media types, such as "application/pdf".
 	AcceptedTypes []string `json:"accepted_types,omitempty"`
 	MaxSizeBytes  int64    `json:"max_size,omitempty"`
+	// Resolution marks the document that resolves the procedure, which its
+	// applicant downloads once it closes. It says nothing about the result
+	// of the procedure, which is not modeled (ADR-009).
+	Resolution bool `json:"resolution,omitempty"`
 }
 
 func validateFields(fields []Field, seen map[string]bool) []ValidationProblem {

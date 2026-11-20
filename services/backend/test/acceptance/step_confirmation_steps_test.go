@@ -92,7 +92,8 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 		case asked != "" && action == definition.ActionUploadDocument:
 			for _, name := range list(asked) {
 				name, optional := strings.CutSuffix(name, " optional")
-				d.Documents = append(d.Documents, definition.Document{ID: areaID(name), Name: name, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
+				name, resolution := strings.CutSuffix(name, " (resolution)")
+				d.Documents = append(d.Documents, definition.Document{ID: areaID(name), Name: name, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024, Resolution: resolution})
 				if optional {
 					step.OptionalDocuments = append(step.OptionalDocuments, areaID(name))
 				} else {

@@ -125,7 +125,7 @@ func TestGetProcedureShowsItsSteps(t *testing.T) {
 	if len(first.Files) != 1 || first.Files[0].Id != "D-1" || first.Files[0].Document != "transcript" || first.Files[0].FileName != "historia.pdf" || !first.Files[0].Current {
 		t.Errorf("files of the first step = %+v", first.Files)
 	}
-	if first.Files[0].UploadedBy != (api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}) {
+	if first.Files[0].UploadedBy == nil || *first.Files[0].UploadedBy != (api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}) {
 		t.Errorf("uploaded by = %+v", first.Files[0].UploadedBy)
 	}
 	if second.Role != api.Staff || second.Area == nil || *second.Area != (api.NamedOption{Id: "office", Name: "Dirección de Alumnos"}) || second.Next != nil {
@@ -238,15 +238,28 @@ func TestGetProcedureShowsItsHistoryInOrder(t *testing.T) {
 	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
 
 	next, outcome, fileNumber, back := "review", "accept", "EX-1", "documents"
+	ana, sofia := api.Person{Id: "ana", Name: "Ana Prueba"}, api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}
 	want := []api.ProcedureEvent{
-		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at, Next: &next},
-		{Step: "review", By: api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, SendBack: true, Next: &back,
+		{Step: "documents", By: &ana, At: at, Next: &next},
+		{Step: "review", By: &sofia, At: at.Add(time.Hour), Observation: "completo", Outcome: &outcome, SendBack: true, Next: &back,
 			Referral: &api.Referral{From: "office", To: "commission", ExternalFileNumber: &fileNumber}},
-		{Step: "documents", By: api.Person{Id: "ana", Name: "Ana Prueba"}, At: at.Add(2 * time.Hour),
+		{Step: "documents", By: &ana, At: at.Add(2 * time.Hour),
 			Document: &api.HistoryDocument{Id: "D-1", Document: "statement", FileName: "constancia.pdf"}},
 	}
 	if !reflect.DeepEqual(got.History, want) {
 		t.Errorf("history = %+v, want %+v", got.History, want)
+	}
+}
+
+// The applicant does not see who did a step of staff: the event has no one.
+func TestGetProcedureLeavesOutWhoDidAStepWhenTheEventHasNoOne(t *testing.T) {
+	d := openedDetail(false)
+	d.History = []domain.Event{{ProcedureID: "P-1", Step: "review", Action: definition.ActionDecide}}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	if len(got.History) != 1 || got.History[0].By != nil {
+		t.Errorf("history = %+v, want one event without by", got.History)
 	}
 }
 
@@ -320,6 +333,10 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Name:      "Equivalencias",
 		StepName:  "Revisión",
 		State:     domain.StateInOffice,
+	}, {
+		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
+		Name:      "Equivalencias",
+		State:     domain.StateClosed,
 	}}}
 
 	recorder := listMine(t, procedures, session)
@@ -330,9 +347,16 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	want := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: "Revisión", State: api.InOffice, StartedAt: started, LastMovedAt: moved}
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("got %+v, want [%+v]", got, want)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want two procedures", got)
+	}
+	step := "Revisión"
+	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved}
+	if !reflect.DeepEqual(got[0], open) {
+		t.Errorf("open procedure = %+v, want %+v", got[0], open)
+	}
+	if got[1].State != api.Closed || got[1].StepName != nil {
+		t.Errorf("closed procedure = %+v, want it closed without an open step", got[1])
 	}
 }
 

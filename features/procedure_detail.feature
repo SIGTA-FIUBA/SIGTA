@@ -18,7 +18,7 @@ Feature: Detail of a procedure
     And "applicant@fi.uba.ar" has a procedure waiting on the "documents" step
 
   Scenario: the detail lists every step in order with who does it and what it asks for
-    When "applicant@fi.uba.ar" opens the procedure
+    When "resolver@fi.uba.ar" opens the procedure
     Then they see these steps:
       | step      | done by         | documents  |
       | request   | the applicant   |            |

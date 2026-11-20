@@ -99,12 +99,21 @@ func TestDetailShowsTheHistoryInTheOrderItWasRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	detail, err := f.details.Detail(t.Context(), applicant, "P-2")
+	detail, err := f.details.Detail(t.Context(), reviewer, "P-2")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(detail.History, []domain.Event{reviewed}) {
-		t.Errorf("history = %+v, want %+v", detail.History, []domain.Event{reviewed})
+	if !slices.Equal(detail.History, []domain.Event{reviewed}) || detail.AsApplicant {
+		t.Errorf("history = %+v, as applicant %t; want %+v, as staff", detail.History, detail.AsApplicant, []domain.Event{reviewed})
+	}
+
+	mine, err := f.details.Detail(t.Context(), applicant, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewed.By, reviewed.Observation = "", ""
+	if !slices.Equal(mine.History, []domain.Event{reviewed}) || !mine.AsApplicant {
+		t.Errorf("history of the applicant = %+v, as applicant %t; want %+v, without who did it nor the observation", mine.History, mine.AsApplicant, []domain.Event{reviewed})
 	}
 }
 
@@ -136,7 +145,7 @@ func TestDetailFailsIfTheOpenStepIsNotInTheVersion(t *testing.T) {
 	}
 }
 
-func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
+func TestMineListsTheProceduresOfTheApplicantMostRecentlyMovedFirst(t *testing.T) {
 	f := newDocumentsFixture(t)
 	day := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 	for _, p := range []domain.Procedure{
@@ -163,7 +172,7 @@ func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
 		got = append(got, m.Procedure.ID+" "+m.StepName+" "+string(m.State))
 	}
 	// P-1 is the fixture's own procedure, never moved.
-	want := []string{"P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
+	want := []string{"P-closed  closed", "P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
 	if !slices.Equal(got, want) {
 		t.Errorf("mine = %v, want %v", got, want)
 	}

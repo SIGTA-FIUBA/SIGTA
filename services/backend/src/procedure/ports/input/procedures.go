@@ -29,7 +29,10 @@ type ProcedureDetail struct {
 	State     domain.State
 	Steps     []detail.Step
 	CanAct    bool
-	Referral  *detail.Referral
+	// AsApplicant is set when the person is the applicant, who sees only
+	// part of the procedure (detail.Applicant).
+	AsApplicant bool
+	Referral    *detail.Referral
 	// History holds the steps done, in the order they were recorded.
 	History []domain.Event
 }
@@ -48,7 +51,7 @@ type ProcedureDetails interface {
 type MyProcedure struct {
 	Procedure domain.Procedure
 	Name      string
-	StepName  string
+	StepName  string // empty once the procedure is closed
 	State     domain.State
 }
 

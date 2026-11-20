@@ -31,6 +31,7 @@ const document = (id: string, name: string, required = true): DocumentRequiremen
   required,
   accepted_types: ['application/pdf'],
   max_size: 10 * megabyte,
+  resolution: false,
 })
 
 const text = (fieldId: string, value: string): Value => ({
@@ -81,6 +82,7 @@ function detail(
     applicant,
     open_step: 'communicate',
     can_act: true,
+    as_applicant: false,
     steps: [request, communicate],
     history,
   }

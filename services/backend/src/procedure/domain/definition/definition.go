@@ -78,6 +78,7 @@ func (d ProcedureTypeDefinition) problems(areas []Area) []ValidationProblem {
 		problems = append(problems, within(Element{Kind: KindStep, ID: s.ID}, validator.validate(s))...)
 	}
 	problems = append(problems, unused(d)...)
+	problems = append(problems, resolutionsFromApplicant(d)...)
 	if len(problems) > 0 {
 		return problems
 	}
@@ -106,6 +107,24 @@ func unused(d ProcedureTypeDefinition) []ValidationProblem {
 	for _, doc := range d.Documents {
 		if !usedDocuments[doc.ID] {
 			problems = append(problems, ValidationProblem{Code: CodeUnusedDocument, Path: []Element{{Kind: KindDocument, ID: doc.ID}}})
+		}
+	}
+	return problems
+}
+
+// resolutionsFromApplicant reports a resolution that a step of the applicant
+// asks for: the resolution is what staff attaches for the applicant to
+// download once the procedure closes.
+func resolutionsFromApplicant(d ProcedureTypeDefinition) []ValidationProblem {
+	var problems []ValidationProblem
+	for _, s := range d.Steps {
+		if s.Role != RoleApplicant {
+			continue
+		}
+		for _, id := range slices.Concat(s.Documents, s.OptionalDocuments) {
+			if slices.ContainsFunc(d.Documents, func(doc Document) bool { return doc.ID == id && doc.Resolution }) {
+				problems = append(problems, ValidationProblem{Code: CodeResolutionFromApplicant, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindDocument, ID: id}}})
+			}
 		}
 	}
 	return problems

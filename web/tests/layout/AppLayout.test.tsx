@@ -8,8 +8,8 @@ import { render } from '../test-utils/render'
 
 const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', staff: false, administrator: false }
 
-// stubApi plays the API: /me answers while the session is open, and a
-// successful /auth/logout closes it.
+// stubApi plays the API: /me answers while the session is open, with no
+// procedures of its own, and a successful /auth/logout closes it.
 function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStatus?: number }) {
   let open = session
   const fetch = vi.fn(async (request: Request) => {
@@ -19,7 +19,10 @@ function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStat
       }
       return new Response(null, { status: logoutStatus })
     }
-    return open ? Response.json(user) : Response.json({ message: 'Sin sesión' }, { status: 401 })
+    if (!open) {
+      return Response.json({ message: 'Sin sesión' }, { status: 401 })
+    }
+    return Response.json(request.url.endsWith('/me/procedures') ? [] : user)
   })
   vi.stubGlobal('fetch', fetch)
   return fetch

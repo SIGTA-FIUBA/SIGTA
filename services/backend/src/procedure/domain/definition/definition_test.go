@@ -220,6 +220,7 @@ func TestInvalidDefinitions(t *testing.T) {
 		{name: "unused document", change: func(d *definition.ProcedureTypeDefinition) {
 			d.Documents = append(d.Documents, definition.Document{ID: "photo", Name: "Foto", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024})
 		}, want: []string{`document "photo" is not used by any step`}},
+		{name: "resolution asked by a step of the applicant", change: func(d *definition.ProcedureTypeDefinition) { d.Documents[0].Resolution = true }, want: []string{`step "letter": document "letter" is a resolution, which staff attaches, but a step of the applicant asks for it`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

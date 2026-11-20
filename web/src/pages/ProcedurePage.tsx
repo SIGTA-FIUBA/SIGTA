@@ -96,6 +96,48 @@ function OpenStep({ step, canAct }: { step: Step | undefined; canAct: boolean })
   )
 }
 
+// expected says, for the applicant, what the procedure waits for now and who
+// has it.
+function expected(detail: Detail, step: Step | undefined) {
+  if (step === undefined) {
+    return 'Nada: el trámite está cerrado.'
+  }
+  if (step.role === 'applicant') {
+    return `${step.name}, a cargo del titular.`
+  }
+  if (detail.referral) {
+    return `${step.name}, en evaluación de ${detail.referral.area.name}, fuera de ${detail.referral.from.name}.`
+  }
+  return `${step.name}, a cargo de ${responsible(step)}.`
+}
+
+function resolutionFiles(detail: Detail) {
+  return detail.steps.flatMap((step) =>
+    step.files.filter((file) => step.documents.some((d) => d.id === file.document && d.resolution)),
+  )
+}
+
+function Resolution({ detail }: { detail: Detail }) {
+  const files = resolutionFiles(detail)
+  if (files.length === 0) {
+    return <Text c="dimmed">El trámite se cerró sin un documento resolutivo adjunto.</Text>
+  }
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="sm">
+        {files.map((file) => (
+          <Stack key={file.id} gap={0}>
+            <Text size="sm" fw={500}>
+              {documentName(detail, file.document)}
+            </Text>
+            <DocumentFile procedureId={detail.id} file={file} />
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
 function referralText(referral: NonNullable<Detail['referral']>) {
   const days = referral.days_without_return === 1 ? '1 día' : `${referral.days_without_return} días`
   return `En ${referral.area.name}, desde ${referral.from.name}. ${days} sin retorno.`
@@ -187,6 +229,15 @@ function documentName(detail: Detail, id: string) {
   return id
 }
 
+// doneBy names who did a step or, for the applicant, who has the steps of
+// staff: the area, since the applicant does not see the person.
+function doneBy(event: Event, step: Step | undefined) {
+  if (event.by) {
+    return personName(event.by)
+  }
+  return step ? responsible(step) : 'Personal'
+}
+
 function stepName(detail: Detail, id: string | undefined) {
   return detail.steps.find((step) => step.id === id)?.name ?? id
 }
@@ -196,7 +247,7 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        {personName(event.by)} · {dateTime.format(new Date(event.at))}
+        {doneBy(event, step)} · {dateTime.format(new Date(event.at))}
       </Text>
       {event.document && (
         <Stack gap={0}>
@@ -576,9 +627,20 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
               <Text>{referralText(detail.referral)}</Text>
             </Fact>
           )}
+          {detail.as_applicant && (
+            <Fact label="Qué se espera ahora">
+              <Text>{expected(detail, open)}</Text>
+            </Fact>
+          )}
         </SimpleGrid>
       </Paper>
       <SentBack detail={detail} />
+      {detail.state === 'closed' && (
+        <Stack gap="sm">
+          <Title order={2}>Resolución</Title>
+          <Resolution detail={detail} />
+        </Stack>
+      )}
       {notice && (
         <Alert withCloseButton onClose={() => setNotice(null)} closeButtonLabel="Cerrar el aviso">
           {notice}

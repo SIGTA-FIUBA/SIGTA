@@ -275,6 +275,9 @@ type DefinitionDocument struct {
 	Id            string    `json:"id"`
 	MaxSize       *int64    `json:"max_size,omitempty"`
 	Name          string    `json:"name"`
+
+	// Resolution Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009).
+	Resolution *bool `json:"resolution,omitempty"`
 }
 
 // DefinitionField defines model for DefinitionField.
@@ -325,6 +328,9 @@ type DocumentRequirement struct {
 	MaxSize  int64  `json:"max_size"`
 	Name     string `json:"name"`
 	Required bool   `json:"required"`
+
+	// Resolution Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009).
+	Resolution bool `json:"resolution"`
 }
 
 // DraftEdit defines model for DraftEdit.
@@ -418,7 +424,7 @@ type Membership struct {
 type MyProcedure struct {
 	Id string `json:"id"`
 
-	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
@@ -427,8 +433,8 @@ type MyProcedure struct {
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
-	// StepName Paso abierto, el que se espera ahora
-	StepName string `json:"step_name"`
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+	StepName *string `json:"step_name,omitempty"`
 }
 
 // NamedOption defines model for NamedOption.
@@ -518,6 +524,9 @@ type ProblemElement struct {
 type ProcedureDetail struct {
 	Applicant Person `json:"applicant"`
 
+	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
+	AsApplicant bool `json:"as_applicant"`
+
 	// CanAct Si quien mira puede hacer el paso abierto
 	CanAct bool `json:"can_act"`
 
@@ -564,13 +573,17 @@ type ProcedureDocument struct {
 	// Step Paso en el que se adjuntó
 	Step       string    `json:"step"`
 	UploadedAt time.Time `json:"uploaded_at"`
-	UploadedBy Person    `json:"uploaded_by"`
+
+	// UploadedBy Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución.
+	UploadedBy *Person `json:"uploaded_by,omitempty"`
 }
 
 // ProcedureEvent defines model for ProcedureEvent.
 type ProcedureEvent struct {
 	At time.Time `json:"at"`
-	By Person    `json:"by"`
+
+	// By Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona.
+	By *Person `json:"by,omitempty"`
 
 	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
 	Declared bool `json:"declared"`
@@ -621,7 +634,7 @@ type ProcedureListItem struct {
 	Area *NamedOption `json:"area,omitempty"`
 	Id   string       `json:"id"`
 
-	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
@@ -630,7 +643,7 @@ type ProcedureListItem struct {
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
-	// StepName Paso abierto, el que se espera ahora
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
 	StepName string `json:"step_name"`
 }
 
@@ -1118,7 +1131,7 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
-	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// ListMyProcedures Trámites de la persona con sesión abierta
 	// (GET /me/procedures)
 	ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams)
 	// GrantMembership Otorga una membresía a una persona
@@ -4249,7 +4262,7 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
-	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// ListMyProcedures Trámites de la persona con sesión abierta
 	// (GET /me/procedures)
 	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
 	// GrantMembership Otorga una membresía a una persona

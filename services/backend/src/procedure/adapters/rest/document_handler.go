@@ -223,7 +223,7 @@ func procedureDocument(d domain.Document, current bool, names map[string]string)
 		FileName:   d.FileName,
 		MediaType:  d.MediaType,
 		Size:       d.Size,
-		UploadedBy: person(d.UploadedBy, names),
+		UploadedBy: personIfAny(d.UploadedBy, names),
 		UploadedAt: d.UploadedAt,
 		Current:    current,
 	}
@@ -233,6 +233,24 @@ func procedureDocument(d domain.Document, current bool, names map[string]string)
 // is not registered.
 func person(id string, names map[string]string) api.Person {
 	return api.Person{Id: id, Name: names[id]}
+}
+
+// personIfAny is nil when id is empty, as for a member of staff that the
+// applicant does not see.
+func personIfAny(id string, names map[string]string) *api.Person {
+	if id == "" {
+		return nil
+	}
+	p := person(id, names)
+	return &p
+}
+
+// stringIfAny is nil when s is empty: the contract leaves the key out.
+func stringIfAny(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func valueOf(s *string) string {
