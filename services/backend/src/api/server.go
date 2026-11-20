@@ -57,6 +57,8 @@ type ProcedureServer interface {
 	SubmitProcedure(ctx context.Context, request SubmitProcedureRequestObject) (SubmitProcedureResponseObject, error)
 	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
 	RequestCorrection(ctx context.Context, request RequestCorrectionRequestObject) (RequestCorrectionResponseObject, error)
+	EnterProcedureValue(ctx context.Context, request EnterProcedureValueRequestObject) (EnterProcedureValueResponseObject, error)
+	AnswerCorrection(ctx context.Context, request AnswerCorrectionRequestObject) (AnswerCorrectionResponseObject, error)
 	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
 }
 

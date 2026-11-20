@@ -17,6 +17,7 @@ import (
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/engine"
+	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
 )
 
@@ -29,6 +30,9 @@ type fakeSteps struct {
 	user       string
 	received   input.StepConfirmation
 	correction input.CorrectionRequest
+	field      string
+	entered    submission.Value
+	value      domain.FieldValue
 }
 
 func (f *fakeSteps) Confirm(_ context.Context, userID, _ string, c input.StepConfirmation) (domain.Event, error) {
@@ -41,16 +45,33 @@ func (f *fakeSteps) RequestCorrection(_ context.Context, userID, _ string, r inp
 	return f.event, f.err
 }
 
-func confirmStep(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.ResponseRecorder {
+func (f *fakeSteps) EnterValue(_ context.Context, userID, _, fieldID string, v submission.Value) (domain.FieldValue, error) {
+	f.user, f.field, f.entered = userID, fieldID, v
+	return f.value, f.err
+}
+
+func (f *fakeSteps) AnswerCorrection(_ context.Context, userID, _ string) (domain.Event, error) {
+	f.user = userID
+	return f.event, f.err
+}
+
+// postToSteps sends a JSON body to a path of the procedure P-1, handled by the
+// procedure handler over steps.
+func postToSteps(t *testing.T, steps *fakeSteps, path, cookie, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, fakeProcedures{}, nil, steps), nil, nil)
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/procedures/P-1/steps/check/confirmation", strings.NewReader(body))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/procedures/P-1"+path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Cookie", "sigta_session="+cookie)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, r)
 	return recorder
+}
+
+func confirmStep(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	return postToSteps(t, steps, "/steps/check/confirmation", cookie, body)
 }
 
 func TestConfirmStepAnswersTheRecordedEvent(t *testing.T) {

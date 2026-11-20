@@ -196,6 +196,7 @@ func TestAttachAnswersEachRejection(t *testing.T) {
 		{domain.ErrAccessDenied, http.StatusForbidden, "No podés adjuntar"},
 		{domain.ErrProcedureNotFound, http.StatusNotFound, "No existe el trámite"},
 		{engine.ErrStepNotOpen, http.StatusConflict, "ya no está abierto"},
+		{engine.ErrNoCorrectionPending, http.StatusConflict, "subsanación pendiente"},
 		{errors.New("disk full"), http.StatusInternalServerError, "inesperado"},
 	}
 	for _, tt := range tests {

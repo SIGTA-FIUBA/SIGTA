@@ -1090,6 +1090,71 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/values:
+    post:
+      operationId: enterProcedureValue
+      summary: Carga un dato que pide una subsanación pendiente
+      description: >
+        Solo el titular, y solo un dato que pide una subsanación pendiente. El
+        valor se valida como al iniciar el trámite y queda en el paso del
+        titular que pide ese dato, junto con los anteriores, y en el historial.
+        Cargarlo no responde la subsanación: eso es enviar la respuesta.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProcedureValue"
+      responses:
+        "201":
+          description: Dato cargado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureValue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/correction-answer:
+    post:
+      operationId: answerCorrection
+      summary: Envía la respuesta a las subsanaciones pendientes
+      description: >
+        Solo el titular. Responde todas las subsanaciones pendientes, y exige
+        que cada dato y documento que piden se haya cargado de nuevo después
+        del último pedido que lo nombra; si falta alguno, responde 400 con un
+        mensaje que los nombra. El trámite vuelve al personal en el mismo paso
+        abierto, y la respuesta queda en el historial.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "201":
+          description: Respuesta enviada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /procedures/{procedureId}/documents:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"
@@ -1122,13 +1187,18 @@ paths:
       summary: Adjunta un documento a un trámite
       description: >
         Adjunta un archivo para un documento que pide el paso abierto, y solo
-        quien puede hacer ese paso. El servidor reconoce el tipo por el
+        quien puede hacer ese paso. Mientras tiene una subsanación pendiente,
+        el titular adjunta además lo que ella pide, que queda en el paso suyo
+        que pide ese documento. El servidor reconoce el tipo por el
         contenido del archivo, no por su nombre, y lo compara con los tipos y
         el tamaño máximo del documento. Adjuntar otro archivo para el mismo
         documento reemplaza al anterior, que queda registrado. Un trámite
-        guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en
-        el historial, sin avanzar el trámite. Si el paso ya no está abierto
-        (otro lo confirmó o el trámite está cerrado), responde 409.
+        guarda hasta 20 archivos por documento; para responder una
+        subsanación, cuentan solo los adjuntados desde el último pedido que
+        nombra ese documento. Cada archivo adjuntado queda en el historial,
+        sin avanzar el trámite. Si el paso ya no está abierto (otro lo
+        confirmó o el trámite está cerrado), o la subsanación que pedía el
+        documento ya se respondió, responde 409.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -2213,6 +2283,38 @@ components:
           $ref: "#/components/schemas/HistoryDocument"
         correction_request:
           $ref: "#/components/schemas/HistoryCorrectionRequest"
+        value:
+          $ref: "#/components/schemas/HistoryValue"
+        correction_answer:
+          description: >
+            Lo que pedían las subsanaciones que respondió el titular; ausente en
+            los demás eventos. Responderlas no avanza el trámite: vuelve al
+            personal en el mismo paso.
+          allOf:
+            - $ref: "#/components/schemas/HistoryCorrectionRequest"
+    HistoryValue:
+      type: object
+      description: >
+        El dato que cargó el titular para responder una subsanación; ausente en
+        los demás eventos. El valor está en los datos del paso.
+      required: [field]
+      properties:
+        field:
+          type: string
+    NewProcedureValue:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+          description: Identificador del dato
+        text:
+          type: string
+          description: El valor; para subject_list va items
+        items:
+          type: array
+          items:
+            type: string
     HistoryDocument:
       type: object
       description: >
@@ -2243,7 +2345,7 @@ components:
           type: string
     MyProcedure:
       type: object
-      required: [id, procedure_type, procedure_type_name, state, started_at, last_moved_at]
+      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at]
       properties:
         id:
           type: string
@@ -2257,6 +2359,9 @@ components:
           description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         state:
           $ref: "#/components/schemas/ProcedureState"
+        correction_pending:
+          type: boolean
+          description: Si el titular tiene una subsanación pendiente
         started_at:
           type: string
           format: date-time

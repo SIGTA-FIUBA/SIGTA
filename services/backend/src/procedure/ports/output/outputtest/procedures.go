@@ -45,6 +45,10 @@ func TestProcedureRepository(t *testing.T, newStores func(t *testing.T) Procedur
 	t.Run("concurrent confirmations", func(t *testing.T) { concurrentConfirmations(t, published(t, newStores(t))) })
 	t.Run("confirmation and correction request at once", func(t *testing.T) { concurrentConfirmationAndCorrection(t, published(t, newStores(t))) })
 	t.Run("concurrent attachments", func(t *testing.T) { concurrentAttachments(t, published(t, newStores(t))) })
+	t.Run("enter a value in answer", func(t *testing.T) { enterValue(t, published(t, newStores(t))) })
+	t.Run("attach in answer", func(t *testing.T) { attachInAnswer(t, published(t, newStores(t))) })
+	t.Run("answer a correction", func(t *testing.T) { answerCorrection(t, published(t, newStores(t))) })
+	t.Run("answer read before another request", func(t *testing.T) { answerBeforeAnotherRequest(t, published(t, newStores(t))) })
 }
 
 // startedAt has microseconds, the most PostgreSQL keeps.
@@ -642,4 +646,109 @@ func concurrentAttachments(t *testing.T, s ProcedureStores) {
 			t.Errorf("event %d names %+v, want document %s, in the order the documents were added", i, events[i].Document, documents[i].ID)
 		}
 	}
+}
+
+// answered is the event of an answer to everything asked by the requests.
+func answered(procedureID, step string, fields, documents []string) domain.Event {
+	return domain.Event{ProcedureID: procedureID, Step: step, By: "titular@fi.uba.ar", At: startedAt.Add(2 * time.Hour),
+		CorrectionAnswer: &domain.CorrectionRecord{Fields: slices.Clone(fields), Documents: slices.Clone(documents)}}
+}
+
+// enterValue records a value the applicant loads again, only while a
+// correction is pending, with its event.
+func enterValue(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	start := fullStart("P-1")
+	add(t, s, start)
+	v := domain.FieldValue{Procedure: "P-1", Field: "reason", Step: "request", Text: "Con la firma", EnteredBy: "titular@fi.uba.ar", EnteredAt: startedAt.Add(time.Hour)}
+	e := domain.Event{ProcedureID: "P-1", Step: "request", Action: definition.ActionEnterData, By: v.EnteredBy, At: v.EnteredAt, Value: &domain.ValueRecord{Field: "reason"}}
+	if err := s.Procedures.EnterValue(ctx, v, e); !errors.Is(err, engine.ErrNoCorrectionPending) {
+		t.Errorf("EnterValue() with nothing pending = %v, want ErrNoCorrectionPending", err)
+	}
+	r, requested := correction("P-1", "documents", []string{"reason"}, nil)
+	requestCorrectionOf(t, s, r, requested)
+
+	if err := s.Procedures.EnterValue(ctx, v, e); err != nil {
+		t.Fatalf("EnterValue() = %v", err)
+	}
+	want := start.Procedure
+	want.CorrectionRequests = []domain.CorrectionRequest{r}
+	wantRecorded(t, s, want, append(slices.Clone(start.Events), requested, e), append(slices.Clone(start.Values), v), start.Documents)
+}
+
+// attachInAnswer attaches a document of a step of the applicant, which is not
+// the open one, while a correction is pending, and refuses it once answered.
+func attachInAnswer(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	start := fullStart("P-1")
+	add(t, s, start)
+	r, requested := correction("P-1", "documents", nil, []string{"statement"})
+	requestCorrectionOf(t, s, r, requested)
+
+	d := document("D-3", "P-1", "statement")
+	d.Step = "request"
+	if err := s.Procedures.Attach(ctx, d, attachedEvent(d)); err != nil {
+		t.Fatalf("Attach() in answer = %v", err)
+	}
+	staff := document("D-4", "P-1", "statement")
+	staff.Step, staff.UploadedBy = "request", "staff@fi.uba.ar"
+	if err := s.Procedures.Attach(ctx, staff, attachedEvent(staff)); !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Errorf("Attach() by staff to a step of the applicant = %v, want ErrStepNotOpen", err)
+	}
+	answer := answered("P-1", "documents", nil, []string{"statement"})
+	if err := s.Procedures.AnswerCorrection(ctx, procedure("P-1", "documents"), 1, answer); err != nil {
+		t.Fatalf("AnswerCorrection() = %v", err)
+	}
+	late := document("D-5", "P-1", "statement")
+	late.Step = "request"
+	if err := s.Procedures.Attach(ctx, late, attachedEvent(late)); !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Errorf("Attach() after the answer = %v, want ErrStepNotOpen", err)
+	}
+	events := append(slices.Clone(start.Events), requested, attachedEvent(d), answer)
+	wantRecorded(t, s, start.Procedure, events, start.Values, append(slices.Clone(start.Documents), d))
+}
+
+// answerCorrection answers every pending request at once; a request after
+// the answer is pending again, and a second answer finds nothing pending.
+func answerCorrection(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	start := fullStart("P-1")
+	add(t, s, start)
+	first, firstEvent := correction("P-1", "documents", []string{"reason"}, nil)
+	second, secondEvent := correction("P-1", "documents", nil, []string{"statement"})
+	requestCorrectionOf(t, s, first, firstEvent)
+	requestCorrectionOf(t, s, second, secondEvent)
+
+	answer := answered("P-1", "documents", []string{"reason"}, []string{"statement"})
+	if err := s.Procedures.AnswerCorrection(ctx, procedure("P-1", "documents"), 2, answer); err != nil {
+		t.Fatalf("AnswerCorrection() = %v", err)
+	}
+	if err := s.Procedures.AnswerCorrection(ctx, procedure("P-1", "documents"), 2, answer); !errors.Is(err, engine.ErrNoCorrectionPending) {
+		t.Errorf("a second AnswerCorrection() = %v, want ErrNoCorrectionPending", err)
+	}
+	third, thirdEvent := correction("P-1", "documents", []string{"subjects"}, nil)
+	requestCorrectionOf(t, s, third, thirdEvent)
+
+	want := start.Procedure
+	want.CorrectionRequests = []domain.CorrectionRequest{third}
+	wantRecorded(t, s, want, append(slices.Clone(start.Events), firstEvent, secondEvent, answer, thirdEvent), start.Values, start.Documents)
+}
+
+// answerBeforeAnotherRequest stores an answer that was made when the history
+// had one request less: it does not answer the request it did not see.
+func answerBeforeAnotherRequest(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	start := fullStart("P-1")
+	add(t, s, start)
+	first, firstEvent := correction("P-1", "documents", []string{"reason"}, nil)
+	second, secondEvent := correction("P-1", "documents", nil, []string{"statement"})
+	requestCorrectionOf(t, s, first, firstEvent)
+	requestCorrectionOf(t, s, second, secondEvent)
+
+	if err := s.Procedures.AnswerCorrection(ctx, procedure("P-1", "documents"), 1, answered("P-1", "documents", []string{"reason"}, nil)); !errors.Is(err, engine.ErrCorrectionsChanged) {
+		t.Errorf("AnswerCorrection() read with one request = %v, want ErrCorrectionsChanged", err)
+	}
+	want := start.Procedure
+	want.CorrectionRequests = []domain.CorrectionRequest{first, second}
+	wantRecorded(t, s, want, append(slices.Clone(start.Events), firstEvent, secondEvent), start.Values, start.Documents)
 }

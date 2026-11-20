@@ -445,6 +445,11 @@ type HistoryDocument struct {
 	Id string `json:"id"`
 }
 
+// HistoryValue El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso.
+type HistoryValue struct {
+	Field string `json:"field"`
+}
+
 // InvalidDefinition defines model for InvalidDefinition.
 type InvalidDefinition struct {
 	Message  string              `json:"message"`
@@ -478,7 +483,9 @@ type MembershipPermissions struct {
 
 // MyProcedure defines model for MyProcedure.
 type MyProcedure struct {
-	Id string `json:"id"`
+	// CorrectionPending Si el titular tiene una subsanación pendiente
+	CorrectionPending bool   `json:"correction_pending"`
+	Id                string `json:"id"`
 
 	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
@@ -556,6 +563,16 @@ type NewPermission struct {
 type NewProcedureType struct {
 	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
 	Definition ProcedureTypeDefinition `json:"definition"`
+}
+
+// NewProcedureValue defines model for NewProcedureValue.
+type NewProcedureValue struct {
+	// Field Identificador del dato
+	Field string    `json:"field"`
+	Items *[]string `json:"items,omitempty"`
+
+	// Text El valor; para subject_list va items
+	Text *string `json:"text,omitempty"`
 }
 
 // NewRole defines model for NewRole.
@@ -664,6 +681,9 @@ type ProcedureEvent struct {
 	// By Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona.
 	By *Person `json:"by,omitempty"`
 
+	// CorrectionAnswer Lo que pedían las subsanaciones que respondió el titular; ausente en los demás eventos. Responderlas no avanza el trámite: vuelve al personal en el mismo paso.
+	CorrectionAnswer *HistoryCorrectionRequest `json:"correction_answer,omitempty"`
+
 	// CorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
 	CorrectionRequest *HistoryCorrectionRequest `json:"correction_request,omitempty"`
 
@@ -691,6 +711,9 @@ type ProcedureEvent struct {
 
 	// Step Paso hecho, o el paso abierto en el que se adjuntó el documento
 	Step string `json:"step"`
+
+	// Value El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso.
+	Value *HistoryValue `json:"value,omitempty"`
 }
 
 // ProcedureList defines model for ProcedureList.
@@ -1193,6 +1216,11 @@ type GetProcedureParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// AnswerCorrectionParams defines parameters for AnswerCorrection.
+type AnswerCorrectionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // ListProcedureDocumentsParams defines parameters for ListProcedureDocuments.
 type ListProcedureDocumentsParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
@@ -1222,6 +1250,11 @@ type ConfirmStepParams struct {
 
 // RequestCorrectionParams defines parameters for RequestCorrection.
 type RequestCorrectionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// EnterProcedureValueParams defines parameters for EnterProcedureValue.
+type EnterProcedureValueParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -1272,6 +1305,9 @@ type ConfirmStepJSONRequestBody = StepConfirmation
 
 // RequestCorrectionJSONRequestBody defines body for RequestCorrection for application/json ContentType.
 type RequestCorrectionJSONRequestBody = NewCorrectionRequest
+
+// EnterProcedureValueJSONRequestBody defines body for EnterProcedureValue for application/json ContentType.
+type EnterProcedureValueJSONRequestBody = NewProcedureValue
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -1377,6 +1413,9 @@ type ServerInterface interface {
 	// GetProcedure Detalle de un trámite
 	// (GET /procedures/{procedureId})
 	GetProcedure(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params GetProcedureParams)
+	// AnswerCorrection Envía la respuesta a las subsanaciones pendientes
+	// (POST /procedures/{procedureId}/correction-answer)
+	AnswerCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AnswerCorrectionParams)
 	// ListProcedureDocuments Documentos adjuntos a un trámite
 	// (GET /procedures/{procedureId}/documents)
 	ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams)
@@ -1392,6 +1431,9 @@ type ServerInterface interface {
 	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
 	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
 	RequestCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params RequestCorrectionParams)
+	// EnterProcedureValue Carga un dato que pide una subsanación pendiente
+	// (POST /procedures/{procedureId}/values)
+	EnterProcedureValue(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params EnterProcedureValueParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -2889,6 +2931,50 @@ func (siw *ServerInterfaceWrapper) GetProcedure(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// AnswerCorrection operation middleware
+func (siw *ServerInterfaceWrapper) AnswerCorrection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AnswerCorrectionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerCorrection(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProcedureDocuments operation middleware
 func (siw *ServerInterfaceWrapper) ListProcedureDocuments(w http.ResponseWriter, r *http.Request) {
 
@@ -3136,6 +3222,50 @@ func (siw *ServerInterfaceWrapper) RequestCorrection(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// EnterProcedureValue operation middleware
+func (siw *ServerInterfaceWrapper) EnterProcedureValue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EnterProcedureValueParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnterProcedureValue(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -3292,6 +3422,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/confirmation", wrapper.ConfirmStep)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/correction-requests", wrapper.RequestCorrection)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/values", wrapper.EnterProcedureValue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/correction-answer", wrapper.AnswerCorrection)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.DownloadProcedureDocument)
@@ -5458,6 +5590,99 @@ func (response GetProcedure404JSONResponse) VisitGetProcedureResponse(w http.Res
 	return err
 }
 
+type AnswerCorrectionRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      AnswerCorrectionParams
+}
+
+type AnswerCorrectionResponseObject interface {
+	VisitAnswerCorrectionResponse(w http.ResponseWriter) error
+}
+
+type AnswerCorrection201JSONResponse ProcedureEvent
+
+func (response AnswerCorrection201JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AnswerCorrection400JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AnswerCorrection401JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AnswerCorrection403JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AnswerCorrection404JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AnswerCorrection409JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListProcedureDocumentsRequestObject struct {
 	ProcedureId ProcedureId `json:"procedureId"`
 	Params      ListProcedureDocumentsParams
@@ -5864,6 +6089,100 @@ func (response RequestCorrection409JSONResponse) VisitRequestCorrectionResponse(
 	return err
 }
 
+type EnterProcedureValueRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      EnterProcedureValueParams
+	Body        *EnterProcedureValueJSONRequestBody
+}
+
+type EnterProcedureValueResponseObject interface {
+	VisitEnterProcedureValueResponse(w http.ResponseWriter) error
+}
+
+type EnterProcedureValue201JSONResponse ProcedureValue
+
+func (response EnterProcedureValue201JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response EnterProcedureValue400JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EnterProcedureValue401JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EnterProcedureValue403JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EnterProcedureValue404JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EnterProcedureValue409JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListAdministrators Lista los administradores vigentes
@@ -5968,6 +6287,9 @@ type StrictServerInterface interface {
 	// GetProcedure Detalle de un trámite
 	// (GET /procedures/{procedureId})
 	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
+	// AnswerCorrection Envía la respuesta a las subsanaciones pendientes
+	// (POST /procedures/{procedureId}/correction-answer)
+	AnswerCorrection(ctx context.Context, request AnswerCorrectionRequestObject) (AnswerCorrectionResponseObject, error)
 	// ListProcedureDocuments Documentos adjuntos a un trámite
 	// (GET /procedures/{procedureId}/documents)
 	ListProcedureDocuments(ctx context.Context, request ListProcedureDocumentsRequestObject) (ListProcedureDocumentsResponseObject, error)
@@ -5983,6 +6305,9 @@ type StrictServerInterface interface {
 	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
 	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
 	RequestCorrection(ctx context.Context, request RequestCorrectionRequestObject) (RequestCorrectionResponseObject, error)
+	// EnterProcedureValue Carga un dato que pide una subsanación pendiente
+	// (POST /procedures/{procedureId}/values)
+	EnterProcedureValue(ctx context.Context, request EnterProcedureValueRequestObject) (EnterProcedureValueResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -7018,6 +7343,33 @@ func (sh *strictHandler) GetProcedure(w http.ResponseWriter, r *http.Request, pr
 	}
 }
 
+// AnswerCorrection operation middleware
+func (sh *strictHandler) AnswerCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AnswerCorrectionParams) {
+	var request AnswerCorrectionRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnswerCorrection(ctx, request.(AnswerCorrectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnswerCorrection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnswerCorrectionResponseObject); ok {
+		if err := validResponse.VisitAnswerCorrectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListProcedureDocuments operation middleware
 func (sh *strictHandler) ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams) {
 	var request ListProcedureDocumentsRequestObject
@@ -7170,6 +7522,40 @@ func (sh *strictHandler) RequestCorrection(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RequestCorrectionResponseObject); ok {
 		if err := validResponse.VisitRequestCorrectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnterProcedureValue operation middleware
+func (sh *strictHandler) EnterProcedureValue(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params EnterProcedureValueParams) {
+	var request EnterProcedureValueRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	var body EnterProcedureValueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnterProcedureValue(ctx, request.(EnterProcedureValueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnterProcedureValue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnterProcedureValueResponseObject); ok {
+		if err := validResponse.VisitEnterProcedureValueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

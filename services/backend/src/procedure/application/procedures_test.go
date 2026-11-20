@@ -106,11 +106,22 @@ func (failingAdvance) Advance(context.Context, proceduredomain.Procedure, proced
 // confirmationFixture leaves the procedure P-1 waiting on openStep.
 func confirmationFixture(t *testing.T, openStep string) (*ProcedureService, *memory.ProcedureRepository) {
 	t.Helper()
+	procedures := memory.NewProcedureRepository()
+	return confirmationFixtureOver(t, procedures, procedures, openStep), procedures
+}
+
+// confirmationFixtureOver is confirmationFixture over procedures, which may
+// wrap the memory repository stored to step in between the calls of a use
+// case.
+func confirmationFixtureOver(t *testing.T, procedures output.ProcedureRepository, stored *memory.ProcedureRepository, openStep string) *ProcedureService {
+	t.Helper()
 	d := definition.ProcedureTypeDefinition{
-		Name:   "Equivalencia",
-		Fields: []definition.Field{{ID: "subjects", Name: "Materias", Type: definition.FieldText}},
+		Name:      "Equivalencia",
+		Fields:    []definition.Field{{ID: "subjects", Name: "Materias", Type: definition.FieldText}, {ID: "plan", Name: "Plan", Type: definition.FieldText}},
+		Documents: []definition.Document{{ID: "proof", Name: "Constancia", AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: maxSize}},
 		Steps: []definition.Step{
-			{ID: "request", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"subjects"}, Next: "file"},
+			{ID: "request", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"subjects"}, OptionalFields: []string{"plan"}, Next: "proofs"},
+			{ID: "proofs", Role: definition.RoleApplicant, Action: definition.ActionUploadDocument, OptionalDocuments: []string{"proof"}, Next: "file"},
 			{ID: "file", Role: definition.RoleStaff, Area: "affairs", Permissions: []string{"verify"}, Action: definition.ActionConfirmExternalFact, Next: "evaluate"},
 			{ID: "evaluate", Role: definition.RoleStaff, Area: "commission", Permissions: []string{"evaluate"}, Action: definition.ActionConfirmExternalFact},
 		},
@@ -123,12 +134,11 @@ func confirmationFixture(t *testing.T, openStep string) (*ProcedureService, *mem
 		"operative@fi.uba.ar":  {"affairs": {"verify"}},
 		"commission@fi.uba.ar": {"commission": {"evaluate"}},
 	}
-	procedures := memory.NewProcedureRepository()
-	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(procedures), staffAuthorizer, func() string { return "P-1" }, func() time.Time { return confirmedAt })
+	service := NewProcedureService(fixedVersion{encoded: encoded}, procedures, memory.NewDocumentRepository(stored), staffAuthorizer, func() string { return "P-1" }, func() time.Time { return confirmedAt })
 	if err := procedures.Add(context.Background(), output.Start{Procedure: proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: "applicant@fi.uba.ar", OpenStep: openStep}}); err != nil {
 		t.Fatal(err)
 	}
-	return service, procedures
+	return service
 }
 
 func fileConfirmation() input.StepConfirmation {

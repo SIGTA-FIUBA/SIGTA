@@ -98,7 +98,12 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 			continue
 		}
 		if !a.ownStep(e.Step) {
-			e.By, e.Outcome = "", ""
+			// The answer to a correction is on the step of staff, but the
+			// applicant sent it.
+			if e.CorrectionAnswer == nil {
+				e.By = ""
+			}
+			e.Outcome = ""
 			// The reason of a send back to one of their steps (ADR-025) and of
 			// a correction request (ADR-026) is for the applicant.
 			if e.CorrectionRequest == nil && (!e.SendBack || !a.ownStep(e.Next)) {

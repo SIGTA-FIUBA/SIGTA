@@ -29,7 +29,7 @@ func TestScenarios(t *testing.T) {
 			registerHistorySteps(sc, confirmations)
 			registerCorrectionRequestSteps(sc, confirmations)
 			registerMyProceduresSteps(sc, confirmations)
-			registerMyProcedureDetailSteps(sc, confirmations)
+			registerCorrectionAnswerSteps(sc, registerMyProcedureDetailSteps(sc, confirmations))
 			registerDetailSteps(sc, registerDocumentSteps(sc))
 			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)

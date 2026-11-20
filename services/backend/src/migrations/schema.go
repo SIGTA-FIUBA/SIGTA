@@ -32,6 +32,7 @@ var immutable = []struct {
 	{table: "procedure_events"},
 	{table: "documents"},
 	{table: "procedure_field_values"},
+	{table: "procedure_correction_answers"},
 	{table: "area_role_revisions"},
 	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest", "applicant", "started_at"}},
 	{table: "areas", columns: []string{"created_at", "created_by"}},
