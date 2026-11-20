@@ -608,25 +608,26 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-027: Las personas, las membresías y los administradores viven solo en la base, sin archivo de usuarios
+## ADR-027: Las personas y las membresías viven solo en la base, sin archivo de usuarios
 
 **Estado:** propuesta, a acordar con el equipo
 **Modifica:** ADR-020, en la carga de las membresías iniciales
 
-**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que un administrador había dado de baja, y daba de baja las que dejaba de listar. Así, lo que decide un administrador en SIGTA, con su registro de quién y cuándo, podía deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corren con `SIGTA_ENV=development` y los usuarios sintéticos.
+**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que se hubieran dado de baja, y daba de baja las que dejaba de listar. Cuando un administrador pueda dar de baja una membresía desde SIGTA, con su registro de quién y cuándo, esa decisión podría deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corren con `SIGTA_ENV=development` y los usuarios sintéticos.
 
 **Decisión.**
 - Se saca `SIGTA_USERS_FILE`. El servidor ya no lo lee, y en producción no lo pide.
 - Las personas se registran al ingresar con su cuenta de Google, como ya pasaba con quien no figuraba en el archivo.
-- Las membresías y la marca de administrador viven solo en la base, y se cambian solo desde SIGTA, con su registro.
-- En desarrollo, los usuarios sintéticos son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una baja hecha por un administrador se respeta.
-- El primer administrador de un entorno desplegado se da fuera del servidor, con un comando de consola o un script de datos iniciales. Esa herramienta queda para la historia que la necesite (SIG-83). De ahí en adelante, todo se hace desde la interfaz.
+- Las membresías viven solo en la base y se cambian solo desde SIGTA. Hoy se dan por la API; la baja existe como caso de uso pero todavía no tiene endpoint ni pantalla.
+- La marca de administrador sigue en memoria y solo la tienen los usuarios sintéticos de desarrollo. Guardarla en la base y dar el primer administrador de un entorno desplegado con un comando de consola queda para SIG-83. De ahí en adelante, se administra desde SIGTA.
+- En desarrollo, los usuarios sintéticos y las áreas de prueba son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una que se dio de baja sigue de baja. Fuera de desarrollo solo se agrega la Secretaría.
 
 **Alternativas descartadas.**
 - Mantener el archivo y documentar que prevalece sobre las bajas de un administrador: deja dos fuentes de verdad, y una de ellas sin trazabilidad.
 - Leer el archivo solo la primera vez: una base vacía en otro entorno lo volvería a aplicar, y el archivo seguiría guardando datos personales entre los secretos.
 
 **Consecuencias.**
-- Un entorno con `SIGTA_ENV=production` arranca sin administradores ni personal hasta que se da el primer administrador.
+- Hasta SIG-83, un entorno con `SIGTA_ENV=production` arranca sin administradores ni personal, y no hay cómo darle el primero.
+- Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien fuera de desarrollo solo se puede haciendo en la base.
 - Ya no hay un archivo con datos personales entre los secretos del despliegue.
 - El despliegue en Google Cloud no cambia, porque nunca pasó el archivo.
