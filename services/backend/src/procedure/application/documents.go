@@ -136,8 +136,11 @@ func (s *DocumentService) List(ctx context.Context, userID, procedureID string) 
 	attached := make([]input.AttachedDocument, 0, len(documents))
 	applicant := detail.ForApplicant(content, p)
 	for _, d := range documents {
-		if p.Applicant == userID && !applicant.Sees(d) {
-			continue
+		if p.Applicant == userID {
+			if !applicant.Sees(d) {
+				continue
+			}
+			d = applicant.Document(d)
 		}
 		attached = append(attached, input.AttachedDocument{Document: d, Current: current[d.ID]})
 	}

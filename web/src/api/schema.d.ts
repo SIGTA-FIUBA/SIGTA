@@ -371,7 +371,7 @@ export interface paths {
         };
         /**
          * Detalle de un trámite
-         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Al titular no le muestra lo que el personal escribe en cada área: ni las observaciones, ni el número de expediente externo, ni los datos y documentos de los pasos del personal, salvo la resolución cuando el trámite se cierra (as_applicant). Para quien no lo ve, el trámite no existe.
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Al titular no le muestra lo que el personal escribe en cada área: ni quién hizo cada paso del personal (ve el área), ni las observaciones, ni el número de expediente externo, ni los datos y documentos de los pasos del personal, salvo la resolución cuando el trámite se cierra (as_applicant). Para quien no lo ve, el trámite no existe.
          */
         get: operations["getProcedure"];
         put?: never;
@@ -811,7 +811,8 @@ export interface components {
         ProcedureEvent: {
             /** @description Paso hecho, o el paso abierto en el que se adjuntó el documento */
             step: string;
-            by: components["schemas"]["Person"];
+            /** @description Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             observation: string;
@@ -875,7 +876,7 @@ export interface components {
             open_step?: string;
             /** @description Si quien mira puede hacer el paso abierto */
             can_act: boolean;
-            /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
+            /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
             as_applicant: boolean;
             referral?: components["schemas"]["ProcedureReferral"];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
@@ -942,7 +943,8 @@ export interface components {
              * @description Tamaño en bytes
              */
             size: number;
-            uploaded_by: components["schemas"]["Person"];
+            /** @description Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución. */
+            uploaded_by?: components["schemas"]["Person"];
             /** Format: date-time */
             uploaded_at: string;
             /** @description Si es el último que se adjuntó para ese documento; los anteriores quedan registrados */

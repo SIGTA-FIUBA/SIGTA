@@ -336,6 +336,17 @@ describe('ProcedurePage', () => {
     expect(await screen.findByText('El trámite se cerró sin un documento resolutivo adjunto.')).toBeDefined()
   })
 
+  it('names the area instead of the person when the applicant cannot see who did a step', async () => {
+    stubApi(200, {
+      ...detail,
+      as_applicant: true,
+      history: [{ step: 'review', at: '2026-11-16T12:00:00Z', observation: '', declared: false, returned: false }],
+    })
+    renderPage()
+
+    expect(await screen.findByText(/^Dirección de Alumnos · /)).toBeDefined()
+  })
+
   it('shows the history in the order it was recorded, with who, when and what', async () => {
     stubApi(200, {
       ...detail,

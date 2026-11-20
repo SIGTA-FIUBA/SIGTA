@@ -111,9 +111,9 @@ func TestDetailShowsTheHistoryInTheOrderItWasRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reviewed.Observation = ""
+	reviewed.By, reviewed.Observation = "", ""
 	if !slices.Equal(mine.History, []domain.Event{reviewed}) || !mine.AsApplicant {
-		t.Errorf("history of the applicant = %+v, as applicant %t; want %+v, without the observation of staff", mine.History, mine.AsApplicant, []domain.Event{reviewed})
+		t.Errorf("history of the applicant = %+v, as applicant %t; want %+v, without who did it nor the observation", mine.History, mine.AsApplicant, []domain.Event{reviewed})
 	}
 }
 

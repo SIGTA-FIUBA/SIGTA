@@ -9,10 +9,10 @@ import (
 )
 
 // Applicant is what the applicant of a procedure sees of it: where it is, the
-// dates of every step, what they entered and attached themselves and, once it
-// closes, the documents that resolve it. What staff writes inside each area
-// (observations, external file numbers, the values and documents of their
-// steps) stays with staff. A member of staff who is the applicant of a
+// dates and the area of every step, what they entered and attached themselves
+// and, once it closes, the documents that resolve it. What happens inside
+// each area (who did each step, observations, external file numbers, the
+// values and documents of staff steps) stays with staff. A member of staff who is the applicant of a
 // procedure sees it as its applicant.
 type Applicant struct {
 	content version.Content
@@ -27,6 +27,14 @@ func ForApplicant(c version.Content, p domain.Procedure) Applicant {
 // their own steps and, once the procedure closes, its resolution.
 func (a Applicant) Sees(d domain.Document) bool {
 	return a.sees(d.Step, d.Requirement)
+}
+
+// Document leaves out who attached a document of a staff step.
+func (a Applicant) Document(d domain.Document) domain.Document {
+	if !a.ownStep(d.Step) {
+		d.UploadedBy = ""
+	}
+	return d
 }
 
 func (a Applicant) sees(step, requirement string) bool {
@@ -57,15 +65,21 @@ func (a Applicant) Steps(steps []Step) []Step {
 			})
 		}
 		s.Values = slices.DeleteFunc(slices.Clone(s.Values), func(v domain.FieldValue) bool { return !a.ownStep(v.Step) })
-		s.Files = slices.DeleteFunc(slices.Clone(s.Files), func(d domain.Document) bool { return !a.Sees(d) })
+		files := make([]domain.Document, 0, len(s.Files))
+		for _, d := range s.Files {
+			if a.Sees(d) {
+				files = append(files, a.Document(d))
+			}
+		}
+		s.Files = files
 		seen = append(seen, s)
 	}
 	return seen
 }
 
-// History keeps every step done, with who did it and when, without the
-// observations and external file numbers of staff, and only the attachments
-// the applicant sees.
+// History keeps every step done and when, without who did the steps of staff,
+// their observations and external file numbers, and only the attachments the
+// applicant sees.
 func (a Applicant) History(history []domain.Event) []domain.Event {
 	seen := make([]domain.Event, 0, len(history))
 	for _, e := range history {
@@ -73,7 +87,7 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 			continue
 		}
 		if !a.ownStep(e.Step) {
-			e.Observation = ""
+			e.By, e.Observation = "", ""
 		}
 		if e.Referral != nil {
 			r := *e.Referral

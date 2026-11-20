@@ -229,12 +229,21 @@ function documentName(detail: Detail, id: string) {
   return id
 }
 
+// doneBy names who did a step or, for the applicant, who has the steps of
+// staff: the area, since the applicant does not see the person.
+function doneBy(event: Event, step: Step | undefined) {
+  if (event.by) {
+    return personName(event.by)
+  }
+  return step ? responsible(step) : 'Personal'
+}
+
 function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; step: Step | undefined }) {
   const outcome = step?.outcomes.find((candidate) => candidate.id === event.outcome)
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        {personName(event.by)} · {dateTime.format(new Date(event.at))}
+        {doneBy(event, step)} · {dateTime.format(new Date(event.at))}
       </Text>
       {event.document && (
         <Stack gap={0}>

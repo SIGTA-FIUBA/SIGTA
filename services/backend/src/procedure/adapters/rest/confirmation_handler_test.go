@@ -72,7 +72,7 @@ func TestConfirmStepAnswersTheRecordedEvent(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Step != "check" || got.By.Name != "Sofía Ejemplo" || !got.At.Equal(at) || got.Next == nil || *got.Next != "evaluate" || got.Outcome == nil || *got.Outcome != "accept" {
+	if got.Step != "check" || got.By == nil || got.By.Name != "Sofía Ejemplo" || !got.At.Equal(at) || got.Next == nil || *got.Next != "evaluate" || got.Outcome == nil || *got.Outcome != "accept" {
 		t.Errorf("event = %+v", got)
 	}
 	if got.Referral == nil || got.Referral.To != "commission" || got.Referral.ExternalFileNumber == nil || *got.Referral.ExternalFileNumber != "EX-1" {

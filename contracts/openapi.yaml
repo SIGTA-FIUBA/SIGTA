@@ -699,9 +699,10 @@ paths:
         pasos de la versión con la que se inició, con quién hace cada uno, los
         datos y documentos que pide y sus salidas, y el historial de los pasos
         hechos. Al titular no le muestra lo que el personal escribe en cada
-        área: ni las observaciones, ni el número de expediente externo, ni los
-        datos y documentos de los pasos del personal, salvo la resolución
-        cuando el trámite se cierra (as_applicant). Para quien no lo ve, el
+        área: ni quién hizo cada paso del personal (ve el área), ni las
+        observaciones, ni el número de expediente externo, ni los datos y
+        documentos de los pasos del personal, salvo la resolución cuando el
+        trámite se cierra (as_applicant). Para quien no lo ve, el
         trámite no existe.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
@@ -1658,13 +1659,17 @@ components:
           description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
     ProcedureEvent:
       type: object
-      required: [step, by, at, observation, declared, returned]
+      required: [step, at, observation, declared, returned]
       properties:
         step:
           type: string
           description: Paso hecho, o el paso abierto en el que se adjuntó el documento
         by:
-          $ref: "#/components/schemas/Person"
+          description: >
+            Quién lo hizo. Ausente para el titular en los pasos del personal:
+            ve el área del paso, no la persona.
+          allOf:
+            - $ref: "#/components/schemas/Person"
         at:
           type: string
           format: date-time
@@ -1770,8 +1775,8 @@ components:
           type: boolean
           description: >
             Si quien mira es el titular, que ve solo parte del trámite: lo que
-            cargó y adjuntó, las fechas y las áreas de cada paso, y la
-            resolución cuando se cierra. Vale también si es del personal de
+            cargó y adjuntó, las fechas y las áreas de cada paso, sin las
+            personas del personal, y la resolución cuando se cierra. Vale también si es del personal de
             un área por la que pasa.
         referral:
           $ref: "#/components/schemas/ProcedureReferral"
@@ -1889,7 +1894,7 @@ components:
           format: date-time
     ProcedureDocument:
       type: object
-      required: [id, document, step, file_name, media_type, size, uploaded_by, uploaded_at, current]
+      required: [id, document, step, file_name, media_type, size, uploaded_at, current]
       properties:
         id:
           type: string
@@ -1909,7 +1914,11 @@ components:
           format: int64
           description: Tamaño en bytes
         uploaded_by:
-          $ref: "#/components/schemas/Person"
+          description: >
+            Quién lo adjuntó. Ausente para el titular en un documento del
+            personal, como la resolución.
+          allOf:
+            - $ref: "#/components/schemas/Person"
         uploaded_at:
           type: string
           format: date-time

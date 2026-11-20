@@ -31,9 +31,9 @@ func applicantSteps(t *testing.T, closed bool) []detail.Step {
 	t.Helper()
 	c := applicantContent()
 	steps := detail.WithValues(detail.WithFiles(detail.Steps(c), []domain.Document{
-		{ID: "D-1", Requirement: "transcript", Step: "request"},
+		{ID: "D-1", Requirement: "transcript", Step: "request", UploadedBy: "applicant"},
 		{ID: "D-2", Requirement: "minutes", Step: "ruling"},
-		{ID: "D-3", Requirement: "resolution", Step: "ruling"},
+		{ID: "D-3", Requirement: "resolution", Step: "ruling", UploadedBy: "commission"},
 	}), []domain.FieldValue{
 		{Field: "reason", Step: "request", Text: "Pase de carrera"},
 		{Field: "record_number", Step: "review", Text: "EX-1"},
@@ -56,8 +56,8 @@ func fileIDs(s detail.Step) []string {
 func TestTheApplicantSeesWhatTheyEnteredAndAttached(t *testing.T) {
 	steps := applicantSteps(t, false)
 
-	if got := fileIDs(steps[0]); !slices.Equal(got, []string{"D-1"}) {
-		t.Errorf("files of the request = %v, want D-1", got)
+	if got := fileIDs(steps[0]); !slices.Equal(got, []string{"D-1"}) || steps[0].Files[0].UploadedBy != "applicant" {
+		t.Errorf("files of the request = %+v, want D-1 with who uploaded it", steps[0].Files)
 	}
 	if len(steps[0].Values) != 1 || steps[0].Values[0].Text != "Pase de carrera" {
 		t.Errorf("values of the request = %+v, want the reason", steps[0].Values)
@@ -107,6 +107,9 @@ func TestTheApplicantSeesTheResolutionOnceTheProcedureCloses(t *testing.T) {
 	if got := fileIDs(s); !slices.Equal(got, []string{"D-3"}) {
 		t.Errorf("files of the ruling = %v, want D-3", got)
 	}
+	if s.Files[0].UploadedBy != "" {
+		t.Errorf("the resolution was uploaded by %q, want no one shown", s.Files[0].UploadedBy)
+	}
 }
 
 func TestDocumentsTheApplicantSees(t *testing.T) {
@@ -152,8 +155,11 @@ func TestTheHistoryOfTheApplicant(t *testing.T) {
 	if seen[1].Observation != "" || seen[1].Referral == nil || seen[1].Referral.ExternalFileNumber != "" || seen[1].Referral.To != "commission" {
 		t.Errorf("review = %+v %+v, want the referral without observation nor file number", seen[1], seen[1].Referral)
 	}
-	if seen[1].By != "staff" || seen[1].Step != "review" {
-		t.Errorf("review = %+v, want who did it and the step", seen[1])
+	if seen[0].By != "applicant" {
+		t.Errorf("request = %+v, want the applicant who did it", seen[0])
+	}
+	if seen[1].By != "" || seen[2].By != "" || seen[1].Step != "review" {
+		t.Errorf("steps of staff = %+v, %+v; want the step without who did it", seen[1], seen[2])
 	}
 	if seen[2].Document == nil || seen[2].Document.ID != "D-3" {
 		t.Errorf("third entry = %+v, want the resolution", seen[2])

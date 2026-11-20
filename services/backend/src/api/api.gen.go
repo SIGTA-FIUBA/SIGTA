@@ -521,7 +521,7 @@ type ProblemElement struct {
 type ProcedureDetail struct {
 	Applicant Person `json:"applicant"`
 
-	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
+	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
 	AsApplicant bool `json:"as_applicant"`
 
 	// CanAct Si quien mira puede hacer el paso abierto
@@ -570,13 +570,17 @@ type ProcedureDocument struct {
 	// Step Paso en el que se adjuntó
 	Step       string    `json:"step"`
 	UploadedAt time.Time `json:"uploaded_at"`
-	UploadedBy Person    `json:"uploaded_by"`
+
+	// UploadedBy Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución.
+	UploadedBy *Person `json:"uploaded_by,omitempty"`
 }
 
 // ProcedureEvent defines model for ProcedureEvent.
 type ProcedureEvent struct {
 	At time.Time `json:"at"`
-	By Person    `json:"by"`
+
+	// By Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona.
+	By *Person `json:"by,omitempty"`
 
 	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
 	Declared bool `json:"declared"`

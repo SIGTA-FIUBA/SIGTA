@@ -42,27 +42,27 @@ Feature: Detail of my procedure
       | check    | 2026-11-17 |          |
       | evaluate | 2026-11-20 |          |
 
-  Scenario Outline: the observations and the external file number stay with staff
+  Scenario Outline: who did each step of staff, the observations and the external file number stay with staff
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept" with the observation "falta el programa" and the external file number "EX-2026-001"
     When "<person>" reads the history of the procedure
     Then the history shows, in this order:
-      | step    | observation   | external file number |
-      | request |               |                      |
-      | check   | <observation> | <file number>        |
+      | step    | done by             | observation   | external file number |
+      | request | applicant@fi.uba.ar |               |                      |
+      | check   | <done by>           | <observation> | <file number>        |
 
     Examples:
-      | person              | observation       | file number |
-      | applicant@fi.uba.ar |                   |             |
-      | operative@fi.uba.ar | falta el programa | EX-2026-001 |
+      | person              | done by             | observation       | file number |
+      | applicant@fi.uba.ar |                     |                   |             |
+      | operative@fi.uba.ar | operative@fi.uba.ar | falta el programa | EX-2026-001 |
 
   Scenario: a member of staff sees their own procedure as its applicant
     Given "operative@fi.uba.ar" submitted a "subject equivalence" procedure on "2026-11-16"
     And "approver@fi.uba.ar" confirmed the "check" step choosing "accept" with the observation "falta el programa" and the external file number "EX-2026-001"
     When "operative@fi.uba.ar" reads the history of the procedure
     Then the history shows, in this order:
-      | step    | observation | external file number |
-      | request |             |                      |
-      | check   |             |                      |
+      | step    | done by             | observation | external file number |
+      | request | operative@fi.uba.ar |             |                      |
+      | check   |                     |             |                      |
 
   Scenario: the applicant does not see the documents of staff while the procedure is open
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
