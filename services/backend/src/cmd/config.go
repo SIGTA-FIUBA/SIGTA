@@ -32,7 +32,7 @@ type config struct {
 	googleClient     struct{ id, secret string }
 	usersFile        string
 	// databaseURL connects as the application role. Without it, development
-	// keeps the procedure types in memory.
+	// keeps everything in memory.
 	databaseURL string
 	// documentsDir keeps the files of the procedures. Without it, development
 	// uses a directory under the system's temporary one.
