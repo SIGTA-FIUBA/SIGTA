@@ -34,7 +34,10 @@ const (
 	messageInvalidRole       = "No se pudo guardar el rol: revisá que el identificador esté en minúsculas, empiece con una letra y no esté en uso en el área, que el nombre no esté vacío ni repetido, y que tenga al menos un permiso del área."
 	messageUnknownArea       = "No existe esa área."
 	messageUnknownRole       = "No existe ese rol en esa área."
-	messageInvalidGrant      = "No se pudo otorgar la membresía: revisá el área, sus roles y permisos, las fechas y que la persona no tenga ya una membresía vigente en esa área con el mismo alcance."
+	messageInvalidGrant      = "No se pudo otorgar la membresía: elegí a la persona y al menos un rol o un permiso del área, sin repetir ninguno."
+	messageGrantOverlaps     = "La persona ya tiene una membresía vigente o futura en esa área con el mismo alcance: cambiá sus permisos o terminala antes."
+	messageChangeOverlaps    = "Mientras tanto se otorgó otra membresía a la persona en esa área con el mismo alcance: recargá la página."
+	messageGrantPeriod       = "La fecha de fin tiene que ser posterior a la de inicio y a hoy."
 	messageInvalidChange     = "No se pudieron cambiar los permisos: elegí al menos un rol o un permiso del área, distintos de los que la membresía ya tiene."
 	messageUnknownPermission = "No existe ese permiso en esa área."
 	messageUnknownMembership = "No existe esa membresía."
@@ -87,12 +90,30 @@ func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.Gra
 	switch {
 	case errors.Is(err, domain.ErrAccessDenied):
 		return api.GrantMembership403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageNotAdmin}}, nil
+	case errors.Is(err, domain.ErrMembershipOverlaps):
+		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageGrantOverlaps}}, nil
 	case errors.Is(err, domain.ErrInvalidMembership):
-		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageInvalidGrant}}, nil
+		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: invalidMembership(err, messageInvalidGrant)}}, nil
 	case err != nil:
 		return nil, err
 	}
 	return api.GrantMembership201JSONResponse(membershipOf(m)), nil
+}
+
+// invalidMembership says what is wrong with a membership refused with
+// domain.ErrInvalidMembership, or otherwise.
+func invalidMembership(err error, otherwise string) string {
+	switch {
+	case errors.Is(err, domain.ErrMembershipPeriod):
+		return messageGrantPeriod
+	case errors.Is(err, domain.ErrAreaNotFound):
+		return messageUnknownArea
+	case errors.Is(err, domain.ErrRoleNotFound):
+		return messageUnknownRole
+	case errors.Is(err, domain.ErrPermissionNotFound):
+		return messageUnknownPermission
+	}
+	return otherwise
 }
 
 func membershipOf(m domain.Membership) api.Membership {

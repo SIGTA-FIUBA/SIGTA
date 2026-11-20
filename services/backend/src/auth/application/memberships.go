@@ -177,7 +177,7 @@ func (s *MembershipService) ListByArea(ctx context.Context, administratorID, are
 		return nil, fmt.Errorf("memberships of area %s: %w", areaID, err)
 	}
 	now := s.now().UTC()
-	return slices.DeleteFunc(memberships, func(m domain.Membership) bool { return hasEnded(m, now) }), nil
+	return slices.DeleteFunc(memberships, func(m domain.Membership) bool { return !m.EndsAfter(now) }), nil
 }
 
 func (s *MembershipService) unended(ctx context.Context, membershipID string) (domain.Membership, error) {
@@ -185,14 +185,10 @@ func (s *MembershipService) unended(ctx context.Context, membershipID string) (d
 	if err != nil {
 		return domain.Membership{}, fmt.Errorf("membership %s: %w", membershipID, err)
 	}
-	if hasEnded(m, s.now().UTC()) {
+	if !m.EndsAfter(s.now().UTC()) {
 		return domain.Membership{}, fmt.Errorf("%w: %w: %s", domain.ErrInvalidMembership, domain.ErrMembershipEnded, membershipID)
 	}
 	return m, nil
-}
-
-func hasEnded(m domain.Membership, now time.Time) bool {
-	return !m.Until.IsZero() && !now.Before(m.Until)
 }
 
 // ended returns m ended at now. One that had not started yet also moves its
@@ -222,7 +218,8 @@ func sameIDs(a, b []string) bool {
 // validate leaves the scope unchecked: a procedure type that does not exist
 // matches no procedure, so checking it would only make auth depend on
 // procedure. replaced is the membership that m follows, if any, which does
-// not count as an overlap.
+// not count as an overlap. The repository checks the overlap again as it
+// saves, for a grant made meanwhile.
 func (s *MembershipService) validate(ctx context.Context, m domain.Membership, replaced string) error {
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
@@ -230,8 +227,8 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership, r
 	if len(m.Roles) == 0 && len(m.Permissions) == 0 {
 		return errors.New("a membership needs at least one role or permission")
 	}
-	if !m.Until.IsZero() && !m.Until.After(m.From) {
-		return errors.New("a membership has to end after it starts")
+	if !m.Until.IsZero() && (!m.Until.After(m.From) || !m.Until.After(s.now())) {
+		return fmt.Errorf("%w: from %s until %s", domain.ErrMembershipPeriod, m.From, m.Until)
 	}
 	areas, err := s.areas.List(ctx)
 	if err != nil {
@@ -239,33 +236,38 @@ func (s *MembershipService) validate(ctx context.Context, m domain.Membership, r
 	}
 	i := slices.IndexFunc(areas, func(a domain.Area) bool { return a.ID == m.Area })
 	if i < 0 {
-		return fmt.Errorf("unknown area %q", m.Area)
+		return fmt.Errorf("%w: %q", domain.ErrAreaNotFound, m.Area)
 	}
-	if err := checkListed("permission", m.Permissions, m.Area, areas[i].HasActivePermission); err != nil {
+	if areas[i].Deleted() {
+		return fmt.Errorf("%w: %q was removed", domain.ErrAreaNotFound, m.Area)
+	}
+	if err := checkListed(domain.ErrPermissionNotFound, m.Permissions, m.Area, areas[i].HasActivePermission); err != nil {
 		return err
 	}
-	if err := checkListed("role", m.Roles, m.Area, areas[i].HasActiveRole); err != nil {
+	if err := checkListed(domain.ErrRoleNotFound, m.Roles, m.Area, areas[i].HasActiveRole); err != nil {
 		return err
 	}
 	existing, err := s.memberships.ListByUser(ctx, m.UserID)
 	if err != nil {
 		return fmt.Errorf("memberships of %s: %w", m.UserID, err)
 	}
-	if slices.ContainsFunc(existing, func(other domain.Membership) bool { return other.ID != replaced && m.Overlaps(other) }) {
-		return fmt.Errorf("%s already has a membership in area %q with the same scope", m.UserID, m.Area)
+	existing = slices.DeleteFunc(existing, func(other domain.Membership) bool { return other.ID == replaced })
+	if m.OverlapsAny(existing) {
+		return fmt.Errorf("%w: %s in area %q", domain.ErrMembershipOverlaps, m.UserID, m.Area)
 	}
 	return nil
 }
 
-// checkListed checks that each ID exists in the area and appears only once.
-func checkListed(kind string, ids []string, area string, exists func(string) bool) error {
+// checkListed checks that each ID exists in the area, failing with notFound
+// if not, and appears only once.
+func checkListed(notFound error, ids []string, area string, exists func(string) bool) error {
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if !exists(id) {
-			return fmt.Errorf("area %q has no %s %q", area, kind, id)
+			return fmt.Errorf("%w: %q in area %q", notFound, id, area)
 		}
 		if seen[id] {
-			return fmt.Errorf("%s %q is listed twice", kind, id)
+			return fmt.Errorf("%q is listed twice", id)
 		}
 		seen[id] = true
 	}

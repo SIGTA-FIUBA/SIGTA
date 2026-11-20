@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"backend/src/database"
@@ -70,13 +71,33 @@ func (r *MembershipRepository) Replace(ctx context.Context, ended, granted domai
 	return nil
 }
 
+// saveMembership checks, under the lock that every save takes, what Save
+// says, so that two changes at once cannot both pass it.
 func saveMembership(ctx context.Context, tx pgx.Tx, m domain.Membership) error {
 	if err := database.Lock(ctx, tx, membershipsLockKey); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO memberships (id, number, user_id, area_id, roles, permissions, scope, valid_from, valid_until, granted_by, granted_at, ended_by)
-		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 FROM memberships
-		ON CONFLICT (id) DO UPDATE SET valid_from = excluded.valid_from, valid_until = excluded.valid_until, ended_by = excluded.ended_by`,
+	rows, err := tx.Query(ctx, "SELECT "+membershipColumns+" FROM memberships WHERE user_id = $1 OR id = $2", m.UserID, m.ID)
+	if err != nil {
+		return err
+	}
+	memberships, err := pgx.CollectRows(rows, scanMembership)
+	if err != nil {
+		return err
+	}
+	if i := slices.IndexFunc(memberships, func(q domain.Membership) bool { return q.ID == m.ID }); i >= 0 {
+		if !memberships[i].EndsAfter(m.Until) {
+			return fmt.Errorf("%w: %s", domain.ErrMembershipEnded, m.ID)
+		}
+		_, err := tx.Exec(ctx, "UPDATE memberships SET valid_from = $2, valid_until = $3, ended_by = $4 WHERE id = $1",
+			m.ID, m.From, database.NullableTime(m.Until), database.Nullable(m.EndedBy))
+		return err
+	}
+	if m.OverlapsAny(memberships) {
+		return fmt.Errorf("%w: %s in area %s", domain.ErrMembershipOverlaps, m.UserID, m.Area)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO memberships (id, number, user_id, area_id, roles, permissions, scope, valid_from, valid_until, granted_by, granted_at, ended_by)
+		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 FROM memberships`,
 		m.ID, m.UserID, m.Area, database.Array(m.Roles), database.Array(m.Permissions), database.Array(m.Scope), m.From, database.NullableTime(m.Until), m.GrantedBy, database.NullableTime(m.GrantedAt), database.Nullable(m.EndedBy))
 	return err
 }

@@ -10,6 +10,8 @@ var (
 	ErrInvalidMembership  = errors.New("invalid membership")
 	ErrMembershipNotFound = errors.New("membership not found")
 	ErrMembershipEnded    = errors.New("the membership has ended")
+	ErrMembershipOverlaps = errors.New("the person already has a membership in the area with the same scope")
+	ErrMembershipPeriod   = errors.New("a membership has to end after it starts and after now")
 	ErrAccessDenied       = errors.New("access denied")
 )
 
@@ -39,6 +41,18 @@ func (m Membership) Covers(procedureType int64) bool {
 
 func (m Membership) ActiveAt(at time.Time) bool {
 	return !at.Before(m.From) && (m.Until.IsZero() || at.Before(m.Until))
+}
+
+// EndsAfter tells whether the membership has not ended by at, so that it can
+// still be ended then.
+func (m Membership) EndsAfter(at time.Time) bool {
+	return m.Until.IsZero() || m.Until.After(at)
+}
+
+// OverlapsAny tells whether the membership overlaps one of others, leaving
+// out itself.
+func (m Membership) OverlapsAny(others []Membership) bool {
+	return slices.ContainsFunc(others, func(other Membership) bool { return other.ID != m.ID && m.Overlaps(other) })
 }
 
 // Overlaps tells whether two memberships of the same person would hold at once

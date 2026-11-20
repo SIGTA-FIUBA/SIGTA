@@ -192,8 +192,10 @@ func (h *AdministrationHandler) ChangeMembershipPermissions(ctx context.Context,
 		return api.ChangeMembershipPermissions404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: messageUnknownMembership}}, nil
 	case errors.Is(err, domain.ErrMembershipEnded):
 		return api.ChangeMembershipPermissions409JSONResponse{InUseJSONResponse: api.InUseJSONResponse{Message: messageMembershipEnded}}, nil
+	case errors.Is(err, domain.ErrMembershipOverlaps):
+		return api.ChangeMembershipPermissions409JSONResponse{InUseJSONResponse: api.InUseJSONResponse{Message: messageChangeOverlaps}}, nil
 	case errors.Is(err, domain.ErrInvalidMembership):
-		return api.ChangeMembershipPermissions400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageInvalidChange}}, nil
+		return api.ChangeMembershipPermissions400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: invalidMembership(err, messageInvalidChange)}}, nil
 	case err != nil:
 		return nil, err
 	}

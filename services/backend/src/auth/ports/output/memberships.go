@@ -13,7 +13,10 @@ import (
 // existing membership only From, Until and EndedBy change. Replace saves
 // ended, an existing membership, and granted, a new one, at once, so that
 // changing what a membership gives never leaves the person with both or
-// with none.
+// with none. Both check, as they save, what a change made meanwhile could
+// break: a new membership fails with domain.ErrMembershipOverlaps if it
+// overlaps another of the person, and ending one fails with
+// domain.ErrMembershipEnded if it had already ended by its new Until.
 type MembershipRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]domain.Membership, error)
 	ListByArea(ctx context.Context, areaID string) ([]domain.Membership, error)

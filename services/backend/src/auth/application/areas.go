@@ -434,5 +434,5 @@ func validateRolePermissions(area domain.Area, permissions []string) error {
 	if len(permissions) == 0 {
 		return errors.New("a role needs at least one permission")
 	}
-	return checkListed("permission", permissions, area.ID, area.HasActivePermission)
+	return checkListed(domain.ErrPermissionNotFound, permissions, area.ID, area.HasActivePermission)
 }
