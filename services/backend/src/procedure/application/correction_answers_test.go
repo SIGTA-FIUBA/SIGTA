@@ -1,15 +1,19 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
+	"backend/src/procedure/adapters/memory"
 	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/submission"
+	"backend/src/procedure/ports/input"
 )
 
 const titular = "applicant@fi.uba.ar"
@@ -76,7 +80,7 @@ func TestAnAnswerDoesNotAnswerARequestMadeAfterItWasRead(t *testing.T) {
 }
 
 func TestConcurrentAnswersAndARequestNeverAnswerTheRequestUnseen(t *testing.T) {
-	for round := range 50 {
+	for round := range 200 {
 		ctx := context.Background()
 		service, procedures := confirmationFixture(t)
 		if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
@@ -89,7 +93,9 @@ func TestConcurrentAnswersAndARequestNeverAnswerTheRequestUnseen(t *testing.T) {
 		for range 8 {
 			wg.Go(func() { _, _ = service.AnswerCorrection(ctx, titular, "P-1") })
 		}
-		wg.Go(func() { _, _ = service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()) })
+		another := fileCorrection()
+		another.Fields = []string{"plan"}
+		wg.Go(func() { _, _ = service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", another) })
 		wg.Wait()
 
 		history, _ := procedures.Events(ctx, "P-1")
@@ -110,6 +116,106 @@ func TestConcurrentAnswersAndARequestNeverAnswerTheRequestUnseen(t *testing.T) {
 		if lastRequest > lastAnswer && !p.AwaitingApplicant() {
 			t.Fatalf("round %d: the request after the answer is not pending", round)
 		}
+	}
+}
+
+// requestingOnHistory is the memory repository that, the first time the
+// history is read, lets staff request another correction just before.
+type requestingOnHistory struct {
+	*memory.ProcedureRepository
+	request func()
+}
+
+func (r *requestingOnHistory) Events(ctx context.Context, procedureID string) ([]proceduredomain.Event, error) {
+	if r.request != nil {
+		request := r.request
+		r.request = nil
+		request()
+	}
+	return r.ProcedureRepository.Events(ctx, procedureID)
+}
+
+// A request that comes in between reading the procedure and reading its
+// history stays pending: the answer does not store the procedure as it was
+// before it.
+func TestARequestBetweenTheReadsOfAnAnswerStaysPending(t *testing.T) {
+	ctx := context.Background()
+	procedures := &requestingOnHistory{ProcedureRepository: memory.NewProcedureRepository()}
+	service := confirmationFixtureOver(t, procedures)
+	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.EnterValue(ctx, titular, "P-1", "subjects", submission.Value{Text: "61.03"}); err != nil {
+		t.Fatal(err)
+	}
+	// The new request asks for something the first one did not.
+	another := fileCorrection()
+	another.Fields = []string{"plan"}
+	procedures.request = func() {
+		if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", another); err != nil {
+			t.Error(err)
+		}
+	}
+
+	_, err := service.AnswerCorrection(ctx, titular, "P-1")
+
+	var missing *engine.MissingAnswerError
+	if !errors.As(err, &missing) {
+		t.Errorf("err = %v, want the answer to miss what the new request asks for", err)
+	}
+	if p, _ := procedures.Get(ctx, "P-1"); len(p.CorrectionRequests) != 2 {
+		t.Errorf("pending = %d, want both requests", len(p.CorrectionRequests))
+	}
+}
+
+// answeringOnRecord is the memory repository that, right before an attachment
+// in answer is recorded, lets the applicant send their answer.
+type answeringOnRecord struct {
+	*memory.ProcedureRepository
+	answer func()
+}
+
+func (r *answeringOnRecord) RecordWhileAwaiting(ctx context.Context, e proceduredomain.Event) error {
+	if r.answer != nil {
+		answer := r.answer
+		r.answer = nil
+		answer()
+	}
+	return r.ProcedureRepository.RecordWhileAwaiting(ctx, e)
+}
+
+// An answer sent while a document is being attached for it leaves the
+// document out: it is refused, and not recorded after the answer.
+func TestAnAttachmentAfterTheAnswerIsRefused(t *testing.T) {
+	ctx := context.Background()
+	procedures := &answeringOnRecord{ProcedureRepository: memory.NewProcedureRepository()}
+	service := confirmationFixtureOver(t, procedures)
+	documents := memory.NewDocumentRepository()
+	files := &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: confirmedAt}
+	attach := NewDocumentService(service, documents, files, func() string { return "D-1" }, func() time.Time { return confirmedAt })
+	proof := input.CorrectionRequest{Step: "file", Reason: "falta la constancia", Fields: []string{"subjects"}, Documents: []string{"proof"}}
+	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", proof); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.EnterValue(ctx, titular, "P-1", "subjects", submission.Value{Text: "61.03"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "uno.pdf", Content: bytes.NewReader(pdf(100))}); err != nil {
+		t.Fatal(err)
+	}
+	procedures.answer = func() {
+		if _, err := service.AnswerCorrection(ctx, titular, "P-1"); err != nil {
+			t.Error(err)
+		}
+	}
+
+	_, err := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "dos.pdf", Content: bytes.NewReader(pdf(120))})
+
+	if !errors.Is(err, engine.ErrNoCorrectionPending) {
+		t.Errorf("err = %v, want ErrNoCorrectionPending", err)
+	}
+	if recorded, _ := documents.List(ctx, "P-1"); len(recorded) != 1 || recorded[0].FileName != "uno.pdf" {
+		t.Errorf("documents = %+v, want only the one attached before the answer", recorded)
 	}
 }
 

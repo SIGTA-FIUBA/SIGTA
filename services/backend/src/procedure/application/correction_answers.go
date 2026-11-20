@@ -59,6 +59,12 @@ func (s *ProcedureService) AnswerCorrection(ctx context.Context, userID, procedu
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("history of %s: %w", p.ID, err)
 	}
+	// Read again after the history, so that a request that came in between
+	// is pending here too: what is stored is then never older than what the
+	// history counts, and a request after it is refused when storing.
+	if p, err = s.procedures.Get(ctx, p.ID); err != nil {
+		return domain.Event{}, fmt.Errorf("procedure %s: %w", procedureID, err)
+	}
 	answered, event, err := engine.AnswerCorrection(p, content.Definition, history, userID, s.now())
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("procedure %s: %w", p.ID, err)
