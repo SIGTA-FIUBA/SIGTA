@@ -461,8 +461,8 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
   })
   const outcome = form.useWatchValue('outcome')
   const refers = leadsElsewhere(detail, step, outcome)
-  const sendBack = step.outcomes.find((o) => o.id === outcome && o.send_back)
-  const sentTo = sendBack && detail.steps.find((candidate) => candidate.id === sendBack.next)
+  const sendBackOutcome = step.outcomes.find((o) => o.id === outcome && o.send_back)
+  const sentTo = sendBackOutcome && detail.steps.find((candidate) => candidate.id === sendBackOutcome.next)
 
   async function confirm(values: typeof form.values) {
     setFailure(null)
@@ -513,7 +513,7 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
             />
           )}
           <Textarea
-            label={sendBack ? 'Motivo de la devolución' : 'Observación'}
+            label={sendBackOutcome ? 'Motivo de la devolución' : 'Observación'}
             description={sentTo?.role === 'applicant' ? 'Lo ve el titular.' : undefined}
             withAsterisk
             autosize
