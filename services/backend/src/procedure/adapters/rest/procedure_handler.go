@@ -55,21 +55,25 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	for _, e := range d.History {
 		people = append(people, e.By)
 	}
+	for _, r := range d.CorrectionRequests {
+		people = append(people, r.By)
+	}
 	names, err := h.people.Names(ctx, people)
 	if err != nil {
 		return nil, err
 	}
 	response := api.GetProcedure200JSONResponse{
-		Id:            p.ID,
-		ProcedureType: p.ProcedureType,
-		Version:       int64(p.Version),
-		Name:          d.Name,
-		State:         api.ProcedureState(d.State),
-		Applicant:     person(p.Applicant, names),
-		CanAct:        d.CanAct,
-		AsApplicant:   d.AsApplicant,
-		Steps:         make([]api.ProcedureStep, 0, len(d.Steps)),
-		History:       make([]api.ProcedureEvent, 0, len(d.History)),
+		Id:                 p.ID,
+		ProcedureType:      p.ProcedureType,
+		Version:            int64(p.Version),
+		Name:               d.Name,
+		State:              api.ProcedureState(d.State),
+		Applicant:          person(p.Applicant, names),
+		CanAct:             d.CanAct,
+		AsApplicant:        d.AsApplicant,
+		CorrectionRequests: make([]api.CorrectionRequest, 0, len(d.CorrectionRequests)),
+		Steps:              make([]api.ProcedureStep, 0, len(d.Steps)),
+		History:            make([]api.ProcedureEvent, 0, len(d.History)),
 	}
 	if !p.Closed() {
 		response.OpenStep = &p.OpenStep
@@ -80,6 +84,16 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 			From:              api.NamedOption{Id: r.From.ID, Name: r.From.Name},
 			DaysWithoutReturn: int64(r.DaysWithoutReturn),
 		}
+	}
+	for _, r := range d.CorrectionRequests {
+		response.CorrectionRequests = append(response.CorrectionRequests, api.CorrectionRequest{
+			Step:      r.Step,
+			By:        personIfAny(r.By, names),
+			At:        r.At,
+			Reason:    r.Reason,
+			Fields:    orEmpty(r.Fields),
+			Documents: orEmpty(r.Documents),
+		})
 	}
 	for _, s := range d.Steps {
 		response.Steps = append(response.Steps, procedureStep(s, names))

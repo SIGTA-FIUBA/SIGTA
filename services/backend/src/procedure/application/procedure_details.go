@@ -58,22 +58,25 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 		return input.ProcedureDetail{}, fmt.Errorf("history of %s: %w", procedureID, err)
 	}
 	var steps []detail.Step
+	corrections := p.CorrectionRequests
 	asApplicant := p.Applicant == userID
 	if asApplicant {
 		applicant := detail.ForApplicant(content, p)
 		steps, history = applicant.Steps(documents, values), applicant.History(history)
+		corrections = applicant.CorrectionRequests(corrections)
 	} else {
 		steps = detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values)
 	}
 	return input.ProcedureDetail{
-		Procedure:   p,
-		Name:        content.Definition.Name,
-		State:       state,
-		Steps:       steps,
-		CanAct:      canAct,
-		AsApplicant: asApplicant,
-		Referral:    detail.ReferralOf(p, content, s.procedures.now()),
-		History:     history,
+		Procedure:          p,
+		Name:               content.Definition.Name,
+		State:              state,
+		Steps:              steps,
+		CanAct:             canAct,
+		AsApplicant:        asApplicant,
+		Referral:           detail.ReferralOf(p, content, s.procedures.now()),
+		CorrectionRequests: corrections,
+		History:            history,
 	}, nil
 }
 

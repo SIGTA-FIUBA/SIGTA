@@ -36,32 +36,32 @@ func registerStaffAreaSteps(sc *godog.ScenarioContext, w *authorizationWorld) {
 
 func (w *authorizationWorld) createRole(administrator, id, name, permissions, area string) {
 	w.user = administrator
-	_, w.err = w.areas.CreateRole(context.Background(), administrator, areaID(area), authinput.NewRole{ID: id, Name: name, Permissions: list(permissions)})
+	_, w.err = w.areas.CreateRole(context.Background(), administrator, idOf(area), authinput.NewRole{ID: id, Name: name, Permissions: list(permissions)})
 }
 
 func (w *authorizationWorld) deleteRole(administrator, role, area string) {
 	w.user = administrator
-	w.err = w.areas.DeleteRole(context.Background(), administrator, areaID(area), role)
+	w.err = w.areas.DeleteRole(context.Background(), administrator, idOf(area), role)
 }
 
 func (w *authorizationWorld) createArea(administrator, id, name string) {
 	w.user = administrator
-	_, w.err = w.areas.Create(context.Background(), administrator, authdomain.Area{ID: areaID(id), Name: name})
+	_, w.err = w.areas.Create(context.Background(), administrator, authdomain.Area{ID: idOf(id), Name: name})
 }
 
 func (w *authorizationWorld) deleteArea(administrator, name string) {
 	w.user = administrator
-	w.err = w.areas.Delete(context.Background(), administrator, areaID(name))
+	w.err = w.areas.Delete(context.Background(), administrator, idOf(name))
 }
 
 func (w *authorizationWorld) createPermission(administrator, id, name, area string) {
 	w.user = administrator
-	_, w.err = w.areas.CreatePermission(context.Background(), administrator, areaID(area), authdomain.Permission{ID: id, Name: name})
+	_, w.err = w.areas.CreatePermission(context.Background(), administrator, idOf(area), authdomain.Permission{ID: id, Name: name})
 }
 
 func (w *authorizationWorld) deletePermission(administrator, id, area string) {
 	w.user = administrator
-	w.err = w.areas.DeletePermission(context.Background(), administrator, areaID(area), id)
+	w.err = w.areas.DeletePermission(context.Background(), administrator, idOf(area), id)
 }
 
 func (w *authorizationWorld) thenAreas(list string) error {
@@ -86,7 +86,7 @@ func (w *authorizationWorld) thenAreas(list string) error {
 }
 
 func (w *authorizationWorld) thenBuiltInArea(area string) error {
-	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
+	stored, err := w.storedAreas.Get(context.Background(), idOf(area))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (w *authorizationWorld) thenBuiltInArea(area string) error {
 }
 
 func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error {
-	area, err := w.storedAreas.Get(context.Background(), areaID(name))
+	area, err := w.storedAreas.Get(context.Background(), idOf(name))
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (w *authorizationWorld) thenAreaDeletedBy(name, administrator string) error
 }
 
 func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, kind, ids string) error {
-	g := authinput.MembershipGrant{UserID: user, Area: areaID(area)}
+	g := authinput.MembershipGrant{UserID: user, Area: idOf(area)}
 	if kind == "role" {
 		g.Roles = list(ids)
 	} else {

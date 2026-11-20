@@ -22,6 +22,10 @@ type Event struct {
 	// Document is set when the event is a document attached to the open
 	// step, which does not move the procedure.
 	Document *DocumentRecord
+	// CorrectionRequest is set when the event asks the applicant for a
+	// correction, which does not move the procedure either. Its reason is the
+	// observation.
+	CorrectionRequest *CorrectionRecord
 }
 
 type ReferralRecord struct {
@@ -34,4 +38,9 @@ type DocumentRecord struct {
 	ID          string
 	Requirement string
 	FileName    string
+}
+
+type CorrectionRecord struct {
+	Fields    []string
+	Documents []string
 }

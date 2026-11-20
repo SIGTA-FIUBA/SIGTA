@@ -13,8 +13,9 @@ import (
 // and, once it closes, the documents that resolve it. What happens inside
 // each area (who did each step, the outcome it chose, observations, external
 // file numbers, the values and documents of staff steps) stays with staff, but
-// for the reason of a send back to one of their steps. A member of staff who is the applicant of
-// a procedure sees it as its applicant.
+// for the reason of a send back to one of their steps and what a correction
+// request asks for and why. A member of staff who is the applicant of a
+// procedure sees it as its applicant.
 type Applicant struct {
 	content version.Content
 	closed  bool
@@ -98,9 +99,9 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 		}
 		if !a.ownStep(e.Step) {
 			e.By, e.Outcome = "", ""
-			// The reason of a send back is for the applicant when it takes
-			// the procedure back to one of their steps (ADR-025).
-			if !e.SendBack || !a.ownStep(e.Next) {
+			// The reason of a send back to one of their steps (ADR-025) and of
+			// a correction request (ADR-026) is for the applicant.
+			if e.CorrectionRequest == nil && (!e.SendBack || !a.ownStep(e.Next)) {
 				e.Observation = ""
 			}
 		}
@@ -110,6 +111,17 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 			e.Referral = &r
 		}
 		seen = append(seen, e)
+	}
+	return seen
+}
+
+// CorrectionRequests keeps what each pending request asks for and why,
+// without who asked.
+func (a Applicant) CorrectionRequests(pending []domain.CorrectionRequest) []domain.CorrectionRequest {
+	seen := make([]domain.CorrectionRequest, 0, len(pending))
+	for _, r := range pending {
+		r.By = ""
+		seen = append(seen, r)
 	}
 	return seen
 }

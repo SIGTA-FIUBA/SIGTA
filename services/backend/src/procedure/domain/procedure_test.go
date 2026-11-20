@@ -40,6 +40,13 @@ func TestStateOf(t *testing.T) {
 			t.Errorf("referred, open step %q: state = %q, %v, want %q", c.openStep, got, err, c.want)
 		}
 	}
+	awaiting := []domain.CorrectionRequest{{Step: "review", Reason: "missing codes", Fields: []string{"subjects"}}}
+	for _, referral := range []*domain.Referral{nil, referral} {
+		p := domain.Procedure{ID: "P-1", OpenStep: "review", Referral: referral, CorrectionRequests: awaiting}
+		if got, err := domain.StateOf(p, def); err != nil || got != domain.StateWithApplicant {
+			t.Errorf("a correction pending, referral %v: state = %q, %v, want %q", referral, got, err, domain.StateWithApplicant)
+		}
+	}
 	if _, err := domain.StateOf(domain.Procedure{ID: "P-1", OpenStep: "gone"}, def); err == nil {
 		t.Error("an open step that is not in the definition has a state")
 	}

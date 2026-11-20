@@ -17,8 +17,9 @@ import (
 var _ input.Procedures = (*ProcedureService)(nil)
 
 const (
-	actionAct     = "act"
-	actionConfirm = "confirm"
+	actionAct               = "act"
+	actionConfirm           = "confirm"
+	actionRequestCorrection = "request a correction on"
 )
 
 type ProcedureService struct {
@@ -158,6 +159,38 @@ func (s *ProcedureService) Confirm(ctx context.Context, userID, procedureID stri
 	}
 	if err := s.procedures.Advance(ctx, moved, event); err != nil {
 		return domain.Event{}, fmt.Errorf("advance procedure %s: %w", p.ID, err)
+	}
+	return event, nil
+}
+
+func (s *ProcedureService) RequestCorrection(ctx context.Context, userID, procedureID string, r input.CorrectionRequest) (domain.Event, error) {
+	p, content, err := s.visible(ctx, userID, procedureID)
+	if err != nil {
+		return domain.Event{}, err
+	}
+	if p.Closed() || r.Step != p.OpenStep {
+		return domain.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, r.Step, engine.ErrStepNotOpen)
+	}
+	allowed, err := s.canAct(ctx, userID, p, content, r.Step)
+	if err != nil {
+		return domain.Event{}, err
+	}
+	if !allowed {
+		return domain.Event{}, denied(userID, actionRequestCorrection+" "+r.Step)
+	}
+	request, event, err := engine.RequestCorrection(p, content.Definition, domain.CorrectionRequest{
+		Step:      r.Step,
+		By:        userID,
+		At:        s.now(),
+		Reason:    r.Reason,
+		Fields:    r.Fields,
+		Documents: r.Documents,
+	})
+	if err != nil {
+		return domain.Event{}, fmt.Errorf("procedure %s step %q: %w", p.ID, r.Step, err)
+	}
+	if err := s.procedures.RequestCorrection(ctx, request, event); err != nil {
+		return domain.Event{}, fmt.Errorf("request a correction on procedure %s: %w", p.ID, err)
 	}
 	return event, nil
 }

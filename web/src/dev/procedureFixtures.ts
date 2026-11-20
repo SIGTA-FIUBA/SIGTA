@@ -83,6 +83,7 @@ function detail(
     open_step: 'communicate',
     can_act: true,
     as_applicant: false,
+    correction_requests: [],
     steps: [request, communicate],
     history,
   }
@@ -243,6 +244,66 @@ const sentBackWorst: Detail = {
   ],
 }
 
-export const fixtures = { demo, worst, empty, one, deciding, sentBack, sentBackWorst }
+const correctionRequest = (reason: string, fields: string[], documents: string[]) => ({
+  step: 'communicate',
+  by: staff,
+  at: '2026-11-17T15:00:00Z',
+  reason,
+  fields,
+  documents,
+})
+
+const requested = (request: ReturnType<typeof correctionRequest>): Event => ({
+  step: request.step,
+  by: request.by,
+  at: request.at,
+  observation: request.reason,
+  declared: false,
+  send_back: false,
+  returned: false,
+  correction_request: { fields: request.fields, documents: request.documents },
+})
+
+// The staff who asked the applicant for a correction and waits for it: one
+// request with a kind reason, and several asking for every field and document
+// with the longest reason the server accepts (5000 characters).
+const kindRequest = correctionRequest('Falta el código de cada materia.', ['reason'], [])
+const correctionRequested: Detail = {
+  ...demo,
+  state: 'with_applicant',
+  correction_requests: [kindRequest],
+  history: [started, requested(kindRequest)],
+}
+const worstRequests = [
+  correctionRequest(
+    Array.from(
+      { length: 12 },
+      (_, i) =>
+        `Párrafo ${i + 1}: la Comisión Curricular pide ampliar la información con el programa analítico de cada asignatura, la carga horaria y la bibliografía, firmados por la unidad académica de origen.`,
+    ).join('\n\n'),
+    ['reason', 'url', 'subjects', 'w'],
+    [],
+  ),
+  correctionRequest('Falta la firma.', ['w'], []),
+  correctionRequest('El enlace no abre.', ['url'], []),
+]
+const correctionRequestedWorst: Detail = {
+  ...worst,
+  state: 'with_applicant',
+  correction_requests: worstRequests,
+  history: [...worst.history, ...worstRequests.map(requested)],
+}
+
+export const fixtures = {
+  demo,
+  worst,
+  empty,
+  one,
+  deciding,
+  sentBack,
+  sentBackWorst,
+  correctionRequested,
+  correctionRequestedWorst,
+}
 
 export type FixtureName = keyof typeof fixtures

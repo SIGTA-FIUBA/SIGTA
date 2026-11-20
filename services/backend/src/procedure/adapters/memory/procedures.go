@@ -87,8 +87,27 @@ func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e d
 	if stored.Closed() || stored.OpenStep != e.Step {
 		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrStepNotOpen)
 	}
+	if stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrAwaitingApplicant)
+	}
 	s.procedures[p.ID] = cloneProcedure(p)
 	s.events[p.ID] = append(s.events[p.ID], cloneEvent(e))
+	return nil
+}
+
+func (s *ProcedureRepository) RequestCorrection(_ context.Context, r domain.CorrectionRequest, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[e.ProcedureID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if stored.Closed() || stored.OpenStep != r.Step {
+		return fmt.Errorf("procedure %s: %w", e.ProcedureID, engine.ErrStepNotOpen)
+	}
+	stored.CorrectionRequests = append(stored.CorrectionRequests, r)
+	s.procedures[e.ProcedureID] = cloneProcedure(stored)
+	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
 	return nil
 }
 
@@ -121,6 +140,13 @@ func cloneProcedure(p domain.Procedure) domain.Procedure {
 		r := *p.Referral
 		p.Referral = &r
 	}
+	requests := make([]domain.CorrectionRequest, len(p.CorrectionRequests))
+	for i, r := range p.CorrectionRequests {
+		r.Fields = slices.Clone(r.Fields)
+		r.Documents = slices.Clone(r.Documents)
+		requests[i] = r
+	}
+	p.CorrectionRequests = requests
 	return p
 }
 
@@ -132,6 +158,12 @@ func cloneEvent(e domain.Event) domain.Event {
 	if e.Document != nil {
 		d := *e.Document
 		e.Document = &d
+	}
+	if e.CorrectionRequest != nil {
+		e.CorrectionRequest = &domain.CorrectionRecord{
+			Fields:    slices.Clone(e.CorrectionRequest.Fields),
+			Documents: slices.Clone(e.CorrectionRequest.Documents),
+		}
 	}
 	return e
 }

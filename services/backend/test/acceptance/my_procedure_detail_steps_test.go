@@ -75,7 +75,7 @@ func (w *myProcedureDetailWorld) givenAttachedFile(user, fileName, requirement s
 	}
 	_, err = documents.Attach(context.Background(), user, input.Upload{
 		ProcedureID: w.current,
-		Requirement: areaID(requirement),
+		Requirement: idOf(requirement),
 		FileName:    fileName,
 		Content:     bytes.NewReader([]byte("%PDF-1.7\n" + fileName)),
 	})
@@ -83,7 +83,7 @@ func (w *myProcedureDetailWorld) givenAttachedFile(user, fileName, requirement s
 }
 
 func (w *myProcedureDetailWorld) givenConfirmedWithFileNumber(user, step, outcome, observation, fileNumber string) error {
-	return w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: areaID(outcome), ExternalFileNumber: fileNumber})
+	return w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: idOf(outcome), ExternalFileNumber: fileNumber})
 }
 
 func (w *myProcedureDetailWorld) look(user string) {
@@ -128,7 +128,7 @@ func (w *myProcedureDetailWorld) thenOpenStep(step, area string) error {
 	}
 	for _, s := range w.detail.Steps {
 		if s.Step.ID == step {
-			if s.Area == nil || s.Area.ID != areaID(area) {
+			if s.Area == nil || s.Area.ID != idOf(area) {
 				return fmt.Errorf("the step %q is in %+v, want %q", step, s.Area, area)
 			}
 			return nil
@@ -152,7 +152,7 @@ func (w *myProcedureDetailWorld) thenReferred(to, from string) error {
 		return w.readErr
 	}
 	r := w.detail.Referral
-	if r == nil || r.Area.ID != areaID(to) || r.From.ID != areaID(from) {
+	if r == nil || r.Area.ID != idOf(to) || r.From.ID != idOf(from) {
 		return fmt.Errorf("the referral is %+v, want to %q from %q", r, to, from)
 	}
 	return nil
@@ -171,7 +171,7 @@ func (w *myProcedureDetailWorld) thenFiles(table *godog.Table) error {
 	var want []string
 	if table != nil {
 		for _, row := range tableRows(table) {
-			want = append(want, fmt.Sprintf("%s %s %s", row["step"], areaID(row["document"]), row["file"]))
+			want = append(want, fmt.Sprintf("%s %s %s", row["step"], idOf(row["document"]), row["file"]))
 		}
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {

@@ -75,8 +75,8 @@ func registerProcedureTypeDraftSteps(sc *godog.ScenarioContext) {
 // (ADR-020), to both areas.
 func (w *draftWorld) givenAreas(office, other string) error {
 	w.areas = authmem.NewAreaRepository(
-		authdomain.Area{ID: areaID(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
-		authdomain.Area{ID: areaID(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
+		authdomain.Area{ID: idOf(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		authdomain.Area{ID: idOf(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	)
 	return authapp.EnsureSecretariat(context.Background(), w.areas)
 }

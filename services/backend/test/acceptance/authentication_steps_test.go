@@ -183,11 +183,11 @@ func (w *authenticationWorld) givenApplicant(email string) error {
 
 func (w *authenticationWorld) givenStaff(email, area string) error {
 	w.add(email)
-	w.areas = append(w.areas, domain.Area{ID: areaID(area), Name: area, Permissions: []domain.Permission{{ID: "verify", Name: "Verificar"}}})
+	w.areas = append(w.areas, domain.Area{ID: idOf(area), Name: area, Permissions: []domain.Permission{{ID: "verify", Name: "Verificar"}}})
 	return w.memberships.Save(context.Background(), domain.Membership{
 		ID:          "M-" + email,
 		UserID:      email,
-		Area:        areaID(area),
+		Area:        idOf(area),
 		Permissions: []string{"verify"},
 	})
 }

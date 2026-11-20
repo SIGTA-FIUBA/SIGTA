@@ -393,9 +393,29 @@ export interface paths {
         put?: never;
         /**
          * Confirma el paso abierto de un trámite
-         * @description Lo confirma quien tiene, en el área del paso, los permisos que el paso exige, con una observación. Quién confirma y cuándo los pone el servidor. El trámite pasa al paso siguiente: el configurado o, en una decisión, el de la salida elegida. Pasar a un paso de otra área lo deriva, y volver al área de la que salió es el retorno (ADR-020). Un paso que ocurrió fuera de SIGTA queda registrado como declarado por quien lo confirma (ADR-004). Los pasos del titular no se confirman: los completa el titular.
+         * @description Lo confirma quien tiene, en el área del paso, los permisos que el paso exige, con una observación. Quién confirma y cuándo los pone el servidor. El trámite pasa al paso siguiente: el configurado o, en una decisión, el de la salida elegida. Pasar a un paso de otra área lo deriva, y volver al área de la que salió es el retorno (ADR-020). Un paso que ocurrió fuera de SIGTA queda registrado como declarado por quien lo confirma (ADR-004). Los pasos del titular no se confirman: los completa el titular. Mientras haya una subsanación pendiente, el paso no se confirma.
          */
         post: operations["confirmStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/steps/{stepId}/correction-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pide una subsanación al titular sobre el paso abierto
+         * @description La pide quien puede confirmar el paso abierto, que tiene que ser del personal. Dice qué falta, con datos y documentos que piden los pasos del titular, y por qué. El trámite no cambia de paso: queda con el titular, y el paso no se confirma, hasta que el titular responda. Se puede pedir más de una sobre el mismo trámite. También canaliza lo que pide ampliar un evaluador externo. Quién la pide y cuándo los pone el servidor.
+         */
+        post: operations["requestCorrection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -812,6 +832,31 @@ export interface components {
             /** @description Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite */
             external_file_number?: string;
         };
+        NewCorrectionRequest: {
+            /** @description Por qué se pide. No puede quedar vacío */
+            reason: string;
+            /** @description Identificadores de los datos que se piden, de los que piden los pasos del titular */
+            fields?: string[];
+            /** @description Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno */
+            documents?: string[];
+        };
+        /** @description Subsanación pedida que el titular todavía no respondió */
+        CorrectionRequest: {
+            /** @description Paso abierto sobre el que se pidió */
+            step: string;
+            /** @description Quién la pidió. Ausente para el titular: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
+            /** Format: date-time */
+            at: string;
+            reason: string;
+            fields: string[];
+            documents: string[];
+        };
+        /** @description Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite. */
+        HistoryCorrectionRequest: {
+            fields: string[];
+            documents: string[];
+        };
         ProcedureEvent: {
             /** @description Paso hecho, o el paso abierto en el que se adjuntó el documento */
             step: string;
@@ -832,6 +877,7 @@ export interface components {
             /** @description Si devuelve el trámite al área de la que se había derivado */
             returned: boolean;
             document?: components["schemas"]["HistoryDocument"];
+            correction_request?: components["schemas"]["HistoryCorrectionRequest"];
         };
         /** @description Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite. */
         HistoryDocument: {
@@ -880,14 +926,16 @@ export interface components {
             applicant: components["schemas"]["Person"];
             /** @description Identificador del paso que espera ahora; ausente si el trámite está cerrado */
             open_step?: string;
-            /** @description Si quien mira puede hacer el paso abierto */
+            /** @description Si quien mira puede hacer el paso abierto: confirmarlo o pedir una subsanación sobre él */
             can_act: boolean;
             /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
             as_applicant: boolean;
             referral?: components["schemas"]["ProcedureReferral"];
+            /** @description Las subsanaciones pedidas que el titular todavía no respondió, en el orden en que se pidieron. Mientras haya alguna, el trámite está con el titular y el paso abierto no se confirma. */
+            correction_requests: components["schemas"]["CorrectionRequest"][];
             /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
             steps: components["schemas"]["ProcedureStep"][];
-            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación y cada documento adjuntado después. No se puede cambiar ni borrar. */
+            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación, cada documento adjuntado después y cada subsanación pedida. No se puede cambiar ni borrar. */
             history: components["schemas"]["ProcedureEvent"][];
         };
         /** @description Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área. */
@@ -1722,6 +1770,40 @@ export interface operations {
         };
         responses: {
             /** @description Confirmación registrada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    requestCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                stepId: components["parameters"]["StepId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCorrectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subsanación pedida */
             201: {
                 headers: {
                     [name: string]: unknown;

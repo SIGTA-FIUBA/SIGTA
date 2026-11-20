@@ -21,6 +21,7 @@ var (
 	ErrNotAReferral        = fmt.Errorf("%w: an external file number goes only with a referral", ErrInvalidConfirmation)
 	ErrApplicantStep       = fmt.Errorf("%w: the applicant completes their steps, staff confirms theirs", ErrInvalidConfirmation)
 	ErrMissingDocuments    = fmt.Errorf("%w: the step asks for documents that are not attached", ErrInvalidConfirmation)
+	ErrAwaitingApplicant   = fmt.Errorf("%w: the applicant has a correction to make", ErrInvalidConfirmation)
 )
 
 // MissingDocumentsError names the mandatory documents of a step that have no
@@ -61,6 +62,9 @@ func Confirm(p domain.Procedure, d definition.ProcedureTypeDefinition, c Confirm
 	}
 	if step.Role == definition.RoleApplicant {
 		return p, domain.Event{}, ErrApplicantStep
+	}
+	if p.AwaitingApplicant() {
+		return p, domain.Event{}, ErrAwaitingApplicant
 	}
 	if strings.TrimSpace(c.Observation) == "" {
 		return p, domain.Event{}, ErrNoObservation

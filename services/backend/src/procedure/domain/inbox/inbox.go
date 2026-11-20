@@ -24,7 +24,8 @@ type Summary struct {
 	Area  *Option[string]
 	State domain.State
 	// Actionable tells whether whoever asks holds the permissions the open
-	// step asks for.
+	// step asks for, and the step does not wait for a correction of the
+	// applicant.
 	Actionable  bool
 	StartedAt   time.Time
 	LastMovedAt time.Time
