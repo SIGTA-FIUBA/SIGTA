@@ -3,6 +3,7 @@ package application_test
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,8 +36,9 @@ func TestEnsureSecretariatCreatesIt(t *testing.T) {
 	}
 }
 
-// A deleted Secretariat is refused too, and only the migration restores it: no
-// area comes back once deleted.
+// A deleted Secretariat is refused too. EnsureSecretariat does not bring it
+// back, since no area comes back once deleted: in a database, it is repaired
+// by hand with the role that owns the tables (docs/15-despliegue.md).
 func TestCheckSecretariatRefusesItDeleted(t *testing.T) {
 	ctx := t.Context()
 	areas := memory.NewAreaRepository()
@@ -46,8 +48,23 @@ func TestCheckSecretariatRefusesItDeleted(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrSecretariatIncomplete) {
-		t.Errorf("CheckSecretariat() = %v, want ErrSecretariatIncomplete", err)
+	err := application.CheckSecretariat(ctx, areas)
+	if !errors.Is(err, application.ErrSecretariatIncomplete) || !strings.Contains(err.Error(), "area secretariat is deleted") {
+		t.Errorf("CheckSecretariat() = %v, want ErrSecretariatIncomplete saying it is deleted", err)
+	}
+}
+
+// The stores keep every permission once saved, so a platform permission is
+// missing only if the Secretariat was saved without it.
+func TestCheckSecretariatSaysWhatIsMissing(t *testing.T) {
+	ctx := t.Context()
+	areas := memory.NewAreaRepository()
+	if err := areas.Save(ctx, domain.Area{ID: input.SecretariatArea, Name: "Secretaría", System: true, Permissions: platformPermissions[1:]}); err != nil {
+		t.Fatal(err)
+	}
+	err := application.CheckSecretariat(ctx, areas)
+	if !errors.Is(err, application.ErrSecretariatIncomplete) || !strings.Contains(err.Error(), "permission edit_procedure_types is missing") {
+		t.Errorf("CheckSecretariat() = %v, want ErrSecretariatIncomplete saying edit_procedure_types is missing", err)
 	}
 }
 
@@ -58,14 +75,15 @@ func TestEnsureSecretariatRestoresWhatTheCodeNeeds(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		change func(a *domain.Area)
+		says   string
 	}{
-		{"not a system area", func(a *domain.Area) { a.System = false }},
+		{"not a system area", func(a *domain.Area) { a.System = false }, "area secretariat is not a system one"},
 		{"with a platform permission deleted", func(a *domain.Area) {
 			a.Permissions[0].DeletedAt, a.Permissions[0].DeletedBy = deleted, "admin"
-		}},
+		}, "permission edit_procedure_types is deleted"},
 		{"with a platform permission that is not a system one", func(a *domain.Area) {
 			a.Permissions[1].Name, a.Permissions[1].System = "Publicar", false
-		}},
+		}, "permission publish_procedure_types is not a system one"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
@@ -83,8 +101,8 @@ func TestEnsureSecretariatRestoresWhatTheCodeNeeds(t *testing.T) {
 			if err := areas.Save(ctx, area); err != nil {
 				t.Fatal(err)
 			}
-			if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrSecretariatIncomplete) {
-				t.Fatalf("CheckSecretariat() = %v, want ErrSecretariatIncomplete", err)
+			if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrSecretariatIncomplete) || !strings.Contains(err.Error(), tc.says) {
+				t.Fatalf("CheckSecretariat() = %v, want ErrSecretariatIncomplete saying %q", err, tc.says)
 			}
 
 			if err := application.EnsureSecretariat(ctx, areas); err != nil {

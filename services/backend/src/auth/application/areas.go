@@ -48,7 +48,7 @@ func NewAreaService(areas output.AreaRepository, administrators output.Administr
 
 // ErrSecretariatIncomplete means the Secretariat or one of its platform
 // permissions, which migration 0007 adds, is missing, deleted or no longer a
-// system one.
+// system one. The error that wraps it says which.
 var ErrSecretariatIncomplete = errors.New("the Secretariat is not as the migrations leave it")
 
 // EnsureSecretariat creates the Secretariat with its platform permissions, or
@@ -71,18 +71,46 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	return nil
 }
 
-// CheckSecretariat refuses a database whose Secretariat is not the one that
-// migration 0007 leaves, as when it was changed by hand. The server does not
-// fix it: what the code needs comes with the migrations.
+// CheckSecretariat refuses a database whose Secretariat lacks what the code
+// needs of it, as when it was changed by hand, and says what. The server does
+// not fix it: what the code needs comes with the migrations. It does not look
+// at the names, nor at the other permissions of the area.
 func CheckSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	area, err := areas.Get(ctx, input.SecretariatArea)
-	if errors.Is(err, domain.ErrAreaNotFound) || err == nil && (area.Deleted() || completeSecretariat(&area)) {
-		return ErrSecretariatIncomplete
+	if errors.Is(err, domain.ErrAreaNotFound) {
+		return fmt.Errorf("%w: area %s is missing", ErrSecretariatIncomplete, input.SecretariatArea)
 	}
 	if err != nil {
 		return fmt.Errorf("area %s: %w", input.SecretariatArea, err)
 	}
+	if problems := secretariatProblems(area); len(problems) > 0 {
+		return fmt.Errorf("%w: %s", ErrSecretariatIncomplete, strings.Join(problems, ", "))
+	}
 	return nil
+}
+
+// secretariatProblems lists what the area lacks to be the Secretariat that the
+// code needs.
+func secretariatProblems(area domain.Area) []string {
+	var problems []string
+	if area.Deleted() {
+		problems = append(problems, "area "+area.ID+" is deleted")
+	}
+	if !area.System {
+		problems = append(problems, "area "+area.ID+" is not a system one")
+	}
+	for _, permission := range platformPermissions {
+		i := slices.IndexFunc(area.Permissions, func(p domain.Permission) bool { return p.ID == permission.ID })
+		switch {
+		case i < 0:
+			problems = append(problems, "permission "+permission.ID+" is missing")
+		case area.Permissions[i].Deleted():
+			problems = append(problems, "permission "+permission.ID+" is deleted")
+		case !area.Permissions[i].System:
+			problems = append(problems, "permission "+permission.ID+" is not a system one")
+		}
+	}
+	return problems
 }
 
 // completeSecretariat marks the area as the Secretariat and adds or restores
@@ -360,7 +388,8 @@ func validatePermission(area domain.Area, p domain.Permission) error {
 	if !domain.ValidID(p.ID) {
 		return fmt.Errorf(invalidID, p.ID)
 	}
-	if input.PlatformPermission(area.ID, p.ID) {
+	// In every area, so that no other permission goes by the name of one.
+	if slices.ContainsFunc(platformPermissions, func(platform domain.Permission) bool { return platform.ID == p.ID }) {
 		return fmt.Errorf("id %q is reserved for a platform permission", p.ID)
 	}
 	if p.Name == "" {
