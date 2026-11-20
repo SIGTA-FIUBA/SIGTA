@@ -33,6 +33,10 @@ type ProcedureRepository interface {
 	// so that a request made in between is not answered unseen, and with
 	// engine.ErrNoCorrectionPending if another answer came first.
 	AnswerCorrection(ctx context.Context, p domain.Procedure, requested int, e domain.Event) error
+	// RecordWhileAwaiting appends an event of what the applicant loads in
+	// answer to a correction, and fails with engine.ErrNoCorrectionPending if
+	// the procedure no longer waits for them.
+	RecordWhileAwaiting(ctx context.Context, e domain.Event) error
 	// Record appends an event that does not move the procedure, and fails
 	// with domain.ErrProcedureNotFound if there is no such procedure.
 	Record(ctx context.Context, e domain.Event) error

@@ -144,6 +144,20 @@ func (s *ProcedureRepository) AnswerCorrection(_ context.Context, p domain.Proce
 	return nil
 }
 
+func (s *ProcedureRepository) RecordWhileAwaiting(_ context.Context, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[e.ProcedureID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if !stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", e.ProcedureID, engine.ErrNoCorrectionPending)
+	}
+	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
+	return nil
+}
+
 func (s *ProcedureRepository) Record(_ context.Context, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

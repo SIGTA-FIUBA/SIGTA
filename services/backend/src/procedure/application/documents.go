@@ -92,6 +92,9 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		UploadedBy:  userID,
 		UploadedAt:  s.now(),
 	}
+	if step != p.OpenStep {
+		return d, s.attachInAnswer(ctx, d)
+	}
 	if err := s.documents.Add(ctx, d); err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
 	}
@@ -101,6 +104,22 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		return domain.Document{}, fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
 	}
 	return d, nil
+}
+
+// attachInAnswer records a document the applicant attaches in answer to a
+// correction. Its event goes first, checked against the pending corrections
+// as it is stored: an answer sent meanwhile either comes before it, and the
+// attachment is refused, or after it, and the document is part of that
+// answer. Until SIG-75 records both together (ADR-024), a failure recording
+// the document leaves its event without it.
+func (s *DocumentService) attachInAnswer(ctx context.Context, d domain.Document) error {
+	if err := s.procedures.procedures.RecordWhileAwaiting(ctx, attachedEvent(d)); err != nil {
+		return fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
+	}
+	if err := s.documents.Add(ctx, d); err != nil {
+		return fmt.Errorf("record document: %w", err)
+	}
+	return nil
 }
 
 func attachedEvent(d domain.Document) domain.Event {
@@ -160,8 +179,6 @@ func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documen
 	return d, content, nil
 }
 
-// belowMaxFiles checks before storing anything. Two uploads at the same time
-// can both pass it, which goes past the maximum by a few files at most.
 // belowMaxFilesFor bounds the files of a document. For the applicant answering
 // a correction, it counts only what they attached since the last request that
 // asks for the document: each request of staff opens room again, so a
@@ -181,6 +198,8 @@ func (s *DocumentService) belowMaxFilesFor(ctx context.Context, userID string, p
 	return nil
 }
 
+// belowMaxFiles checks before storing anything. Two uploads at the same time
+// can both pass it, which goes past the maximum by a few files at most.
 func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requirement string) error {
 	documents, err := s.documents.List(ctx, procedureID)
 	if err != nil {
