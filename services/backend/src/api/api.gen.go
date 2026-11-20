@@ -705,6 +705,9 @@ type ProcedureTypeDraft struct {
 	EditedAt   time.Time               `json:"edited_at"`
 	EditedBy   string                  `json:"edited_by"`
 
+	// Editors Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
+	Editors []string `json:"editors"`
+
 	// Problems Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
 	Problems        []DefinitionProblem `json:"problems"`
 	ProcedureTypeId int64               `json:"procedure_type_id"`

@@ -98,9 +98,10 @@ func (s *ProcedureTypeDraftRepository) put(d draft.Draft) error {
 	return nil
 }
 
-// cloneDraft copies the definition through JSON, as PostgreSQL stores it, so
-// that neither the caller nor the store shares its slices.
+// cloneDraft copies the definition through JSON, as PostgreSQL stores it, and
+// the editors, so that neither the caller nor the store shares its slices.
 func cloneDraft(d draft.Draft) (draft.Draft, error) {
+	d.Editors = slices.Clone(d.Editors)
 	encoded, err := json.Marshal(d.Definition)
 	if err != nil {
 		return draft.Draft{}, err

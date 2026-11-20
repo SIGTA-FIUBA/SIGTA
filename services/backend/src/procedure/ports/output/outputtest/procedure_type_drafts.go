@@ -26,6 +26,7 @@ func TestProcedureTypeDraftRepository(t *testing.T, newRepository func(t *testin
 func Draft(procedureType int64) draft.Draft {
 	at := time.Date(2026, 11, 14, 10, 0, 0, 123456000, time.UTC)
 	d := draft.New(procedureType, 2, definitiontest.Definition(), "ana", at)
+	d.Editors = append(d.Editors, "carla")
 	d.Status = draft.StatusProposed
 	d.ProposedBy, d.ProposedAt = "ana", at.Add(time.Hour)
 	d.Rejection = draft.Rejection{By: "beto", At: at.Add(time.Minute), Reason: "Falta el plazo"}
@@ -61,12 +62,16 @@ func draftRoundTrip(t *testing.T, s output.ProcedureTypeDraftRepository) {
 
 	// What the caller does with its copy does not reach the store.
 	list[0].Definition.Steps[0].Name = "Cambiado"
+	list[0].Editors[0] = "Cambiado"
 	got, err := s.Get(ctx, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Definition.Steps[0].Name == "Cambiado" {
 		t.Error("the store shares the definition with the caller")
+	}
+	if got.Editors[0] == "Cambiado" {
+		t.Error("the store shares the editors with the caller")
 	}
 }
 

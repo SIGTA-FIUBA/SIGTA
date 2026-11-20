@@ -27,6 +27,12 @@ Feature: Edit and publish a procedure type
     Then version 2 of "subject equivalence" is published from the draft
     And version 1 keeps its content
 
+  Scenario: whoever edited the draft does not approve it, even if another person proposed it
+    Given "eva" created the draft of a new procedure type "subject equivalence"
+    When "ana" proposes the draft
+    And "eva" approves the draft
+    Then no version is published from the draft
+
   Scenario: a proposed draft is not edited
     Given "ana" proposed the draft of a new procedure type "subject equivalence"
     When "ana" edits the draft

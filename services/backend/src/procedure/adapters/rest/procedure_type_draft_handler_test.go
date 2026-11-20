@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -96,6 +97,7 @@ func proposedView() input.DraftView {
 			Revision:   4,
 			EditedBy:   "ana",
 			EditedAt:   editedAt,
+			Editors:    []string{"beto", "ana"},
 			ProposedBy: "ana",
 			ProposedAt: editedAt,
 		},
@@ -124,7 +126,7 @@ func TestGetProcedureTypeDraftShowsTheDraft(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.ProcedureTypeId != 7 || got.Base != 2 || got.Revision != 4 || got.Status != "proposed" || got.EditedBy != "ana" || !got.EditedAt.Equal(editedAt) {
+	if got.ProcedureTypeId != 7 || got.Base != 2 || got.Revision != 4 || got.Status != "proposed" || got.EditedBy != "ana" || !got.EditedAt.Equal(editedAt) || !slices.Equal(got.Editors, []string{"beto", "ana"}) {
 		t.Errorf("draft = %+v", got)
 	}
 	if got.ProposedBy == nil || *got.ProposedBy != "ana" || got.Rejection != nil {

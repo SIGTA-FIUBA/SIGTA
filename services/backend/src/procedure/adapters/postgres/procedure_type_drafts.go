@@ -27,7 +27,7 @@ func NewProcedureTypeDraftRepository(pool *pgxpool.Pool) *ProcedureTypeDraftRepo
 	return &ProcedureTypeDraftRepository{pool: pool}
 }
 
-const draftColumns = "procedure_type_id, base, definition, status, revision, edited_by, edited_at, proposed_by, proposed_at, rejected_by, rejected_at, rejection_reason"
+const draftColumns = "procedure_type_id, base, definition, status, revision, edited_by, edited_at, editors, proposed_by, proposed_at, rejected_by, rejected_at, rejection_reason"
 
 func (s *ProcedureTypeDraftRepository) Get(ctx context.Context, procedureType int64) (draft.Draft, error) {
 	rows, err := s.pool.Query(ctx, "SELECT "+draftColumns+" FROM procedure_type_drafts WHERE procedure_type_id = $1", procedureType)
@@ -61,7 +61,7 @@ func (s *ProcedureTypeDraftRepository) Add(ctx context.Context, d draft.Draft) e
 	if err != nil {
 		return err
 	}
-	_, err = s.pool.Exec(ctx, "INSERT INTO procedure_type_drafts ("+draftColumns+") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)", args...)
+	_, err = s.pool.Exec(ctx, "INSERT INTO procedure_type_drafts ("+draftColumns+") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)", args...)
 	if hasCode(err, uniqueViolation) {
 		return fmt.Errorf("%w: procedure type %d: %w", output.ErrDraftExists, d.ProcedureTypeID, err)
 	}
@@ -77,8 +77,8 @@ func (s *ProcedureTypeDraftRepository) Update(ctx context.Context, d draft.Draft
 		return err
 	}
 	tag, err := s.pool.Exec(ctx, `UPDATE procedure_type_drafts
-		SET definition = $3, status = $4, revision = $5, edited_by = $6, edited_at = $7,
-			proposed_by = $8, proposed_at = $9, rejected_by = $10, rejected_at = $11, rejection_reason = $12
+		SET definition = $3, status = $4, revision = $5, edited_by = $6, edited_at = $7, editors = $8,
+			proposed_by = $9, proposed_at = $10, rejected_by = $11, rejected_at = $12, rejection_reason = $13
 		WHERE procedure_type_id = $1 AND base = $2 AND revision = $5 - 1`, args...)
 	if err != nil {
 		return fmt.Errorf("update the draft of procedure type %d: %w", d.ProcedureTypeID, err)
@@ -116,7 +116,7 @@ func draftArgs(d draft.Draft) ([]any, error) {
 		return nil, fmt.Errorf("encode the draft of procedure type %d: %w", d.ProcedureTypeID, err)
 	}
 	return []any{
-		d.ProcedureTypeID, d.Base, def, string(d.Status), d.Revision, d.EditedBy, d.EditedAt,
+		d.ProcedureTypeID, d.Base, def, string(d.Status), d.Revision, d.EditedBy, d.EditedAt, d.Editors,
 		nullable(d.ProposedBy), nullableTime(d.ProposedAt),
 		nullable(d.Rejection.By), nullableTime(d.Rejection.At), nullable(d.Rejection.Reason),
 	}, nil
@@ -145,7 +145,7 @@ func scanDraft(row pgx.CollectableRow) (draft.Draft, error) {
 		proposedAt, rejectedAt         *time.Time
 	)
 	err := row.Scan(&d.ProcedureTypeID, &d.Base, &def, &status, &d.Revision, &d.EditedBy, &d.EditedAt,
-		&proposedBy, &proposedAt, &rejectedBy, &rejectedAt, &reason)
+		&d.Editors, &proposedBy, &proposedAt, &rejectedBy, &rejectedAt, &reason)
 	if err != nil {
 		return draft.Draft{}, err
 	}

@@ -46,7 +46,7 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"procedures":                      {table: []string{"SELECT", "INSERT"}},
 		"procedure_type_drafts": {
 			table:     []string{"SELECT", "INSERT", "DELETE"},
-			updatable: []string{"definition", "status", "revision", "edited_by", "edited_at", "proposed_by", "proposed_at", "rejected_by", "rejected_at", "rejection_reason"},
+			updatable: []string{"definition", "status", "revision", "edited_by", "edited_at", "editors", "proposed_by", "proposed_at", "rejected_by", "rejected_at", "rejection_reason"},
 		},
 	}
 	for _, table := range migrations.AppendOnlyTables() {

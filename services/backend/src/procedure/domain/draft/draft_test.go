@@ -2,6 +2,7 @@ package draft_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func proposed(t *testing.T) draft.Draft {
 
 func TestNewDraftIsBeingEdited(t *testing.T) {
 	d := draft.New(3, 2, definitiontest.Definition(), "ana", at)
-	if d.Status != draft.StatusEditing || d.Revision != 1 || d.Base != 2 || d.EditedBy != "ana" {
+	if d.Status != draft.StatusEditing || d.Revision != 1 || d.Base != 2 || d.EditedBy != "ana" || !slices.Equal(d.Editors, []string{"ana"}) {
 		t.Errorf("New() = %+v", d)
 	}
 }
@@ -35,7 +36,7 @@ func TestEditAndProposeBumpTheRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Revision != 2 || d.EditedBy != "beto" || d.Definition.Name != "Otro nombre" {
+	if d.Revision != 2 || d.EditedBy != "beto" || d.Definition.Name != "Otro nombre" || !slices.Equal(d.Editors, []string{"ana", "beto"}) {
 		t.Errorf("Edit() = %+v", d)
 	}
 	d, err = d.Propose("beto", at.Add(time.Hour))
@@ -44,6 +45,19 @@ func TestEditAndProposeBumpTheRevision(t *testing.T) {
 	}
 	if d.Status != draft.StatusProposed || d.Revision != 3 || d.ProposedBy != "beto" {
 		t.Errorf("Propose() = %+v", d)
+	}
+}
+
+func TestEditorsAreRememberedOnce(t *testing.T) {
+	d := draft.New(3, 0, definitiontest.Definition(), "ana", at)
+	for _, by := range []string{"beto", "ANA", "beto"} {
+		var err error
+		if d, err = d.Edit(definitiontest.Definition(), by, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !slices.Equal(d.Editors, []string{"ana", "beto"}) {
+		t.Errorf("Editors = %v, want [ana beto]", d.Editors)
 	}
 }
 
@@ -66,6 +80,20 @@ func TestApproval(t *testing.T) {
 		if _, err := proposed(t).Approval(by); !errors.Is(err, draft.ErrSelfApproval) {
 			t.Errorf("Approval(%q) = %v, want ErrSelfApproval", by, err)
 		}
+	}
+	edited, err := draft.New(3, 0, definitiontest.Definition(), "ana", at).Edit(definitiontest.Definition(), "beto", at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited, err = edited.Propose("ana", at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := edited.Approval("Beto"); !errors.Is(err, draft.ErrSelfApproval) {
+		t.Errorf("Approval() by an editor = %v, want ErrSelfApproval", err)
+	}
+	if _, err := edited.Approval("carla"); err != nil {
+		t.Errorf("Approval() by someone who did not edit it = %v", err)
 	}
 	editing := draft.New(3, 0, definitiontest.Definition(), "ana", at)
 	if _, err := editing.Approval("beto"); !errors.Is(err, draft.ErrDraftNotProposed) {

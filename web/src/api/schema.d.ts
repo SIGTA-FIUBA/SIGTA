@@ -682,6 +682,8 @@ export interface components {
             edited_by: string;
             /** Format: date-time */
             edited_at: string;
+            /** @description Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza */
+            editors: string[];
             proposed_by?: string;
             /** Format: date-time */
             proposed_at?: string;

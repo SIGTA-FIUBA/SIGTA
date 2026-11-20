@@ -5,6 +5,8 @@
 -- another version is a new draft.
 -- definition is jsonb: nothing covers its bytes with a digest, as it does
 -- with a version.
+-- editors are everyone who edited the draft, its creator included: none of
+-- them approves or rejects it.
 -- There is no reference to procedure_types, since that row is created with
 -- version 1 and the draft of a new procedure type comes before it.
 CREATE TABLE procedure_type_drafts (
@@ -15,6 +17,7 @@ CREATE TABLE procedure_type_drafts (
     revision          integer NOT NULL CHECK (revision >= 1),
     edited_by         text NOT NULL,
     edited_at         timestamptz NOT NULL,
+    editors           text[] NOT NULL CHECK (cardinality(editors) >= 1),
     proposed_by       text,
     proposed_at       timestamptz,
     rejected_by       text,
@@ -24,5 +27,5 @@ CREATE TABLE procedure_type_drafts (
 );
 
 GRANT SELECT, INSERT, DELETE ON procedure_type_drafts TO backend;
-GRANT UPDATE (definition, status, revision, edited_by, edited_at, proposed_by, proposed_at, rejected_by, rejected_at, rejection_reason)
+GRANT UPDATE (definition, status, revision, edited_by, edited_at, editors, proposed_by, proposed_at, rejected_by, rejected_at, rejection_reason)
     ON procedure_type_drafts TO backend;

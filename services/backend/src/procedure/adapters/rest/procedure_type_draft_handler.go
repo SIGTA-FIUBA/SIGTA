@@ -343,6 +343,7 @@ func draftResponse(view input.DraftView) (api.ProcedureTypeDraft, error) {
 		Definition:      def,
 		EditedBy:        d.EditedBy,
 		EditedAt:        d.EditedAt,
+		Editors:         d.Editors,
 		Problems:        problems(view.Problems),
 	}
 	if d.ProposedBy != "" {

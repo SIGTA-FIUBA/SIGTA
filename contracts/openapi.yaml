@@ -1379,7 +1379,7 @@ components:
           type: string
     ProcedureTypeDraft:
       type: object
-      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, problems]
+      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems]
       properties:
         procedure_type_id:
           type: integer
@@ -1399,6 +1399,11 @@ components:
         edited_at:
           type: string
           format: date-time
+        editors:
+          type: array
+          description: Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
+          items:
+            type: string
         proposed_by:
           type: string
         proposed_at:
