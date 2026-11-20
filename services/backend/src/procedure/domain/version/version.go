@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
+
+	"backend/src/procedure/domain/definition"
 )
 
 var (
@@ -58,6 +61,14 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 	var c Content
 	if err := decodeStrict(v.EncodedContent, &c); err != nil {
 		return Content{}, err
+	}
+	if head.Format == 3 {
+		if slices.ContainsFunc(c.Definition.Documents, func(d definition.Document) bool { return d.Resolution }) {
+			return Content{}, fmt.Errorf("decode content: format 3 has no resolution, format 4 added it")
+		}
+		// Read as the current format, so that publishing the same
+		// definition again does not add a version that changes nothing.
+		c.Format = ContentFormat
 	}
 	return c, nil
 }

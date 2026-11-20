@@ -72,6 +72,14 @@ func formatThreeContent() version.Content {
 	return formatTwoContent()
 }
 
+// formatFourContent uses every key of format 4: a document that is the
+// resolution of the procedure.
+func formatFourContent() version.Content {
+	content := formatThreeContent()
+	content.Definition.Documents[2].Resolution = true
+	return content
+}
+
 // readFixture returns the bytes of testdata/format<n>.json. Those files hold
 // versions as they were stored and are never edited: published versions keep
 // their bytes forever. If a test fails, the encoding or the meaning of a key
@@ -118,6 +126,8 @@ func TestFormatTwo(t *testing.T) {
 	expectLegacy(t, readFixture(t, "format2.json"), formatTwoContent())
 }
 
+// Format 3 reads with the current shape, as the current format, and that
+// shape still encodes it byte for byte.
 func TestFormatThree(t *testing.T) {
 	stored := readFixture(t, "format3.json")
 	got, err := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest(stored), EncodedContent: stored}.DecodeContent()
@@ -127,15 +137,42 @@ func TestFormatThree(t *testing.T) {
 	if want := formatThreeContent(); !reflect.DeepEqual(got, want) {
 		t.Errorf("DecodeContent() =\n%+v\nwant\n%+v", got, want)
 	}
-	encoded, err := formatThreeContent().Encode()
+	got.Format = 3
+	encoded, err := got.Encode()
 	if err != nil {
 		t.Fatalf("Encode() = %v", err)
 	}
 	if !bytes.Equal(encoded, stored) {
 		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
 	}
-	if err := formatThreeContent().Definition.Validate(formatThreeContent().Areas); err != nil {
+}
+
+func TestFormatFour(t *testing.T) {
+	stored := readFixture(t, "format4.json")
+	got, err := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest(stored), EncodedContent: stored}.DecodeContent()
+	if err != nil {
+		t.Fatalf("DecodeContent() = %v", err)
+	}
+	if want := formatFourContent(); !reflect.DeepEqual(got, want) {
+		t.Errorf("DecodeContent() =\n%+v\nwant\n%+v", got, want)
+	}
+	encoded, err := formatFourContent().Encode()
+	if err != nil {
+		t.Fatalf("Encode() = %v", err)
+	}
+	if !bytes.Equal(encoded, stored) {
+		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
+	}
+	if err := formatFourContent().Definition.Validate(formatFourContent().Areas); err != nil {
 		t.Errorf("Validate() = %v, want the fixture to be a valid definition", err)
+	}
+}
+
+// A version of format 3 cannot carry a resolution: format 4 added it.
+func TestFormatThreeWithResolutionIsRejected(t *testing.T) {
+	encoded := bytes.Replace(readFixture(t, "format4.json"), []byte(`{"format":4,`), []byte(`{"format":3,`), 1)
+	if _, err := (version.ProcedureTypeVersion{EncodedContent: encoded}).DecodeContent(); err == nil {
+		t.Error("DecodeContent() = nil, want an error")
 	}
 }
 
