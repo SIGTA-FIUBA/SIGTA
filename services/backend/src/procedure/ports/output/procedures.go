@@ -24,9 +24,10 @@ type Start struct {
 // ProcedureRepository keeps the procedures with their history, values and
 // documents. Each change is recorded whole or not at all.
 type ProcedureRepository interface {
-	// Add records the start of a procedure. It fails with ErrProcedureExists
-	// if there is a procedure with that identifier, and with
-	// ErrDocumentExists if a document identifier is already taken.
+	// Add records the start of a procedure, whose version is already stored
+	// and whose documents name it. It fails with ErrProcedureExists if there
+	// is a procedure with that identifier, and with ErrDocumentExists if a
+	// document identifier is already taken.
 	Add(ctx context.Context, s Start) error
 	Get(ctx context.Context, id string) (domain.Procedure, error)
 	// List returns the procedures ordered by identifier.
