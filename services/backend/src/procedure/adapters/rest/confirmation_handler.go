@@ -16,6 +16,7 @@ import (
 const (
 	messageCannotConfirm = "No podés confirmar este paso del trámite."
 	messageStepNotOpen   = "El paso ya no está abierto: el trámite cambió mientras tanto."
+	messageAwaiting      = "El paso no se puede confirmar mientras el titular tenga una subsanación pendiente."
 )
 
 var invalidConfirmations = []struct {
@@ -48,11 +49,8 @@ func (h *ProcedureHandler) ConfirmStep(ctx context.Context, req api.ConfirmStepR
 	if err != nil {
 		return confirmationError(err)
 	}
-	names, err := h.people.Names(ctx, []string{event.By})
-	if err != nil {
-		return nil, err
-	}
-	return api.ConfirmStep201JSONResponse(procedureEvent(event, names)), nil
+	recorded, err := h.named(ctx, event)
+	return api.ConfirmStep201JSONResponse(recorded), err
 }
 
 func confirmationError(err error) (api.ConfirmStepResponseObject, error) {
@@ -63,6 +61,8 @@ func confirmationError(err error) (api.ConfirmStepResponseObject, error) {
 		return api.ConfirmStep403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageCannotConfirm}}, nil
 	case errors.Is(err, engine.ErrStepNotOpen):
 		return api.ConfirmStep409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageStepNotOpen}}, nil
+	case errors.Is(err, engine.ErrAwaitingApplicant):
+		return api.ConfirmStep409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageAwaiting}}, nil
 	}
 	var missing *engine.MissingDocumentsError
 	if errors.As(err, &missing) {
@@ -74,6 +74,16 @@ func confirmationError(err error) (api.ConfirmStepResponseObject, error) {
 		}
 	}
 	return nil, err
+}
+
+// named answers an event that was just recorded with the name of whoever did
+// it.
+func (h *ProcedureHandler) named(ctx context.Context, e domain.Event) (api.ProcedureEvent, error) {
+	names, err := h.people.Names(ctx, []string{e.By})
+	if err != nil {
+		return api.ProcedureEvent{}, err
+	}
+	return procedureEvent(e, names), nil
 }
 
 func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent {
@@ -100,6 +110,9 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 	}
 	if e.Document != nil {
 		event.Document = &api.HistoryDocument{Id: e.Document.ID, Document: e.Document.Requirement, FileName: e.Document.FileName}
+	}
+	if r := e.CorrectionRequest; r != nil {
+		event.CorrectionRequest = &api.HistoryCorrectionRequest{Fields: orEmpty(r.Fields), Documents: orEmpty(r.Documents)}
 	}
 	return event
 }

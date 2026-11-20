@@ -188,10 +188,10 @@ func (w *documentWorld) givenProcedureType(table *godog.Table) error {
 				return fmt.Errorf("unknown author %q", doneBy)
 			}
 			permission = strings.Trim(permission, `"`)
-			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
+			if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 				return err
 			}
-			step.Role, step.Area, step.Permissions = definition.RoleStaff, areaID(area), []string{permission}
+			step.Role, step.Area, step.Permissions = definition.RoleStaff, idOf(area), []string{permission}
 		}
 		if n := len(def.Steps); n > 0 {
 			def.Steps[n-1].Next = step.ID
@@ -210,12 +210,12 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		user, area, permissions := row.Cells[0].Value, row.Cells[1].Value, list(row.Cells[2].Value)
 		for _, permission := range permissions {
-			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
+			if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 				return err
 			}
 		}
 		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
-			UserID: user, Area: areaID(area), Permissions: permissions,
+			UserID: user, Area: idOf(area), Permissions: permissions,
 		})
 		if err != nil {
 			return err
@@ -225,11 +225,11 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 }
 
 func (w *documentWorld) givenScopedStaff(user, area, permission string) error {
-	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
+	if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 		return err
 	}
 	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
-		UserID: user, Area: areaID(area), Permissions: []string{permission}, Scope: []int64{2},
+		UserID: user, Area: idOf(area), Permissions: []string{permission}, Scope: []int64{2},
 	})
 	return err
 }

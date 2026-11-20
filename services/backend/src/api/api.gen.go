@@ -269,6 +269,20 @@ type CatalogEntry struct {
 	Version    int64          `json:"version"`
 }
 
+// CorrectionRequest Subsanación pedida que el titular todavía no respondió
+type CorrectionRequest struct {
+	At time.Time `json:"at"`
+
+	// By Quién la pidió. Ausente para el titular: ve el área del paso, no la persona.
+	By        *Person  `json:"by,omitempty"`
+	Documents []string `json:"documents"`
+	Fields    []string `json:"fields"`
+	Reason    string   `json:"reason"`
+
+	// Step Paso abierto sobre el que se pidió
+	Step string `json:"step"`
+}
+
 // DefinitionDocument defines model for DefinitionDocument.
 type DefinitionDocument struct {
 	AcceptedTypes *[]string `json:"accepted_types,omitempty"`
@@ -388,6 +402,12 @@ type FieldRequirement struct {
 // FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
 type FieldType string
 
+// HistoryCorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
+type HistoryCorrectionRequest struct {
+	Documents []string `json:"documents"`
+	Fields    []string `json:"fields"`
+}
+
 // HistoryDocument Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
 type HistoryDocument struct {
 	// Document Identificador del documento del tipo de trámite que cubre
@@ -448,6 +468,18 @@ type NewArea struct {
 	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
 	Id   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// NewCorrectionRequest defines model for NewCorrectionRequest.
+type NewCorrectionRequest struct {
+	// Documents Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno
+	Documents *[]string `json:"documents,omitempty"`
+
+	// Fields Identificadores de los datos que se piden, de los que piden los pasos del titular
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Reason Por qué se pide. No puede quedar vacío
+	Reason string `json:"reason"`
 }
 
 // NewMembership Necesita al menos un rol o un permiso del área
@@ -527,10 +559,13 @@ type ProcedureDetail struct {
 	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
 	AsApplicant bool `json:"as_applicant"`
 
-	// CanAct Si quien mira puede hacer el paso abierto
+	// CanAct Si quien mira puede hacer el paso abierto: confirmarlo o pedir una subsanación sobre él
 	CanAct bool `json:"can_act"`
 
-	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación y cada documento adjuntado después. No se puede cambiar ni borrar.
+	// CorrectionRequests Las subsanaciones pedidas que el titular todavía no respondió, en el orden en que se pidieron. Mientras haya alguna, el trámite está con el titular y el paso abierto no se confirma.
+	CorrectionRequests []CorrectionRequest `json:"correction_requests"`
+
+	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación, cada documento adjuntado después y cada subsanación pedida. No se puede cambiar ni borrar.
 	History []ProcedureEvent `json:"history"`
 	Id      string           `json:"id"`
 
@@ -584,6 +619,9 @@ type ProcedureEvent struct {
 
 	// By Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona.
 	By *Person `json:"by,omitempty"`
+
+	// CorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
+	CorrectionRequest *HistoryCorrectionRequest `json:"correction_request,omitempty"`
 
 	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
 	Declared bool `json:"declared"`
@@ -1066,6 +1104,11 @@ type ConfirmStepParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// RequestCorrectionParams defines parameters for RequestCorrection.
+type RequestCorrectionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
 type CreateAreaJSONRequestBody = NewArea
 
@@ -1104,6 +1147,9 @@ type AttachProcedureDocumentMultipartRequestBody AttachProcedureDocumentMultipar
 
 // ConfirmStepJSONRequestBody defines body for ConfirmStep for application/json ContentType.
 type ConfirmStepJSONRequestBody = StepConfirmation
+
+// RequestCorrectionJSONRequestBody defines body for RequestCorrection for application/json ContentType.
+type RequestCorrectionJSONRequestBody = NewCorrectionRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -1188,6 +1234,9 @@ type ServerInterface interface {
 	// ConfirmStep Confirma el paso abierto de un trámite
 	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
 	ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams)
+	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
+	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
+	RequestCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params RequestCorrectionParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -2400,6 +2449,59 @@ func (siw *ServerInterfaceWrapper) ConfirmStep(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// RequestCorrection operation middleware
+func (siw *ServerInterfaceWrapper) RequestCorrection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "stepId" -------------
+	var stepId StepId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "stepId", r.PathValue("stepId"), &stepId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stepId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestCorrectionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestCorrection(w, r, procedureId, stepId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -2544,6 +2646,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/confirmation", wrapper.ConfirmStep)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/correction-requests", wrapper.RequestCorrection)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.DownloadProcedureDocument)
@@ -4250,6 +4353,101 @@ func (response ConfirmStep409JSONResponse) VisitConfirmStepResponse(w http.Respo
 	return err
 }
 
+type RequestCorrectionRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	StepId      StepId      `json:"stepId"`
+	Params      RequestCorrectionParams
+	Body        *RequestCorrectionJSONRequestBody
+}
+
+type RequestCorrectionResponseObject interface {
+	VisitRequestCorrectionResponse(w http.ResponseWriter) error
+}
+
+type RequestCorrection201JSONResponse ProcedureEvent
+
+func (response RequestCorrection201JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RequestCorrection400JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RequestCorrection401JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestCorrection403JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RequestCorrection404JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RequestCorrection409JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CreateArea Crea un área del personal
@@ -4333,6 +4531,9 @@ type StrictServerInterface interface {
 	// ConfirmStep Confirma el paso abierto de un trámite
 	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
 	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
+	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
+	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
+	RequestCorrection(ctx context.Context, request RequestCorrectionRequestObject) (RequestCorrectionResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -5176,6 +5377,41 @@ func (sh *strictHandler) ConfirmStep(w http.ResponseWriter, r *http.Request, pro
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ConfirmStepResponseObject); ok {
 		if err := validResponse.VisitConfirmStepResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestCorrection operation middleware
+func (sh *strictHandler) RequestCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params RequestCorrectionParams) {
+	var request RequestCorrectionRequestObject
+
+	request.ProcedureId = procedureId
+	request.StepId = stepId
+	request.Params = params
+
+	var body RequestCorrectionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestCorrection(ctx, request.(RequestCorrectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestCorrection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestCorrectionResponseObject); ok {
+		if err := validResponse.VisitRequestCorrectionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

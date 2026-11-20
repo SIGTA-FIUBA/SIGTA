@@ -37,8 +37,13 @@ func TestProcedureRepository(t *testing.T, newStores func(t *testing.T) Procedur
 	t.Run("attach", func(t *testing.T) { attach(t, published(t, newStores(t))) })
 	t.Run("attach whole or nothing", func(t *testing.T) { attachWholeOrNothing(t, published(t, newStores(t))) })
 	t.Run("attach to a step that is not open", func(t *testing.T) { attachToAStepNotOpen(t, published(t, newStores(t))) })
+	t.Run("request correction", func(t *testing.T) { requestCorrection(t, published(t, newStores(t))) })
+	t.Run("request correction on a step that is not open", func(t *testing.T) { requestCorrectionOnAStepNotOpen(t, published(t, newStores(t))) })
+	t.Run("advance while the applicant has a correction to make", func(t *testing.T) { advanceAwaitingApplicant(t, published(t, newStores(t))) })
 	t.Run("no shared memory", func(t *testing.T) { procedureCopies(t, published(t, newStores(t))) })
+	t.Run("no shared memory in correction requests", func(t *testing.T) { correctionCopies(t, published(t, newStores(t))) })
 	t.Run("concurrent confirmations", func(t *testing.T) { concurrentConfirmations(t, published(t, newStores(t))) })
+	t.Run("confirmation and correction request at once", func(t *testing.T) { concurrentConfirmationAndCorrection(t, published(t, newStores(t))) })
 	t.Run("concurrent attachments", func(t *testing.T) { concurrentAttachments(t, published(t, newStores(t))) })
 }
 
@@ -90,6 +95,27 @@ func attachedEvent(d domain.Document) domain.Event {
 		By:          d.UploadedBy,
 		At:          d.UploadedAt,
 		Document:    &domain.DocumentRecord{ID: d.ID, Requirement: d.Requirement, FileName: d.FileName},
+	}
+}
+
+// correction asks for fields and documents on step, as the engine does: the
+// reason is the observation of the event.
+func correction(procedureID, step string, fields, documents []string) (domain.CorrectionRequest, domain.Event) {
+	r := domain.CorrectionRequest{Step: step, By: "staff@fi.uba.ar", At: startedAt.Add(30 * time.Minute), Reason: "Falta la firma", Fields: fields, Documents: documents}
+	return r, domain.Event{
+		ProcedureID:       procedureID,
+		Step:              step,
+		By:                r.By,
+		At:                r.At,
+		Observation:       r.Reason,
+		CorrectionRequest: &domain.CorrectionRecord{Fields: slices.Clone(fields), Documents: slices.Clone(documents)},
+	}
+}
+
+func requestCorrectionOf(t *testing.T, s ProcedureStores, r domain.CorrectionRequest, e domain.Event) {
+	t.Helper()
+	if err := s.Procedures.RequestCorrection(t.Context(), r, e); err != nil {
+		t.Fatalf("RequestCorrection(%s, %s) = %v", e.ProcedureID, r.Step, err)
 	}
 }
 
@@ -290,6 +316,58 @@ func advanceFromAStepNotOpen(t *testing.T, s ProcedureStores) {
 	wantRecorded(t, s, closed, nil, nil, nil)
 }
 
+func requestCorrection(t *testing.T, s ProcedureStores) {
+	start := fullStart("P-1")
+	add(t, s, start)
+	add(t, s, fullStart("P-2"))
+	first, firstEvent := correction("P-1", "documents", []string{"reason", "subjects"}, nil)
+	second, secondEvent := correction("P-1", "documents", nil, []string{"statement"})
+	second.Reason, secondEvent.Observation = "Falta el anexo", "Falta el anexo"
+	requestCorrectionOf(t, s, first, firstEvent)
+	requestCorrectionOf(t, s, second, secondEvent)
+
+	want := start.Procedure
+	want.CorrectionRequests = []domain.CorrectionRequest{first, second}
+	wantRecorded(t, s, want, append(slices.Clone(start.Events), firstEvent, secondEvent), start.Values, start.Documents)
+	other := fullStart("P-2")
+	wantRecorded(t, s, other.Procedure, other.Events, other.Values, other.Documents)
+	if all, err := s.Procedures.List(t.Context()); err != nil || !reflect.DeepEqual(all, []domain.Procedure{want, other.Procedure}) {
+		t.Errorf("List() = %+v, %v; want %+v", all, err, []domain.Procedure{want, other.Procedure})
+	}
+}
+
+func requestCorrectionOnAStepNotOpen(t *testing.T, s ProcedureStores) {
+	start := fullStart("P-1")
+	add(t, s, start)
+	closed := procedure("P-2", "")
+	add(t, s, output.Start{Procedure: closed})
+
+	for _, tc := range []struct{ procedureID, step string }{{"P-1", "approve"}, {"P-2", "documents"}} {
+		r, e := correction(tc.procedureID, tc.step, []string{"reason"}, nil)
+		if err := s.Procedures.RequestCorrection(t.Context(), r, e); !errors.Is(err, engine.ErrStepNotOpen) {
+			t.Errorf("RequestCorrection(%s, %s) = %v, want ErrStepNotOpen", tc.procedureID, tc.step, err)
+		}
+	}
+	wantRecorded(t, s, start.Procedure, start.Events, start.Values, start.Documents)
+	wantRecorded(t, s, closed, nil, nil, nil)
+}
+
+// advanceAwaitingApplicant confirms a step read before a correction request
+// was stored: the procedure does not move.
+func advanceAwaitingApplicant(t *testing.T, s ProcedureStores) {
+	start := fullStart("P-1")
+	add(t, s, start)
+	r, e := correction("P-1", "documents", []string{"reason"}, nil)
+	requestCorrectionOf(t, s, r, e)
+
+	if err := s.Procedures.Advance(t.Context(), procedure("P-1", "approve"), confirmation("P-1", "documents", "approve")); !errors.Is(err, engine.ErrAwaitingApplicant) {
+		t.Errorf("Advance() = %v, want ErrAwaitingApplicant", err)
+	}
+	want := start.Procedure
+	want.CorrectionRequests = []domain.CorrectionRequest{r}
+	wantRecorded(t, s, want, append(slices.Clone(start.Events), e), start.Values, start.Documents)
+}
+
 func unknownProcedure(t *testing.T, s ProcedureStores) {
 	ctx := t.Context()
 	if _, err := s.Procedures.Get(ctx, "P-1"); !errors.Is(err, domain.ErrProcedureNotFound) {
@@ -418,6 +496,71 @@ func procedureCopies(t *testing.T, s ProcedureStores) {
 	}
 	if storedValues, _ := s.Procedures.Values(ctx, "P-1"); !reflect.DeepEqual(storedValues, want.Values) {
 		t.Errorf("stored values = %+v, want %+v", storedValues, want.Values)
+	}
+}
+
+func correctionCopies(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	add(t, s, output.Start{Procedure: procedure("P-1", "documents")})
+	r, e := correction("P-1", "documents", []string{"reason"}, []string{"statement"})
+	requestCorrectionOf(t, s, r, e)
+
+	r.Fields[0] = "changed"
+	e.CorrectionRequest.Documents[0] = "changed"
+	got, _ := s.Procedures.Get(ctx, "P-1")
+	got.CorrectionRequests[0].Documents[0] = "changed"
+	events, _ := s.Procedures.Events(ctx, "P-1")
+	events[0].CorrectionRequest.Fields[0] = "changed"
+
+	stored, _ := s.Procedures.Get(ctx, "P-1")
+	if len(stored.CorrectionRequests) != 1 || !slices.Equal(stored.CorrectionRequests[0].Fields, []string{"reason"}) ||
+		!slices.Equal(stored.CorrectionRequests[0].Documents, []string{"statement"}) {
+		t.Errorf("stored requests = %+v, want them unchanged", stored.CorrectionRequests)
+	}
+	storedEvents, _ := s.Procedures.Events(ctx, "P-1")
+	if len(storedEvents) != 1 || !reflect.DeepEqual(*storedEvents[0].CorrectionRequest, domain.CorrectionRecord{Fields: []string{"reason"}, Documents: []string{"statement"}}) {
+		t.Errorf("stored events = %+v, want them unchanged", storedEvents)
+	}
+}
+
+// concurrentConfirmationAndCorrection races a confirmation of the open step
+// with a correction request on it: exactly one of them is recorded.
+func concurrentConfirmationAndCorrection(t *testing.T, s ProcedureStores) {
+	ctx := t.Context()
+	for i := range 10 {
+		id := fmt.Sprintf("P-%d", i)
+		add(t, s, output.Start{Procedure: procedure(id, "documents")})
+		var (
+			wg                  sync.WaitGroup
+			start               = make(chan struct{})
+			advanced, requested error
+		)
+		wg.Go(func() {
+			<-start
+			advanced = s.Procedures.Advance(ctx, procedure(id, "approve"), confirmation(id, "documents", "approve"))
+		})
+		wg.Go(func() {
+			<-start
+			r, e := correction(id, "documents", []string{"reason"}, nil)
+			requested = s.Procedures.RequestCorrection(ctx, r, e)
+		})
+		close(start)
+		wg.Wait()
+
+		got, _ := s.Procedures.Get(ctx, id)
+		events, _ := s.Procedures.Events(ctx, id)
+		switch {
+		case advanced == nil && errors.Is(requested, engine.ErrStepNotOpen):
+			if got.OpenStep != "approve" || len(got.CorrectionRequests) != 0 || len(events) != 1 {
+				t.Errorf("%s advanced and then = %+v with %d events, want it on approve with no request", id, got, len(events))
+			}
+		case requested == nil && errors.Is(advanced, engine.ErrAwaitingApplicant):
+			if got.OpenStep != "documents" || len(got.CorrectionRequests) != 1 || len(events) != 1 {
+				t.Errorf("%s got a request and then = %+v with %d events, want it on documents with the request", id, got, len(events))
+			}
+		default:
+			t.Errorf("%s: Advance() = %v and RequestCorrection() = %v, want one of them to fail", id, advanced, requested)
+		}
 	}
 }
 

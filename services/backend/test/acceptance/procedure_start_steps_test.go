@@ -178,10 +178,10 @@ func (w *submissionWorld) givenSteps(table *godog.Table) error {
 				return fmt.Errorf("unknown author %q", doneBy)
 			}
 			permission = strings.Trim(permission, `"`)
-			if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
+			if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 				return err
 			}
-			step.Role, step.Area, step.Permissions = definition.RoleStaff, areaID(area), []string{permission}
+			step.Role, step.Area, step.Permissions = definition.RoleStaff, idOf(area), []string{permission}
 		}
 		mandatory, optional := list(row.Cells[2].Value), list(row.Cells[3].Value)
 		if w.isDocument(slices.Concat(mandatory, optional)[0]) {
@@ -203,11 +203,11 @@ func (w *submissionWorld) givenSteps(table *godog.Table) error {
 }
 
 func (w *submissionWorld) givenStaff(user, area, permission string) error {
-	if err := ensure(w.areas, w.known, areaID(area), area, permission); err != nil {
+	if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 		return err
 	}
 	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
-		UserID: user, Area: areaID(area), Permissions: []string{permission},
+		UserID: user, Area: idOf(area), Permissions: []string{permission},
 	})
 	return err
 }

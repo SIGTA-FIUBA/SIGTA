@@ -174,17 +174,17 @@ func (w *procedureTypeWorld) publishUpTo(number int) error {
 // review and sign and the second one to evaluate. The applicant has no area.
 func (w *procedureTypeWorld) givenAreas(office, other string) error {
 	w.areas = authmem.NewAreaRepository(
-		authdomain.Area{ID: areaID(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
-		authdomain.Area{ID: areaID(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
+		authdomain.Area{ID: idOf(office), Name: office, Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		authdomain.Area{ID: idOf(other), Name: other, Permissions: []authdomain.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	)
 	w.stepAreas = []definition.Area{
-		{ID: areaID(office), Name: office, Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
-		{ID: areaID(other), Name: other, Permissions: []definition.Permission{{ID: "evaluate", Name: "Evaluar"}}},
+		{ID: idOf(office), Name: office, Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}, {ID: "sign", Name: "Firmar"}}},
+		{ID: idOf(other), Name: other, Permissions: []definition.Permission{{ID: "evaluate", Name: "Evaluar"}}},
 	}
 	return nil
 }
 
-func areaID(name string) string { return strings.ReplaceAll(name, " ", "_") }
+func idOf(name string) string { return strings.ReplaceAll(name, " ", "_") }
 
 func (w *procedureTypeWorld) givenAuthors(proposer, approver string) error {
 	w.authors = version.Authorship{ProposedBy: proposer, ApprovedBy: approver}
@@ -338,7 +338,7 @@ func (w *procedureTypeWorld) publishInvalid(name, problem string) error {
 }
 
 func (w *procedureTypeWorld) renameArea(name string) error {
-	a, err := w.areas.Get(context.Background(), areaID(name))
+	a, err := w.areas.Get(context.Background(), idOf(name))
 	if err != nil {
 		return err
 	}

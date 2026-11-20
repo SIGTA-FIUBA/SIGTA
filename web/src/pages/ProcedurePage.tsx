@@ -7,6 +7,7 @@ import {
   FileInput,
   Group,
   Loader,
+  MultiSelect,
   Paper,
   Select,
   SimpleGrid,
@@ -104,6 +105,9 @@ function expected(detail: Detail, step: Step | undefined) {
   }
   if (step.role === 'applicant') {
     return `${step.name}, a cargo del titular.`
+  }
+  if (detail.correction_requests.length > 0) {
+    return 'Lo que pide la subsanación, a cargo del titular.'
   }
   if (detail.referral) {
     return `${step.name}, en evaluación de ${detail.referral.area.name}, fuera de ${detail.referral.from.name}.`
@@ -219,21 +223,45 @@ function areaName(detail: Detail, id: string) {
   return detail.steps.find((step) => step.area?.id === id)?.area?.name ?? id
 }
 
-function documentName(detail: Detail, id: string) {
-  for (const step of detail.steps) {
-    const document = step.documents.find((candidate) => candidate.id === id)
-    if (document) {
-      return document.name
+// requirementsOf names each field and document the steps ask for, once each,
+// in the order of the steps.
+function requirementsOf(steps: Step[]) {
+  const fields = new Map<string, string>()
+  const documents = new Map<string, string>()
+  for (const step of steps) {
+    for (const field of step.fields) {
+      if (!fields.has(field.id)) {
+        fields.set(field.id, field.name)
+      }
+    }
+    for (const document of step.documents) {
+      if (!documents.has(document.id)) {
+        documents.set(document.id, document.name)
+      }
     }
   }
-  return id
+  return { fields, documents }
+}
+
+function documentName(detail: Detail, id: string) {
+  return requirementsOf(detail.steps).documents.get(id) ?? id
+}
+
+function requestedNames(detail: Detail, requested: { fields: string[]; documents: string[] }) {
+  const { fields, documents } = requirementsOf(detail.steps)
+  return [
+    ...requested.fields.map((id) => fields.get(id) ?? id),
+    ...requested.documents.map((id) => documents.get(id) ?? id),
+  ].join(', ')
 }
 
 // doneBy names who did a step or, for the applicant, who has the steps of
 // staff: the area, since the applicant does not see the person.
-function doneBy(event: Event, step: Step | undefined) {
-  if (event.by) {
-    return personName(event.by)
+// doneBy names the person or, when the applicant does not see them, the area
+// of the step.
+function doneBy(by: Event['by'], step: Step | undefined) {
+  if (by) {
+    return personName(by)
   }
   return step ? responsible(step) : 'Personal'
 }
@@ -247,7 +275,7 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        {doneBy(event, step)} · {dateTime.format(new Date(event.at))}
+        {doneBy(event.by, step)} · {dateTime.format(new Date(event.at))}
       </Text>
       {event.document && (
         <Stack gap={0}>
@@ -257,6 +285,7 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
           <DocumentFile procedureId={detail.id} file={event.document} />
         </Stack>
       )}
+      {event.correction_request && <Text size="sm">Se pide: {requestedNames(detail, event.correction_request)}</Text>}
       {event.send_back ? (
         <Text size="sm" fw={500}>
           Devuelto a {stepName(detail, event.next)}
@@ -265,7 +294,9 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
         outcome && <Text size="sm">Salida: {outcome.name}</Text>
       )}
       {event.observation && (
-        <Text size="sm">{event.send_back ? `Motivo: ${event.observation}` : event.observation}</Text>
+        <Text size="sm">
+          {event.send_back || event.correction_request ? `Motivo: ${event.observation}` : event.observation}
+        </Text>
       )}
       {event.referral && (
         <Text size="sm">
@@ -285,7 +316,10 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
 
 function historyTitle(event: Event, step: Step | undefined) {
   const name = step?.name ?? event.step
-  return event.document ? `Documento adjuntado en ${name}` : name
+  if (event.document) {
+    return `Documento adjuntado en ${name}`
+  }
+  return event.correction_request ? `Subsanación pedida en ${name}` : name
 }
 
 function History({ detail }: { detail: Detail }) {
@@ -319,6 +353,37 @@ function SentBack({ detail }: { detail: Detail }) {
       {last.observation.split('\n').map((line, i) => (
         <Text key={i}>{line === '' ? ' ' : line}</Text>
       ))}
+    </Alert>
+  )
+}
+
+// PendingCorrections shows what the applicant has been asked for and has not
+// answered yet, which holds the open step.
+function PendingCorrections({ detail }: { detail: Detail }) {
+  const requests = detail.correction_requests
+  if (requests.length === 0) {
+    return null
+  }
+  return (
+    <Alert title={requests.length === 1 ? 'Subsanación pendiente' : `${requests.length} subsanaciones pendientes`}>
+      <Stack gap="sm">
+        {requests.map((request, i) => {
+          const step = detail.steps.find((candidate) => candidate.id === request.step)
+          return (
+            <Stack key={i} gap={0}>
+              <Text size="sm" fw={500}>
+                Se pide: {requestedNames(detail, request)}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {doneBy(request.by, step)} · {dateTime.format(new Date(request.at))}
+              </Text>
+              <Text size="sm">Motivo:</Text>
+              <LongValue text={request.reason} />
+            </Stack>
+          )
+        })}
+        <Text size="sm">El paso no se confirma hasta que el titular complete lo pedido.</Text>
+      </Stack>
     </Alert>
   )
 }
@@ -596,9 +661,120 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
   )
 }
 
+const fieldPrefix = 'field:'
+const documentPrefix = 'document:'
+
+function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step: Step; onRequested: () => void }) {
+  const queryClient = useQueryClient()
+  const [opened, setOpened] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const form = useForm({
+    mode: 'uncontrolled',
+    initialValues: { requested: [] as string[], reason: '' },
+    validate: {
+      requested: (value) => (value.length === 0 ? 'Elegí qué falta.' : null),
+      reason: (value) => (value.trim() ? null : 'Escribí el motivo.'),
+    },
+  })
+  // Only what the steps of the applicant ask for, so the answer lands on one of them.
+  const { fields, documents } = requirementsOf(detail.steps.filter((candidate) => candidate.role === 'applicant'))
+  const options = [
+    { group: 'Datos', items: [...fields].map(([id, name]) => ({ value: fieldPrefix + id, label: name })) },
+    { group: 'Documentos', items: [...documents].map(([id, name]) => ({ value: documentPrefix + id, label: name })) },
+  ].filter((group) => group.items.length > 0)
+
+  if (!opened) {
+    return (
+      <Group>
+        <Button variant="default" onClick={() => setOpened(true)}>
+          Pedir una subsanación
+        </Button>
+      </Group>
+    )
+  }
+
+  async function request(values: typeof form.values) {
+    setFailure(null)
+    setSending(true)
+    try {
+      const { response, error } = await api.POST('/procedures/{procedureId}/steps/{stepId}/correction-requests', {
+        params: { path: { procedureId: detail.id, stepId: step.id } },
+        body: {
+          reason: values.reason.trim(),
+          fields: values.requested.filter((v) => v.startsWith(fieldPrefix)).map((v) => v.slice(fieldPrefix.length)),
+          documents: values.requested
+            .filter((v) => v.startsWith(documentPrefix))
+            .map((v) => v.slice(documentPrefix.length)),
+        },
+      })
+      if (response.ok) {
+        setOpened(false)
+        form.reset()
+        onRequested()
+      } else {
+        setFailure(error && 'message' in error ? error.message : 'No pudimos pedir la subsanación. Volvé a intentarlo.')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['procedure', detail.id] })
+      await queryClient.invalidateQueries({ queryKey: ['procedures'] })
+    } catch {
+      setFailure('No pudimos pedir la subsanación. Revisá tu conexión y volvé a intentarlo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Paper withBorder p="md">
+      <form onSubmit={form.onSubmit((values) => void request(values))} noValidate>
+        <Stack gap="md">
+          <Title order={2}>Pedir una subsanación</Title>
+          <Text size="sm" c="dimmed">
+            El trámite queda con el titular, sin salir de {step.name}, hasta que complete lo pedido.
+          </Text>
+          <MultiSelect
+            label="Qué falta"
+            description="Datos o documentos del trámite que el titular tiene que completar o corregir."
+            withAsterisk
+            searchable
+            placeholder="Elegí uno o más…"
+            nothingFoundMessage="No hay datos ni documentos con ese nombre."
+            data={options}
+            key={form.key('requested')}
+            {...form.getInputProps('requested')}
+          />
+          <Textarea
+            label="Motivo"
+            description="Lo ve el titular."
+            withAsterisk
+            autosize
+            minRows={3}
+            key={form.key('reason')}
+            {...form.getInputProps('reason')}
+          />
+          {failure && (
+            <Alert color="red" role="alert">
+              {failure}
+            </Alert>
+          )}
+          <Group>
+            <Button type="submit" variant="default" loading={sending}>
+              Pedir la subsanación
+            </Button>
+            <Button variant="subtle" onClick={() => setOpened(false)}>
+              Cancelar
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Paper>
+  )
+}
+
 function ProcedureDetail({ detail }: { detail: Detail }) {
   const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
+  const awaiting = detail.correction_requests.length > 0
   return (
     <Stack gap="lg">
       <Stack gap="xs">
@@ -620,7 +796,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Text>{personName(detail.applicant)}</Text>
           </Fact>
           <Fact label="Paso actual">
-            <OpenStep step={open} canAct={detail.can_act} />
+            <OpenStep step={open} canAct={detail.can_act && !awaiting} />
           </Fact>
           {detail.referral && (
             <Fact label="Derivación">
@@ -635,6 +811,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
         </SimpleGrid>
       </Paper>
       <SentBack detail={detail} />
+      <PendingCorrections detail={detail} />
       {detail.state === 'closed' && (
         <Stack gap="sm">
           <Title order={2}>Resolución</Title>
@@ -660,11 +837,19 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
               setNotice(`Documento ${replaced ? 'reemplazado' : 'adjuntado'}. Quedó en el historial.`)
             }
           />
-          <ConfirmStep
-            key={open.id}
+          {!awaiting && (
+            <ConfirmStep
+              key={open.id}
+              detail={detail}
+              step={open}
+              onConfirmed={() => setNotice('Paso confirmado. Quedó en el historial.')}
+            />
+          )}
+          <RequestCorrection
+            key={`correction-${open.id}`}
             detail={detail}
             step={open}
-            onConfirmed={() => setNotice('Paso confirmado. Quedó en el historial.')}
+            onRequested={() => setNotice('Subsanación pedida. Quedó en el historial.')}
           />
         </>
       )}

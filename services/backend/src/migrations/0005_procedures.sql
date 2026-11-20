@@ -1,8 +1,8 @@
 -- What a procedure records as it moves: where it is, the history of what was
 -- done, the values entered and the documents attached. Starting a procedure
 -- writes the procedure, its values, its documents and its first events in one
--- transaction, and attaching a document writes the document and its event in
--- another.
+-- transaction, and attaching a document or requesting a correction writes it
+-- and its event in another.
 -- No procedure was stored before this migration, so the new columns are NOT
 -- NULL without a default.
 -- An empty value of the domain is NULL: open_step when the procedure is
@@ -56,10 +56,13 @@ ALTER TABLE procedure_events
     ADD COLUMN document_id          text,
     ADD COLUMN document_requirement text,
     ADD COLUMN document_file_name   text,
+    ADD COLUMN correction_fields    text[],
+    ADD COLUMN correction_documents text[],
     ADD CONSTRAINT referral_record_is_whole CHECK (
         (referral_from IS NULL) = (referral_to IS NULL) AND (external_file_number IS NULL OR referral_from IS NOT NULL)),
     ADD CONSTRAINT document_record_is_whole CHECK (
         (document_id IS NULL) = (document_requirement IS NULL) AND (document_id IS NULL) = (document_file_name IS NULL)),
+    ADD CONSTRAINT correction_record_is_whole CHECK ((correction_fields IS NULL) = (correction_documents IS NULL)),
     ADD FOREIGN KEY (procedure_id, document_id) REFERENCES documents (procedure_id, id) DEFERRABLE INITIALLY DEFERRED;
 
 CREATE TABLE procedure_field_values (
@@ -74,7 +77,21 @@ CREATE TABLE procedure_field_values (
     PRIMARY KEY (procedure_id, number)
 );
 
-GRANT SELECT, INSERT ON documents, procedure_field_values TO backend;
+-- Answering a correction request is not recorded yet, so every request stored
+-- is pending.
+CREATE TABLE procedure_correction_requests (
+    procedure_id text NOT NULL REFERENCES procedures (id),
+    number       integer NOT NULL CHECK (number >= 1),
+    step         text NOT NULL,
+    requested_by text NOT NULL,
+    requested_at timestamptz NOT NULL,
+    reason       text NOT NULL,
+    fields       text[] NOT NULL,
+    documents    text[] NOT NULL,
+    PRIMARY KEY (procedure_id, number)
+);
+
+GRANT SELECT, INSERT ON documents, procedure_field_values, procedure_correction_requests TO backend;
 -- Moving a procedure changes only where it is. Locking its row, which the
 -- adapter does to number what it appends, also needs UPDATE on some column.
 GRANT UPDATE (open_step, referral_from, referral_to, referral_since, moved_at) ON procedures TO backend;

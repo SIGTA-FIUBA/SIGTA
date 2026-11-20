@@ -46,7 +46,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Retorno | referral return | Vuelta del trámite al área de la que salió, con el dictamen adjunto | Resultado, que no se modela |
 | Dictamen | ruling | Lo que resuelve el evaluador; se adjunta y se comunica | Un estado del trámite |
 | Devolución | send back | Vuelta a un paso anterior, decidida por la Secretaría: una salida marcada `send_back` cuyo destino es un paso anterior (ADR-025) | Subsanación |
-| Subsanación | correction request | Pedido puntual al titular, sin cerrar ni reiniciar el trámite | Devolución |
+| Subsanación | correction request | Pedido puntual al titular sobre el paso abierto, sin cerrar ni reiniciar el trámite: nombra datos y documentos de los pasos del titular y el motivo, y deja el trámite con el titular (ADR-026) | Devolución |
 | Preacta | draft record | Borrador generado desde una plantilla; siempre es borrador | Acta (record) |
 | Evaluador externo | external evaluator | Comisión o unidad académica que dictamina; no usa la plataforma | Un rol de SIGTA |
 | Hallazgo | finding | Resultado de la validación asistida sobre un requisito | Una decisión |

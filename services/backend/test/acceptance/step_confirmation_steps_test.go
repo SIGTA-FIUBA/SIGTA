@@ -85,7 +85,7 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 			step.Role = definition.RoleApplicant
 		} else {
 			step.Role = definition.RoleStaff
-			step.Area = areaID(doneBy)
+			step.Area = idOf(doneBy)
 			step.Permissions = list(row["permissions"])
 		}
 		switch asked := row["asks for"]; {
@@ -93,16 +93,16 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 			for _, name := range list(asked) {
 				name, optional := strings.CutSuffix(name, " optional")
 				name, resolution := strings.CutSuffix(name, " (resolution)")
-				d.Documents = append(d.Documents, definition.Document{ID: areaID(name), Name: name, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024, Resolution: resolution})
+				d.Documents = append(d.Documents, definition.Document{ID: idOf(name), Name: name, AcceptedTypes: []string{"application/pdf"}, MaxSizeBytes: 1024, Resolution: resolution})
 				if optional {
-					step.OptionalDocuments = append(step.OptionalDocuments, areaID(name))
+					step.OptionalDocuments = append(step.OptionalDocuments, idOf(name))
 				} else {
-					step.Documents = append(step.Documents, areaID(name))
+					step.Documents = append(step.Documents, idOf(name))
 				}
 			}
 		case asked != "":
-			d.Fields = append(d.Fields, definition.Field{ID: areaID(asked), Name: asked, Type: definition.FieldText})
-			step.Fields = []string{areaID(asked)}
+			d.Fields = append(d.Fields, definition.Field{ID: idOf(asked), Name: asked, Type: definition.FieldText})
+			step.Fields = []string{idOf(asked)}
 		case step.Role == definition.RoleApplicant:
 			if !slices.ContainsFunc(d.Fields, func(f definition.Field) bool { return f.ID == reason.ID }) {
 				d.Fields = append(d.Fields, reason)
@@ -114,7 +114,7 @@ func (w *confirmationWorld) givenFlow(name string, table *godog.Table) error {
 				outcome, to, _ := strings.Cut(pair, ":")
 				outcome = strings.TrimSpace(outcome)
 				to, sendBack := strings.CutPrefix(strings.TrimSpace(to), "back to ")
-				step.Outcomes = append(step.Outcomes, definition.Outcome{ID: areaID(outcome), Name: outcome, Next: to, SendBack: sendBack})
+				step.Outcomes = append(step.Outcomes, definition.Outcome{ID: idOf(outcome), Name: outcome, Next: to, SendBack: sendBack})
 			}
 		} else {
 			step.Next = next
@@ -153,7 +153,7 @@ func tableRows(table *godog.Table) []map[string]string {
 }
 
 func (w *confirmationWorld) givenConfirmed(user, step, outcome string) error {
-	return w.send(user, step, input.StepConfirmation{Observation: defaultObservation, Outcome: areaID(outcome)})
+	return w.send(user, step, input.StepConfirmation{Observation: defaultObservation, Outcome: idOf(outcome)})
 }
 
 func (w *confirmationWorld) givenRecordingFails() error {
@@ -169,13 +169,13 @@ func (w *confirmationWorld) send(user, step string, c input.StepConfirmation) er
 }
 
 func (w *confirmationWorld) confirmWithObservation(user, step, outcome, observation string) {
-	w.err = w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: areaID(outcome)})
+	w.err = w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: idOf(outcome)})
 }
 
 func (w *confirmationWorld) confirm(user, step, outcome, fileNumber string) {
 	w.err = w.send(user, step, input.StepConfirmation{
 		Observation:        defaultObservation,
-		Outcome:            areaID(outcome),
+		Outcome:            idOf(outcome),
 		ExternalFileNumber: fileNumber,
 	})
 }
@@ -230,12 +230,12 @@ func (w *confirmationWorld) givenAttached(documents, step string) (err error) {
 		d := domain.Document{
 			ID:          w.newID(),
 			Procedure:   w.current,
-			Requirement: areaID(name),
+			Requirement: idOf(name),
 			Step:        step,
-			FileName:    areaID(name) + ".pdf",
+			FileName:    idOf(name) + ".pdf",
 			MediaType:   "application/pdf",
 			Size:        1,
-			Digest:      "sha256:" + areaID(name),
+			Digest:      "sha256:" + idOf(name),
 			UploadedBy:  "staff@fi.uba.ar",
 			UploadedAt:  w.now,
 		}
@@ -354,8 +354,8 @@ func (w *confirmationWorld) thenReferredTo(area string) error {
 	if err != nil {
 		return err
 	}
-	if p.Referral == nil || p.Referral.To != areaID(area) {
-		return fmt.Errorf("referral = %+v, want it referred to %s", p.Referral, areaID(area))
+	if p.Referral == nil || p.Referral.To != idOf(area) {
+		return fmt.Errorf("referral = %+v, want it referred to %s", p.Referral, idOf(area))
 	}
 	return nil
 }
@@ -403,9 +403,9 @@ func (w *confirmationWorld) thenReferralRecorded(user, date, area, fileNumber st
 	if err != nil {
 		return err
 	}
-	if e.By != user || e.At.Format(time.DateOnly) != date || e.Referral.To != areaID(area) || e.Referral.ExternalFileNumber != fileNumber {
+	if e.By != user || e.At.Format(time.DateOnly) != date || e.Referral.To != idOf(area) || e.Referral.ExternalFileNumber != fileNumber {
 		return fmt.Errorf("referral by %s on %s to %s with %q, want %s on %s to %s with %q",
-			e.By, e.At.Format(time.DateOnly), e.Referral.To, e.Referral.ExternalFileNumber, user, date, areaID(area), fileNumber)
+			e.By, e.At.Format(time.DateOnly), e.Referral.To, e.Referral.ExternalFileNumber, user, date, idOf(area), fileNumber)
 	}
 	return nil
 }
