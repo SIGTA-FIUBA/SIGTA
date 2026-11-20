@@ -43,7 +43,7 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"schema_migrations":               {table: []string{"SELECT"}},
 		"procedure_types":                 {table: []string{"SELECT", "INSERT"}},
 		"current_procedure_type_versions": {table: []string{"SELECT"}},
-		"procedures":                      {table: []string{"SELECT", "INSERT"}},
+		"procedures":                      {table: []string{"SELECT", "INSERT"}, updatable: []string{"open_step", "referral_from", "referral_to", "referral_since", "moved_at"}},
 		"users":                           {table: []string{"SELECT", "INSERT"}},
 		"sessions":                        {table: []string{"SELECT", "INSERT", "DELETE"}, updatable: []string{"last_seen_at"}},
 		"areas":                           {table: []string{"SELECT", "INSERT"}, updatable: []string{"name", "system", "deleted_at", "deleted_by"}},
@@ -139,6 +139,7 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 		"UPDATE procedures SET version_number = 2",
 		"UPDATE procedures SET version_digest = 'sha256:0000'",
 		"UPDATE procedures SET id = 'p2'",
+		"UPDATE procedures SET applicant = 'beto'",
 	} {
 		_, err := app.Exec(ctx, statement)
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != insufficientPrivilege {
@@ -158,13 +159,22 @@ func TestOwnerAndPrivilegesOfEachRelation(t *testing.T) {
 	}
 }
 
+// eventColumns and eventValues are the columns of an event besides its
+// procedure and number, and the values of an event that moves nothing.
+const (
+	eventColumns = "step, action, done_by, done_at, declared, send_back, returned"
+	eventValues  = "'check', 'confirm_external_fact', 'beto', now(), false, false, false"
+)
+
 func addProcedureWithEvent(t *testing.T, app *pgxpool.Pool) {
 	t.Helper()
 	for _, statement := range []string{
 		"INSERT INTO procedure_types (id) VALUES (1)",
 		"INSERT INTO procedure_type_versions (procedure_type_id, number, digest, content, proposed_by, approved_by, published_at) SELECT 1, 1, 'sha256:' || encode(sha256(c), 'hex'), c, 'ana', 'beto', now() FROM (SELECT '{}'::bytea AS c) AS s",
-		"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest) SELECT 'p1', 1, 1, digest FROM procedure_type_versions",
-		"INSERT INTO procedure_events (procedure_id, number) VALUES ('p1', 1)",
+		"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest, applicant, open_step, started_at, moved_at) SELECT 'p1', 1, 1, digest, 'ana', 'check', now(), now() FROM procedure_type_versions",
+		"INSERT INTO documents (id, procedure_id, number, requirement, step, file_name, media_type, size, digest, uploaded_by, uploaded_at) VALUES ('d1', 'p1', 1, 'statement', 'check', 'a.pdf', 'application/pdf', 1, 'sha256:00', 'ana', now())",
+		"INSERT INTO procedure_field_values (procedure_id, number, field, step, text, items, entered_by, entered_at) VALUES ('p1', 1, 'reason', 'request', 'x', '{}', 'ana', now())",
+		"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ") VALUES ('p1', 1, " + eventValues + ")",
 	} {
 		if _, err := app.Exec(t.Context(), statement); err != nil {
 			t.Fatalf("%s: %v", statement, err)
@@ -311,13 +321,25 @@ func TestConstraints(t *testing.T) {
 		name, statement, code string
 	}{
 		{"a procedure with a digest that is not the one of its version",
-			"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest) VALUES ('p2', 1, 1, 'sha256:0000')", foreignKeyViolation},
+			"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest, applicant, started_at, moved_at) VALUES ('p2', 1, 1, 'sha256:0000', 'ana', now(), now())", foreignKeyViolation},
 		{"a procedure of a version that does not exist",
-			"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest) SELECT 'p2', 1, 2, digest FROM procedure_type_versions", foreignKeyViolation},
+			"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest, applicant, started_at, moved_at) SELECT 'p2', 1, 2, digest, 'ana', now(), now() FROM procedure_type_versions", foreignKeyViolation},
 		{"an event of a procedure that does not exist",
-			"INSERT INTO procedure_events (procedure_id, number) VALUES ('p2', 1)", foreignKeyViolation},
+			"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ") VALUES ('p2', 1, " + eventValues + ")", foreignKeyViolation},
 		{"an event number 0",
-			"INSERT INTO procedure_events (procedure_id, number) VALUES ('p1', 0)", checkViolation},
+			"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ") VALUES ('p1', 0, " + eventValues + ")", checkViolation},
+		{"an event that names a document of another procedure",
+			"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ", document_id, document_requirement, document_file_name) VALUES ('p1', 2, " + eventValues + ", 'd2', 'statement', 'a.pdf')", foreignKeyViolation},
+		{"an event with half a document",
+			"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ", document_id) VALUES ('p1', 2, " + eventValues + ", 'd1')", checkViolation},
+		{"an event with half a referral",
+			"INSERT INTO procedure_events (procedure_id, number, " + eventColumns + ", referral_from) VALUES ('p1', 2, " + eventValues + ", 'office')", checkViolation},
+		{"a procedure with half a referral",
+			"INSERT INTO procedures (id, procedure_type_id, version_number, version_digest, applicant, started_at, moved_at, referral_from, referral_to) SELECT 'p2', 1, 1, digest, 'ana', now(), now(), 'office', 'committee' FROM procedure_type_versions", checkViolation},
+		{"a document of a procedure that does not exist",
+			"INSERT INTO documents (id, procedure_id, number, requirement, step, file_name, media_type, size, digest, uploaded_by, uploaded_at) VALUES ('d2', 'p2', 1, 'statement', 'check', 'a.pdf', 'application/pdf', 1, 'sha256:00', 'ana', now())", foreignKeyViolation},
+		{"a value of a procedure that does not exist",
+			"INSERT INTO procedure_field_values (procedure_id, number, field, step, text, items, entered_by, entered_at) VALUES ('p2', 1, 'reason', 'request', 'x', '{}', 'ana', now())", foreignKeyViolation},
 		{"a permission of an area that does not exist",
 			"INSERT INTO area_permissions (area_id, id, number, name, system) VALUES ('office', 'review', 1, 'Revisar', false)", foreignKeyViolation},
 		{"a revision of a role that does not exist",

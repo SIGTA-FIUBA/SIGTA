@@ -29,6 +29,7 @@ import (
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 var pdfOfSize = regexp.MustCompile(`^a PDF of (\d+) bytes$`)
@@ -122,8 +123,9 @@ func (w *documentWorld) setUp() error {
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
-	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
-	w.documents = memory.NewDocumentRepository()
+	recorded := memory.NewProcedureRepository()
+	w.procedures = movableProcedures{ProcedureRepository: recorded, openStep: map[string]string{}, entered: map[string][]domain.FieldValue{}}
+	w.documents = memory.NewDocumentRepository(recorded)
 	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)
 	w.service = application.NewDocumentService(procedures, w.documents, files, w.newID, time.Now)
 	return nil
@@ -238,7 +240,7 @@ func (w *documentWorld) givenProcedure(applicant, step string) error {
 		return err
 	}
 	w.procedure = domain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, VersionDigest: published.Digest, Applicant: applicant, OpenStep: step}
-	return w.procedures.Add(context.Background(), w.procedure, nil)
+	return w.procedures.Add(context.Background(), output.Start{Procedure: w.procedure})
 }
 
 func (w *documentWorld) givenMovedOn(step string) error {
@@ -247,10 +249,16 @@ func (w *documentWorld) givenMovedOn(step string) error {
 }
 
 // movableProcedures moves a procedure to another step without its advance,
-// which is another story.
+// and adds values to it after its start, which are other stories.
 type movableProcedures struct {
 	*memory.ProcedureRepository
 	openStep map[string]string
+	entered  map[string][]domain.FieldValue
+}
+
+func (m movableProcedures) Values(ctx context.Context, procedureID string) ([]domain.FieldValue, error) {
+	values, err := m.ProcedureRepository.Values(ctx, procedureID)
+	return append(values, m.entered[procedureID]...), err
 }
 
 func (m movableProcedures) Get(ctx context.Context, id string) (domain.Procedure, error) {

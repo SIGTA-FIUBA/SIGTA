@@ -121,7 +121,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	documentRepository := proceduremem.NewDocumentRepository()
+	documentRepository := proceduremem.NewDocumentRepository(procedureRepository)
 	procedures := procedureapp.NewProcedureService(procedureTypes, procedureRepository, documentRepository, memberships, newID, time.Now)
 	documents := procedureapp.NewDocumentService(procedures, documentRepository, files, newID, time.Now)
 	people := application.NewPeopleService(users)
@@ -138,7 +138,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
-		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, documentRepository, files, newID, time.Now), procedures),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, files, newID, time.Now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
 	)
@@ -365,7 +365,7 @@ func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRe
 			StartedAt:     now,
 			MovedAt:       now,
 		}
-		if err := procedures.Add(ctx, p, nil, devValues(p)...); err != nil {
+		if err := procedures.Add(ctx, output.Start{Procedure: p, Values: devValues(p)}); err != nil {
 			return err
 		}
 	}

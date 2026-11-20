@@ -14,11 +14,14 @@ import (
 
 var _ output.ProcedureRepository = (*ProcedureRepository)(nil)
 
+// ProcedureRepository also keeps the documents, so that a procedure and its
+// documents change together under one lock. DocumentRepository reads them.
 type ProcedureRepository struct {
 	mu         sync.Mutex
 	procedures map[string]domain.Procedure
 	values     map[string][]domain.FieldValue
 	events     map[string][]domain.Event
+	documents  []domain.Document
 }
 
 func NewProcedureRepository() *ProcedureRepository {
@@ -29,14 +32,40 @@ func NewProcedureRepository() *ProcedureRepository {
 	}
 }
 
-func (s *ProcedureRepository) Add(_ context.Context, p domain.Procedure, events []domain.Event, values ...domain.FieldValue) error {
+// Add checks everything before it changes anything, so a start that fails
+// leaves nothing behind.
+func (s *ProcedureRepository) Add(_ context.Context, start output.Start) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	p := start.Procedure
+	if _, ok := s.procedures[p.ID]; ok {
+		return fmt.Errorf("%w: %s", output.ErrProcedureExists, p.ID)
+	}
+	if err := s.newDocuments(start.Documents...); err != nil {
+		return err
+	}
 	s.procedures[p.ID] = cloneProcedure(p)
-	for _, e := range events {
+	for _, e := range start.Events {
 		s.events[p.ID] = append(s.events[p.ID], cloneEvent(e))
 	}
-	s.values[p.ID] = append(s.values[p.ID], cloneValues(values)...)
+	s.values[p.ID] = cloneValues(start.Values)
+	s.documents = append(s.documents, start.Documents...)
+	return nil
+}
+
+// newDocuments fails with output.ErrDocumentExists if an identifier is taken
+// or repeated.
+func (s *ProcedureRepository) newDocuments(documents ...domain.Document) error {
+	seen := map[string]bool{}
+	for _, d := range s.documents {
+		seen[d.ID] = true
+	}
+	for _, d := range documents {
+		if seen[d.ID] {
+			return fmt.Errorf("%w: %s", output.ErrDocumentExists, d.ID)
+		}
+		seen[d.ID] = true
+	}
 	return nil
 }
 
@@ -92,13 +121,17 @@ func (s *ProcedureRepository) Advance(_ context.Context, p domain.Procedure, e d
 	return nil
 }
 
-func (s *ProcedureRepository) Record(_ context.Context, e domain.Event) error {
+func (s *ProcedureRepository) Attach(_ context.Context, d domain.Document, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.procedures[e.ProcedureID]; !ok {
+	if _, ok := s.procedures[d.Procedure]; !ok {
 		return domain.ErrProcedureNotFound
 	}
-	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
+	if err := s.newDocuments(d); err != nil {
+		return err
+	}
+	s.documents = append(s.documents, d)
+	s.events[d.Procedure] = append(s.events[d.Procedure], cloneEvent(e))
 	return nil
 }
 

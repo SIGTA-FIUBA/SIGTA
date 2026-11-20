@@ -96,13 +96,8 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		UploadedBy:  userID,
 		UploadedAt:  s.now(),
 	}
-	if err := s.documents.Add(ctx, d); err != nil {
+	if err := s.procedures.procedures.Attach(ctx, d, attachedEvent(d)); err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
-	}
-	// Until SIG-75 records both together (ADR-024), a failure here leaves the
-	// document without its entry in the history.
-	if err := s.procedures.procedures.Record(ctx, attachedEvent(d)); err != nil {
-		return domain.Document{}, fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
 	}
 	return d, nil
 }
@@ -173,11 +168,11 @@ func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requir
 
 // RemoveUnreferencedFiles removes the stored files that no document names
 // and that are older than unreferencedAge, and returns how many it removed.
-// They come from an upload whose record failed or, while the records are in
+// They come from an upload whose record failed or, when the records are in
 // memory, from every document of a previous run, which no one can reach
 // anymore and which hold personal data. It runs at startup, before serving.
-// It assumes a single instance: while the records are in memory, another one
-// would lose the files of its documents.
+// With the records in memory it assumes a single instance: another one would
+// lose the files of its documents.
 func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, error) {
 	// Read before the records, so that a file stored and named meanwhile is
 	// not taken for unnamed.

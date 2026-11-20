@@ -99,17 +99,17 @@ func (m *memoryFiles) Remove(_ context.Context, digest string) error {
 	return nil
 }
 
-// failingRecords fails each Add with err, if it is set.
-type failingRecords struct {
-	*memory.DocumentRepository
+// failingAttachments fails each Attach with err, if it is set.
+type failingAttachments struct {
+	*memory.ProcedureRepository
 	err error
 }
 
-func (r *failingRecords) Add(ctx context.Context, d domain.Document) error {
+func (r *failingAttachments) Attach(ctx context.Context, d domain.Document, e domain.Event) error {
 	if r.err != nil {
 		return r.err
 	}
-	return r.DocumentRepository.Add(ctx, d)
+	return r.ProcedureRepository.Attach(ctx, d, e)
 }
 
 type documentsFixture struct {
@@ -118,7 +118,7 @@ type documentsFixture struct {
 	memberships *authapp.MembershipService
 	procedures  *memory.ProcedureRepository
 	documents   *memory.DocumentRepository
-	records     *failingRecords
+	attachments *failingAttachments
 	files       *memoryFiles
 	// digest is the one of the version that the procedures follow.
 	digest string
@@ -142,17 +142,17 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	f := documentsFixture{
 		digest:     published.Digest,
 		procedures: memory.NewProcedureRepository(),
-		documents:  memory.NewDocumentRepository(),
 		files:      &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: attachedAt},
 	}
-	procedures := NewProcedureService(types, f.procedures, f.documents, memberships, func() string { return "P-new" }, time.Now)
+	f.documents = memory.NewDocumentRepository(f.procedures)
+	f.attachments = &failingAttachments{ProcedureRepository: f.procedures}
+	procedures := NewProcedureService(types, f.attachments, f.documents, memberships, func() string { return "P-new" }, time.Now)
 	attached := 0
 	newID := func() string {
 		attached++
 		return fmt.Sprintf("D-%d", attached)
 	}
-	f.records = &failingRecords{DocumentRepository: f.documents}
-	f.service = NewDocumentService(procedures, f.records, f.files, newID, func() time.Time { return attachedAt })
+	f.service = NewDocumentService(procedures, f.documents, f.files, newID, func() time.Time { return attachedAt })
 	f.details = NewProcedureDetailService(procedures, f.documents)
 	f.memberships = memberships
 	f.on(t, "P-1", "documents")
@@ -162,7 +162,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 func (f documentsFixture) on(t *testing.T, procedureID, step string) {
 	t.Helper()
 	p := domain.Procedure{ID: procedureID, ProcedureType: 1, Version: 1, VersionDigest: f.digest, Applicant: applicant, OpenStep: step}
-	if err := f.procedures.Add(t.Context(), p, nil); err != nil {
+	if err := f.procedures.Add(t.Context(), output.Start{Procedure: p}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -443,9 +443,9 @@ func TestRemoveUnreferencedFiles(t *testing.T) {
 func TestAttachWhoseRecordFails(t *testing.T) {
 	f := newDocumentsFixture(t)
 	f.files.at = attachedAt.Add(-2 * unreferencedAge)
-	f.records.err = errors.New("the database did not answer")
-	if _, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100))); !errors.Is(err, f.records.err) {
-		t.Fatalf("Attach() = %v, want %v", err, f.records.err)
+	f.attachments.err = errors.New("the database did not answer")
+	if _, err := f.service.Attach(t.Context(), applicant, upload("statement", "constancia.pdf", pdf(100))); !errors.Is(err, f.attachments.err) {
+		t.Fatalf("Attach() = %v, want %v", err, f.attachments.err)
 	}
 	if documents, err := f.documents.List(t.Context(), "P-1"); err != nil || len(documents) != 0 {
 		t.Fatalf("List() = %v, %v; want no documents", documents, err)

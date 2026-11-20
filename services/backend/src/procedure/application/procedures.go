@@ -61,7 +61,7 @@ func (s *ProcedureService) Start(ctx context.Context, userID string, procedureTy
 		StartedAt:     now,
 		MovedAt:       now,
 	}
-	if err := s.procedures.Add(ctx, p, nil); err != nil {
+	if err := s.procedures.Add(ctx, output.Start{Procedure: p}); err != nil {
 		return domain.Procedure{}, fmt.Errorf("start procedure: %w", err)
 	}
 	return p, nil

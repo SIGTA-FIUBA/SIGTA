@@ -52,10 +52,9 @@ func registerDetailSteps(sc *godog.ScenarioContext, documents *documentWorld) {
 	sc.Then(`^the "([^"]*)" shows no value$`, func(field string) error { return w.thenShowsValue(field, "", "") })
 }
 
-// givenEntered records the value with the procedure, as starting it does.
-func (w *detailWorld) givenEntered(user, value, field, step string) error {
+func (w *detailWorld) givenEntered(user, value, field, step string) {
 	v := domain.FieldValue{Procedure: w.procedure.ID, Field: field, Step: step, Text: value, EnteredBy: user, EnteredAt: time.Now()}
-	return w.procedures.Add(context.Background(), w.procedure, nil, v)
+	w.procedures.entered[w.procedure.ID] = append(w.procedures.entered[w.procedure.ID], v)
 }
 
 func (w *detailWorld) open(user string) {

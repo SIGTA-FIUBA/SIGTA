@@ -15,8 +15,9 @@ import (
 const OldDatabaseHint = "if the database was created before the migrations role existed, recreate it with docker compose down --volumes"
 
 // ErrPrivileged means the role of the server can change what the schema
-// promises to keep: a published version, an event, the version a procedure
-// follows or a revision of a role.
+// promises to keep: a published version, an event, a document, a value
+// entered, the version a procedure follows, who started it or a revision of a
+// role.
 var ErrPrivileged = errors.New("the role can change rows that must not change")
 
 // immutable lists the tables, and their columns, whose stored values the
@@ -29,8 +30,10 @@ var immutable = []struct {
 }{
 	{table: "procedure_type_versions"},
 	{table: "procedure_events"},
+	{table: "documents"},
+	{table: "procedure_field_values"},
 	{table: "area_role_revisions"},
-	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest"}},
+	{table: "procedures", columns: []string{"procedure_type_id", "version_number", "version_digest", "applicant", "started_at"}},
 }
 
 // CheckApplicationRole fails with ErrPrivileged if the role of pool, the

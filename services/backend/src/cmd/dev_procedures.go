@@ -75,7 +75,7 @@ func addDevInbox(ctx context.Context, versions output.ProcedureTypeVersionReposi
 		if row.step != "request" {
 			values = devValues(p)
 		}
-		if err := procedures.Add(ctx, p, events, values...); err != nil {
+		if err := procedures.Add(ctx, output.Start{Procedure: p, Events: events, Values: values}); err != nil {
 			return err
 		}
 	}

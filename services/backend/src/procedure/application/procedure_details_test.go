@@ -10,6 +10,7 @@ import (
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 func TestDetailPutsTheCurrentFileNextToEachDocument(t *testing.T) {
@@ -44,7 +45,7 @@ func TestDetailPutsTheValuesNextToTheFieldsInTheOrderOfTheDefinition(t *testing.
 		{Procedure: "P-2", Field: "subjects", Step: "request", Items: []string{"Análisis II", "Física I"}, EnteredBy: applicant, EnteredAt: attachedAt},
 		{Procedure: "P-2", Field: "reason", Step: "request", Text: "Pase de carrera", EnteredBy: applicant, EnteredAt: attachedAt},
 	}
-	if err := f.procedures.Add(t.Context(), p, nil, values...); err != nil {
+	if err := f.procedures.Add(t.Context(), output.Start{Procedure: p, Values: values}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -149,7 +150,7 @@ func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
 		if p.Applicant == "" {
 			p.Applicant = applicant
 		}
-		if err := f.procedures.Add(t.Context(), p, nil); err != nil {
+		if err := f.procedures.Add(t.Context(), output.Start{Procedure: p}); err != nil {
 			t.Fatal(err)
 		}
 	}

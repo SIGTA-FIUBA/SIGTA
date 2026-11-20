@@ -8,7 +8,6 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/ports/input"
@@ -32,7 +31,7 @@ func registerMyProceduresSteps(sc *godog.ScenarioContext, confirmations *confirm
 }
 
 func (w *myProceduresWorld) details() *application.ProcedureDetailService {
-	return application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	return application.NewProcedureDetailService(w.service, w.documents)
 }
 
 func (w *myProceduresWorld) listMine(user string) error {

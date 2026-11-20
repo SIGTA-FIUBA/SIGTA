@@ -26,6 +26,7 @@ import (
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 // inboxWorld wires the services as the server does, and asks the inbox over
@@ -131,8 +132,9 @@ func (w *inboxWorld) setUp() error {
 	w.areas = authapp.NewAreaService(areas, administrators, stored, clock)
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, clock)
-	w.procedures = movableProcedures{ProcedureRepository: memory.NewProcedureRepository(), openStep: map[string]string{}}
-	procedures := application.NewProcedureService(w.types, w.procedures, memory.NewDocumentRepository(), w.memberships, w.newID, clock)
+	recorded := memory.NewProcedureRepository()
+	w.procedures = movableProcedures{ProcedureRepository: recorded, openStep: map[string]string{}, entered: map[string][]domain.FieldValue{}}
+	procedures := application.NewProcedureService(w.types, w.procedures, memory.NewDocumentRepository(recorded), w.memberships, w.newID, clock)
 	inbox := rest.NewInboxHandler(sessionIsUser{}, namesFromEmails{}, application.NewInboxService(procedures))
 	w.handler = api.Mount(http.NewServeMux(), api.NewServer(nil, nil, nil, nil, nil, inbox, nil), slog.New(slog.DiscardHandler))
 	return nil
@@ -245,11 +247,11 @@ func (w *inboxWorld) addProcedure(id, procedureType, applicant, step string, sta
 		return err
 	}
 	daysAgo := func(days int) time.Time { return w.now.Add(-time.Duration(days) * 24 * time.Hour) }
-	return w.procedures.Add(context.Background(), domain.Procedure{
+	return w.procedures.Add(context.Background(), output.Start{Procedure: domain.Procedure{
 		ID: id, ProcedureType: typeID, Version: 1, VersionDigest: published.Digest,
 		Applicant: applicant, OpenStep: slug(step),
 		StartedAt: daysAgo(startedDaysAgo), MovedAt: daysAgo(movedDaysAgo),
-	}, nil)
+	}})
 }
 
 // ask uses the user as the session token, as sessionIsUser reads it; an

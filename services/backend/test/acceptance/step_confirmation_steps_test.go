@@ -214,7 +214,7 @@ func (w *confirmationWorld) thenConfirmation(result string) error {
 // step would, without going through the upload.
 func (w *confirmationWorld) givenAttached(documents, step string) error {
 	for _, name := range list(documents) {
-		err := w.documents.Add(context.Background(), domain.Document{
+		d := domain.Document{
 			ID:          w.newID(),
 			Procedure:   w.current,
 			Requirement: areaID(name),
@@ -225,8 +225,16 @@ func (w *confirmationWorld) givenAttached(documents, step string) error {
 			Digest:      "sha256:" + areaID(name),
 			UploadedBy:  "staff@fi.uba.ar",
 			UploadedAt:  w.now,
-		})
-		if err != nil {
+		}
+		attached := domain.Event{
+			ProcedureID: d.Procedure,
+			Step:        d.Step,
+			Action:      definition.ActionUploadDocument,
+			By:          d.UploadedBy,
+			At:          d.UploadedAt,
+			Document:    &domain.DocumentRecord{ID: d.ID, Requirement: d.Requirement, FileName: d.FileName},
+		}
+		if err := w.procedures.Attach(context.Background(), d, attached); err != nil {
 			return err
 		}
 	}
@@ -422,7 +430,7 @@ func (w *confirmationWorld) thenState(state string) error {
 }
 
 func (w *confirmationWorld) thenDetailShowsReferral(area, from string, days int) error {
-	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	details := application.NewProcedureDetailService(w.service, w.documents)
 	shown, err := details.Detail(context.Background(), "applicant@fi.uba.ar", w.current)
 	if err != nil {
 		return err
