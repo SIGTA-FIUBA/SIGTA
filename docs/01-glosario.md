@@ -43,7 +43,7 @@ Parte de la organización a la que pertenece el personal, como la Dirección de 
 Avance de un trámite de un paso a otro con un área distinta. No es un paso propio. No confundir con los trámites de pase de universidad.
 
 **Estado del trámite**
-Situación en la que se encuentra el trámite en un momento dado, derivada de su paso abierto: cerrado si no tiene, esperando al titular si el paso es del titular, derivado si tiene una derivación abierta y en el área si no (ADR-023). La configuración del tipo de trámite no declara estados. A confirmar con la Secretaría: si un trámite cerrado guarda su motivo de cierre (resuelto y, según se defina, desistido o vencido). El motivo de cierre no sería el resultado del trámite.
+Situación en la que se encuentra el trámite en un momento dado, derivada de su paso abierto: cerrado si no tiene, esperando al titular si el paso es del titular o si tiene una subsanación pendiente (ADR-026), derivado si tiene una derivación abierta y en el área si no (ADR-023). La configuración del tipo de trámite no declara estados. A confirmar con la Secretaría: si un trámite cerrado guarda su motivo de cierre (resuelto y, según se defina, desistido o vencido). El motivo de cierre no sería el resultado del trámite.
 
 **Resultado del trámite**
 Lo que dictamina el evaluador externo: reconocimiento total, parcial o rechazo. **La plataforma no lo modela ni lo interpreta** (ADR-009): lo recibe como documento y lo comunica al titular. Para la plataforma, los tres casos son el mismo evento.
@@ -61,7 +61,7 @@ Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plat
 Vuelta del trámite a un paso anterior, decidida por la Secretaría e indicando el motivo. En el modelo es una salida de una decisión marcada como devolución (`send_back`), cuyo destino tiene que ser un paso anterior (ADR-025). Queda en el historial con quién, cuándo y el motivo, y si vuelve a un paso del titular, este lo ve.
 
 **Subsanación**
-Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reiniciar el trámite. También canaliza los pedidos de ampliación que hace un evaluador externo.
+Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reiniciar el trámite. También canaliza los pedidos de ampliación que hace un evaluador externo. En el modelo es un pedido sobre el paso abierto del personal, que nombra datos y documentos del tipo de trámite y el motivo (ADR-026). El trámite no cambia de paso, pero queda con el titular hasta que responda, y cada pedido queda en el historial.
 
 **Puente humano**
 Persona de la Secretaría que ejecuta una acción en un sistema externo y la registra en la plataforma. Es el mecanismo elegido para no depender de integraciones (ADR-004).

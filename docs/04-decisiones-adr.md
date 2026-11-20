@@ -604,3 +604,31 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Consecuencias.**
 - El editor de tipos de trámite (US72) tiene que ofrecer la marca en cada salida.
 - La API suma `send_back` a las salidas de un paso y a los eventos del historial.
+
+---
+
+## ADR-026: Una subsanación es un pedido sobre el paso abierto, que no lo mueve y lo deja con el titular
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** US33 pide que la Secretaría le pida al titular algo puntual sin cerrar ni reiniciar el trámite, que el trámite quede en espera del titular, que se pueda pedir más de una vez y que canalice los pedidos de ampliación del evaluador externo (ADR-009). La devolución (ADR-025) no alcanza: vuelve a un paso anterior que fija la configuración, y solo desde una decisión que la prevé. En la equivalencia, además, no hay paso de revisión: si la DA ve un problema, pide la subsanación desde el paso en el que esté el trámite (relevamiento, 3.1).
+
+**Decisión.**
+- **Un pedido sobre el paso abierto.** Quien puede hacer el paso abierto del personal puede pedirle una subsanación al titular, cualquiera sea la acción del paso. No es una acción ni una salida del tipo de trámite: no se configura y vale para todos los tipos.
+- **Qué falta y por qué.** El pedido nombra datos y documentos del tipo de trámite, al menos uno, y lleva el motivo, que es obligatorio. Así el titular completa lo pedido sobre el mismo trámite (US34) con requisitos que la plataforma ya sabe validar.
+- **El trámite no se mueve.** El paso abierto sigue siendo el mismo, y el trámite guarda los pedidos pendientes. Mientras haya alguno, el estado es `with_applicant`, aunque esté derivado, el paso no se confirma y deja de requerir acción en la bandeja. Cuando el titular responde (US34), sigue en el mismo paso.
+- **Más de una.** Se pueden pedir varias, también con otra pendiente.
+- **Historial.** Cada pedido es un evento sobre el paso abierto, con quién, cuándo, el motivo en la observación y lo que pide.
+- **Evaluador externo.** Su pedido de ampliación lo traslada quien registra lo que dice el evaluador, sobre el paso de esa área. No hace falta un caso aparte.
+- **Sin cambio de formato.** La definición de los tipos de trámite no cambia, así que el contenido de las versiones sigue en el mismo formato.
+
+**Alternativas descartadas.**
+- Modelarla en la configuración, como una salida hacia un paso del titular que vuelve al que decide: lo que se pide quedaría fijo de antemano y solo se podría pedir desde una decisión que lo prevea. Cada tipo nuevo tendría que acordarse de agregarla.
+- Un texto libre en lugar de requisitos: el titular no tendría dónde cargar la respuesta, ni la plataforma qué validar.
+- Una sola subsanación pendiente por vez: la Secretaría no podría sumar algo que notó después sin esperar la respuesta.
+
+**Consecuencias.**
+- El estado del trámite se deriva del paso abierto y de los pedidos pendientes (`domain.StateOf`).
+- La API suma `POST /procedures/{procedureId}/steps/{stepId}/correction-requests`, los pedidos pendientes en el detalle (`correction_requests`) y lo que pide cada uno en los eventos del historial (`correction_request`).
+- US34 define cómo responde el titular y cómo deja de estar pendiente cada pedido.
+- Si un pedido necesita algo que el tipo de trámite no tiene, se corrige el tipo (ADR-006).
