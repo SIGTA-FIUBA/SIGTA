@@ -31,7 +31,7 @@ func newServer(t *testing.T) *httptest.Server {
 
 	auth := application.NewAuthenticatorService(
 		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
-		dev.NewIdentityProvider(srv.URL+"/auth/callback", ""),
+		dev.NewIdentityProvider(srv.URL+"/auth/callback"),
 		memory.NewUserRepository(
 			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"},
 			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
@@ -229,7 +229,7 @@ func TestCallbackTellsWhyTheLoginFailed(t *testing.T) {
 		callback func(url.Values)
 		want     string
 	}{
-		// The development provider rejects a login without a hint.
+		// The test provider rejects a login without a hint.
 		{"rejected by the provider", "/auth/login", nil, "rejected"},
 		{"cancelled at the provider", "/auth/login?login_hint=operativo@fi.uba.ar", func(q url.Values) {
 			q.Del("code")

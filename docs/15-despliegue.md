@@ -11,7 +11,7 @@ Cómo se despliega SIGTA en sus dos entornos de prueba, en Cloud Run y Cloud SQL
 
 `main` solo recibe `develop` cuando hay una versión para mostrar (CONTRIBUTING.md), así que pasar a `prod` es un PR de `develop` a `main`.
 
-Los dos corren con `SIGTA_ENV=development`, como la demo: usuarios sintéticos e ingreso con Google (ADR-005). Cada uno tiene su base, su bucket, sus secretos y su cuenta de servicio, así que `dev` no puede leer nada de `prod`. Comparten solo el cliente de Google.
+Los dos corren con `SIGTA_ENV=production` e ingreso con Google, sin usuarios de prueba ni datos de ejemplo: un entorno nuevo arranca solo con la Secretaría y sin administradores (ADR-027). Cada uno tiene su base, su bucket, sus secretos y su cuenta de servicio, así que `dev` no puede leer nada de `prod`. Comparten solo el cliente de Google.
 
 Las sesiones, las personas, las áreas, los trámites y los datos de los documentos se guardan en la base y sobreviven a un despliegue o un reinicio. Al arrancar, el backend borra los archivos que ningún documento nombra y que tienen más de una hora, así que cada entorno sigue corriendo en una sola instancia.
 

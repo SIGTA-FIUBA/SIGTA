@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
-	"time"
 
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
@@ -28,13 +27,12 @@ func TestGrantAdminNeedsAnEmailAndItsURL(t *testing.T) {
 }
 
 // The administrator that grant-admin adds is one for the server, which
-// connects as the application role, together with the synthetic one of
-// development when anyone can log in as anyone. It adds only the first.
+// connects as the application role. It adds only the first.
 func TestGrantAdminMakesAnAdministratorForTheServer(t *testing.T) {
 	ctx := t.Context()
 	logger := slog.New(slog.DiscardHandler)
 	schema := dbtest.NewSchema(t)
-	cfg := config{env: envDevelopment, identityProvider: identityDev, allowedDomain: "fi.uba.ar", databaseURL: schema.MemberURL(t, dbtest.AppRole)}
+	cfg := config{env: envProduction, allowedDomain: "fi.uba.ar", databaseURL: schema.MemberURL(t, dbtest.AppRole)}
 	s, closeStores, err := openStores(ctx, cfg, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -44,36 +42,24 @@ func TestGrantAdminMakesAnAdministratorForTheServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	beto, err := s.users.Register(ctx, authdomain.User{ID: "U-2", Email: "beto@fi.uba.ar", Name: "Beto"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	owner := env(map[string]string{"SIGTA_MIGRATIONS_DATABASE_URL": schema.MemberURL(t, dbtest.MigrationsRole)})
 
-	if err := grantAdminCommand(owner, []string{"beto@fi.uba.ar"}, logger); !errors.Is(err, authapp.ErrNotSignedIn) {
-		t.Errorf("grantAdminCommand() of an email nobody signed in with = %v, want ErrNotSignedIn", err)
+	if err := grantAdminCommand(owner, []string{"carla@fi.uba.ar"}, logger); !errors.Is(err, authapp.ErrUserNotSignedIn) {
+		t.Errorf("grantAdminCommand() of an email nobody signed in with = %v, want ErrUserNotSignedIn", err)
 	}
 	if err := grantAdminCommand(owner, []string{"ANA@fi.uba.ar"}, logger); err != nil {
 		t.Fatalf("grantAdminCommand() = %v", err)
 	}
-	if err := grantAdminCommand(owner, []string{"ana@fi.uba.ar"}, logger); !errors.Is(err, authapp.ErrHasAdministrators) {
-		t.Errorf("grantAdminCommand() with an administrator = %v, want ErrHasAdministrators", err)
+	if err := grantAdminCommand(owner, []string{"beto@fi.uba.ar"}, logger); !errors.Is(err, authapp.ErrAdministratorExists) {
+		t.Errorf("grantAdminCommand() with an administrator = %v, want ErrAdministratorExists", err)
 	}
-	administrators, err := addDirectory(ctx, cfg, s, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for id, want := range map[string]bool{ana.ID: true, "dev-admin": true, devApplicantID: false} {
-		if got, err := administrators.IsAdministrator(ctx, id); err != nil || got != want {
+	for id, want := range map[string]bool{ana.ID: true, beto.ID: false} {
+		if got, err := s.administrators.IsAdministrator(ctx, id); err != nil || got != want {
 			t.Errorf("IsAdministrator(%s) = %v, %v; want %v", id, got, err, want)
-		}
-	}
-	// With Google, someone whose real account has the email of the synthetic
-	// administrator would be it, so only the stored ones count.
-	cfg.identityProvider = identityGoogle
-	administrators, err = addDirectory(ctx, cfg, s, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for id, want := range map[string]bool{ana.ID: true, "dev-admin": false} {
-		if got, err := administrators.IsAdministrator(ctx, id); err != nil || got != want {
-			t.Errorf("with Google, IsAdministrator(%s) = %v, %v; want %v", id, got, err, want)
 		}
 	}
 }

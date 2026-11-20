@@ -1,5 +1,5 @@
-// Package dev has adapters for local development that need no external
-// services. They must never be wired in production.
+// Package dev has adapters for tests that need no external services. The
+// server never wires them.
 package dev
 
 import (
@@ -15,24 +15,19 @@ import (
 	"backend/src/auth/ports/output"
 )
 
-// IdentityProvider logs in as whatever email the login hint names, or as
-// defaultEmail without a hint, without asking for anything else. It stands in
-// for the institutional OpenID Connect login during development, and checks
-// PKCE like a real provider would: the code it issues only works with the
-// verifier of the login that asked for it.
+// IdentityProvider logs in as whatever email the login hint names, without
+// asking for anything else. It stands in for the institutional OpenID Connect
+// login in tests, and checks PKCE like a real provider would: the code it
+// issues only works with the verifier of the login that asked for it.
 type IdentityProvider struct {
-	callbackURL  string
-	defaultEmail string
+	callbackURL string
 }
 
-func NewIdentityProvider(callbackURL, defaultEmail string) *IdentityProvider {
-	return &IdentityProvider{callbackURL: callbackURL, defaultEmail: defaultEmail}
+func NewIdentityProvider(callbackURL string) *IdentityProvider {
+	return &IdentityProvider{callbackURL: callbackURL}
 }
 
 func (p *IdentityProvider) AuthorizationURL(pending domain.PendingLogin, loginHint string) string {
-	if loginHint == "" {
-		loginHint = p.defaultEmail
-	}
 	// The code carries the challenge, as a real provider would remember it.
 	code := pkceS256Challenge(pending.CodeVerifier) + "." + loginHint
 	query := url.Values{"state": {pending.State}, "code": {code}}

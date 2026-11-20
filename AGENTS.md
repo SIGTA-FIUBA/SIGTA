@@ -63,7 +63,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 - **Un trámite se registra en una transacción** (ADR-024): trámite, valores y documentos van juntos, y un documento adjuntado se registra con su evento. La transacción es del repositorio (`ProcedureRepository.Add` y `Attach`), no de la aplicación, y el adaptador en memoria da la misma garantía. Con un storage de archivos aparte, outbox y saga: se reserva, se sube y después se confirma, y si algo falla se compensa.
 - **Cola de trabajos en PostgreSQL**, encolada en la misma transacción que el cambio y tomada con `FOR UPDATE SKIP LOCKED`. Cada trabajo debe ser idempotente.
 - **Cada servicio es dueño de sus datos.** Comparten la instancia de PostgreSQL pero no los esquemas; ninguno lee las tablas del otro.
-- **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; áreas, permisos y membresías se administran en SIGTA. En local y en pruebas se usa un adaptador de identidad falso.
+- **Identidad:** se ingresa solo con la cuenta de Google de la UBA (ADR-010). SIGTA no guarda contraseñas; áreas, permisos y membresías se administran en SIGTA. También en local se ingresa con Google, sin usuarios de prueba (ADR-027); el adaptador de identidad falso es solo para las pruebas.
 - **Interfaz:** componentes de Mantine, con el aspecto definido solo en `web/src/theme/` (`theme.ts` y los módulos de CSS que solo él usa, ADR-015). Las reglas de diseño y su motivo están en [web/DESIGN.md](web/DESIGN.md), y el lint rechaza estilos, colores y medidas fuera del tema.
 - **No sumar componentes** (NATS, S3, gateway, observabilidad completa) sin que se cumpla su disparador, listado en la sección "Evolución" del README.
 
@@ -87,7 +87,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 
 | Tarea | Comando |
 | --- | --- |
-| Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`) |
+| Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`). Pide un cliente de Google en `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` y red hacia Google: sin eso el backend no arranca (ver el README) |
 | Regenerar código desde el contrato | `make contracts` |
 | Backend: tests y lint | `cd services/backend && go test -race ./...` y `golangci-lint run` |
 | Backend: código sin usar | `cd services/backend && go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...` (no tiene que listar nada) |

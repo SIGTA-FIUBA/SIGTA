@@ -46,10 +46,10 @@ func NewAreaService(areas output.AreaRepository, administrators output.Administr
 	}
 }
 
-// ErrIncompleteSecretariat means the Secretariat or one of its platform
+// ErrSecretariatIncomplete means the Secretariat or one of its platform
 // permissions, which migration 0007 adds, is missing, deleted or no longer a
 // system one.
-var ErrIncompleteSecretariat = errors.New("the Secretariat is not as the migrations leave it")
+var ErrSecretariatIncomplete = errors.New("the Secretariat is not as the migrations leave it")
 
 // EnsureSecretariat creates the Secretariat with its platform permissions, or
 // adds the ones it lacks, in stores that are not migrated: those in memory.
@@ -77,7 +77,7 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 func CheckSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	area, err := areas.Get(ctx, input.SecretariatArea)
 	if errors.Is(err, domain.ErrAreaNotFound) || err == nil && (area.Deleted() || completeSecretariat(&area)) {
-		return ErrIncompleteSecretariat
+		return ErrSecretariatIncomplete
 	}
 	if err != nil {
 		return fmt.Errorf("area %s: %w", input.SecretariatArea, err)

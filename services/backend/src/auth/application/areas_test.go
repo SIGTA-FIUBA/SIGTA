@@ -19,8 +19,8 @@ var platformPermissions = []domain.Permission{
 
 func TestEnsureSecretariatCreatesIt(t *testing.T) {
 	areas := memory.NewAreaRepository()
-	if err := application.CheckSecretariat(t.Context(), areas); !errors.Is(err, application.ErrIncompleteSecretariat) {
-		t.Fatalf("CheckSecretariat() without it = %v, want ErrIncompleteSecretariat", err)
+	if err := application.CheckSecretariat(t.Context(), areas); !errors.Is(err, application.ErrSecretariatIncomplete) {
+		t.Fatalf("CheckSecretariat() without it = %v, want ErrSecretariatIncomplete", err)
 	}
 	if err := application.EnsureSecretariat(t.Context(), areas); err != nil {
 		t.Fatal(err)
@@ -46,8 +46,8 @@ func TestCheckSecretariatRefusesItDeleted(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrIncompleteSecretariat) {
-		t.Errorf("CheckSecretariat() = %v, want ErrIncompleteSecretariat", err)
+	if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrSecretariatIncomplete) {
+		t.Errorf("CheckSecretariat() = %v, want ErrSecretariatIncomplete", err)
 	}
 }
 
@@ -83,8 +83,8 @@ func TestEnsureSecretariatRestoresWhatTheCodeNeeds(t *testing.T) {
 			if err := areas.Save(ctx, area); err != nil {
 				t.Fatal(err)
 			}
-			if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrIncompleteSecretariat) {
-				t.Fatalf("CheckSecretariat() = %v, want ErrIncompleteSecretariat", err)
+			if err := application.CheckSecretariat(ctx, areas); !errors.Is(err, application.ErrSecretariatIncomplete) {
+				t.Fatalf("CheckSecretariat() = %v, want ErrSecretariatIncomplete", err)
 			}
 
 			if err := application.EnsureSecretariat(ctx, areas); err != nil {
