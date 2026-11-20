@@ -58,6 +58,13 @@ func addAreas(ctx context.Context, repository authoutput.AreaRepository, areas [
 func addPeople(ctx context.Context, users authoutput.UserRepository, memberships authoutput.MembershipRepository, areas []domain.Area, p people, newID func() string, now time.Time) ([]string, error) {
 	ids := map[string]string{}
 	for _, u := range p.users {
+		stored, err := users.Get(ctx, u.ID)
+		switch {
+		case err == nil && stored.Email != domain.NormalizeEmail(u.Email):
+			return nil, fmt.Errorf("user %s is stored with %s, not %s: the users file cannot change an email", u.ID, stored.Email, u.Email)
+		case err != nil && !errors.Is(err, domain.ErrUserNotFound):
+			return nil, err
+		}
 		registered, err := users.Register(ctx, u)
 		if err != nil {
 			return nil, err

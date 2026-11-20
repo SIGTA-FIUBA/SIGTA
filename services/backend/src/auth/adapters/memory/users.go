@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"backend/src/auth/domain"
@@ -35,6 +36,9 @@ func (r *UserRepository) Register(_ context.Context, user domain.User) (domain.U
 		if u.Email == user.Email {
 			return u, nil
 		}
+	}
+	if _, taken := r.users[user.ID]; taken {
+		return domain.User{}, fmt.Errorf("register user %s: id %s is taken", user.Email, user.ID)
 	}
 	r.users[user.ID] = user
 	return user, nil

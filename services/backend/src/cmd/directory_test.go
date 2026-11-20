@@ -132,6 +132,20 @@ func TestAddPeopleKeepsTheIDOfWhoSignedInBefore(t *testing.T) {
 	}
 }
 
+// The file cannot give a stored id another email.
+func TestAddPeopleRejectsAnotherEmailForAStoredID(t *testing.T) {
+	ctx := t.Context()
+	users, memberships := authmem.NewUserRepository(), authmem.NewMembershipRepository()
+	if _, err := addPeople(ctx, users, memberships, testAreas, fileMember("ana", "review"), counter(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	changed := fileMember("ana", "review")
+	changed.users[0].Email = "ana.perez@fi.uba.ar"
+	if _, err := addPeople(ctx, users, memberships, testAreas, changed, counter(), time.Now()); err == nil {
+		t.Error("addPeople() with another email for ana = nil, want an error")
+	}
+}
+
 // The memberships of development keep their ids and are added once.
 func TestAddPeopleAddsTheDevelopmentMembershipsOnce(t *testing.T) {
 	ctx := t.Context()

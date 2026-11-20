@@ -52,6 +52,12 @@ func oneUserPerEmail(t *testing.T, r output.UserRepository) {
 	if _, err := r.Get(ctx, "U-2"); !errors.Is(err, domain.ErrUserNotFound) {
 		t.Errorf("Get(U-2) = %v, want ErrUserNotFound", err)
 	}
+	if _, err := r.Register(ctx, domain.User{ID: "U-1", Email: "beto@fi.uba.ar", Name: "Beto"}); err == nil {
+		t.Error("Register() of an id taken by another email = nil, want an error")
+	}
+	if got, err := r.Get(ctx, "U-1"); err != nil || got != first {
+		t.Errorf("Get(U-1) = %+v, %v; want %+v", got, err, first)
+	}
 }
 
 func concurrentFirstLogins(t *testing.T, r output.UserRepository) {

@@ -14,6 +14,7 @@ type UserRepository interface {
 	Get(ctx context.Context, id string) (domain.User, error)
 	// Register adds a user and returns it. If the email is already registered
 	// it returns that user instead, so two first logins of the same person at
-	// once do not create two users.
+	// once do not create two users. It fails if the id is taken by another
+	// email.
 	Register(ctx context.Context, user domain.User) (domain.User, error)
 }
