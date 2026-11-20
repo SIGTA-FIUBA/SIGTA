@@ -54,9 +54,14 @@ func (r *AreaRepository) Save(ctx context.Context, a domain.Area) error {
 }
 
 // save numbers what is new after what is stored, and keeps what is
-// deleted: a may have been read before another save.
+// deleted: a may have been read before another save. Under the lock that
+// grants of memberships also take, it checks that what it removes is held by
+// no membership that had not ended by then.
 func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	if err := database.Lock(ctx, tx, areasLockKey); err != nil {
+		return err
+	}
+	if err := checkRemovable(ctx, tx, a); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, created_at, created_by, deleted_at, deleted_by)
@@ -97,6 +102,44 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 		}
 	}
 	return nil
+}
+
+func checkRemovable(ctx context.Context, tx pgx.Tx, a domain.Area) error {
+	held := func(at time.Time, condition string, args ...any) (bool, error) {
+		var found bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT FROM memberships WHERE area_id = $1
+			AND (valid_until IS NULL OR valid_until > $2) AND `+condition+`)`, append([]any{a.ID, at}, args...)...).Scan(&found)
+		return found, err
+	}
+	if !a.DeletedAt.IsZero() {
+		if found, err := held(a.DeletedAt, "true"); err != nil || found {
+			return errors.Join(err, removedButHeld(found, domain.ErrAreaHasMemberships, a.ID))
+		}
+	}
+	for _, p := range a.Permissions {
+		if p.DeletedAt.IsZero() {
+			continue
+		}
+		if found, err := held(p.DeletedAt, "$3 = ANY (permissions)", p.ID); err != nil || found {
+			return errors.Join(err, removedButHeld(found, domain.ErrPermissionHeld, p.ID))
+		}
+	}
+	for _, r := range a.Roles {
+		if r.DeletedAt.IsZero() {
+			continue
+		}
+		if found, err := held(r.DeletedAt, "$3 = ANY (roles)", r.ID); err != nil || found {
+			return errors.Join(err, removedButHeld(found, domain.ErrRoleHeld, r.ID))
+		}
+	}
+	return nil
+}
+
+func removedButHeld(found bool, held error, id string) error {
+	if !found {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", held, id)
 }
 
 // read returns the areas that where selects, in the order they were added,

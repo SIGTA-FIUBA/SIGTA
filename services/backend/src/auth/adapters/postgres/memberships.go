@@ -71,9 +71,14 @@ func (r *MembershipRepository) Replace(ctx context.Context, ended, granted domai
 	return nil
 }
 
-// saveMembership checks, under the lock that every save takes, what Save
-// says, so that two changes at once cannot both pass it.
+// saveMembership checks, under the locks that every save takes, what Save
+// says, so that two changes at once cannot both pass it. It takes the lock of
+// the areas first, as the areas do, so that an area, permission or role
+// removed meanwhile is not granted.
 func saveMembership(ctx context.Context, tx pgx.Tx, m domain.Membership) error {
+	if err := database.Lock(ctx, tx, areasLockKey); err != nil {
+		return err
+	}
 	if err := database.Lock(ctx, tx, membershipsLockKey); err != nil {
 		return err
 	}
@@ -95,6 +100,9 @@ func saveMembership(ctx context.Context, tx pgx.Tx, m domain.Membership) error {
 	}
 	if m.OverlapsAny(memberships) {
 		return fmt.Errorf("%w: %s in area %s", domain.ErrMembershipOverlaps, m.UserID, m.Area)
+	}
+	if err := checkGrantable(ctx, tx, m); err != nil {
+		return err
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO memberships (id, number, user_id, area_id, roles, permissions, scope, valid_from, valid_until, granted_by, granted_at, ended_by)
 		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 FROM memberships`,
@@ -127,4 +135,28 @@ func scanMembership(row pgx.CollectableRow) (domain.Membership, error) {
 	m.Roles, m.Permissions, m.Scope = database.List(m.Roles), database.List(m.Permissions), database.List(m.Scope)
 	m.From, m.Until, m.GrantedAt, m.EndedBy = m.From.UTC(), database.TimeOf(until), database.TimeOf(grantedAt), database.ValueOf(endedBy)
 	return m, nil
+}
+
+// checkGrantable checks that the area of m and its roles and permissions have
+// not been removed.
+func checkGrantable(ctx context.Context, tx pgx.Tx, m domain.Membership) error {
+	var area, permissions, roles bool
+	err := tx.QueryRow(ctx, `SELECT
+			EXISTS (SELECT FROM areas WHERE id = $1 AND deleted_at IS NULL),
+			NOT EXISTS (SELECT FROM unnest($2::text[]) AS p (id) WHERE NOT EXISTS (
+				SELECT FROM area_permissions WHERE area_id = $1 AND id = p.id AND deleted_at IS NULL)),
+			NOT EXISTS (SELECT FROM unnest($3::text[]) AS r (id) WHERE NOT EXISTS (
+				SELECT FROM area_roles WHERE area_id = $1 AND id = r.id AND deleted_at IS NULL))`,
+		m.Area, database.Array(m.Permissions), database.Array(m.Roles)).Scan(&area, &permissions, &roles)
+	switch {
+	case err != nil:
+		return err
+	case !area:
+		return fmt.Errorf("%w: %w: %s", domain.ErrInvalidMembership, domain.ErrAreaNotFound, m.Area)
+	case !permissions:
+		return fmt.Errorf("%w: %w: in area %s", domain.ErrInvalidMembership, domain.ErrPermissionNotFound, m.Area)
+	case !roles:
+		return fmt.Errorf("%w: %w: in area %s", domain.ErrInvalidMembership, domain.ErrRoleNotFound, m.Area)
+	}
+	return nil
 }
