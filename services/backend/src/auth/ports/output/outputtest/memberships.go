@@ -18,6 +18,7 @@ func TestMembershipRepository(t *testing.T, newRepository func(t *testing.T) out
 	t.Run("round trip", func(t *testing.T) { membershipRoundTrip(t, newRepository(t)) })
 	t.Run("lists in the order granted", func(t *testing.T) { listMemberships(t, newRepository(t)) })
 	t.Run("end a membership", func(t *testing.T) { endMembership(t, newRepository(t)) })
+	t.Run("only the validity of a membership changes", func(t *testing.T) { changeOnlyValidity(t, newRepository(t)) })
 	t.Run("concurrent grants", func(t *testing.T) { concurrentGrants(t, newRepository(t)) })
 }
 
@@ -102,6 +103,19 @@ func endMembership(t *testing.T, r output.MembershipRepository) {
 	}
 	if list, err := r.ListByUser(t.Context(), "U-1"); err != nil || len(list) != 1 {
 		t.Errorf("ListByUser() = %+v, %v; want the ended membership only", list, err)
+	}
+}
+
+func changeOnlyValidity(t *testing.T, r output.MembershipRepository) {
+	m := membership("M-1", "U-1", "office")
+	grantAll(t, r, m)
+	changed := membership("M-1", "U-2", "committee")
+	changed.Roles, changed.Permissions, changed.Scope, changed.GrantedBy = []string{"chair"}, []string{"sign"}, []int64{7}, "otro"
+	changed.From, changed.Until, changed.EndedBy = at.Add(-time.Hour), at, "otro"
+	grantAll(t, r, changed)
+	m.From, m.Until, m.EndedBy = changed.From, changed.Until, changed.EndedBy
+	if got, err := r.Get(t.Context(), "M-1"); err != nil || !reflect.DeepEqual(got, m) {
+		t.Errorf("Get() after saving other fields = %+v, %v; want %+v", got, err, m)
 	}
 }
 
