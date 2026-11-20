@@ -10,7 +10,6 @@ import (
 
 	"github.com/cucumber/godog"
 
-	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 )
@@ -20,12 +19,11 @@ import (
 // administration of others and what an administrator lists.
 type administrationWorld struct {
 	*authorizationWorld
-	users          *authmem.UserRepository
 	administration *authapp.AdministratorService
 	people         *authapp.PeopleService
 
 	listed []authdomain.Area
-	found  authdomain.User
+	found  []authdomain.User
 }
 
 // administrationRefusals are the reasons a scenario expects, in its words.
@@ -43,7 +41,7 @@ var administrationRefusals = map[string]error{
 }
 
 func registerStaffAdministrationSteps(sc *godog.ScenarioContext, authorization *authorizationWorld) {
-	w := &administrationWorld{authorizationWorld: authorization, users: authmem.NewUserRepository()}
+	w := &administrationWorld{authorizationWorld: authorization}
 	clock := func() time.Time { return w.now }
 	ids := 0
 	newID := func() string {
@@ -54,6 +52,7 @@ func registerStaffAdministrationSteps(sc *godog.ScenarioContext, authorization *
 	w.people = authapp.NewPeopleService(w.users, w.administrators)
 
 	sc.Given(`^"([^"]*)" signed in to SIGTA$`, w.givenSignedIn)
+	sc.Given(`^"([^"]*)" signed in to SIGTA as "([^"]*)"$`, w.givenSignedInAs)
 	sc.When(`^"([^"]*)" lists the areas to administer$`, w.listAreas)
 	sc.When(`^"([^"]*)" lists the memberships of "([^"]*)"$`, w.listMemberships)
 	sc.When(`^"([^"]*)" looks for "([^"]*)"$`, w.find)
@@ -64,7 +63,7 @@ func registerStaffAdministrationSteps(sc *godog.ScenarioContext, authorization *
 	sc.When(`^"([^"]*)" ends the administration of "([^"]*)"$`, w.endAdministration)
 	sc.Then(`^the area "([^"]*)" is listed with the permissions "([^"]*)" and the roles "([^"]*)"$`, w.thenListed)
 	sc.Then(`^they find "([^"]*)"$`, w.thenFound)
-	sc.Then(`^nobody is found$`, w.thenFails(authdomain.ErrUserNotFound))
+	sc.Then(`^nobody is found$`, w.thenNobodyFound)
 	sc.Then(`^it is denied$`, w.thenFails(authdomain.ErrAccessDenied))
 	sc.Then(`^(?:it|the membership) is refused because (.+)$`, w.thenRefused)
 	sc.Then(`^the memberships of "([^"]*)" are:$`, w.thenMemberships)
@@ -79,7 +78,11 @@ func registerStaffAdministrationSteps(sc *godog.ScenarioContext, authorization *
 // givenSignedIn registers the person with their email as ID, as the other
 // scenarios name staff.
 func (w *administrationWorld) givenSignedIn(email string) {
-	w.users.Add(authdomain.User{ID: email, Email: email, Name: email})
+	w.givenSignedInAs(email, email)
+}
+
+func (w *administrationWorld) givenSignedInAs(email, name string) {
+	w.users.Add(authdomain.User{ID: email, Email: email, Name: name})
 }
 
 func (w *administrationWorld) listAreas(user string) {
@@ -90,8 +93,8 @@ func (w *administrationWorld) listMemberships(user, area string) {
 	_, w.err = w.memberships.ListByArea(context.Background(), user, idOf(area))
 }
 
-func (w *administrationWorld) find(user, email string) {
-	w.found, w.err = w.people.Find(context.Background(), user, email)
+func (w *administrationWorld) find(user, text string) {
+	w.found, w.err = w.people.Search(context.Background(), user, text)
 }
 
 func (w *administrationWorld) listAdministrators(user string) {
@@ -160,8 +163,18 @@ func (w *administrationWorld) thenFound(email string) error {
 	if w.err != nil {
 		return w.err
 	}
-	if w.found.Email != email {
-		return fmt.Errorf("found %+v, want %s", w.found, email)
+	if len(w.found) != 1 || w.found[0].Email != email {
+		return fmt.Errorf("found %+v, want only %s", w.found, email)
+	}
+	return nil
+}
+
+func (w *administrationWorld) thenNobodyFound() error {
+	if w.err != nil {
+		return w.err
+	}
+	if len(w.found) != 0 {
+		return fmt.Errorf("found %+v, want nobody", w.found)
 	}
 	return nil
 }

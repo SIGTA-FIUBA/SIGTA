@@ -106,7 +106,7 @@ type started struct {
 // people, memberships and procedure types from those who use SIGTA.
 func start(ctx context.Context, cfg config, stores stores, files output.Files, identity authoutput.IdentityProvider, logger *slog.Logger) (started, error) {
 	areaService := application.NewAreaService(stores.areas, stores.administrators, stores.memberships, now)
-	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, newID, now)
+	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, stores.users, newID, now)
 
 	procedureTypes := procedureapp.NewProcedureTypeService(stores.versions, areaService, memberships, now)
 	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)

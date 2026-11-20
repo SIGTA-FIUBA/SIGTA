@@ -28,15 +28,17 @@ type MembershipService struct {
 	administratorGuard
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
+	users       output.UserRepository
 	newID       func() string
 	now         func() time.Time
 }
 
-func NewMembershipService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, newID func() string, now func() time.Time) *MembershipService {
+func NewMembershipService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, users output.UserRepository, newID func() string, now func() time.Time) *MembershipService {
 	return &MembershipService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
+		users:              users,
 		newID:              newID,
 		now:                now,
 	}
@@ -223,6 +225,9 @@ func sameIDs(a, b []string) bool {
 func (s *MembershipService) validate(ctx context.Context, m domain.Membership, replaced string) error {
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
+	}
+	if _, err := s.users.Get(ctx, m.UserID); err != nil {
+		return fmt.Errorf("person %s: %w", m.UserID, err)
 	}
 	if len(m.Roles) == 0 && len(m.Permissions) == 0 {
 		return errors.New("a membership needs at least one role or permission")

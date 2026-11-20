@@ -884,9 +884,12 @@ type Referral struct {
 
 // RegisteredPerson defines model for RegisteredPerson.
 type RegisteredPerson struct {
-	Email openapi_types.Email `json:"email"`
-	Id    string              `json:"id"`
-	Name  string              `json:"name"`
+	// Email Ausente si la persona no está registrada
+	Email *openapi_types.Email `json:"email,omitempty"`
+	Id    string               `json:"id"`
+
+	// Name Vacío si la persona no está registrada
+	Name string `json:"name"`
 }
 
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
@@ -1127,9 +1130,9 @@ type ChangeMembershipPermissionsParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
-// FindPersonParams defines parameters for FindPerson.
-type FindPersonParams struct {
-	Email        string         `form:"email" json:"email"`
+// SearchPeopleParams defines parameters for SearchPeople.
+type SearchPeopleParams struct {
+	Q            string         `form:"q" json:"q"`
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -1371,9 +1374,9 @@ type ServerInterface interface {
 	// ChangeMembershipPermissions Cambia los roles y permisos de una membresía
 	// (PUT /memberships/{membershipId}/permissions)
 	ChangeMembershipPermissions(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params ChangeMembershipPermissionsParams)
-	// FindPerson Busca una persona registrada por su correo
+	// SearchPeople Busca personas registradas por parte del nombre o del correo
 	// (GET /people)
-	FindPerson(w http.ResponseWriter, r *http.Request, params FindPersonParams)
+	SearchPeople(w http.ResponseWriter, r *http.Request, params SearchPeopleParams)
 	// ListProcedureTypeDrafts Borradores de tipos de trámite
 	// (GET /procedure-type-drafts)
 	ListProcedureTypeDrafts(w http.ResponseWriter, r *http.Request, params ListProcedureTypeDraftsParams)
@@ -2299,24 +2302,24 @@ func (siw *ServerInterfaceWrapper) ChangeMembershipPermissions(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
-// FindPerson operation middleware
-func (siw *ServerInterfaceWrapper) FindPerson(w http.ResponseWriter, r *http.Request) {
+// SearchPeople operation middleware
+func (siw *ServerInterfaceWrapper) SearchPeople(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params FindPersonParams
+	var params SearchPeopleParams
 
-	// ------------- Required query parameter "email" -------------
+	// ------------- Required query parameter "q" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "email", r.URL.Query(), &params.Email, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "email"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
 		}
 		return
 	}
@@ -2337,7 +2340,7 @@ func (siw *ServerInterfaceWrapper) FindPerson(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.FindPerson(w, r, params)
+		siw.Handler.SearchPeople(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3413,7 +3416,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/memberships/{membershipId}", wrapper.EndMembership)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/memberships/{membershipId}/permissions", wrapper.ChangeMembershipPermissions)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/people", wrapper.FindPerson)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/people", wrapper.SearchPeople)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/administrators", wrapper.ListAdministrators)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/administrators", wrapper.GrantAdministrator)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/administrators/{administratorId}", wrapper.EndAdministrator)
@@ -4659,17 +4662,17 @@ func (response ChangeMembershipPermissions409JSONResponse) VisitChangeMembership
 	return err
 }
 
-type FindPersonRequestObject struct {
-	Params FindPersonParams
+type SearchPeopleRequestObject struct {
+	Params SearchPeopleParams
 }
 
-type FindPersonResponseObject interface {
-	VisitFindPersonResponse(w http.ResponseWriter) error
+type SearchPeopleResponseObject interface {
+	VisitSearchPeopleResponse(w http.ResponseWriter) error
 }
 
-type FindPerson200JSONResponse RegisteredPerson
+type SearchPeople200JSONResponse []RegisteredPerson
 
-func (response FindPerson200JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+func (response SearchPeople200JSONResponse) VisitSearchPeopleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4681,9 +4684,9 @@ func (response FindPerson200JSONResponse) VisitFindPersonResponse(w http.Respons
 	return err
 }
 
-type FindPerson401JSONResponse struct{ UnauthorizedJSONResponse }
+type SearchPeople401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response FindPerson401JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+func (response SearchPeople401JSONResponse) VisitSearchPeopleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4695,9 +4698,9 @@ func (response FindPerson401JSONResponse) VisitFindPersonResponse(w http.Respons
 	return err
 }
 
-type FindPerson403JSONResponse struct{ ForbiddenJSONResponse }
+type SearchPeople403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response FindPerson403JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
+func (response SearchPeople403JSONResponse) VisitSearchPeopleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4705,20 +4708,6 @@ func (response FindPerson403JSONResponse) VisitFindPersonResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type FindPerson404JSONResponse Error
-
-func (response FindPerson404JSONResponse) VisitFindPersonResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6245,9 +6234,9 @@ type StrictServerInterface interface {
 	// ChangeMembershipPermissions Cambia los roles y permisos de una membresía
 	// (PUT /memberships/{membershipId}/permissions)
 	ChangeMembershipPermissions(ctx context.Context, request ChangeMembershipPermissionsRequestObject) (ChangeMembershipPermissionsResponseObject, error)
-	// FindPerson Busca una persona registrada por su correo
+	// SearchPeople Busca personas registradas por parte del nombre o del correo
 	// (GET /people)
-	FindPerson(ctx context.Context, request FindPersonRequestObject) (FindPersonResponseObject, error)
+	SearchPeople(ctx context.Context, request SearchPeopleRequestObject) (SearchPeopleResponseObject, error)
 	// ListProcedureTypeDrafts Borradores de tipos de trámite
 	// (GET /procedure-type-drafts)
 	ListProcedureTypeDrafts(ctx context.Context, request ListProcedureTypeDraftsRequestObject) (ListProcedureTypeDraftsResponseObject, error)
@@ -6931,25 +6920,25 @@ func (sh *strictHandler) ChangeMembershipPermissions(w http.ResponseWriter, r *h
 	}
 }
 
-// FindPerson operation middleware
-func (sh *strictHandler) FindPerson(w http.ResponseWriter, r *http.Request, params FindPersonParams) {
-	var request FindPersonRequestObject
+// SearchPeople operation middleware
+func (sh *strictHandler) SearchPeople(w http.ResponseWriter, r *http.Request, params SearchPeopleParams) {
+	var request SearchPeopleRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.FindPerson(ctx, request.(FindPersonRequestObject))
+		return sh.ssi.SearchPeople(ctx, request.(SearchPeopleRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "FindPerson")
+		handler = middleware(handler, "SearchPeople")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(FindPersonResponseObject); ok {
-		if err := validResponse.VisitFindPersonResponse(w); err != nil {
+	} else if validResponse, ok := response.(SearchPeopleResponseObject); ok {
+		if err := validResponse.VisitSearchPeopleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

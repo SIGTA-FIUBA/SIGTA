@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
@@ -15,7 +17,7 @@ var (
 	_ input.Directory = (*PeopleService)(nil)
 )
 
-const actionFindPerson = "find person"
+const actionSearchPeople = "search people"
 
 type PeopleService struct {
 	administratorGuard
@@ -56,15 +58,17 @@ func (s *PeopleService) Users(ctx context.Context, ids []string) (map[string]dom
 	return users, nil
 }
 
-// Find matches the whole email, without telling uppercase from lowercase, so
-// that an administrator finds only someone whose email they know.
-func (s *PeopleService) Find(ctx context.Context, administratorID, email string) (domain.User, error) {
-	if err := s.requireAdministrator(ctx, administratorID, actionFindPerson); err != nil {
-		return domain.User{}, err
+func (s *PeopleService) Search(ctx context.Context, administratorID, text string) ([]domain.User, error) {
+	if err := s.requireAdministrator(ctx, administratorID, actionSearchPeople); err != nil {
+		return nil, err
 	}
-	user, err := s.users.GetByEmail(ctx, domain.NormalizeEmail(email))
+	text = domain.FoldForSearch(strings.TrimSpace(text))
+	if utf8.RuneCountInString(text) < input.PeopleSearchMinimum {
+		return []domain.User{}, nil
+	}
+	users, err := s.users.Search(ctx, text, input.PeopleSearchLimit)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("person with email %s: %w", email, err)
+		return nil, fmt.Errorf("search people with %q: %w", text, err)
 	}
-	return user, nil
+	return users, nil
 }

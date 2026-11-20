@@ -135,6 +135,7 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 
 	for name, tc := range map[string]struct{ body, message string }{
 		"unknown area":        {`{"user_id": "u1", "area": "dean", "permissions": ["review"]}`, "No existe esa área."},
+		"unknown person":      {`{"user_id": "nadie", "area": "office", "permissions": ["review"]}`, "nunca ingresó a SIGTA"},
 		"unknown permission":  {`{"user_id": "u1", "area": "office", "permissions": ["sign"]}`, "No existe ese permiso en esa área."},
 		"no permissions":      {`{"user_id": "u1", "area": "office", "permissions": []}`, "al menos un rol o un permiso"},
 		"no roles nor perms":  {`{"user_id": "u1", "area": "office"}`, "al menos un rol o un permiso"},

@@ -106,6 +106,8 @@ func invalidMembership(err error, otherwise string) string {
 	switch {
 	case errors.Is(err, domain.ErrMembershipPeriod):
 		return messageGrantPeriod
+	case errors.Is(err, domain.ErrUserNotFound):
+		return messageUnknownPerson
 	case errors.Is(err, domain.ErrAreaNotFound):
 		return messageUnknownArea
 	case errors.Is(err, domain.ErrRoleNotFound):

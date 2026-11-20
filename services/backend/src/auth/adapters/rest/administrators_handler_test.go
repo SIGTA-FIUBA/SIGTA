@@ -8,18 +8,28 @@ import (
 	"backend/src/api"
 )
 
-func TestAnAdministratorFindsAPersonByEmail(t *testing.T) {
+func emailOf(p api.RegisteredPerson) string {
+	if p.Email == nil {
+		return ""
+	}
+	return string(*p.Email)
+}
+
+func TestAnAdministratorSearchesPeople(t *testing.T) {
 	srv := newServer(t)
 	admin := signedIn(t, srv.URL, "admin@fi.uba.ar")
 
-	res, err := get(t, admin, srv.URL+"/people?email=Titular@fi.uba.ar")
-	var person api.RegisteredPerson
-	decode(t, res, err, http.StatusOK, &person)
-	if person.Id != "u1" || person.Name != "Titular" || person.Email != "titular@fi.uba.ar" {
-		t.Fatalf("person = %+v", person)
+	res, err := get(t, admin, srv.URL+"/people?q=TITU")
+	var people []api.RegisteredPerson
+	decode(t, res, err, http.StatusOK, &people)
+	if len(people) != 1 || people[0].Id != "u1" || people[0].Name != "Titular" || emailOf(people[0]) != "titular@fi.uba.ar" {
+		t.Fatalf("people = %+v", people)
 	}
-	res, err = get(t, admin, srv.URL+"/people?email=nadie@fi.uba.ar")
-	expectError(t, res, err, http.StatusNotFound)
+	res, err = get(t, admin, srv.URL+"/people?q=nadie")
+	decode(t, res, err, http.StatusOK, &people)
+	if len(people) != 0 {
+		t.Errorf("people = %+v, want nobody", people)
+	}
 }
 
 func TestAnAdministratorGrantsAndEndsTheAdministration(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"backend/src/auth/adapters/memory"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
+	"backend/src/auth/ports/input"
 )
 
 var office = domain.Area{ID: "office", Name: "Mesa", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}}
@@ -27,7 +28,7 @@ func newMembershipFixture(memberships ...domain.Membership) *membershipFixture {
 		ids++
 		return "new" + strconv.Itoa(ids)
 	}
-	f.service = application.NewMembershipService(memory.NewAreaRepository(office), memory.NewAdministratorRepository("admin"), f.memberships, newID, func() time.Time { return f.now })
+	f.service = application.NewMembershipService(memory.NewAreaRepository(office), memory.NewAdministratorRepository("admin"), f.memberships, memory.NewUserRepository(applicant, operative), newID, func() time.Time { return f.now })
 	return f
 }
 
@@ -68,6 +69,20 @@ func TestChangingAFutureMembershipKeepsItsStart(t *testing.T) {
 	memberships, err := f.service.ListByArea(t.Context(), "admin", "office")
 	if err != nil || len(memberships) != 1 || memberships[0].ID != "new1" {
 		t.Errorf("ListByArea() = %+v, %v; want only the new membership", memberships, err)
+	}
+}
+
+// A membership is for someone who entered SIGTA: an id typed by mistake is
+// refused instead of granting access to nobody.
+func TestAMembershipNeedsSomeoneWhoSignedIn(t *testing.T) {
+	f := newMembershipFixture()
+
+	_, err := f.service.Grant(t.Context(), "admin", input.MembershipGrant{UserID: "nadie", Area: "office", Permissions: []string{"review"}})
+	if !errors.Is(err, domain.ErrInvalidMembership) || !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("Grant() to nobody = %v, want ErrInvalidMembership and ErrUserNotFound", err)
+	}
+	if _, err := f.service.Grant(t.Context(), "admin", input.MembershipGrant{UserID: operative.ID, Area: "office", Permissions: []string{"review"}}); err != nil {
+		t.Errorf("Grant() to someone who signed in = %v", err)
 	}
 }
 

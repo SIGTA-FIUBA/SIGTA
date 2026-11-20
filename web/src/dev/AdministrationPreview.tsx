@@ -18,7 +18,7 @@ function isFixture(value: string | null): value is FixtureName {
 // AdministrationPreview renders the administration with each fixture of
 // administrationFixtures, swapped in the query cache, which is where the page
 // reads it. Only for development: the route exists only in the dev server.
-// Changes still go to the API. The fixture stays in ?data= across reloads.
+// Changes and the search of people still go to the API. The fixture stays in ?data= across reloads.
 export function AdministrationPreview() {
   const [params, setParams] = useSearchParams()
   const fixtureParam = params.get('data')

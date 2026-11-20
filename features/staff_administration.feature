@@ -15,14 +15,30 @@ Feature: Staff administration
     Then the area "student affairs" is listed with the permissions "verify, approve" and the roles "clerk"
     And the area "secretariat" is listed with the permissions "edit_procedure_types, publish_procedure_types" and the roles ""
 
-  Scenario: an administrator finds by email someone who signed in
-    Given "new@fi.uba.ar" signed in to SIGTA
-    When "admin@fi.uba.ar" looks for "New@FI.uba.ar"
+  Scenario Outline: an administrator finds by part of the name or email someone who signed in
+    Given "new@fi.uba.ar" signed in to SIGTA as "Nueva Pérez"
+    When "admin@fi.uba.ar" looks for "<text>"
     Then they find "new@fi.uba.ar"
 
-  Scenario: someone who never signed in is not found
-    When "admin@fi.uba.ar" looks for "nobody@fi.uba.ar"
+    Examples:
+      | text   |
+      | perez  |
+      | NEW@FI |
+
+  Scenario Outline: a search too short or without a match finds nobody
+    Given "new@fi.uba.ar" signed in to SIGTA as "Nueva Pérez"
+    When "admin@fi.uba.ar" looks for "<text>"
     Then nobody is found
+
+    Examples:
+      | text   |
+      | n      |
+      | nobody |
+
+  Scenario: a membership for someone who never signed in is refused
+    Given "nobody@fi.uba.ar" never signed in to SIGTA
+    When "admin@fi.uba.ar" grants "nobody@fi.uba.ar" a membership in "student affairs" with the permission "verify"
+    Then the membership is refused because nobody signed in with that account
 
   Scenario Outline: only an administrator sees what is administered
     Given SIGTA has these memberships:

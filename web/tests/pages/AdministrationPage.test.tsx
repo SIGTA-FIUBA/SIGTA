@@ -70,7 +70,7 @@ const reads = {
   '/areas/office/memberships': { status: 200, body: [membership] },
   '/administrators': { status: 200, body: [administrator] },
   '/procedure-types': { status: 200, body: [] },
-  '/people': { status: 200, body: person },
+  '/people': { status: 200, body: [person] },
 }
 
 async function sent(fetch: ReturnType<typeof stubApi>) {
@@ -96,6 +96,13 @@ function renderPage() {
 }
 
 const area = (name: string) => screen.findByRole('region', { name })
+
+// pickPerson types part of a name in the person search and picks the person
+// it finds, whose options open outside the panel.
+async function pickPerson(where: Pick<typeof screen, 'getByRole'>, text: string) {
+  await userEvent.type(where.getByRole('combobox', { name: 'Persona' }), text)
+  await userEvent.click(await screen.findByRole('option', { name: /Persona Dos/ }))
+}
 
 describe('AdministrationPage', () => {
   afterEach(() => {
@@ -160,20 +167,23 @@ describe('AdministrationPage', () => {
     expect(await within(panel).findByRole('alert')).toHaveTextContent(message)
   })
 
-  it('grants a membership to a person found by email', async () => {
+  it('grants a membership to a person found by part of the name', async () => {
     const fetch = stubApi(reads, { 'POST /memberships': { status: 201, body: {} } })
     renderPage()
 
     const panel = await area('Dirección de Alumnos')
     await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
-    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
-    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await pickPerson(within(panel), 'dos')
     await within(panel).findByRole('button', { name: 'Elegir otra persona' })
     await userEvent.click(within(panel).getByRole('combobox', { name: /Permisos sueltos/ }))
     await userEvent.click(await screen.findByRole('option', { name: 'Aprobar' }))
     await userEvent.type(within(panel).getByLabelText(/Hasta/), '2027-03-31')
     await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar membresía' }))
 
+    const searches = fetch.mock.calls
+      .map(([request]) => new URL(request.url))
+      .filter((url) => url.pathname.endsWith('/people'))
+    expect(searches.map((url) => url.searchParams.get('q'))).toEqual(['dos'])
     await vi.waitFor(async () =>
       expect(await sent(fetch)).toEqual([
         {
@@ -191,16 +201,29 @@ describe('AdministrationPage', () => {
     )
   })
 
-  it('says when nobody registered with the email', async () => {
-    stubApi({ ...reads, '/people': { status: 404, body: { message: 'No existe.' } } })
+  it('says when nobody who entered SIGTA matches', async () => {
+    stubApi({ ...reads, '/people': { status: 200, body: [] } })
     renderPage()
 
     const panel = await area('Dirección de Alumnos')
     await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
-    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'nadie@fi.uba.ar')
-    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Persona' }), 'nadie')
 
-    expect(await within(panel).findByRole('alert')).toHaveTextContent('No hay una persona registrada con ese correo')
+    expect(await screen.findByText(/Nadie que haya ingresado a SIGTA coincide/)).toBeVisible()
+  })
+
+  it('does not search with a single letter', async () => {
+    const fetch = stubApi(reads)
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Persona' }), 'd')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    const searches = fetch.mock.calls.filter(([request]) => new URL(request.url).pathname.endsWith('/people'))
+    expect(searches).toEqual([])
+    expect(screen.queryByText(/Nadie que haya ingresado/)).not.toBeInTheDocument()
   })
 
   it('changes the permissions of a membership', async () => {
@@ -347,8 +370,7 @@ describe('AdministrationPage', () => {
 
     const panel = await area('Dirección de Alumnos')
     await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
-    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
-    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await pickPerson(within(panel), 'dos')
     await within(panel).findByRole('button', { name: 'Elegir otra persona' })
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())
     expect(within(panel).getByLabelText(/Hasta/)).toHaveAttribute('min', today)
@@ -376,8 +398,7 @@ describe('AdministrationPage', () => {
 
     const panel = await area('Dirección de Alumnos')
     await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
-    await userEvent.type(within(panel).getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
-    await userEvent.click(within(panel).getByRole('button', { name: 'Buscar' }))
+    await pickPerson(within(panel), 'dos')
     await userEvent.click(await within(panel).findByRole('button', { name: 'Otorgar membresía' }))
     expect(await within(panel).findByRole('alert')).toHaveTextContent(message)
     await userEvent.click(within(panel).getByRole('button', { name: 'Cancelar' }))
@@ -397,8 +418,7 @@ describe('AdministrationPage', () => {
     expect(screen.getByText('Única persona administradora')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Quitarle la administración/ })).not.toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText(/Correo de la persona/), 'persona.dos@fi.uba.ar')
-    await userEvent.click(screen.getByRole('button', { name: 'Buscar' }))
+    await pickPerson(screen, 'dos')
     await userEvent.click(await screen.findByRole('button', { name: 'Hacer administradora' }))
 
     await vi.waitFor(async () =>

@@ -4,40 +4,40 @@ import (
 	"context"
 	"errors"
 
-	openapi_types "github.com/oapi-codegen/runtime/types"
-
 	"backend/src/api"
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
 )
 
 const (
-	messageUnknownPerson        = "Nadie ingresó a SIGTA con ese correo: la persona tiene que ingresar una vez con su cuenta de la UBA."
+	messageUnknownPerson        = "Esa persona nunca ingresó a SIGTA: tiene que ingresar una vez con su cuenta de la UBA."
 	messageAlreadyAdministrator = "La persona ya es administradora."
 	messageUnknownAdministrator = "Esa persona no es administradora."
 	messageLastAdministrator    = "Es la única persona administradora: otorgá la administración a otra antes de quitársela."
 )
 
-// FindPerson looks for someone who signed in, so that an administrator can
-// grant them a membership or the administration.
-func (h *AdministrationHandler) FindPerson(ctx context.Context, req api.FindPersonRequestObject) (api.FindPersonResponseObject, error) {
+// SearchPeople looks for who signed in, so that an administrator can grant
+// them a membership or the administration.
+func (h *AdministrationHandler) SearchPeople(ctx context.Context, req api.SearchPeopleRequestObject) (api.SearchPeopleResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
 	if input.Unauthenticated(err) {
-		return api.FindPerson401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		return api.SearchPeople401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	person, err := h.directory.Find(ctx, user.ID, req.Params.Email)
+	people, err := h.directory.Search(ctx, user.ID, req.Params.Q)
 	switch {
 	case errors.Is(err, domain.ErrAccessDenied):
-		return api.FindPerson403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageNotAdmin}}, nil
-	case errors.Is(err, domain.ErrUserNotFound):
-		return api.FindPerson404JSONResponse{Message: messageUnknownPerson}, nil
+		return api.SearchPeople403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageNotAdmin}}, nil
 	case err != nil:
 		return nil, err
 	}
-	return api.FindPerson200JSONResponse{Id: person.ID, Name: person.Name, Email: openapi_types.Email(person.Email)}, nil
+	response := make(api.SearchPeople200JSONResponse, 0, len(people))
+	for _, p := range people {
+		response = append(response, personOf(p))
+	}
+	return response, nil
 }
 
 func (h *AdministrationHandler) ListAdministrators(ctx context.Context, req api.ListAdministratorsRequestObject) (api.ListAdministratorsResponseObject, error) {

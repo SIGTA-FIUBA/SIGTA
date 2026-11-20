@@ -202,8 +202,17 @@ func (h *AdministrationHandler) ChangeMembershipPermissions(ctx context.Context,
 	return api.ChangeMembershipPermissions200JSONResponse(membershipOf(m)), nil
 }
 
-// registeredPerson shows an id that is no longer a user with an empty name
-// and email, which the client shows as the id.
+// registeredPerson shows an id that is not a user, as an older membership
+// may name, with an empty name and no email; the client shows the id.
 func registeredPerson(id string, users map[string]domain.User) api.RegisteredPerson {
-	return api.RegisteredPerson{Id: id, Name: users[id].Name, Email: openapi_types.Email(users[id].Email)}
+	user, ok := users[id]
+	if !ok {
+		return api.RegisteredPerson{Id: id}
+	}
+	return personOf(user)
+}
+
+func personOf(user domain.User) api.RegisteredPerson {
+	email := openapi_types.Email(user.Email)
+	return api.RegisteredPerson{Id: user.ID, Name: user.Name, Email: &email}
 }

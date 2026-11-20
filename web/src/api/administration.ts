@@ -76,22 +76,22 @@ export function useAdministrators() {
   })
 }
 
-// findPerson looks up someone who has entered SIGTA, by the whole email. It
-// returns null when nobody registered with it.
-export async function findPerson(email: string) {
-  let outcome
-  try {
-    outcome = await api.GET('/people', { params: { query: { email } } })
-  } catch {
-    throw new ActionError('No pudimos buscar a la persona. Revisá tu conexión y volvé a intentarlo.')
-  }
-  if (outcome.response.status === 404) {
-    return null
-  }
-  if (outcome.data === undefined) {
-    throw new ActionError('No pudimos buscar a la persona. Volvé a intentarlo.')
-  }
-  return outcome.data
+// The shortest text the server searches people with; shorter finds nobody.
+export const peopleSearchMinimum = 2
+
+// usePeopleSearch looks for who entered SIGTA by part of the name or email.
+// The server folds case and accents and answers up to 10 people, so the list
+// is not filtered again here.
+export function usePeopleSearch(text: string) {
+  const query = text.trim()
+  return useQuery({
+    queryKey: ['people', query],
+    enabled: query.length >= peopleSearchMinimum,
+    queryFn: async () => {
+      const { data, response } = await api.GET('/people', { params: { query: { q: query } } })
+      return forbiddenOr('/people', data, response)
+    },
+  })
 }
 
 // The changes an administrator can make. Each throws ActionError when the API

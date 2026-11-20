@@ -33,9 +33,13 @@ type authorizationWorld struct {
 	storedAreas       *authmem.AreaRepository
 	administrators    *authmem.AdministratorRepository
 	storedMemberships *authmem.MembershipRepository
-	procedures        *memory.ProcedureRepository
-	documents         *memory.DocumentRepository
-	now               time.Time
+	users             *authmem.UserRepository
+	// neverSignedIn are the people a scenario says never entered SIGTA. The
+	// rest are signed in as soon as a step grants them a membership.
+	neverSignedIn map[string]bool
+	procedures    *memory.ProcedureRepository
+	documents     *memory.DocumentRepository
+	now           time.Time
 
 	typeIDs map[string]int64
 	steps   map[string][]definition.Step
@@ -56,6 +60,8 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	w := &authorizationWorld{
 		administrators:    authmem.NewAdministratorRepository(scenarioAdministrator),
 		storedMemberships: authmem.NewMembershipRepository(),
+		users:             authmem.NewUserRepository(),
+		neverSignedIn:     map[string]bool{},
 		procedures:        procedures,
 		documents:         memory.NewDocumentRepository(procedures),
 		now:               time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
@@ -64,6 +70,7 @@ func registerAuthorizationSteps(sc *godog.ScenarioContext) *authorizationWorld {
 	}
 
 	sc.Given(`^the staff areas "([^"]*)" and "([^"]*)"$`, w.givenStaffAreas)
+	sc.Given(`^"([^"]*)" never signed in to SIGTA$`, w.givenNeverSignedIn)
 	sc.Given(`^a published "([^"]*)" procedure type with these steps:$`, w.givenProcedureType)
 	sc.Given(`^"([^"]*)" is an administrator$`, w.givenAdministrator)
 	sc.Given(`^the area "([^"]*)" has the permissions? (.+)$`, w.givenAreaPermissions)
@@ -136,7 +143,7 @@ func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 		}
 	}
 	clock := func() time.Time { return w.now }
-	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.newID, clock)
+	w.memberships = authapp.NewMembershipService(areas, w.administrators, w.storedMemberships, w.users, w.newID, clock)
 	w.areas = authapp.NewAreaService(areas, w.administrators, w.storedMemberships, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, clock)
 	w.service = application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, clock)
@@ -253,8 +260,21 @@ func (w *authorizationWorld) givenAdministrator(user string) error {
 	return nil
 }
 
+// signIn registers the person as if they had entered SIGTA once, unless the
+// scenario says they never did.
+func (w *authorizationWorld) signIn(user string) {
+	if !w.neverSignedIn[user] {
+		w.users.Add(signedIn(user))
+	}
+}
+
+func (w *authorizationWorld) givenNeverSignedIn(user string) {
+	w.neverSignedIn[user] = true
+}
+
 func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
+		w.signIn(row.Cells[0].Value)
 		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID:      row.Cells[0].Value,
 			Area:        idOf(row.Cells[1].Value),
@@ -273,6 +293,7 @@ func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, per
 	if err != nil {
 		return err
 	}
+	w.signIn(user)
 	_, err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
 		Area:        idOf(area),
@@ -319,6 +340,7 @@ func (w *authorizationWorld) givenOwnProcedure(user, name string) error {
 
 func (w *authorizationWorld) grant(administrator, user, area, permissions, scope string) {
 	w.user = administrator
+	w.signIn(user)
 	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
 		Area:        idOf(area),
@@ -585,6 +607,7 @@ func (w *authorizationWorld) givenRole(area, role, permissions string) error {
 
 func (w *authorizationWorld) grantRole(administrator, user, area, role, permissions string) {
 	w.user = administrator
+	w.signIn(user)
 	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
 		Area:        idOf(area),

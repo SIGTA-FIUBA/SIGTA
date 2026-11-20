@@ -470,10 +470,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Busca una persona registrada por su correo
-         * @description Solo para administradores (ADR-020), para otorgarle una membresía o la administración. Una persona queda registrada al entrar a SIGTA con su cuenta. La búsqueda es por el correo completo, sin distinguir mayúsculas, para no listar a quienes entraron.
+         * Busca personas registradas por parte del nombre o del correo
+         * @description Solo para administradores (ADR-020), para otorgarle a alguien una membresía o la administración. Una persona queda registrada al entrar a SIGTA con su cuenta. Devuelve hasta 10 personas cuyo nombre o correo contiene el texto, sin distinguir mayúsculas ni tildes, ordenadas por nombre. Con menos de 2 caracteres no devuelve a nadie, para no listar a quienes entraron.
          */
-        get: operations["findPerson"];
+        get: operations["searchPeople"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1081,9 +1081,13 @@ export interface components {
         };
         RegisteredPerson: {
             id: string;
+            /** @description Vacío si la persona no está registrada */
             name: string;
-            /** Format: email */
-            email: string;
+            /**
+             * Format: email
+             * @description Ausente si la persona no está registrada
+             */
+            email?: string;
         };
         Administrator: {
             id: string;
@@ -2130,10 +2134,10 @@ export interface operations {
             409: components["responses"]["InUse"];
         };
     };
-    findPerson: {
+    searchPeople: {
         parameters: {
             query: {
-                email: string;
+                q: string;
             };
             header?: never;
             path?: never;
@@ -2143,26 +2147,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description La persona */
+            /** @description Las personas que coinciden, quizás ninguna */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RegisteredPerson"];
+                    "application/json": components["schemas"]["RegisteredPerson"][];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            /** @description Nadie entró a SIGTA con ese correo */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     listAdministrators: {

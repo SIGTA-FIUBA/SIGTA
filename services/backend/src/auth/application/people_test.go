@@ -2,12 +2,15 @@ package application_test
 
 import (
 	"errors"
+	"fmt"
 	"maps"
+	"slices"
 	"testing"
 
 	"backend/src/auth/adapters/memory"
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
+	"backend/src/auth/ports/input"
 )
 
 func TestNamesLeavesOutWhoIsNotRegistered(t *testing.T) {
@@ -23,16 +26,26 @@ func TestNamesLeavesOutWhoIsNotRegistered(t *testing.T) {
 	}
 }
 
-func TestOnlyAnAdministratorFindsAPersonByEmail(t *testing.T) {
-	people := application.NewPeopleService(memory.NewUserRepository(applicant, operative), memory.NewAdministratorRepository(operative.ID))
+func TestOnlyAnAdministratorSearchesPeople(t *testing.T) {
+	users := memory.NewUserRepository(applicant, operative)
+	for i := range input.PeopleSearchLimit + 2 {
+		users.Add(domain.User{ID: fmt.Sprintf("p%02d", i), Email: fmt.Sprintf("p%02d@fi.uba.ar", i), Name: fmt.Sprintf("Persona %02d", i)})
+	}
+	people := application.NewPeopleService(users, memory.NewAdministratorRepository(operative.ID))
 
-	if user, err := people.Find(t.Context(), operative.ID, " Titular@FI.uba.ar"); err != nil || user != applicant {
-		t.Errorf("Find() = %+v, %v; want %+v", user, err, applicant)
+	if found, err := people.Search(t.Context(), operative.ID, " TITU "); err != nil || !slices.Equal(found, []domain.User{applicant}) {
+		t.Errorf("Search(TITU) = %+v, %v; want %+v", found, err, applicant)
 	}
-	if _, err := people.Find(t.Context(), operative.ID, "nadie@fi.uba.ar"); !errors.Is(err, domain.ErrUserNotFound) {
-		t.Errorf("Find() of who never signed in = %v, want ErrUserNotFound", err)
+	found, err := people.Search(t.Context(), operative.ID, "persona")
+	if err != nil || len(found) != input.PeopleSearchLimit || found[0].ID != "p00" {
+		t.Errorf("Search(persona) = %+v, %v; want the first %d by name", found, err, input.PeopleSearchLimit)
 	}
-	if _, err := people.Find(t.Context(), applicant.ID, operative.Email); !errors.Is(err, domain.ErrAccessDenied) {
-		t.Errorf("Find() by who is not an administrator = %v, want ErrAccessDenied", err)
+	for _, text := range []string{"o", " ", "nadie"} {
+		if found, err := people.Search(t.Context(), operative.ID, text); err != nil || len(found) != 0 {
+			t.Errorf("Search(%q) = %+v, %v; want nobody", text, found, err)
+		}
+	}
+	if _, err := people.Search(t.Context(), applicant.ID, "titular"); !errors.Is(err, domain.ErrAccessDenied) {
+		t.Errorf("Search() by who is not an administrator = %v, want ErrAccessDenied", err)
 	}
 }

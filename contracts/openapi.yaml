@@ -766,37 +766,36 @@ paths:
           $ref: "#/components/responses/InUse"
   /people:
     get:
-      operationId: findPerson
-      summary: Busca una persona registrada por su correo
+      operationId: searchPeople
+      summary: Busca personas registradas por parte del nombre o del correo
       description: >
-        Solo para administradores (ADR-020), para otorgarle una membresía o la
-        administración. Una persona queda registrada al entrar a SIGTA con su
-        cuenta. La búsqueda es por el correo completo, sin distinguir
-        mayúsculas, para no listar a quienes entraron.
+        Solo para administradores (ADR-020), para otorgarle a alguien una
+        membresía o la administración. Una persona queda registrada al entrar
+        a SIGTA con su cuenta. Devuelve hasta 10 personas cuyo nombre o correo
+        contiene el texto, sin distinguir mayúsculas ni tildes, ordenadas por
+        nombre. Con menos de 2 caracteres no devuelve a nadie, para no listar
+        a quienes entraron.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
-        - name: email
+        - name: q
           in: query
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: La persona
+          description: Las personas que coinciden, quizás ninguna
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RegisteredPerson"
+                type: array
+                maxItems: 10
+                items:
+                  $ref: "#/components/schemas/RegisteredPerson"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "404":
-          description: Nadie entró a SIGTA con ese correo
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /administrators:
     get:
       operationId: listAdministrators
@@ -2137,15 +2136,17 @@ components:
           $ref: "#/components/schemas/Person"
     RegisteredPerson:
       type: object
-      required: [id, name, email]
+      required: [id, name]
       properties:
         id:
           type: string
         name:
           type: string
+          description: Vacío si la persona no está registrada
         email:
           type: string
           format: email
+          description: Ausente si la persona no está registrada
     Administrator:
       type: object
       required: [id, person, from]

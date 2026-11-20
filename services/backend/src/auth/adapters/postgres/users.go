@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"backend/src/database"
 
@@ -31,6 +32,31 @@ func (r *UserRepository) Get(ctx context.Context, id string) (domain.User, error
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
 	return r.one(ctx, "user "+email, "SELECT id, email, name FROM users WHERE email = $1", email)
 }
+
+// Search folds name and email as domain.FoldForSearch does: translate first,
+// since lower leaves accented capitals alone in a database without a locale.
+// The order follows the folded name, so "Álvaro" goes with the A. The text
+// is matched literally, with the wildcards of LIKE escaped.
+func (r *UserRepository) Search(ctx context.Context, text string, limit int) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, email, name FROM users
+		WHERE lower(translate(name, $1, $2)) LIKE $3 ESCAPE '\' OR lower(translate(email, $1, $2)) LIKE $3 ESCAPE '\'
+		ORDER BY lower(translate(name, $1, $2)) COLLATE "C", email COLLATE "C" LIMIT $4`,
+		domain.SearchAccents, domain.SearchPlain, "%"+likeEscaper.Replace(text)+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("search users with %q: %w", text, err)
+	}
+	users, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.User, error) {
+		var u domain.User
+		err := row.Scan(&u.ID, &u.Email, &u.Name)
+		return u, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("search users with %q: %w", text, err)
+	}
+	return users, nil
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
 
 // Register runs at READ COMMITTED, where an insert that finds the email
 // taken by a rival waits for it and skips the row, instead of failing as it

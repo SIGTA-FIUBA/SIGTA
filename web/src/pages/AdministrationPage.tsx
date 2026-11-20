@@ -7,22 +7,25 @@ import {
   Loader,
   MultiSelect,
   Paper,
+  Select,
   Stack,
   Tabs,
   Text,
   TextInput,
   Title,
 } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { useRevalidator, useSearchParams } from 'react-router'
 import {
   actions,
-  findPerson,
+  peopleSearchMinimum,
   useAdministrationChange,
   useAdministrators,
   useAreaMemberships,
   useAreas,
+  usePeopleSearch,
 } from '../api/administration'
 import { catalogQuery } from '../api/catalog'
 import { ForbiddenError } from '../api/procedures'
@@ -79,8 +82,9 @@ function ConfirmButton({
   )
 }
 
-// PersonSearch finds a registered person by the whole email, to grant them a
-// membership or the administration. SIGTA does not list who logged in to it.
+// PersonSearch picks someone who entered SIGTA, by part of the name or email,
+// to grant them a membership or the administration. The server searches as
+// they type and answers a few people, never the whole list.
 function PersonSearch({
   person,
   onChange,
@@ -90,29 +94,11 @@ function PersonSearch({
   onChange: (person: RegisteredPerson | null) => void
   focused?: boolean
 }) {
-  const [email, setEmail] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
-
-  async function search() {
-    if (email.trim() === '') {
-      setFailure('Escribí el correo de la persona.')
-      return
-    }
-    setFailure(null)
-    setSearching(true)
-    try {
-      const found = await findPerson(email.trim())
-      if (found === null) {
-        setFailure('No hay una persona registrada con ese correo. Tiene que ingresar a SIGTA una vez con su cuenta.')
-      }
-      onChange(found)
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'No pudimos buscar a la persona. Volvé a intentarlo.')
-    } finally {
-      setSearching(false)
-    }
-  }
+  const [text, setText] = useState('')
+  const [debounced] = useDebouncedValue(text, 300)
+  const search = usePeopleSearch(debounced)
+  const people = search.data ?? []
+  const searched = debounced.trim().length >= peopleSearchMinimum && search.isSuccess
 
   if (person !== null) {
     return (
@@ -130,34 +116,38 @@ function PersonSearch({
     )
   }
   return (
-    <Stack gap="xs">
-      <Group align="flex-end" gap="xs">
-        <TextInput
-          label="Correo de la persona"
-          description="El correo completo con el que ingresó a SIGTA."
-          type="email"
-          autoComplete="off"
-          spellCheck={false}
-          ref={focused ? focusOnMount : undefined}
-          value={email}
-          onChange={(event) => setEmail(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              void search()
-            }
-          }}
-        />
-        <Button variant="default" loading={searching} onClick={() => void search()}>
-          Buscar
-        </Button>
-      </Group>
-      {failure && (
-        <Alert color="red" role="alert">
-          {failure}
-        </Alert>
-      )}
-    </Stack>
+    <Select
+      label="Persona"
+      description="Escribí parte del nombre o del correo con el que ingresó a SIGTA."
+      placeholder="Nombre o correo"
+      searchable
+      autoComplete="off"
+      ref={focused ? focusOnMount : undefined}
+      searchValue={text}
+      onSearchChange={setText}
+      data={people.map((p) => ({ value: p.id, label: p.name || p.id }))}
+      filter={({ options }) => options}
+      value={null}
+      onChange={(id) => onChange(people.find((p) => p.id === id) ?? null)}
+      renderOption={({ option }) => {
+        const found = people.find((p) => p.id === option.value)
+        return (
+          <Stack gap={0}>
+            <Text size="sm">{option.label}</Text>
+            <Text size="xs" c="dimmed">
+              {found?.email}
+            </Text>
+          </Stack>
+        )
+      }}
+      nothingFoundMessage={
+        searched
+          ? 'Nadie que haya ingresado a SIGTA coincide. Tiene que ingresar una vez con su cuenta de la UBA.'
+          : undefined
+      }
+      rightSection={search.isFetching ? <Loader size="xs" /> : undefined}
+      error={search.isError ? 'No pudimos buscar a la persona. Revisá tu conexión y volvé a intentarlo.' : undefined}
+    />
   )
 }
 
@@ -238,7 +228,7 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
   const [permissions, setPermissions] = useState(membership.permissions)
   const change = useAdministrationChange(() => actions.changeMembership(membership.id, { roles, permissions }))
   const end = useAdministrationChange(() => actions.endMembership(membership.id))
-  const person = membership.person.name
+  const person = membership.person.name || membership.person.id
 
   return (
     <Paper withBorder p="sm">
@@ -860,7 +850,7 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
   // Whoever removes themselves stops being an administrator: reading /me
   // again, through the loaders, takes Administración off the menu.
   const revalidator = useRevalidator()
-  const person = administrator.person.name
+  const person = administrator.person.name || administrator.person.id
   return (
     <Paper withBorder p="sm">
       <Stack gap="xs">

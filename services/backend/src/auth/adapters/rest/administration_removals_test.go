@@ -99,7 +99,7 @@ func TestChangingThePermissionsOfAMembershipEndsItAndOpensAnother(t *testing.T) 
 	res, err = get(t, admin, srv.URL+"/areas/office/memberships")
 	var memberships []api.AreaMembership
 	decode(t, res, err, http.StatusOK, &memberships)
-	if len(memberships) != 1 || memberships[0].Id != membership.Id || memberships[0].Person.Email != "operativo@fi.uba.ar" || memberships[0].GrantedBy.Name != "Administración" {
+	if len(memberships) != 1 || memberships[0].Id != membership.Id || emailOf(memberships[0].Person) != "operativo@fi.uba.ar" || memberships[0].GrantedBy.Name != "Administración" {
 		t.Fatalf("memberships = %+v", memberships)
 	}
 
@@ -130,7 +130,7 @@ func TestOnlyAnAdministratorRemoves(t *testing.T) {
 			}
 			res, err := put(t, client.client, srv.URL+"/memberships/m1/permissions", strings.NewReader(`{"roles": [], "permissions": ["approve"]}`))
 			expectError(t, res, err, client.want)
-			for _, url := range []string{"/areas/office/memberships", "/administrators", "/people?email=titular@fi.uba.ar"} {
+			for _, url := range []string{"/areas/office/memberships", "/administrators", "/people?q=titular"} {
 				res, err := get(t, client.client, srv.URL+url)
 				expectError(t, res, err, client.want)
 			}

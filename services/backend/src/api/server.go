@@ -40,7 +40,7 @@ type AdministrationServer interface {
 	ListAreaMemberships(ctx context.Context, request ListAreaMembershipsRequestObject) (ListAreaMembershipsResponseObject, error)
 	EndMembership(ctx context.Context, request EndMembershipRequestObject) (EndMembershipResponseObject, error)
 	ChangeMembershipPermissions(ctx context.Context, request ChangeMembershipPermissionsRequestObject) (ChangeMembershipPermissionsResponseObject, error)
-	FindPerson(ctx context.Context, request FindPersonRequestObject) (FindPersonResponseObject, error)
+	SearchPeople(ctx context.Context, request SearchPeopleRequestObject) (SearchPeopleResponseObject, error)
 	ListAdministrators(ctx context.Context, request ListAdministratorsRequestObject) (ListAdministratorsResponseObject, error)
 	GrantAdministrator(ctx context.Context, request GrantAdministratorRequestObject) (GrantAdministratorResponseObject, error)
 	EndAdministrator(ctx context.Context, request EndAdministratorRequestObject) (EndAdministratorResponseObject, error)

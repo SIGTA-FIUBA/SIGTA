@@ -35,6 +35,7 @@ type inboxWorld struct {
 	now         time.Time
 	areas       *authapp.AreaService
 	memberships *authapp.MembershipService
+	people      *authmem.UserRepository
 	types       *application.ProcedureTypeService
 	procedures  movableProcedures
 	handler     http.Handler
@@ -130,7 +131,8 @@ func (w *inboxWorld) setUp() error {
 	)
 	clock := func() time.Time { return w.now }
 	w.areas = authapp.NewAreaService(areas, administrators, stored, clock)
-	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, clock)
+	w.people = authmem.NewUserRepository()
+	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.people, w.newID, clock)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, clock)
 	recorded := memory.NewProcedureRepository()
 	w.procedures = movableProcedures{ProcedureRepository: recorded, openStep: map[string]string{}, entered: map[string][]domain.FieldValue{}}
@@ -211,6 +213,7 @@ func (w *inboxWorld) givenMemberships(table *godog.Table) error {
 		for _, name := range list(row.Cells[3].Value) {
 			scope = append(scope, w.typeIDs[name])
 		}
+		w.people.Add(signedIn(user))
 		if _, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID: user, Area: slug(area), Permissions: permissions, Scope: scope,
 		}); err != nil {
