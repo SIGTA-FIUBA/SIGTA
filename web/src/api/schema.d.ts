@@ -479,7 +479,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;

@@ -509,3 +509,34 @@ func TestDetectTypeReturnsTypesADocumentCanAccept(t *testing.T) {
 		})
 	}
 }
+
+// A document that reached the bound can still be answered: each correction
+// request that asks for it opens room again, and only that room counts.
+func TestEachCorrectionRequestOpensRoomForTheDocumentItAsksFor(t *testing.T) {
+	f := newDocumentsFixture(t)
+	ctx := t.Context()
+	for i := range maxFilesPerDocument {
+		if _, err := f.service.Attach(ctx, applicant, upload("statement", "constancia.pdf", pdf(100+i))); err != nil {
+			t.Fatalf("file %d: %v", i+1, err)
+		}
+	}
+	moved, _ := f.procedures.Get(ctx, "P-1")
+	moved.OpenStep = "review"
+	if err := f.procedures.Advance(ctx, moved, domain.Event{ProcedureID: "P-1", Step: "documents", By: applicant, Next: "review"}); err != nil {
+		t.Fatal(err)
+	}
+	asked := domain.CorrectionRequest{Step: "review", By: reviewer, Reason: "la constancia no se lee", Documents: []string{"statement"}}
+	if err := f.procedures.RequestCorrection(ctx, asked, domain.Event{ProcedureID: "P-1", Step: "review", By: reviewer,
+		CorrectionRequest: &domain.CorrectionRecord{Documents: []string{"statement"}}}); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range maxFilesPerDocument {
+		if _, err := f.service.Attach(ctx, applicant, upload("statement", "constancia.pdf", pdf(200+i))); err != nil {
+			t.Fatalf("answering, file %d: %v", i+1, err)
+		}
+	}
+	if _, err := f.service.Attach(ctx, applicant, upload("statement", "constancia.pdf", pdf(60))); !errors.Is(err, domain.ErrTooManyDocuments) {
+		t.Errorf("one more file than the room of the request: err = %v, want ErrTooManyDocuments", err)
+	}
+}

@@ -70,7 +70,7 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	if err != nil {
 		return domain.Document{}, err
 	}
-	if err := s.belowMaxFiles(ctx, p.ID, requirement.ID); err != nil {
+	if err := s.belowMaxFilesFor(ctx, userID, p, requirement.ID); err != nil {
 		return domain.Document{}, err
 	}
 
@@ -162,6 +162,25 @@ func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documen
 
 // belowMaxFiles checks before storing anything. Two uploads at the same time
 // can both pass it, which goes past the maximum by a few files at most.
+// belowMaxFilesFor bounds the files of a document. For the applicant answering
+// a correction, it counts only what they attached since the last request that
+// asks for the document: each request of staff opens room again, so a
+// document that reached the bound can still be answered, and the applicant
+// alone still cannot fill the disk.
+func (s *DocumentService) belowMaxFilesFor(ctx context.Context, userID string, p domain.Procedure, requirement string) error {
+	if p.Applicant != userID || !p.AwaitingApplicant() {
+		return s.belowMaxFiles(ctx, p.ID, requirement)
+	}
+	history, err := s.procedures.procedures.Events(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("history of %s: %w", p.ID, err)
+	}
+	if engine.AttachedSinceRequest(history, requirement) >= maxFilesPerDocument {
+		return fmt.Errorf("%s of %s: %w", requirement, p.ID, domain.ErrTooManyDocuments)
+	}
+	return nil
+}
+
 func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requirement string) error {
 	documents, err := s.documents.List(ctx, procedureID)
 	if err != nil {
