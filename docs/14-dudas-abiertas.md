@@ -96,6 +96,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | --- | --- | --- | --- |
 | DU-29 | ¿Dónde se despliega y quién lo financia? (D-04) | Se prepara para la infraestructura de FIUBA, según los requisitos de la Subsecretaría de TICs | Se espera, con la Subsecretaría de TICs |
 | DU-30 | ¿El PostgreSQL de la Subsecretaría de TICs soporta pgvector? (R-17) | Se sigue con pgvector, detrás de un puerto | Se espera, antes de construir el asistente |
+| DU-39 | ¿El entorno de FIUBA registra quién opera la consola, es decir quién corre `backend migrate` y `backend grant-admin`? SIGTA no guarda quién dio el primer administrador (ADR-027) | Queda a cargo del entorno donde se despliegue | Se espera, con la Subsecretaría de TICs |
 
 ## 4. De permisos y configuración
 

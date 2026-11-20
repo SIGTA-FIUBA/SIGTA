@@ -5,8 +5,9 @@
 -- grant_source says how a period was granted. The first administrator of an
 -- environment is the initial grant of the system ('bootstrap'), which the
 -- grant-admin command adds as the role that owns the tables when there is no
--- administrator, and the only kind without granted_by: SIGTA stores no author that someone typed, and who ran
--- the command is in the audit logs of the infrastructure. The others are
+-- administrator, and the only kind without granted_by: SIGTA stores no author
+-- that someone typed, and keeping who ran the command is up to the environment
+-- where it is deployed. The others are
 -- granted by an administrator ('administrator'), the user of the session that
 -- granted them.
 -- The server only reads them, so that a session cannot make itself an

@@ -30,8 +30,8 @@ func (a storedOrListedAdministrators) IsAdministrator(ctx context.Context, userI
 // grantAdminCommand makes the person who signed in with the email of args the
 // first administrator of an environment, as the initial grant of the system.
 // Like migrate, it connects as the role that owns the tables, which the server
-// never has, so it runs as a job apart, and who ran it is in the audit logs
-// of the infrastructure. Once there is an administrator it fails:
+// never has, so it runs as a job apart, and keeping who ran it is up to the
+// environment where it is deployed. Once there is an administrator it fails:
 // administrators grant the others in SIGTA, which keeps who did it.
 func grantAdminCommand(getenv func(string) string, args []string, logger *slog.Logger) error {
 	if len(args) != 1 || strings.TrimSpace(args[0]) == "" || strings.HasPrefix(args[0], "-") {
