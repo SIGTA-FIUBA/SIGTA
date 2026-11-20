@@ -20,6 +20,7 @@ import (
 	authoutput "backend/src/auth/ports/output"
 	procedurerest "backend/src/procedure/adapters/rest"
 	procedureapp "backend/src/procedure/application"
+	"backend/src/procedure/ports/output"
 )
 
 func main() {
@@ -60,8 +61,37 @@ func run(logger *slog.Logger) error {
 		return stoppedDuringStartup(stop, err)
 	}
 	defer closeStores()
-	if err := application.EnsureSecretariat(startup, stores.areas); err != nil {
+	files, err := openFiles(cfg, logger)
+	if err != nil {
+		return err
+	}
+	started, err := start(startup, cfg, stores, files, identity, logger)
+	if err != nil {
 		return stoppedDuringStartup(stop, err)
+	}
+
+	server := &http.Server{
+		Addr:              ":8080",
+		Handler:           api.Mount(http.NewServeMux(), started.server, logger),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       api.ReadTimeout,
+	}
+	logger.Info("listening", "env", cfg.env)
+	return serve(stop, server, server.ListenAndServe)
+}
+
+type started struct {
+	server         api.Server
+	procedureTypes *procedureapp.ProcedureTypeService
+	documents      *procedureapp.DocumentService
+}
+
+// start adds the Secretariat if it is missing, wires the services over the
+// stores and removes the files that no document names. It adds nothing else:
+// people, memberships and procedure types come from those who use SIGTA.
+func start(ctx context.Context, cfg config, stores stores, files output.Files, identity authoutput.IdentityProvider, logger *slog.Logger) (started, error) {
+	if err := application.EnsureSecretariat(ctx, stores.areas); err != nil {
+		return started{}, err
 	}
 	// Nobody is an administrator yet: the mark is not stored, and nothing
 	// gives it.
@@ -69,8 +99,7 @@ func run(logger *slog.Logger) error {
 	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, now)
 	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, now)
 
-	versions := stores.versions
-	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, now)
+	procedureTypes := procedureapp.NewProcedureTypeService(stores.versions, areaService, memberships, now)
 	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)
 
 	auth := application.NewAuthenticatorService(
@@ -85,22 +114,18 @@ func run(logger *slog.Logger) error {
 	)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	files, err := openFiles(cfg, logger)
-	if err != nil {
-		return err
-	}
 	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, now)
 	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, now)
 	people := application.NewPeopleService(stores.users)
 	// Once, at startup: the server assumes it is the only instance.
-	removed, err := documents.RemoveUnreferencedFiles(startup)
+	removed, err := documents.RemoveUnreferencedFiles(ctx)
 	if err != nil {
-		return fmt.Errorf("remove the files that no document names: %w", err)
+		return started{}, fmt.Errorf("remove the files that no document names: %w", err)
 	}
 	if removed > 0 {
 		logger.Info("removed the files that no document names", "files", removed)
 	}
-	app := api.NewServer(
+	server := api.NewServer(
 		authHandler,
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
@@ -109,15 +134,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
 	)
-
-	server := &http.Server{
-		Addr:              ":8080",
-		Handler:           api.Mount(http.NewServeMux(), app, logger),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       api.ReadTimeout,
-	}
-	logger.Info("listening", "env", cfg.env)
-	return serve(stop, server, server.ListenAndServe)
+	return started{server, procedureTypes, documents}, nil
 }
 
 // stoppedDuringStartup returns nil instead of err if the server was asked to

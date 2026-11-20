@@ -15,14 +15,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authmem "backend/src/auth/adapters/memory"
-	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/migrations"
 	"backend/src/migrations/dbtest"
 	"backend/src/procedure/adapters/disk"
-	"backend/src/procedure/application"
 	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
@@ -171,43 +168,85 @@ func assertOldDatabaseHint(t *testing.T, err error, codes ...string) {
 	}
 }
 
+type startedOn struct {
+	stores stores
+	started
+}
+
+// startOn starts as run does on the database of schema, and closes the stores
+// when the test ends.
+func startOn(t *testing.T, schema *dbtest.Schema, files output.Files) startedOn {
+	t.Helper()
+	cfg := config{env: envProduction, allowedDomain: "fi.uba.ar", databaseURL: schema.MemberURL(t, dbtest.AppRole)}
+	logger := slog.New(slog.DiscardHandler)
+	s, closeStores, err := openStores(t.Context(), cfg, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(closeStores)
+	launched, err := start(t.Context(), cfg, s, files, nil, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return startedOn{s, launched}
+}
+
+// TestAStartAddsOnlyTheSecretariat starts on a database just migrated: nobody
+// exists until they sign in with Google, so the only rows are the Secretariat
+// and its platform permissions.
+func TestAStartAddsOnlyTheSecretariat(t *testing.T) {
+	ctx := t.Context()
+	schema := dbtest.NewSchema(t)
+	files, err := disk.NewFiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	startOn(t, schema, files)
+
+	admin := schema.Admin(t)
+	rows, err := admin.Query(ctx, "SELECT tablename::text FROM pg_tables WHERE schemaname = $1 AND tablename <> 'schema_migrations'", schema.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	secretariat := map[string]string{
+		"areas":            "id = 'secretariat' AND system",
+		"area_permissions": "area_id = 'secretariat' AND system",
+	}
+	for _, table := range tables {
+		others := "true"
+		if condition, ok := secretariat[table]; ok {
+			others = "NOT (" + condition + ")"
+		}
+		var count int
+		if err := admin.QueryRow(ctx, fmt.Sprintf("SELECT count(*) FROM %s WHERE %s", pgx.Identifier{schema.Name, table}.Sanitize(), others)).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Errorf("%s has %d rows besides the Secretariat after a start, want none", table, count)
+		}
+	}
+	var areas int
+	if err := admin.QueryRow(ctx, fmt.Sprintf("SELECT count(*) FROM %s", pgx.Identifier{schema.Name, "areas"}.Sanitize())).Scan(&areas); err != nil || areas != 1 {
+		t.Errorf("areas after a start = %d, %v; want the Secretariat", areas, err)
+	}
+}
+
 // TestTheStoresOutliveTheServer starts twice on the same database, as a
 // restart does: the second start finds the session, the memberships, the
 // procedure and the document of the first.
 func TestTheStoresOutliveTheServer(t *testing.T) {
 	ctx := t.Context()
 	schema := dbtest.NewSchema(t)
-	cfg := config{env: envDevelopment, allowedDomain: "fi.uba.ar", databaseURL: schema.MemberURL(t, dbtest.AppRole)}
 	files, err := disk.NewFiles(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	type started struct {
-		stores         stores
-		procedureTypes *application.ProcedureTypeService
-		documents      *application.DocumentService
-	}
-	start := func() started {
-		s, closeStores, err := openStores(ctx, cfg, slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(closeStores)
-		if err := authapp.EnsureSecretariat(ctx, s.areas); err != nil {
-			t.Fatal(err)
-		}
-		administrators := authmem.NewAdministratorRepository()
-		memberships := authapp.NewMembershipService(s.areas, administrators, s.memberships, newID, time.Now)
-		procedureTypes := application.NewProcedureTypeService(s.versions, authapp.NewAreaService(s.areas, administrators, s.memberships, time.Now), memberships, time.Now)
-		procedures := application.NewProcedureService(procedureTypes, s.procedures, s.documents, memberships, newID, time.Now)
-		documents := application.NewDocumentService(procedures, s.documents, files, newID, time.Now)
-		if _, err := documents.RemoveUnreferencedFiles(ctx); err != nil {
-			t.Fatal(err)
-		}
-		return started{s, procedureTypes, documents}
-	}
 
-	first := start()
+	first := startOn(t, schema, files)
 	for _, m := range []authdomain.Membership{
 		{ID: "m-proposer", UserID: "proposer", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}, From: time.Now().Add(-time.Hour)},
 		{ID: "m-approver", UserID: "approver", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}, From: time.Now().Add(-time.Hour)},
@@ -244,7 +283,7 @@ func TestTheStoresOutliveTheServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	second := start()
+	second := startOn(t, schema, files)
 	if session, err := second.stores.sessions.Get(ctx, "hash"); err != nil || session.UserID != "applicant" {
 		t.Errorf("session after the restart = %+v, %v; want the one of applicant", session, err)
 	}
