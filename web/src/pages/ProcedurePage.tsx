@@ -106,6 +106,9 @@ function expected(detail: Detail, step: Step | undefined) {
   if (step.role === 'applicant') {
     return `${step.name}, a cargo del titular.`
   }
+  if (detail.correction_requests.length > 0) {
+    return 'Lo que pide la subsanación, a cargo del titular.'
+  }
   if (detail.referral) {
     return `${step.name}, en evaluación de ${detail.referral.area.name}, fuera de ${detail.referral.from.name}.`
   }
@@ -254,9 +257,11 @@ function requestedNames(detail: Detail, requested: { fields: string[]; documents
 
 // doneBy names who did a step or, for the applicant, who has the steps of
 // staff: the area, since the applicant does not see the person.
-function doneBy(event: Event, step: Step | undefined) {
-  if (event.by) {
-    return personName(event.by)
+// doneBy names the person or, when the applicant does not see them, the area
+// of the step.
+function doneBy(by: Event['by'], step: Step | undefined) {
+  if (by) {
+    return personName(by)
   }
   return step ? responsible(step) : 'Personal'
 }
@@ -270,7 +275,7 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        {doneBy(event, step)} · {dateTime.format(new Date(event.at))}
+        {doneBy(event.by, step)} · {dateTime.format(new Date(event.at))}
       </Text>
       {event.document && (
         <Stack gap={0}>
@@ -362,18 +367,21 @@ function PendingCorrections({ detail }: { detail: Detail }) {
   return (
     <Alert title={requests.length === 1 ? 'Subsanación pendiente' : `${requests.length} subsanaciones pendientes`}>
       <Stack gap="sm">
-        {requests.map((request, i) => (
-          <Stack key={i} gap={0}>
-            <Text size="sm" fw={500}>
-              Se pide: {requestedNames(detail, request)}
-            </Text>
-            <Text size="sm" c="dimmed">
-              {personName(request.by)} · {dateTime.format(new Date(request.at))}
-            </Text>
-            <Text size="sm">Motivo:</Text>
-            <LongValue text={request.reason} />
-          </Stack>
-        ))}
+        {requests.map((request, i) => {
+          const step = detail.steps.find((candidate) => candidate.id === request.step)
+          return (
+            <Stack key={i} gap={0}>
+              <Text size="sm" fw={500}>
+                Se pide: {requestedNames(detail, request)}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {doneBy(request.by, step)} · {dateTime.format(new Date(request.at))}
+              </Text>
+              <Text size="sm">Motivo:</Text>
+              <LongValue text={request.reason} />
+            </Stack>
+          )
+        })}
         <Text size="sm">El paso no se confirma hasta que el titular complete lo pedido.</Text>
       </Stack>
     </Alert>

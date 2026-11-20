@@ -241,8 +241,8 @@ func TestGetProcedureShowsThePendingCorrectionRequests(t *testing.T) {
 
 	staff := api.Person{Id: "staff-1", Name: "Sofía Ejemplo"}
 	want := []api.CorrectionRequest{
-		{Step: "review", By: staff, At: at, Reason: "faltan los códigos", Fields: []string{"subjects"}, Documents: []string{}},
-		{Step: "review", By: staff, At: at.Add(time.Hour), Reason: "falta la firma", Fields: []string{}, Documents: []string{"statement"}},
+		{Step: "review", By: &staff, At: at, Reason: "faltan los códigos", Fields: []string{"subjects"}, Documents: []string{}},
+		{Step: "review", By: &staff, At: at.Add(time.Hour), Reason: "falta la firma", Fields: []string{}, Documents: []string{"statement"}},
 	}
 	if !reflect.DeepEqual(got.CorrectionRequests, want) {
 		t.Errorf("correction requests = %+v, want %+v", got.CorrectionRequests, want)
@@ -289,6 +289,18 @@ func TestGetProcedureLeavesOutWhoDidAStepWhenTheEventHasNoOne(t *testing.T) {
 
 	if len(got.History) != 1 || got.History[0].By != nil {
 		t.Errorf("history = %+v, want one event without by", got.History)
+	}
+}
+
+// The applicant does not see who asked for a correction: the request has no one.
+func TestGetProcedureLeavesOutWhoAskedForACorrectionWhenTheRequestHasNoOne(t *testing.T) {
+	d := openedDetail(false)
+	d.CorrectionRequests = []domain.CorrectionRequest{{Step: "review", Reason: "faltan los códigos", Fields: []string{"subjects"}}}
+
+	got := procedureDetail(t, getProcedure(t, fakeProcedures{detail: d}, session))
+
+	if len(got.CorrectionRequests) != 1 || got.CorrectionRequests[0].By != nil {
+		t.Errorf("correction requests = %+v, want one without by", got.CorrectionRequests)
 	}
 }
 

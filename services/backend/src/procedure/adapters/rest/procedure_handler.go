@@ -88,7 +88,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	for _, r := range d.CorrectionRequests {
 		response.CorrectionRequests = append(response.CorrectionRequests, api.CorrectionRequest{
 			Step:      r.Step,
-			By:        person(r.By, names),
+			By:        personIfAny(r.By, names),
 			At:        r.At,
 			Reason:    r.Reason,
 			Fields:    orEmpty(r.Fields),

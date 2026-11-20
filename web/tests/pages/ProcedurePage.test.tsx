@@ -937,6 +937,17 @@ describe('ProcedurePage correction request', () => {
     expect(screen.queryByText('Subsanación pedida. Quedó en el historial.')).toBeNull()
   })
 
+  it('shows the applicant what is pending with the area that asked and what is expected of them', async () => {
+    const { by: _, ...withoutWho } = request
+    stubPost(201, {}, { ...awaiting, as_applicant: true, can_act: false, correction_requests: [withoutWho] })
+    renderPage()
+
+    expect(await screen.findByText('Subsanación pendiente')).toBeDefined()
+    expect(screen.getByText(/^Dirección de Alumnos · /)).toBeDefined()
+    expect(screen.queryByText(/Operativo Uno/)).toBeNull()
+    expect(screen.getByText('Lo que pide la subsanación, a cargo del titular.')).toBeDefined()
+  })
+
   it('shows what is pending and does not offer to confirm the step until the applicant answers', async () => {
     stubPost(201, {}, awaiting)
     renderPage()

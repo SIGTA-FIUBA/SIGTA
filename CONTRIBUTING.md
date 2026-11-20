@@ -158,7 +158,8 @@ El titular abre su trámite en la misma dirección que el personal, `GET /proced
 
 - Ve el estado, el paso abierto y su área, si está derivado y adónde, y todos los pasos hechos con su fecha. De los pasos del personal ve el área, no la persona: el evento llega sin `by`, y un documento del personal, como la resolución, sin `uploaded_by`.
 - Ve los datos y documentos de sus propios pasos. Si el personal volvió a cargar un dato o un documento que pide un paso del titular, ve el último que cargó él, no el del personal.
-- No ve quién hizo cada paso del personal, la salida que eligió, las observaciones del personal (salvo el motivo de una devolución que vuelve a un paso suyo, ADR-025), el número de expediente externo, ni los datos y documentos de los pasos del personal. Los documentos que el personal adjunta tampoco aparecen en su historial.
+- No ve quién hizo cada paso del personal, la salida que eligió, las observaciones del personal (salvo el motivo de una devolución que vuelve a un paso suyo, ADR-025, y el de una subsanación, ADR-026), el número de expediente externo, ni los datos y documentos de los pasos del personal. Los documentos que el personal adjunta tampoco aparecen en su historial.
+- Ve las subsanaciones pendientes (`correction_requests`) con lo que piden y el motivo, sin quién las pidió: llegan sin `by`, y la web muestra el área del paso.
 - Cuando el trámite se cierra, ve y descarga los documentos marcados como resolución (`resolution`). Antes de que se cierre no los ve, aunque ya estén adjuntos.
 
 En la web, a quien es titular la página del trámite le dice además qué se espera ahora: el paso abierto y quién lo tiene, o que está en evaluación fuera del área. Con el trámite cerrado, a cualquiera le muestra la sección "Resolución" con los documentos resolutivos, o le dice que se cerró sin uno.

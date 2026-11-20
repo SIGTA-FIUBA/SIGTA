@@ -271,11 +271,13 @@ type CatalogEntry struct {
 
 // CorrectionRequest Subsanación pedida que el titular todavía no respondió
 type CorrectionRequest struct {
-	At        time.Time `json:"at"`
-	By        Person    `json:"by"`
-	Documents []string  `json:"documents"`
-	Fields    []string  `json:"fields"`
-	Reason    string    `json:"reason"`
+	At time.Time `json:"at"`
+
+	// By Quién la pidió. Ausente para el titular: ve el área del paso, no la persona.
+	By        *Person  `json:"by,omitempty"`
+	Documents []string `json:"documents"`
+	Fields    []string `json:"fields"`
+	Reason    string   `json:"reason"`
 
 	// Step Paso abierto sobre el que se pidió
 	Step string `json:"step"`

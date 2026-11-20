@@ -125,12 +125,16 @@ func TestDetailListsThePendingCorrectionRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	detail, err := f.details.Detail(t.Context(), applicant, "P-2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []domain.CorrectionRequest{asked}; !reflect.DeepEqual(detail.CorrectionRequests, want) {
-		t.Errorf("correction requests = %+v, want %+v", detail.CorrectionRequests, want)
+	withoutWho := asked
+	withoutWho.By = ""
+	for user, want := range map[string]domain.CorrectionRequest{reviewer: asked, applicant: withoutWho} {
+		detail, err := f.details.Detail(t.Context(), user, "P-2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(detail.CorrectionRequests, []domain.CorrectionRequest{want}) {
+			t.Errorf("%s sees the correction requests %+v, want %+v", user, detail.CorrectionRequests, want)
+		}
 	}
 }
 

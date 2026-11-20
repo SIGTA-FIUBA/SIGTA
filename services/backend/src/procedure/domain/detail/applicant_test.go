@@ -210,3 +210,16 @@ func TestTheApplicantSeesWhatACorrectionRequestAsksForAndWhy(t *testing.T) {
 		t.Errorf("correction request = %+v, want what it asks for and why, without who asked", seen[0])
 	}
 }
+
+func TestTheApplicantSeesThePendingCorrectionRequestsWithoutWhoAsked(t *testing.T) {
+	pending := []domain.CorrectionRequest{{Step: "review", By: "staff", Reason: "Faltan los códigos", Fields: []string{"subjects"}}}
+
+	seen := detail.ForApplicant(applicantContent(), domain.Procedure{}).CorrectionRequests(pending)
+
+	if len(seen) != 1 || seen[0].By != "" || seen[0].Reason != "Faltan los códigos" || !slices.Equal(seen[0].Fields, []string{"subjects"}) {
+		t.Errorf("correction requests = %+v, want what they ask for and why, without who asked", seen)
+	}
+	if pending[0].By != "staff" {
+		t.Error("CorrectionRequests changed the requests it was given")
+	}
+}

@@ -1728,13 +1728,17 @@ components:
     CorrectionRequest:
       type: object
       description: Subsanación pedida que el titular todavía no respondió
-      required: [step, by, at, reason, fields, documents]
+      required: [step, at, reason, fields, documents]
       properties:
         step:
           type: string
           description: Paso abierto sobre el que se pidió
         by:
-          $ref: "#/components/schemas/Person"
+          description: >
+            Quién la pidió. Ausente para el titular: ve el área del paso, no la
+            persona.
+          allOf:
+            - $ref: "#/components/schemas/Person"
         at:
           type: string
           format: date-time

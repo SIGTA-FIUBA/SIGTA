@@ -844,7 +844,8 @@ export interface components {
         CorrectionRequest: {
             /** @description Paso abierto sobre el que se pidió */
             step: string;
-            by: components["schemas"]["Person"];
+            /** @description Quién la pidió. Ausente para el titular: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             reason: string;
