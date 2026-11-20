@@ -413,6 +413,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada. Lo que falta confirmar con la Secretaría queda en D-08, D-10, D-11 y D-12.
 **Reemplaza:** ADR-017 y ADR-019
+**Modificada por:** ADR-027, que saca `SIGTA_USERS_FILE`: las membresías iniciales ya no se cargan desde la configuración del despliegue.
 
 **Contexto.** ADR-017 resolvió la misma respuesta de la Secretaría con roles configurables: conjuntos de permisos que define el administrador, y pasos que declaran el permiso que exigen. Esta decisión conserva esa idea, pero la ubica dentro de cada área: los permisos y los roles que los agrupan pertenecen a un área, y se asignan en la membresía. Además, ADR-019 ataba el permiso al tipo de trámite y separaba tres tipos de usuario excluyentes. En su respuesta al relevamiento, la Secretaría pidió un administrador, "usuarios internos del sistema para cada área interviniente con diferentes permisos otorgados por el administrador", un esquema "por rol (y eventualmente por tipo de trámite)" y el registro de quién hizo cada acción en cada expediente. Además, hoy la Secretaría avanza los pasos, pero más adelante pueden hacerlo otras áreas. Con ADR-019 quedaban tres problemas: el área no formaba parte del permiso; los pasos de un evaluador externo no los podía registrar nadie; y como cada persona tiene una sola cuenta UBA (ADR-010), quien administra no podía ser también personal. Por último, una persona del personal también puede ser alumna, y tiene que poder iniciar sus propios trámites con la misma cuenta.
 
@@ -604,3 +605,28 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Consecuencias.**
 - El editor de tipos de trámite (US72) tiene que ofrecer la marca en cada salida.
 - La API suma `send_back` a las salidas de un paso y a los eventos del historial.
+
+---
+
+## ADR-027: Las personas, las membresías y los administradores viven solo en la base, sin archivo de usuarios
+
+**Estado:** propuesta, a acordar con el equipo
+**Modifica:** ADR-020, en la carga de las membresías iniciales
+
+**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que un administrador había dado de baja, y daba de baja las que dejaba de listar. Así, lo que decide un administrador en SIGTA, con su registro de quién y cuándo, podía deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corren con `SIGTA_ENV=development` y los usuarios sintéticos.
+
+**Decisión.**
+- Se saca `SIGTA_USERS_FILE`. El servidor ya no lo lee, y en producción no lo pide.
+- Las personas se registran al ingresar con su cuenta de Google, como ya pasaba con quien no figuraba en el archivo.
+- Las membresías y la marca de administrador viven solo en la base, y se cambian solo desde SIGTA, con su registro.
+- En desarrollo, los usuarios sintéticos son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una baja hecha por un administrador se respeta.
+- El primer administrador de un entorno desplegado se da fuera del servidor, con un comando de consola o un script de datos iniciales. Esa herramienta queda para la historia que la necesite (SIG-83). De ahí en adelante, todo se hace desde la interfaz.
+
+**Alternativas descartadas.**
+- Mantener el archivo y documentar que prevalece sobre las bajas de un administrador: deja dos fuentes de verdad, y una de ellas sin trazabilidad.
+- Leer el archivo solo la primera vez: una base vacía en otro entorno lo volvería a aplicar, y el archivo seguiría guardando datos personales entre los secretos.
+
+**Consecuencias.**
+- Un entorno con `SIGTA_ENV=production` arranca sin administradores ni personal hasta que se da el primer administrador.
+- Ya no hay un archivo con datos personales entre los secretos del despliegue.
+- El despliegue en Google Cloud no cambia, porque nunca pasó el archivo.
