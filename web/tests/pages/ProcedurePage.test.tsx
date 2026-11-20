@@ -987,3 +987,148 @@ describe('ProcedurePage correction request', () => {
     expect(screen.getByText('Motivo: Falta el código de cada materia.')).toBeDefined()
   })
 })
+
+describe('ProcedurePage correction answer', () => {
+  const asked: Detail = {
+    ...detail,
+    state: 'with_applicant',
+    can_act: false,
+    as_applicant: true,
+    steps: [
+      {
+        ...detail.steps[0]!,
+        fields: [{ id: 'subjects', name: 'Materias', required: true, type: 'text', options: [] }],
+      },
+      detail.steps[1]!,
+    ],
+    correction_requests: [
+      {
+        step: 'review',
+        at: '2026-11-17T15:00:00Z',
+        reason: 'Falta el código de cada materia.',
+        fields: ['subjects'],
+        documents: ['statement'],
+      },
+    ],
+    history: [
+      {
+        step: 'review',
+        at: '2026-11-17T15:00:00Z',
+        observation: 'Falta el código de cada materia.',
+        declared: false,
+        send_back: false,
+        returned: false,
+        correction_request: { fields: ['subjects'], documents: ['statement'] },
+      },
+    ],
+  }
+  // loaded has the subjects entered again after the request, and not the
+  // statement, which was attached before it.
+  const loaded: Detail = {
+    ...asked,
+    history: [
+      {
+        step: 'documents',
+        by: { id: 'a-1', name: 'Titular Uno' },
+        at: '2026-11-16T12:00:00Z',
+        observation: '',
+        declared: false,
+        send_back: false,
+        returned: false,
+        document: { id: 'D-1', document: 'statement', file_name: 'constancia.pdf' },
+      },
+      ...asked.history,
+      {
+        step: 'documents',
+        by: { id: 'a-1', name: 'Titular Uno' },
+        at: '2026-11-18T10:00:00Z',
+        observation: '',
+        declared: false,
+        send_back: false,
+        returned: false,
+        value: { field: 'subjects' },
+      },
+    ],
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('is only for the applicant', async () => {
+    stubPost(201, {}, { ...asked, as_applicant: false })
+    renderPage()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('heading', { name: 'Responder la subsanación' })).toBeNull()
+  })
+
+  it('shows what is loaded again since the request and what is still pending', async () => {
+    stubPost(201, {}, loaded)
+    renderPage()
+
+    const answer = (await screen.findByRole('heading', { name: 'Responder la subsanación' })).closest('div')!
+    expect(within(answer).getAllByText('Cargado')).toHaveLength(1)
+    expect(within(answer).getAllByText('Pendiente')).toHaveLength(1)
+  })
+
+  it('loads a value the correction asks for', async () => {
+    const fetch = stubPost(201, {}, asked)
+    renderPage()
+
+    await userEvent.type(await screen.findByRole('textbox', { name: /Materias/ }), '61.03')
+    await userEvent.click(screen.getByRole('button', { name: 'Cargar Materias' }))
+
+    const posts = await sentPosts(fetch)
+    expect(posts.map((post) => ({ path: new URL(post.url).pathname, body: post.body }))).toEqual([
+      { path: '/api/procedures/P-1/values', body: { field: 'subjects', text: '61.03' } },
+    ])
+  })
+
+  it('sends the answer and says the procedure went back', async () => {
+    const fetch = stubPost(201, {}, loaded)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar la respuesta' }))
+
+    expect(await screen.findByText('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')).toBeDefined()
+    const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+    expect(posts.map((request) => new URL(request.url).pathname)).toEqual(['/api/procedures/P-1/correction-answer'])
+  })
+
+  it('says what is still missing when the answer is rejected', async () => {
+    stubPost(400, { message: 'Falta cargar de nuevo "Constancia".' }, loaded)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar la respuesta' }))
+
+    expect(await screen.findByText('Falta cargar de nuevo "Constancia".')).toBeDefined()
+  })
+
+  it('shows in the history the values loaded again and the answer, with what it answered', async () => {
+    const answered: Detail = {
+      ...loaded,
+      can_act: true,
+      as_applicant: false,
+      correction_requests: [],
+      history: [
+        ...loaded.history,
+        {
+          step: 'review',
+          by: { id: 'a-1', name: 'Titular Uno' },
+          at: '2026-11-18T11:00:00Z',
+          observation: '',
+          declared: false,
+          send_back: false,
+          returned: false,
+          correction_answer: { fields: ['subjects'], documents: ['statement'] },
+        },
+      ],
+    }
+    stubPost(201, {}, answered)
+    renderPage()
+
+    expect(await screen.findByText('Dato cargado en Adjuntar documentos')).toBeDefined()
+    expect(screen.getByText('Respuesta a la subsanación en Revisar la solicitud')).toBeDefined()
+    expect(screen.getByText('Se respondió: Materias, Constancia')).toBeDefined()
+  })
+})

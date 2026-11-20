@@ -6,6 +6,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/domain/submission"
 )
 
 // ProcedureView is a procedure with the steps the person can act on now.
@@ -81,4 +82,8 @@ type Procedures interface {
 	// RequestCorrection is up to whoever can act on the open step, as a
 	// confirmation is.
 	RequestCorrection(ctx context.Context, userID, procedureID string, r CorrectionRequest) (domain.Event, error)
+	// EnterValue and AnswerCorrection are up to the applicant, while a
+	// correction is pending: they load what it asks for, and then send it.
+	EnterValue(ctx context.Context, userID, procedureID, fieldID string, v submission.Value) (domain.FieldValue, error)
+	AnswerCorrection(ctx context.Context, userID, procedureID string) (domain.Event, error)
 }

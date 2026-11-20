@@ -140,6 +140,39 @@ func (s *ProcedureRepository) RequestCorrection(_ context.Context, r domain.Corr
 	return nil
 }
 
+func (s *ProcedureRepository) EnterValue(_ context.Context, v domain.FieldValue, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[e.ProcedureID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if !stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", e.ProcedureID, engine.ErrNoCorrectionPending)
+	}
+	s.values[e.ProcedureID] = append(s.values[e.ProcedureID], cloneValues([]domain.FieldValue{v})...)
+	s.events[e.ProcedureID] = append(s.events[e.ProcedureID], cloneEvent(e))
+	return nil
+}
+
+func (s *ProcedureRepository) AnswerCorrection(_ context.Context, p domain.Procedure, requested int, e domain.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.procedures[p.ID]
+	if !ok {
+		return domain.ErrProcedureNotFound
+	}
+	if !stored.AwaitingApplicant() {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrNoCorrectionPending)
+	}
+	if engine.CorrectionRequestsIn(s.events[p.ID]) != requested || stored.OpenStep != p.OpenStep {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrCorrectionsChanged)
+	}
+	s.procedures[p.ID] = cloneProcedure(p)
+	s.events[p.ID] = append(s.events[p.ID], cloneEvent(e))
+	return nil
+}
+
 func (s *ProcedureRepository) Attach(_ context.Context, d domain.Document, e domain.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -147,8 +180,8 @@ func (s *ProcedureRepository) Attach(_ context.Context, d domain.Document, e dom
 	if !ok {
 		return domain.ErrProcedureNotFound
 	}
-	if stored.Closed() || stored.OpenStep != d.Step {
-		return fmt.Errorf("procedure %s: %w", d.Procedure, engine.ErrStepNotOpen)
+	if err := engine.CanRecordAttachment(stored.OpenStep, stored.Applicant, stored.AwaitingApplicant(), d); err != nil {
+		return fmt.Errorf("procedure %s: %w", d.Procedure, err)
 	}
 	if err := s.newDocuments(d); err != nil {
 		return err
@@ -197,6 +230,16 @@ func cloneEvent(e domain.Event) domain.Event {
 	if e.Document != nil {
 		d := *e.Document
 		e.Document = &d
+	}
+	if e.Value != nil {
+		v := *e.Value
+		e.Value = &v
+	}
+	if e.CorrectionAnswer != nil {
+		e.CorrectionAnswer = &domain.CorrectionRecord{
+			Fields:    slices.Clone(e.CorrectionAnswer.Fields),
+			Documents: slices.Clone(e.CorrectionAnswer.Documents),
+		}
 	}
 	if e.CorrectionRequest != nil {
 		e.CorrectionRequest = &domain.CorrectionRecord{

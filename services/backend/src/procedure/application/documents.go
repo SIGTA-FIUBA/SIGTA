@@ -20,6 +20,7 @@ import (
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
 	"backend/src/procedure/domain/engine"
+	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
 )
@@ -68,18 +69,11 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	if p.Closed() {
 		return domain.Document{}, fmt.Errorf("procedure %s: %w", p.ID, engine.ErrStepNotOpen)
 	}
-	allowed, err := s.procedures.canAct(ctx, userID, p, content, p.OpenStep)
+	step, requirement, err := s.whereToAttach(ctx, userID, p, content, u.Requirement)
 	if err != nil {
 		return domain.Document{}, err
 	}
-	if !allowed {
-		return domain.Document{}, denied(userID, actionAttach+" on "+p.OpenStep)
-	}
-	requirement, err := requested(content.Definition, p.OpenStep, u.Requirement)
-	if err != nil {
-		return domain.Document{}, fmt.Errorf("procedure %s: %w", p.ID, err)
-	}
-	if err := s.belowMaxFiles(ctx, p.ID, requirement.ID); err != nil {
+	if err := s.belowMaxFilesFor(ctx, userID, p, requirement.ID); err != nil {
 		return domain.Document{}, err
 	}
 
@@ -93,7 +87,7 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		ID:          s.newID(),
 		Procedure:   p.ID,
 		Requirement: requirement.ID,
-		Step:        p.OpenStep,
+		Step:        step,
 		FileName:    stored.fileName,
 		MediaType:   stored.mediaType,
 		Size:        stored.size,
@@ -101,7 +95,12 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		UploadedBy:  userID,
 		UploadedAt:  s.now(),
 	}
-	if err := s.procedures.procedures.Attach(ctx, d, attachedEvent(d)); err != nil {
+	err = s.procedures.procedures.Attach(ctx, d, attachedEvent(d))
+	if errors.Is(err, engine.ErrStepNotOpen) && step != p.OpenStep {
+		// An answer to the corrections came first.
+		err = engine.ErrNoCorrectionPending
+	}
+	if err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
 	}
 	return d, nil
@@ -164,6 +163,25 @@ func (s *DocumentService) Open(ctx context.Context, userID, procedureID, documen
 	return d, content, nil
 }
 
+// belowMaxFilesFor bounds the files of a document. For the applicant answering
+// a correction, it counts only what they attached since the last request that
+// asks for the document: each request of staff opens room again, so a
+// document that reached the bound can still be answered, and the applicant
+// alone still cannot fill the disk.
+func (s *DocumentService) belowMaxFilesFor(ctx context.Context, userID string, p domain.Procedure, requirement string) error {
+	if p.Applicant != userID || !p.AwaitingApplicant() {
+		return s.belowMaxFiles(ctx, p.ID, requirement)
+	}
+	history, err := s.procedures.procedures.Events(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("history of %s: %w", p.ID, err)
+	}
+	if engine.AttachedSinceRequest(history, requirement) >= maxFilesPerDocument {
+		return fmt.Errorf("%s of %s: %w", requirement, p.ID, domain.ErrTooManyDocuments)
+	}
+	return nil
+}
+
 // belowMaxFiles checks before storing anything. Two uploads at the same time
 // can both pass it, which goes past the maximum by a few files at most.
 func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requirement string) error {
@@ -216,6 +234,32 @@ func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, err
 		removed++
 	}
 	return removed, nil
+}
+
+// whereToAttach returns the step a document goes to: the open step, for
+// whoever can act on it, or, for the applicant with a pending correction that
+// asks for it, the step of theirs that asks for it (ADR-026).
+func (s *DocumentService) whereToAttach(ctx context.Context, userID string, p domain.Procedure, content version.Content, documentID string) (string, definition.Document, error) {
+	if p.Applicant == userID && p.AwaitingApplicant() {
+		step, err := engine.CorrectionDocument(p, content.Definition, documentID)
+		if err != nil {
+			return "", definition.Document{}, fmt.Errorf("procedure %s: %w", p.ID, err)
+		}
+		requirement, err := requested(content.Definition, step.ID, documentID)
+		return step.ID, requirement, err
+	}
+	allowed, err := s.procedures.canAct(ctx, userID, p, content, p.OpenStep)
+	if err != nil {
+		return "", definition.Document{}, err
+	}
+	if !allowed {
+		return "", definition.Document{}, denied(userID, actionAttach+" on "+p.OpenStep)
+	}
+	requirement, err := requested(content.Definition, p.OpenStep, documentID)
+	if err != nil {
+		return "", definition.Document{}, fmt.Errorf("procedure %s: %w", p.ID, err)
+	}
+	return p.OpenStep, requirement, nil
 }
 
 // requested returns the document if the step asks for it, as required or

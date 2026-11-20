@@ -30,7 +30,7 @@ type myProcedureDetailWorld struct {
 	readErr    error
 }
 
-func registerMyProcedureDetailSteps(sc *godog.ScenarioContext, confirmations *confirmationWorld) {
+func registerMyProcedureDetailSteps(sc *godog.ScenarioContext, confirmations *confirmationWorld) *myProcedureDetailWorld {
 	w := &myProcedureDetailWorld{confirmationWorld: confirmations}
 	sc.After(func(ctx context.Context, _ *godog.Scenario, err error) (context.Context, error) {
 		if w.dir != "" {
@@ -52,6 +52,7 @@ func registerMyProcedureDetailSteps(sc *godog.ScenarioContext, confirmations *co
 	sc.Then(`^they see no files$`, func() error { return w.thenFiles(nil) })
 	sc.Then(`^they get the file$`, w.thenGetFile)
 	sc.Then(`^the file is not found$`, w.thenFileNotFound)
+	return w
 }
 
 func (w *myProcedureDetailWorld) documentService() (*application.DocumentService, error) {

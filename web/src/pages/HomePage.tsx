@@ -41,6 +41,11 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
           </Text>
         ) : (
           <>
+            {procedure.correction_pending && (
+              <Text size="sm" fw={600} c="fiuba.7">
+                Subsanación pendiente del titular
+              </Text>
+            )}
             <Text size="sm">Paso actual: {procedure.step_name}</Text>
             <Text size="sm" c="dimmed">
               Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}

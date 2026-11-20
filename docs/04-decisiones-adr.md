@@ -635,7 +635,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Consecuencias.**
 - El estado del trámite se deriva del paso abierto y de los pedidos pendientes (`domain.StateOf`).
 - La API suma `POST /procedures/{procedureId}/steps/{stepId}/correction-requests`, los pedidos pendientes en el detalle (`correction_requests`) y lo que pide cada uno en los eventos del historial (`correction_request`).
-- US34 define cómo responde el titular y cómo deja de estar pendiente cada pedido.
+- Cómo responde el titular (US34, SIG-50): carga de nuevo, de a uno, lo que piden las pendientes, cada cosa en el paso suyo que la pide y en el historial, y después envía la respuesta, que exige todo lo pedido y responde todas las pendientes juntas. Lo cargado cuenta si viene después, en el historial, del último pedido que lo nombra. La API suma `POST /procedures/{procedureId}/values`, `POST /procedures/{procedureId}/correction-answer` y, en los eventos, `value` y `correction_answer`; "Mis trámites" dice si hay una pendiente (`correction_pending`).
 - Si un pedido necesita algo que los pasos del titular no piden, se corrige el tipo (ADR-006).
 
 ---

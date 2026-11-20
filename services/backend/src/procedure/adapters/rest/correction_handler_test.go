@@ -4,16 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
 	"backend/src/api"
-	"backend/src/procedure/adapters/rest"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/ports/input"
@@ -21,14 +18,7 @@ import (
 
 func requestCorrection(t *testing.T, steps *fakeSteps, cookie, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, rest.NewProcedureHandler(fakeAuth{}, fakePeople{}, fakeProcedures{}, nil, steps), nil, nil)
-	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/procedures/P-1/steps/check/correction-requests", strings.NewReader(body))
-	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("Cookie", "sigta_session="+cookie)
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, r)
-	return recorder
+	return postToSteps(t, steps, "/steps/check/correction-requests", cookie, body)
 }
 
 func TestRequestCorrectionAnswersTheRecordedEvent(t *testing.T) {

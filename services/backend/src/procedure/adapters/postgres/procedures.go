@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"backend/src/database"
@@ -35,7 +36,7 @@ func NewProcedureRepository(pool *pgxpool.Pool) *ProcedureRepository {
 
 const (
 	procedureColumns = "id, procedure_type_id, version_number, version_digest, applicant, open_step, referral_from, referral_to, referral_since, started_at, moved_at"
-	eventColumns     = "procedure_id, step, action, done_by, done_at, observation, outcome, declared, send_back, next_step, referral_from, referral_to, external_file_number, returned, document_id, document_requirement, document_file_name, correction_fields, correction_documents"
+	eventColumns     = "procedure_id, step, action, done_by, done_at, observation, outcome, declared, send_back, next_step, referral_from, referral_to, external_file_number, returned, document_id, document_requirement, document_file_name, correction_fields, correction_documents, value_field, answer_fields, answer_documents"
 	requestColumns   = "procedure_id, step, requested_by, requested_at, reason, fields, documents"
 	valueColumns     = "procedure_id, field, step, text, items, entered_by, entered_at"
 	documentColumns  = "id, procedure_id, requirement, step, file_name, media_type, size, digest, uploaded_by, uploaded_at"
@@ -88,7 +89,7 @@ func (s *ProcedureRepository) Get(ctx context.Context, id string) (domain.Proced
 	case err != nil:
 		return domain.Procedure{}, fmt.Errorf("read procedure %s: %w", id, err)
 	}
-	requests, err := s.correctionRequests(ctx, "WHERE procedure_id = $1", id)
+	requests, err := s.correctionRequests(ctx, "AND r.procedure_id = $1", id)
 	if err != nil {
 		return domain.Procedure{}, fmt.Errorf("read procedure %s: %w", id, err)
 	}
@@ -117,10 +118,14 @@ func (s *ProcedureRepository) List(ctx context.Context) ([]domain.Procedure, err
 	return procedures, nil
 }
 
-// correctionRequests returns the requests that match where, by procedure and
-// in the order they were made.
-func (s *ProcedureRepository) correctionRequests(ctx context.Context, where string, args ...any) (map[string][]domain.CorrectionRequest, error) {
-	rows, err := s.pool.Query(ctx, "SELECT "+requestColumns+" FROM procedure_correction_requests "+where+" ORDER BY procedure_id, number", args...)
+// pendingRequests keeps the requests of procedure_correction_requests r that
+// no answer covers yet (0008).
+const pendingRequests = `r.number > coalesce((SELECT max(a.answered_up_to) FROM procedure_correction_answers a WHERE a.procedure_id = r.procedure_id), 0)`
+
+// correctionRequests returns the pending requests that also match and, by
+// procedure and in the order they were made.
+func (s *ProcedureRepository) correctionRequests(ctx context.Context, and string, args ...any) (map[string][]domain.CorrectionRequest, error) {
+	rows, err := s.pool.Query(ctx, "SELECT r."+strings.ReplaceAll(requestColumns, ", ", ", r.")+" FROM procedure_correction_requests r WHERE "+pendingRequests+" "+and+" ORDER BY r.procedure_id, r.number", args...)
 	if err != nil {
 		return nil, fmt.Errorf("correction requests: %w", err)
 	}
@@ -171,7 +176,7 @@ func (s *ProcedureRepository) Advance(ctx context.Context, p domain.Procedure, e
 			return engine.ErrStepNotOpen
 		}
 		var awaiting bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT FROM procedure_correction_requests WHERE procedure_id = $1)", p.ID).Scan(&awaiting); err != nil {
+		if awaiting, err = awaitingApplicant(ctx, tx, p.ID); err != nil {
 			return err
 		}
 		if awaiting {
@@ -198,8 +203,16 @@ func (s *ProcedureRepository) Attach(ctx context.Context, d domain.Document, e d
 		if err != nil {
 			return err
 		}
-		if openStep != d.Step {
-			return engine.ErrStepNotOpen
+		var applicant string
+		if err := tx.QueryRow(ctx, "SELECT applicant FROM procedures WHERE id = $1", d.Procedure).Scan(&applicant); err != nil {
+			return err
+		}
+		awaiting, err := awaitingApplicant(ctx, tx, d.Procedure)
+		if err != nil {
+			return err
+		}
+		if err := engine.CanRecordAttachment(openStep, applicant, awaiting, d); err != nil {
+			return err
 		}
 		if err := insertDocument(ctx, tx, d.Procedure, d); err != nil {
 			return err
@@ -232,6 +245,78 @@ func (s *ProcedureRepository) RequestCorrection(ctx context.Context, r domain.Co
 		return fmt.Errorf("request a correction of %s: %w", e.ProcedureID, err)
 	}
 	return nil
+}
+
+// EnterValue checks that a correction is still pending once it holds the lock
+// on the row, so a value entered while the answer is sent is either part of
+// it or refused.
+func (s *ProcedureRepository) EnterValue(ctx context.Context, v domain.FieldValue, e domain.Event) error {
+	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := lockProcedure(ctx, tx, e.ProcedureID); err != nil {
+			return err
+		}
+		awaiting, err := awaitingApplicant(ctx, tx, e.ProcedureID)
+		if err != nil {
+			return err
+		}
+		if !awaiting {
+			return engine.ErrNoCorrectionPending
+		}
+		if _, err := tx.Exec(ctx, "INSERT INTO procedure_field_values (number, "+valueColumns+`)
+			SELECT coalesce(max(number), 0) + 1, $1, $2, $3, $4, $5, $6, $7 FROM procedure_field_values WHERE procedure_id = $1`,
+			e.ProcedureID, v.Field, v.Step, v.Text, database.Array(v.Items), v.EnteredBy, v.EnteredAt); err != nil {
+			return err
+		}
+		return insertEvent(ctx, tx, e.ProcedureID, e)
+	})
+	if err != nil {
+		return fmt.Errorf("enter %s on %s: %w", v.Field, e.ProcedureID, err)
+	}
+	return nil
+}
+
+// AnswerCorrection covers the requests up to requested, which numbers them
+// as the history counts them, once it holds the lock on the row: a request
+// made after the answer was read has a later number, and refuses it.
+func (s *ProcedureRepository) AnswerCorrection(ctx context.Context, p domain.Procedure, requested int, e domain.Event) error {
+	err := database.InReadCommitted(ctx, s.pool, func(tx pgx.Tx) error {
+		openStep, err := lockProcedure(ctx, tx, p.ID)
+		if err != nil {
+			return err
+		}
+		awaiting, err := awaitingApplicant(ctx, tx, p.ID)
+		if err != nil {
+			return err
+		}
+		if !awaiting {
+			return engine.ErrNoCorrectionPending
+		}
+		var last int
+		if err := tx.QueryRow(ctx, "SELECT coalesce(max(number), 0) FROM procedure_correction_requests WHERE procedure_id = $1", p.ID).Scan(&last); err != nil {
+			return err
+		}
+		if last != requested || openStep != p.OpenStep {
+			return engine.ErrCorrectionsChanged
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO procedure_correction_answers (number, procedure_id, answered_up_to, answered_by, answered_at)
+			SELECT coalesce(max(number), 0) + 1, $1, $2, $3, $4 FROM procedure_correction_answers WHERE procedure_id = $1`,
+			p.ID, requested, e.By, e.At); err != nil {
+			return err
+		}
+		return insertEvent(ctx, tx, p.ID, e)
+	})
+	if err != nil {
+		return fmt.Errorf("answer the corrections of %s: %w", p.ID, err)
+	}
+	return nil
+}
+
+// awaitingApplicant tells whether the procedure has a request that no answer
+// covers. The caller holds the lock on the procedure.
+func awaitingApplicant(ctx context.Context, tx pgx.Tx, procedureID string) (bool, error) {
+	var awaiting bool
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT FROM procedure_correction_requests r WHERE r.procedure_id = $1 AND "+pendingRequests+")", procedureID).Scan(&awaiting)
+	return awaiting, err
 }
 
 func (s *ProcedureRepository) Events(ctx context.Context, procedureID string) ([]domain.Event, error) {
@@ -285,15 +370,23 @@ func insertEvent(ctx context.Context, tx pgx.Tx, procedureID string, e domain.Ev
 	if e.Document != nil {
 		documentID, requirement, fileName = &e.Document.ID, &e.Document.Requirement, &e.Document.FileName
 	}
-	var fields, documents []string
+	var fields, documents, answerFields, answerDocuments []string
 	if e.CorrectionRequest != nil {
 		fields, documents = database.Array(e.CorrectionRequest.Fields), database.Array(e.CorrectionRequest.Documents)
 	}
+	if e.CorrectionAnswer != nil {
+		answerFields, answerDocuments = database.Array(e.CorrectionAnswer.Fields), database.Array(e.CorrectionAnswer.Documents)
+	}
+	var valueField *string
+	if e.Value != nil {
+		valueField = &e.Value.Field
+	}
 	_, err := tx.Exec(ctx, "INSERT INTO procedure_events (number, "+eventColumns+`)
-		SELECT coalesce(max(number), 0) + 1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+		SELECT coalesce(max(number), 0) + 1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
 		FROM procedure_events WHERE procedure_id = $1`,
 		procedureID, e.Step, string(e.Action), e.By, e.At, database.Nullable(e.Observation), database.Nullable(e.Outcome), e.Declared, e.SendBack,
-		database.Nullable(e.Next), from, to, fileNumber, e.Returned, documentID, requirement, fileName, fields, documents)
+		database.Nullable(e.Next), from, to, fileNumber, e.Returned, documentID, requirement, fileName, fields, documents,
+		valueField, answerFields, answerDocuments)
 	return err
 }
 
@@ -332,9 +425,12 @@ func scanEvent(row pgx.CollectableRow) (domain.Event, error) {
 		from, to, fileNumber              *string
 		documentID, requirement, fileName *string
 		fields, documents                 []string
+		valueField                        *string
+		answerFields, answerDocuments     []string
 	)
 	if err := row.Scan(&e.ProcedureID, &e.Step, &action, &e.By, &e.At, &observation, &outcome, &e.Declared, &e.SendBack,
-		&next, &from, &to, &fileNumber, &e.Returned, &documentID, &requirement, &fileName, &fields, &documents); err != nil {
+		&next, &from, &to, &fileNumber, &e.Returned, &documentID, &requirement, &fileName, &fields, &documents,
+		&valueField, &answerFields, &answerDocuments); err != nil {
 		return domain.Event{}, err
 	}
 	e.Action = definition.Action(action)
@@ -348,6 +444,12 @@ func scanEvent(row pgx.CollectableRow) (domain.Event, error) {
 	}
 	if fields != nil {
 		e.CorrectionRequest = &domain.CorrectionRecord{Fields: database.List(fields), Documents: database.List(documents)}
+	}
+	if valueField != nil {
+		e.Value = &domain.ValueRecord{Field: *valueField}
+	}
+	if answerFields != nil {
+		e.CorrectionAnswer = &domain.CorrectionRecord{Fields: database.List(answerFields), Documents: database.List(answerDocuments)}
 	}
 	return e, nil
 }

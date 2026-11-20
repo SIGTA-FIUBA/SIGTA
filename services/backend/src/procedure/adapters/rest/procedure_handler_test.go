@@ -378,6 +378,12 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
 		Name:      "Equivalencias",
 		State:     domain.StateClosed,
+	}, {
+		Procedure: domain.Procedure{ID: "P-3", ProcedureType: 7, Applicant: "ana", OpenStep: "check", StartedAt: started, MovedAt: moved,
+			CorrectionRequests: []domain.CorrectionRequest{{Step: "check", Reason: "falta la firma", Fields: []string{"subjects"}}}},
+		Name:     "Equivalencias",
+		StepName: "Revisión",
+		State:    domain.StateWithApplicant,
 	}}}
 
 	recorder := listMine(t, procedures, session)
@@ -388,8 +394,11 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("got %+v, want two procedures", got)
+	if len(got) != 3 {
+		t.Fatalf("got %+v, want three procedures", got)
+	}
+	if got[0].CorrectionPending || !got[2].CorrectionPending {
+		t.Errorf("correction pending = %t, %t; want only the third one", got[0].CorrectionPending, got[2].CorrectionPending)
 	}
 	step := "Revisión"
 	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved}
