@@ -9,12 +9,12 @@ Feature: History of a procedure
     And the area "student affairs" has the permissions "verify" and "approve"
     And the area "curricular commission" has the permission "evaluate"
     And a published "subject equivalence" procedure type with this flow:
-      | step     | done by               | permissions | action                | asks for      | next                                 |
-      | request  | applicant             |             | enter_data            | reason        | check                                |
-      | check    | student affairs       | verify      | decide                |               | accept: evaluate, send back: request |
-      | evaluate | curricular commission | evaluate    | confirm_external_fact |               | ruling                               |
-      | ruling   | student affairs       | verify      | upload_document       | ruling        | record                               |
-      | record   | student affairs       | approve     | enter_data            | record number |                                      |
+      | step     | done by               | permissions | action                | asks for      | next                                         |
+      | request  | applicant             |             | enter_data            | reason        | check                                        |
+      | check    | student affairs       | verify      | decide                |               | accept: evaluate, send back: back to request |
+      | evaluate | curricular commission | evaluate    | confirm_external_fact |               | ruling                                       |
+      | ruling   | student affairs       | verify      | upload_document       | ruling        | record                                       |
+      | record   | student affairs       | approve     | enter_data            | record number |                                              |
     And SIGTA has these memberships:
       | staff                | area                  | permissions     | scope |
       | operative@fi.uba.ar  | student affairs       | verify          |       |

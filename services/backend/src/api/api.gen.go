@@ -591,6 +591,9 @@ type ProcedureEvent struct {
 	// Returned Si devuelve el trámite al área de la que se había derivado
 	Returned bool `json:"returned"`
 
+	// SendBack Si el evento devuelve el trámite a un paso anterior; la observación es entonces el motivo
+	SendBack bool `json:"send_back"`
+
 	// Step Paso hecho, o el paso abierto en el que se adjuntó el documento
 	Step string `json:"step"`
 }
@@ -806,6 +809,9 @@ type StepOutcome struct {
 
 	// Next Paso al que lleva esa salida
 	Next string `json:"next"`
+
+	// SendBack Si la salida devuelve el trámite a un paso anterior
+	SendBack bool `json:"send_back"`
 }
 
 // StepRole Quién hace el paso. applicant: el titular. staff: el personal del área del paso.

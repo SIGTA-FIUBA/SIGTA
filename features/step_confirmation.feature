@@ -9,12 +9,12 @@ Feature: Step confirmation
     And the area "student affairs" has the permissions "verify" and "approve"
     And the area "curricular commission" has the permission "evaluate"
     And a published "subject equivalence" procedure type with this flow:
-      | step     | done by               | permissions | action                | next                                 |
-      | request  | applicant             |             | enter_data            | check                                |
-      | check    | student affairs       | verify      | decide                | accept: evaluate, send back: request |
-      | evaluate | curricular commission | evaluate    | confirm_external_fact | file                                 |
-      | file     | student affairs       | verify      | confirm_external_fact | approve                              |
-      | approve  | student affairs       | approve     | confirm_external_fact |                                      |
+      | step     | done by               | permissions | action                | next                                         |
+      | request  | applicant             |             | enter_data            | check                                        |
+      | check    | student affairs       | verify      | decide                | accept: evaluate, send back: back to request |
+      | evaluate | curricular commission | evaluate    | confirm_external_fact | file                                         |
+      | file     | student affairs       | verify      | confirm_external_fact | approve                                      |
+      | approve  | student affairs       | approve     | confirm_external_fact |                                              |
     And SIGTA has these memberships:
       | staff                | area                  | permissions     | scope |
       | operative@fi.uba.ar  | student affairs       | verify          |       |
@@ -159,10 +159,10 @@ Feature: Step confirmation
 
   Scenario: closing a referred procedure ends the referral
     Given a published "credit recognition" procedure type with this flow:
-      | step     | done by               | permissions | action                | next                                 |
-      | request  | applicant             |             | enter_data            | check                                |
-      | check    | student affairs       | verify      | decide                | accept: evaluate, send back: request |
-      | evaluate | curricular commission | evaluate    | confirm_external_fact |                                      |
+      | step     | done by               | permissions | action                | next                                         |
+      | request  | applicant             |             | enter_data            | check                                        |
+      | check    | student affairs       | verify      | decide                | accept: evaluate, send back: back to request |
+      | evaluate | curricular commission | evaluate    | confirm_external_fact |                                              |
     And a "credit recognition" procedure whose open step is "check"
     And "operative@fi.uba.ar" confirmed the "check" step choosing "accept"
     When "commission@fi.uba.ar" confirms the "evaluate" step

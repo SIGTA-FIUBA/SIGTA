@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
+
+	"backend/src/procedure/domain/definition"
 )
 
 var (
@@ -59,7 +62,19 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 	if err := decodeStrict(v.EncodedContent, &c); err != nil {
 		return Content{}, err
 	}
+	if c.Format < sendBackFormat && hasSendBack(c.Definition) {
+		return Content{}, fmt.Errorf("decode content: format %d has no send backs", c.Format)
+	}
+	if c.Format < ContentFormat {
+		c.Format = ContentFormat
+	}
 	return c, nil
+}
+
+func hasSendBack(d definition.ProcedureTypeDefinition) bool {
+	return slices.ContainsFunc(d.Steps, func(s definition.Step) bool {
+		return slices.ContainsFunc(s.Outcomes, func(o definition.Outcome) bool { return o.SendBack })
+	})
 }
 
 func decodeStrict(encoded []byte, into any) error {

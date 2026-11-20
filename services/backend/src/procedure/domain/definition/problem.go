@@ -45,6 +45,7 @@ const (
 	CodeOutcomesOutsideDecide    ProblemCode = "outcomes_outside_decide"
 	CodeUnknownNextStep          ProblemCode = "unknown_next_step"
 	CodeOutcomeLoops             ProblemCode = "outcome_loops"
+	CodeSendBackForward          ProblemCode = "send_back_forward"
 	CodeUnknownFieldType         ProblemCode = "unknown_field_type"
 	CodeOptionsOutsideOption     ProblemCode = "options_outside_option"
 	CodeOptionFieldNoOptions     ProblemCode = "option_field_no_options"
@@ -145,6 +146,8 @@ func (p ValidationProblem) text() (text string, aboutLast bool) {
 		return fmt.Sprintf("%s never reaches a closing step", last), true
 	case CodeOutcomeLoops:
 		return fmt.Sprintf("%s goes back to its own step", last), true
+	case CodeSendBackForward:
+		return fmt.Sprintf("%s is a send back but does not lead to an earlier step", last), true
 	case CodeNameInUse:
 		return fmt.Sprintf("name %q is already used by area %q", p.Value, p.Other), false
 	case CodeUnknownArea:

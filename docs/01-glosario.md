@@ -34,7 +34,7 @@ Cada paso tiene una sola de cuatro acciones, derivadas de la planilla de circuit
 - *Decidir* (`decide`): alguien elige una salida, con los datos y documentos que la fundamentan. Una aprobación es un paso que exige un permiso de aprobación: lo que la distingue es el permiso, no la acción. Es parte del proceso, no el resultado del trámite (ADR-009).
 
 **Salida** (`outcome`)
-Cada una de las opciones de una decisión, con el paso al que lleva. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
+Cada una de las opciones de una decisión, con el paso al que lleva. Una salida puede marcarse como devolución. Es parte del proceso, no un resultado del trámite: no confundir con "Resultado del trámite".
 
 **Área**
 Parte de la organización a la que pertenece el personal, como la Dirección de Alumnos, Mesa de Entradas o una Comisión Curricular. Las áreas existen solo para el personal: el titular no tiene área. Salvo la **Secretaría**, que trae SIGTA con el identificador `secretariat` y sus permisos de plataforma, no son fijas: se crean como datos de SIGTA, son comunes a todos los tipos de trámite y su personal se define con membresías (ADR-020). Cada paso dice su rol: los del titular (`applicant`) no tienen área, y los del personal (`staff`) son de un área. Las versiones publicadas antes del formato 3 modelaban al titular como un área de tipo `applicant`, y se convierten al leerlas.
@@ -58,7 +58,7 @@ Salida del trámite hacia un evaluador externo. En el modelo es pasar de un paso
 Vuelta del trámite desde el evaluador externo, con su dictamen adjunto. La plataforma registra el retorno y comunica el dictamen sin interpretarlo (ADR-009). En el modelo, el retorno es volver a un paso del área de la que salió la derivación (ADR-023).
 
 **Devolución**
-Vuelta del trámite a un paso anterior, decidida por la Secretaría e indicando el motivo.
+Vuelta del trámite a un paso anterior, decidida por la Secretaría e indicando el motivo. En el modelo es una salida de una decisión marcada como devolución (`send_back`), cuyo destino tiene que ser un paso anterior (ADR-025). Queda en el historial con quién, cuándo y el motivo, y si vuelve a un paso del titular, este lo ve.
 
 **Subsanación**
 Pedido puntual al titular para que complete o corrija algo, sin cerrar ni reiniciar el trámite. También canaliza los pedidos de ampliación que hace un evaluador externo.

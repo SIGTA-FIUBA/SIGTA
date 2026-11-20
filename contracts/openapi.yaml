@@ -982,7 +982,7 @@ components:
           description: Vacío si la persona no está registrada
     StepOutcome:
       type: object
-      required: [id, name, next]
+      required: [id, name, next, send_back]
       properties:
         id:
           type: string
@@ -991,6 +991,9 @@ components:
         next:
           type: string
           description: Paso al que lleva esa salida
+        send_back:
+          type: boolean
+          description: Si la salida devuelve el trámite a un paso anterior
     StepRole:
       type: string
       description: >
@@ -1645,7 +1648,7 @@ components:
           description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
     ProcedureEvent:
       type: object
-      required: [step, by, at, observation, declared, returned]
+      required: [step, by, at, observation, declared, send_back, returned]
       properties:
         step:
           type: string
@@ -1665,6 +1668,11 @@ components:
           description: >
             Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo
             confirmó, no el hecho (ADR-004)
+        send_back:
+          type: boolean
+          description: >
+            Si el evento devuelve el trámite a un paso anterior; la observación
+            es entonces el motivo
         next:
           type: string
           description: Paso que abre; ausente si cierra el trámite

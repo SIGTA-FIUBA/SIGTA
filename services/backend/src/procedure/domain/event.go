@@ -15,6 +15,7 @@ type Event struct {
 	Observation string
 	Outcome     string
 	Declared    bool
+	SendBack    bool
 	Next        string
 	Referral    *ReferralRecord
 	Returned    bool

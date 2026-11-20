@@ -83,6 +83,7 @@ func procedureEvent(e domain.Event, names map[string]string) api.ProcedureEvent 
 		At:          e.At,
 		Observation: e.Observation,
 		Declared:    e.Declared,
+		SendBack:    e.SendBack,
 		Returned:    e.Returned,
 	}
 	if e.Outcome != "" {
