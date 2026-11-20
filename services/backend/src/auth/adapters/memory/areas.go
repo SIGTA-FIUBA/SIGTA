@@ -62,9 +62,54 @@ func (r *AreaRepository) Save(_ context.Context, a domain.Area) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if i := slices.IndexFunc(r.areas, func(q domain.Area) bool { return q.ID == a.ID }); i >= 0 {
-		r.areas[i] = cloneArea(a)
+		r.areas[i] = merge(r.areas[i], cloneArea(a))
 		return nil
 	}
 	r.areas = append(r.areas, cloneArea(a))
 	return nil
+}
+
+// merge applies to stored the changes of a, which may have been read before
+// stored was saved.
+func merge(stored, a domain.Area) domain.Area {
+	if stored.Deleted() {
+		a.DeletedAt, a.DeletedBy = stored.DeletedAt, stored.DeletedBy
+	}
+	permissions := stored.Permissions
+	for _, p := range a.Permissions {
+		i := slices.IndexFunc(permissions, func(q domain.Permission) bool { return q.ID == p.ID })
+		switch {
+		case i < 0:
+			permissions = append(permissions, p)
+		case permissions[i].Deleted():
+			permissions[i].Name, permissions[i].System = p.Name, p.System
+		default:
+			permissions[i] = p
+		}
+	}
+	roles := stored.Roles
+	for _, role := range a.Roles {
+		i := slices.IndexFunc(roles, func(q domain.Role) bool { return q.ID == role.ID })
+		if i < 0 {
+			roles = append(roles, role)
+			continue
+		}
+		revisions := roles[i].Revisions
+		for _, revision := range role.Revisions {
+			if !slices.ContainsFunc(revisions, func(r domain.RoleRevision) bool { return sameRevision(r, revision) }) {
+				revisions = append(revisions, revision)
+			}
+		}
+		role.Revisions = revisions
+		if roles[i].Deleted() {
+			role.DeletedAt, role.DeletedBy = roles[i].DeletedAt, roles[i].DeletedBy
+		}
+		roles[i] = role
+	}
+	a.Permissions, a.Roles = permissions, roles
+	return a
+}
+
+func sameRevision(a, b domain.RoleRevision) bool {
+	return a.At.Equal(b.At) && a.By == b.By && slices.Equal(a.Permissions, b.Permissions)
 }

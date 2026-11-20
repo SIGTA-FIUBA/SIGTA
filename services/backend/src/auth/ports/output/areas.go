@@ -11,7 +11,9 @@ import (
 // domain.ErrAreaNotFound if there is no such area.
 // Save takes the whole area as Get returned it, with its changes: nothing is
 // removed from it, permissions and roles are only added or changed, and the
-// revisions of a role are only added at the end.
+// revisions of a role are only added at the end. An area read before another
+// Save does not undo it: what that Save added or deleted stays, and the
+// revisions of a role that are not stored yet go after the stored ones.
 type AreaRepository interface {
 	List(ctx context.Context) ([]domain.Area, error)
 	Get(ctx context.Context, id string) (domain.Area, error)

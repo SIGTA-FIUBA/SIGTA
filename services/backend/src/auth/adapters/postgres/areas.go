@@ -53,6 +53,8 @@ func (r *AreaRepository) Save(ctx context.Context, a domain.Area) error {
 	return nil
 }
 
+// save numbers what is new after what is stored, and keeps what is
+// deleted: a may have been read before another save.
 func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	if err := database.Lock(ctx, tx, areasLockKey); err != nil {
 		return err
@@ -60,31 +62,36 @@ func save(ctx context.Context, tx pgx.Tx, a domain.Area) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO areas (id, number, name, system, deleted_at, deleted_by)
 		SELECT $1, coalesce(max(number), 0) + 1, $2, $3, $4, $5 FROM areas
 		ON CONFLICT (id) DO UPDATE SET name = excluded.name, system = excluded.system,
-			deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
+			deleted_at = coalesce(areas.deleted_at, excluded.deleted_at),
+			deleted_by = coalesce(areas.deleted_by, excluded.deleted_by)`,
 		a.ID, a.Name, a.System, database.NullableTime(a.DeletedAt), database.Nullable(a.DeletedBy)); err != nil {
 		return err
 	}
-	for i, p := range a.Permissions {
+	for _, p := range a.Permissions {
 		if _, err := tx.Exec(ctx, `INSERT INTO area_permissions (area_id, id, number, name, system, deleted_at, deleted_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5, $6 FROM area_permissions WHERE area_id = $1
 			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name, system = excluded.system,
-				deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
-			a.ID, p.ID, i+1, p.Name, p.System, database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
+				deleted_at = coalesce(area_permissions.deleted_at, excluded.deleted_at),
+				deleted_by = coalesce(area_permissions.deleted_by, excluded.deleted_by)`,
+			a.ID, p.ID, p.Name, p.System, database.NullableTime(p.DeletedAt), database.Nullable(p.DeletedBy)); err != nil {
 			return err
 		}
 	}
-	for i, role := range a.Roles {
+	for _, role := range a.Roles {
 		if _, err := tx.Exec(ctx, `INSERT INTO area_roles (area_id, id, number, name, deleted_at, deleted_by)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5 FROM area_roles WHERE area_id = $1
 			ON CONFLICT (area_id, id) DO UPDATE SET name = excluded.name,
-				deleted_at = excluded.deleted_at, deleted_by = excluded.deleted_by`,
-			a.ID, role.ID, i+1, role.Name, database.NullableTime(role.DeletedAt), database.Nullable(role.DeletedBy)); err != nil {
+				deleted_at = coalesce(area_roles.deleted_at, excluded.deleted_at),
+				deleted_by = coalesce(area_roles.deleted_by, excluded.deleted_by)`,
+			a.ID, role.ID, role.Name, database.NullableTime(role.DeletedAt), database.Nullable(role.DeletedBy)); err != nil {
 			return err
 		}
-		for j, revision := range role.Revisions {
+		for _, revision := range role.Revisions {
 			if _, err := tx.Exec(ctx, `INSERT INTO area_role_revisions (area_id, role_id, number, permissions, revised_at, revised_by)
-				VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
-				a.ID, role.ID, j+1, database.Array(revision.Permissions), revision.At, revision.By); err != nil {
+				SELECT $1, $2, coalesce(max(number), 0) + 1, $3, $4, $5 FROM area_role_revisions
+				WHERE area_id = $1 AND role_id = $2
+				HAVING NOT coalesce(bool_or(permissions = $3 AND revised_at = $4 AND revised_by = $5), false)`,
+				a.ID, role.ID, database.Array(revision.Permissions), revision.At, revision.By); err != nil {
 				return err
 			}
 		}

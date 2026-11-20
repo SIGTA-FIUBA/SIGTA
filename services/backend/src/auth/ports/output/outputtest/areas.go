@@ -18,6 +18,7 @@ func TestAreaRepository(t *testing.T, newRepository func(t *testing.T) output.Ar
 	t.Run("round trip", func(t *testing.T) { areaRoundTrip(t, newRepository(t)) })
 	t.Run("list in the order added, without the deleted", func(t *testing.T) { listAreas(t, newRepository(t)) })
 	t.Run("changes keep what was there", func(t *testing.T) { changeArea(t, newRepository(t)) })
+	t.Run("an area read before another save does not undo it", func(t *testing.T) { saveOlderCopy(t, newRepository(t)) })
 	t.Run("concurrent new areas", func(t *testing.T) { concurrentNewAreas(t, newRepository(t)) })
 }
 
@@ -113,7 +114,7 @@ func changeArea(t *testing.T, r output.AreaRepository) {
 		},
 		func(a *domain.Area) { a.Permissions[0].DeletedAt, a.Permissions[0].DeletedBy = at, "admin" },
 		func(a *domain.Area) {
-			a.Permissions[0] = domain.Permission{ID: "review", Name: "Revisar casos", System: true}
+			a.Permissions[0].Name, a.Permissions[0].System = "Revisar casos", true
 		},
 		func(a *domain.Area) { a.Roles[0].DeletedAt, a.Roles[0].DeletedBy = at, "admin" },
 		func(a *domain.Area) { a.Name, a.System = "Mesa de entradas", true },
@@ -129,6 +130,40 @@ func changeArea(t *testing.T, r output.AreaRepository) {
 	}
 	if list, err := r.List(t.Context()); err != nil || len(list) != 0 {
 		t.Errorf("List() after deleting the only area = %+v, %v; want none", list, err)
+	}
+}
+
+// saveOlderCopy saves two changes made on the same reading of an area, as
+// two administrators editing it at once do.
+func saveOlderCopy(t *testing.T, r output.AreaRepository) {
+	initial := []domain.RoleRevision{{Permissions: []string{"review"}, At: at, By: "admin"}}
+	saveAreas(t, r, domain.Area{
+		ID: "office", Name: "Mesa",
+		Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}},
+		Roles:       []domain.Role{{ID: "reviewer", Name: "Revisor", Revisions: initial}},
+	})
+	first, second := getArea(t, r, "office"), getArea(t, r, "office")
+	byFirst := domain.RoleRevision{At: at.Add(time.Hour), By: "admin"}
+	first.Permissions = append(first.Permissions, domain.Permission{ID: "approve", Name: "Aprobar"})
+	first.Permissions[0].DeletedAt, first.Permissions[0].DeletedBy = at, "admin"
+	first.Roles[0].Revisions = append(first.Roles[0].Revisions, byFirst)
+	bySecond := domain.RoleRevision{Permissions: []string{"review"}, At: at.Add(2 * time.Hour), By: "otro"}
+	second.Name = "Mesa de entradas"
+	second.Permissions = append(second.Permissions, domain.Permission{ID: "sign", Name: "Firmar"})
+	second.Roles[0].Revisions = append(second.Roles[0].Revisions, bySecond)
+	saveAreas(t, r, first, second)
+
+	want := domain.Area{
+		ID: "office", Name: "Mesa de entradas",
+		Permissions: []domain.Permission{
+			{ID: "review", Name: "Revisar", DeletedAt: at, DeletedBy: "admin"},
+			{ID: "approve", Name: "Aprobar"},
+			{ID: "sign", Name: "Firmar"},
+		},
+		Roles: []domain.Role{{ID: "reviewer", Name: "Revisor", Revisions: append(initial, byFirst, bySecond)}},
+	}
+	if got := getArea(t, r, "office"); !reflect.DeepEqual(got, want) {
+		t.Errorf("Get() = %+v, want %+v", got, want)
 	}
 }
 
