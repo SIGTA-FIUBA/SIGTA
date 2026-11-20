@@ -245,6 +245,14 @@ func personIfAny(id string, names map[string]string) *api.Person {
 	return &p
 }
 
+// stringIfAny is nil when s is empty: the contract leaves the key out.
+func stringIfAny(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func valueOf(s *string) string {
 	if s == nil {
 		return ""

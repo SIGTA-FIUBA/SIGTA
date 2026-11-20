@@ -333,6 +333,10 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Name:      "Equivalencias",
 		StepName:  "Revisión",
 		State:     domain.StateInOffice,
+	}, {
+		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
+		Name:      "Equivalencias",
+		State:     domain.StateClosed,
 	}}}
 
 	recorder := listMine(t, procedures, session)
@@ -343,9 +347,16 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	want := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: "Revisión", State: api.InOffice, StartedAt: started, LastMovedAt: moved}
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("got %+v, want [%+v]", got, want)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want two procedures", got)
+	}
+	step := "Revisión"
+	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved}
+	if !reflect.DeepEqual(got[0], open) {
+		t.Errorf("open procedure = %+v, want %+v", got[0], open)
+	}
+	if got[1].State != api.Closed || got[1].StepName != nil {
+		t.Errorf("closed procedure = %+v, want it closed without an open step", got[1])
 	}
 }
 

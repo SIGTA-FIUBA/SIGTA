@@ -90,6 +90,7 @@ Se rechaza:
 - Una acción con lo que no le corresponde, como un documento en `enter_data`.
 - Una salida que lleva a su propio paso.
 - Una devolución que no lleva a un paso anterior (`send_back_forward`).
+- Una resolución que pide un paso del titular (`resolution_from_applicant`): la resolución la adjunta el personal.
 - Pasos inalcanzables desde el inicio o que nunca llegan a cerrar el trámite.
 - Una definición sin descripción, o un plazo o una condición de admisibilidad en blanco.
 - Un documento sin tipos aceptados o sin tamaño máximo, un tipo que no es un tipo de medio en minúsculas y sin parámetros (como `application/pdf`), un comodín (`image/*`, `*/*`), un tipo que la subida no puede reconocer en un archivo (ver Documentos) o un tipo repetido.
@@ -156,16 +157,16 @@ El titular abre su trámite en la misma dirección que el personal, `GET /proced
 
 - Ve el estado, el paso abierto y su área, si está derivado y adónde, y todos los pasos hechos con su fecha. De los pasos del personal ve el área, no la persona: el evento llega sin `by`, y un documento del personal, como la resolución, sin `uploaded_by`.
 - Ve los datos y documentos de sus propios pasos. Si el personal volvió a cargar un dato o un documento que pide un paso del titular, ve el último que cargó él, no el del personal.
-- No ve quién hizo cada paso del personal, las observaciones del personal (salvo el motivo de una devolución que vuelve a un paso suyo, ADR-025), el número de expediente externo, ni los datos y documentos de los pasos del personal. Los documentos que el personal adjunta tampoco aparecen en su historial.
+- No ve quién hizo cada paso del personal, la salida que eligió, las observaciones del personal (salvo el motivo de una devolución que vuelve a un paso suyo, ADR-025), el número de expediente externo, ni los datos y documentos de los pasos del personal. Los documentos que el personal adjunta tampoco aparecen en su historial.
 - Cuando el trámite se cierra, ve y descarga los documentos marcados como resolución (`resolution`). Antes de que se cierre no los ve, aunque ya estén adjuntos.
 
 En la web, a quien es titular la página del trámite le dice además qué se espera ahora: el paso abierto y quién lo tiene, o que está en evaluación fuera del área. Con el trámite cerrado, a cualquiera le muestra la sección "Resolución" con los documentos resolutivos, o le dice que se cerró sin uno.
 
-### Mis trámites en curso
+### Mis trámites
 
-`GET /me/procedures` devuelve los trámites que inició quien tiene la sesión y que todavía no se cerraron, primero los que se movieron más recientemente. Vale también para el personal, que inicia trámites como cualquiera: ve los suyos, no los de sus áreas, que están en la bandeja. Cada uno dice su tipo de trámite, el paso abierto, el estado y cuándo empezó y se movió por última vez, y nada de lo que pasó dentro de cada área. Lo arma `ProcedureDetailService.Mine`, con el mismo estado (`domain.StateOf`) que el detalle y la bandeja.
+`GET /me/procedures` devuelve los trámites que inició quien tiene la sesión, en curso y cerrados, primero los que se movieron más recientemente. Los cerrados se listan para que el titular llegue a la resolución (SIG-31): no tienen paso abierto (`step_name` no viene) y su último movimiento es el cierre. Vale también para el personal, que inicia trámites como cualquiera: ve los suyos, no los de sus áreas, que están en la bandeja. Cada uno dice su tipo de trámite, el paso abierto, el estado y cuándo empezó y se movió por última vez, y nada de lo que pasó dentro de cada área. Lo arma `ProcedureDetailService.Mine`, con el mismo estado (`domain.StateOf`) que el detalle y la bandeja.
 
-En la web, es la primera sección del inicio (`pages/HomePage.tsx`), adonde se llega al ingresar. Cada trámite lleva a su detalle.
+En la web, son las primeras secciones del inicio (`pages/HomePage.tsx`), adonde se llega al ingresar: "Mis trámites en curso" y, si hay alguno, "Mis trámites cerrados", con la fecha de cierre. Cada trámite lleva a su detalle.
 
 ## Base de datos
 

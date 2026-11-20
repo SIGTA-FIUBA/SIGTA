@@ -154,7 +154,7 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 			Id:                m.Procedure.ID,
 			ProcedureType:     m.Procedure.ProcedureType,
 			ProcedureTypeName: m.Name,
-			StepName:          m.StepName,
+			StepName:          stringIfAny(m.StepName),
 			State:             api.ProcedureState(m.State),
 			StartedAt:         m.Procedure.StartedAt,
 			LastMovedAt:       m.Procedure.MovedAt,

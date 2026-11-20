@@ -14,6 +14,14 @@ const inOffice = {
   started_at: '2026-11-02T12:00:00Z',
   last_moved_at: '2026-11-10T15:00:00Z',
 }
+const closed = {
+  id: 'P-3',
+  procedure_type: 1,
+  procedure_type_name: 'Pase de carrera',
+  state: 'closed',
+  started_at: '2026-10-01T12:00:00Z',
+  last_moved_at: '2026-11-05T15:00:00Z',
+}
 const withApplicant = {
   ...inOffice,
   id: 'P-2',
@@ -73,6 +81,35 @@ describe('HomePage', () => {
     expect(new URL(fetch.mock.calls[0]![0].url).pathname).toBe('/api/me/procedures')
   })
 
+  it('lists the closed procedures apart, leading to their detail', async () => {
+    stubApi(200, [inOffice, closed])
+    renderAs(false)
+
+    const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
+    const card = within(closedOnes).getByRole('link', { name: /Pase de carrera/ })
+    expect(card).toHaveAttribute('href', '/procedures/P-3')
+    expect(within(card).getByText('Cierre: 05/11/2026')).toBeVisible()
+    expect(within(card).queryByText(/Paso actual/)).not.toBeInTheDocument()
+    const inProgress = screen.getByRole('region', { name: 'Mis trámites en curso' })
+    expect(within(inProgress).queryByRole('link', { name: /Pase de carrera/ })).not.toBeInTheDocument()
+  })
+
+  it('says there is no procedure in progress when all of them are closed', async () => {
+    stubApi(200, [closed])
+    renderAs(false)
+
+    expect(await screen.findByText(/No hay trámites en curso/)).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Mis trámites cerrados' })).toBeVisible()
+  })
+
+  it('leaves out the closed section when no procedure is closed', async () => {
+    stubApi(200, [inOffice])
+    renderAs(false)
+
+    await screen.findByRole('link', { name: /Equivalencia entre asignaturas/ })
+    expect(screen.queryByRole('region', { name: 'Mis trámites cerrados' })).not.toBeInTheDocument()
+  })
+
   it('says when there is no procedure in progress', async () => {
     stubApi(200, [])
     renderAs(true)
@@ -84,7 +121,7 @@ describe('HomePage', () => {
     stubApi(500, { message: 'error' })
     renderAs(false)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los trámites en curso')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los trámites')
   })
 
   it('explains to an applicant how a procedure is done, and links to the catalog', () => {

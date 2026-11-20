@@ -145,7 +145,7 @@ func TestDetailFailsIfTheOpenStepIsNotInTheVersion(t *testing.T) {
 	}
 }
 
-func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
+func TestMineListsTheProceduresOfTheApplicantMostRecentlyMovedFirst(t *testing.T) {
 	f := newDocumentsFixture(t)
 	day := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 	for _, p := range []domain.Procedure{
@@ -172,7 +172,7 @@ func TestMineListsTheProceduresInProgressMostRecentlyMovedFirst(t *testing.T) {
 		got = append(got, m.Procedure.ID+" "+m.StepName+" "+string(m.State))
 	}
 	// P-1 is the fixture's own procedure, never moved.
-	want := []string{"P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
+	want := []string{"P-closed  closed", "P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
 	if !slices.Equal(got, want) {
 		t.Errorf("mine = %v, want %v", got, want)
 	}

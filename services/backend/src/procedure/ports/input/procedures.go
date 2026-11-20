@@ -51,7 +51,7 @@ type ProcedureDetails interface {
 type MyProcedure struct {
 	Procedure domain.Procedure
 	Name      string
-	StepName  string
+	StepName  string // empty once the procedure is closed
 	State     domain.State
 }
 

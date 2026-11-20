@@ -110,16 +110,17 @@ paths:
   /me/procedures:
     get:
       operationId: listMyProcedures
-      summary: Trámites en curso de la persona con sesión abierta
+      summary: Trámites de la persona con sesión abierta
       description: >
         Los trámites que inició quien tiene la sesión, sea o no del personal,
-        que todavía no se cerraron. Primero los que se movieron más
+        en curso y cerrados: un trámite cerrado se lista para que su titular
+        llegue a la resolución. Primero los que se movieron más
         recientemente. Cada uno se abre con su detalle.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
         "200":
-          description: Trámites en curso, vacío si no hay ninguno
+          description: Trámites de la persona, vacío si no hay ninguno
           content:
             application/json:
               schema:
@@ -1188,7 +1189,7 @@ components:
           $ref: "#/components/schemas/Person"
         step_name:
           type: string
-          description: Paso abierto, el que se espera ahora
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         area:
           description: Área del paso abierto; ausente si lo hace el titular
           allOf:
@@ -1204,7 +1205,7 @@ components:
         last_moved_at:
           type: string
           format: date-time
-          description: Cuándo el trámite llegó al paso abierto
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
         age_days:
           type: integer
           description: Días desde que empezó el trámite
@@ -1737,7 +1738,7 @@ components:
           type: string
     MyProcedure:
       type: object
-      required: [id, procedure_type, procedure_type_name, step_name, state, started_at, last_moved_at]
+      required: [id, procedure_type, procedure_type_name, state, started_at, last_moved_at]
       properties:
         id:
           type: string
@@ -1748,7 +1749,7 @@ components:
           type: string
         step_name:
           type: string
-          description: Paso abierto, el que se espera ahora
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         state:
           $ref: "#/components/schemas/ProcedureState"
         started_at:
@@ -1757,7 +1758,7 @@ components:
         last_moved_at:
           type: string
           format: date-time
-          description: Cuándo el trámite llegó al paso abierto
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
     ProcedureDetail:
       type: object
       required:

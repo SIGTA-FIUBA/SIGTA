@@ -77,9 +77,10 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	}, nil
 }
 
-// Mine leaves out the closed procedures and those of others, also for staff:
-// what goes through their areas is in the inbox. It fails, as the detail
-// does, if the open step of a procedure is not in its version.
+// Mine lists the procedures the person started, the closed ones too, so that
+// they reach their resolution. It leaves out those of others, also for staff:
+// what goes through their areas is in the inbox. It fails, as the detail does,
+// if the open step of a procedure is not in its version.
 func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]input.MyProcedure, error) {
 	all, err := s.procedures.procedures.List(ctx)
 	if err != nil {
@@ -87,7 +88,7 @@ func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]inp
 	}
 	mine := []input.MyProcedure{}
 	for _, p := range all {
-		if p.Applicant != userID || p.Closed() {
+		if p.Applicant != userID {
 			continue
 		}
 		content, err := s.procedures.content(ctx, p)
@@ -98,9 +99,12 @@ func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]inp
 		if err != nil {
 			return nil, err
 		}
-		// StateOf already found the open step in the definition.
-		step := content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })]
-		mine = append(mine, input.MyProcedure{Procedure: p, Name: content.Definition.Name, StepName: step.Name, State: state})
+		m := input.MyProcedure{Procedure: p, Name: content.Definition.Name, State: state}
+		if !p.Closed() {
+			// StateOf already found the open step in the definition.
+			m.StepName = content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })].Name
+		}
+		mine = append(mine, m)
 	}
 	slices.SortFunc(mine, func(a, b input.MyProcedure) int {
 		return cmp.Or(b.Procedure.MovedAt.Compare(a.Procedure.MovedAt), cmp.Compare(a.Procedure.ID, b.Procedure.ID))

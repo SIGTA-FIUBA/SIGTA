@@ -424,7 +424,7 @@ type Membership struct {
 type MyProcedure struct {
 	Id string `json:"id"`
 
-	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
@@ -433,8 +433,8 @@ type MyProcedure struct {
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
-	// StepName Paso abierto, el que se espera ahora
-	StepName string `json:"step_name"`
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+	StepName *string `json:"step_name,omitempty"`
 }
 
 // NamedOption defines model for NamedOption.
@@ -634,7 +634,7 @@ type ProcedureListItem struct {
 	Area *NamedOption `json:"area,omitempty"`
 	Id   string       `json:"id"`
 
-	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
@@ -643,7 +643,7 @@ type ProcedureListItem struct {
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
-	// StepName Paso abierto, el que se espera ahora
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
 	StepName string `json:"step_name"`
 }
 
@@ -1131,7 +1131,7 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
-	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// ListMyProcedures Trámites de la persona con sesión abierta
 	// (GET /me/procedures)
 	ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams)
 	// GrantMembership Otorga una membresía a una persona
@@ -4262,7 +4262,7 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
-	// ListMyProcedures Trámites en curso de la persona con sesión abierta
+	// ListMyProcedures Trámites de la persona con sesión abierta
 	// (GET /me/procedures)
 	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
 	// GrantMembership Otorga una membresía a una persona

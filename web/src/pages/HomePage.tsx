@@ -35,43 +35,70 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
             {stateNames[procedure.state]}
           </Badge>
         </Group>
-        <Text size="sm">Paso actual: {procedure.step_name}</Text>
-        <Text size="sm" c="dimmed">
-          Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
-        </Text>
+        {procedure.state === 'closed' ? (
+          <Text size="sm" c="dimmed">
+            Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
+          </Text>
+        ) : (
+          <>
+            <Text size="sm">Paso actual: {procedure.step_name}</Text>
+            <Text size="sm" c="dimmed">
+              Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
+            </Text>
+          </>
+        )}
       </Stack>
     </Paper>
   )
 }
 
-// MyProceduresSection lists what the person started and is not closed yet, so that
-// signing in answers where each procedure is.
+function MyProcedureGrid({ procedures }: { procedures: MyProcedure[] }) {
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+      {procedures.map((procedure) => (
+        <MyProcedureCard key={procedure.id} procedure={procedure} />
+      ))}
+    </SimpleGrid>
+  )
+}
+
+// MyProceduresSection lists what the person started, so that signing in
+// answers where each procedure is. The closed ones go apart, for their
+// applicant to reach the resolution.
 function MyProceduresSection() {
   const myProcedures = useMyProcedures()
+  const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []
+  const closed = myProcedures.data?.filter((procedure) => procedure.state === 'closed') ?? []
   return (
-    <section aria-labelledby="my-procedures">
-      <Stack gap="sm">
-        <Title order={2} id="my-procedures" size="h4">
-          Mis trámites en curso
-        </Title>
-        {myProcedures.isPending && <Loader aria-label="Cargando los trámites en curso" />}
-        {myProcedures.isError && (
-          <Alert color="red" role="alert">
-            No se pudieron cargar los trámites en curso. Volvé a intentarlo más tarde.
-          </Alert>
-        )}
-        {myProcedures.isSuccess && myProcedures.data.length === 0 && (
-          <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
-        )}
-        {myProcedures.isSuccess && myProcedures.data.length > 0 && (
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-            {myProcedures.data.map((procedure) => (
-              <MyProcedureCard key={procedure.id} procedure={procedure} />
-            ))}
-          </SimpleGrid>
-        )}
-      </Stack>
-    </section>
+    <>
+      <section aria-labelledby="my-procedures">
+        <Stack gap="sm">
+          <Title order={2} id="my-procedures" size="h4">
+            Mis trámites en curso
+          </Title>
+          {myProcedures.isPending && <Loader aria-label="Cargando los trámites" />}
+          {myProcedures.isError && (
+            <Alert color="red" role="alert">
+              No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+            </Alert>
+          )}
+          {myProcedures.isSuccess && inProgress.length === 0 && (
+            <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
+          )}
+          {inProgress.length > 0 && <MyProcedureGrid procedures={inProgress} />}
+        </Stack>
+      </section>
+      {closed.length > 0 && (
+        <section aria-labelledby="my-closed-procedures">
+          <Stack gap="sm">
+            <Title order={2} id="my-closed-procedures" size="h4">
+              Mis trámites cerrados
+            </Title>
+            <MyProcedureGrid procedures={closed} />
+          </Stack>
+        </section>
+      )}
+    </>
   )
 }
 

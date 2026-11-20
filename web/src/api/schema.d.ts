@@ -82,8 +82,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Trámites en curso de la persona con sesión abierta
-         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, que todavía no se cerraron. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         * Trámites de la persona con sesión abierta
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
          */
         get: operations["listMyProcedures"];
         put?: never;
@@ -576,7 +576,7 @@ export interface components {
             procedure_type: number;
             procedure_type_name: string;
             applicant: components["schemas"]["Person"];
-            /** @description Paso abierto, el que se espera ahora */
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name: string;
             /** @description Área del paso abierto; ausente si lo hace el titular */
             area?: components["schemas"]["NamedOption"];
@@ -587,7 +587,7 @@ export interface components {
             started_at: string;
             /**
              * Format: date-time
-             * @description Cuándo el trámite llegó al paso abierto
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
             /** @description Días desde que empezó el trámite */
@@ -854,14 +854,14 @@ export interface components {
             /** Format: int64 */
             procedure_type: number;
             procedure_type_name: string;
-            /** @description Paso abierto, el que se espera ahora */
-            step_name: string;
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
+            step_name?: string;
             state: components["schemas"]["ProcedureState"];
             /** Format: date-time */
             started_at: string;
             /**
              * Format: date-time
-             * @description Cuándo el trámite llegó al paso abierto
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
         };
@@ -1135,7 +1135,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Trámites en curso, vacío si no hay ninguno */
+            /** @description Trámites de la persona, vacío si no hay ninguno */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -43,8 +43,8 @@ export function useProcedure(id: string) {
   })
 }
 
-// useMyProcedures asks for the procedures in progress that the person
-// started, staff or not.
+// useMyProcedures asks for the procedures that the person started, staff or
+// not, in progress and closed.
 export function useMyProcedures() {
   return useQuery({
     queryKey: ['me', 'procedures'],
