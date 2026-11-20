@@ -118,8 +118,8 @@ func (w *authorizationWorld) newID() string {
 // can edit and publish procedure types.
 func (w *authorizationWorld) givenStaffAreas(first, second string) error {
 	areas := authmem.NewAreaRepository(
-		authdomain.Area{ID: areaID(first), Name: first},
-		authdomain.Area{ID: areaID(second), Name: second},
+		authdomain.Area{ID: idOf(first), Name: first},
+		authdomain.Area{ID: idOf(second), Name: second},
 	)
 	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
 		return err
@@ -232,7 +232,7 @@ func (w *authorizationWorld) givenProcedureType(name string, table *godog.Table)
 			ID:          id,
 			Name:        id,
 			Role:        definition.RoleStaff,
-			Area:        areaID(row.Cells[1].Value),
+			Area:        idOf(row.Cells[1].Value),
 			Permissions: list(row.Cells[2].Value),
 			Action:      definition.ActionConfirmExternalFact,
 		})
@@ -255,7 +255,7 @@ func (w *authorizationWorld) givenMemberships(table *godog.Table) error {
 	for _, row := range table.Rows[1:] {
 		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID:      row.Cells[0].Value,
-			Area:        areaID(row.Cells[1].Value),
+			Area:        idOf(row.Cells[1].Value),
 			Permissions: list(row.Cells[2].Value),
 			Scope:       w.scope(row.Cells[3].Value),
 		})
@@ -273,7 +273,7 @@ func (w *authorizationWorld) givenMembershipUntil(administrator, user, area, per
 	}
 	_, err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
-		Area:        areaID(area),
+		Area:        idOf(area),
 		Permissions: list(permissions),
 		Until:       end,
 	})
@@ -319,7 +319,7 @@ func (w *authorizationWorld) grant(administrator, user, area, permissions, scope
 	w.user = administrator
 	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
-		Area:        areaID(area),
+		Area:        idOf(area),
 		Permissions: list(permissions),
 		Scope:       w.scope(scope),
 	})
@@ -332,7 +332,7 @@ func (w *authorizationWorld) end(administrator, user, area string) error {
 		return err
 	}
 	for _, m := range all {
-		if m.Area == areaID(area) {
+		if m.Area == idOf(area) {
 			w.membership = m
 			return w.memberships.End(ctx, administrator, m.ID)
 		}
@@ -550,7 +550,7 @@ func list(cell string) []string {
 // givenAreaPermissions creates each quoted permission, named as its ID.
 func (w *authorizationWorld) givenAreaPermissions(area, permissions string) error {
 	for _, m := range quoted.FindAllStringSubmatch(permissions, -1) {
-		if _, err := w.areas.CreatePermission(context.Background(), scenarioAdministrator, areaID(area), authdomain.Permission{ID: m[1], Name: m[1]}); err != nil {
+		if _, err := w.areas.CreatePermission(context.Background(), scenarioAdministrator, idOf(area), authdomain.Permission{ID: m[1], Name: m[1]}); err != nil {
 			return err
 		}
 	}
@@ -562,7 +562,7 @@ func (w *authorizationWorld) thenPublishesWithArea(area, permissions, can string
 		ID:          "review",
 		Name:        "Revisión",
 		Role:        definition.RoleStaff,
-		Area:        areaID(area),
+		Area:        idOf(area),
 		Permissions: list(permissions),
 		Action:      definition.ActionConfirmExternalFact,
 	}}
@@ -577,7 +577,7 @@ func (w *authorizationWorld) thenPublishesWithArea(area, permissions, can string
 }
 
 func (w *authorizationWorld) givenRole(area, role, permissions string) error {
-	_, err := w.areas.CreateRole(context.Background(), scenarioAdministrator, areaID(area), authinput.NewRole{ID: role, Name: role, Permissions: list(permissions)})
+	_, err := w.areas.CreateRole(context.Background(), scenarioAdministrator, idOf(area), authinput.NewRole{ID: role, Name: role, Permissions: list(permissions)})
 	return err
 }
 
@@ -585,14 +585,14 @@ func (w *authorizationWorld) grantRole(administrator, user, area, role, permissi
 	w.user = administrator
 	w.membership, w.err = w.memberships.Grant(context.Background(), administrator, authinput.MembershipGrant{
 		UserID:      user,
-		Area:        areaID(area),
+		Area:        idOf(area),
 		Roles:       []string{role},
 		Permissions: list(permissions),
 	})
 }
 
 func (w *authorizationWorld) changeRole(administrator, role, area, permissions string) error {
-	_, err := w.areas.UpdateRolePermissions(context.Background(), administrator, areaID(area), role, list(permissions))
+	_, err := w.areas.UpdateRolePermissions(context.Background(), administrator, idOf(area), role, list(permissions))
 	return err
 }
 
@@ -610,7 +610,7 @@ func (w *authorizationWorld) thenVersion(result string) error {
 }
 
 func (w *authorizationWorld) thenRoleChangedBy(role, area, administrator string) error {
-	stored, err := w.storedAreas.Get(context.Background(), areaID(area))
+	stored, err := w.storedAreas.Get(context.Background(), idOf(area))
 	if err != nil {
 		return err
 	}

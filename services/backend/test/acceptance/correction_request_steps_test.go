@@ -51,7 +51,7 @@ func (w *correctionWorld) send(user, requirements, reason string) error {
 	}
 	r := input.CorrectionRequest{Step: p.OpenStep, Reason: reason}
 	for _, name := range list(requirements) {
-		id := areaID(name)
+		id := idOf(name)
 		if slices.ContainsFunc(w.definition.Documents, func(d definition.Document) bool { return d.ID == id }) {
 			r.Documents = append(r.Documents, id)
 		} else {

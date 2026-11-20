@@ -37,14 +37,14 @@ Feature: Request a correction from the applicant
 
   Scenario: the procedure waits for the applicant without leaving its step
     When "operative@fi.uba.ar" requests a correction of "subjects" because "the subject codes are missing"
-    Then the procedure moves to the "check" step
+    Then the procedure stays on the "check" step
     And its state is with the applicant
 
   Scenario: the step is not confirmed while the applicant has a correction to make
     Given "operative@fi.uba.ar" requested a correction of "subjects" because "the subject codes are missing"
     When "operative@fi.uba.ar" confirms the "check" step
     Then the confirmation is rejected
-    And the procedure moves to the "check" step
+    And the procedure stays on the "check" step
 
   Scenario: the procedure leaves the inbox of whoever acts on the step until the applicant answers
     When "operative@fi.uba.ar" requests a correction of "subjects" because "the subject codes are missing"

@@ -69,7 +69,7 @@ func (w *historyWorld) givenSubmitted(user, name, date string) error {
 }
 
 func (w *historyWorld) givenConfirmedWith(user, step, outcome, observation string) error {
-	return w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: areaID(outcome)})
+	return w.send(user, step, input.StepConfirmation{Observation: observation, Outcome: idOf(outcome)})
 }
 
 func (w *historyWorld) givenRead(user string) error {
@@ -103,7 +103,7 @@ func (w *historyWorld) upload(user, fileName, requirement string) error {
 	documents := application.NewDocumentService(w.service, w.documents, files, w.newID, func() time.Time { return w.now })
 	_, err = documents.Attach(context.Background(), user, input.Upload{
 		ProcedureID: w.current,
-		Requirement: areaID(requirement),
+		Requirement: idOf(requirement),
 		FileName:    fileName,
 		Content:     bytes.NewReader([]byte("%PDF-1.7\n")),
 	})
@@ -167,7 +167,7 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 		}
 		for column, want := range row {
 			if column == "outcome" || column == "document" {
-				want = areaID(want)
+				want = idOf(want)
 			}
 			if got[column] != want {
 				return fmt.Errorf("entry %d: %s = %q, want %q", i+1, column, got[column], want)
