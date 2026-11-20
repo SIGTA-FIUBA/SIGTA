@@ -683,8 +683,10 @@ paths:
       description: >
         Solo para administradores (ADR-020). La membresía pone a la persona en
         un área con algunos de sus roles y permisos, opcionalmente solo para
-        algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de
-        otra membresía vigente de la misma persona.
+        algunos tipos de trámite (scope), y con una vigencia. La persona tiene
+        que haber entrado a SIGTA con su cuenta al menos una vez. No puede
+        repetir el área y el alcance de otra membresía vigente de la misma
+        persona.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -738,6 +740,8 @@ paths:
         fin, y con los roles y permisos nuevos. La nueva vale desde ahora, o
         desde el inicio de la anterior si todavía no empezó. Así la historia
         dice qué permisos tuvo la persona en cada momento.
+        Como otorga una membresía, la persona tiene que haber entrado a SIGTA;
+        la de alguien que nunca entró solo se termina.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - $ref: "#/components/parameters/MembershipId"
@@ -773,8 +777,9 @@ paths:
         membresía o la administración. Una persona queda registrada al entrar
         a SIGTA con su cuenta. Devuelve hasta 10 personas cuyo nombre o correo
         contiene el texto, sin distinguir mayúsculas ni tildes, ordenadas por
-        nombre. Con menos de 2 caracteres no devuelve a nadie, para no listar
-        a quienes entraron.
+        nombre. Con menos de 2 caracteres no devuelve a nadie, porque casi todos
+        coincidirían. El límite es por pedido: un administrador puede ver a
+        cualquier persona que entró (DU-46).
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - name: q
@@ -2110,7 +2115,7 @@ components:
         id:
           type: string
         person:
-          $ref: "#/components/schemas/RegisteredPerson"
+          $ref: "#/components/schemas/GrantedPerson"
         roles:
           type: array
           items:
@@ -2136,17 +2141,33 @@ components:
           $ref: "#/components/schemas/Person"
     RegisteredPerson:
       type: object
+      description: Una persona que entró a SIGTA con su cuenta
+      required: [id, name, email]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+    GrantedPerson:
+      type: object
+      description: >
+        La persona de una membresía o de la administración. Una otorgada antes
+        de que se exigiera haber entrado a SIGTA puede nombrar a alguien que
+        nunca entró: entonces solo trae el identificador.
       required: [id, name]
       properties:
         id:
           type: string
         name:
           type: string
-          description: Vacío si la persona no está registrada
+          description: Vacío si la persona nunca entró a SIGTA
         email:
           type: string
           format: email
-          description: Ausente si la persona no está registrada
+          description: Ausente si la persona nunca entró a SIGTA
     Administrator:
       type: object
       required: [id, person, from]
@@ -2154,7 +2175,7 @@ components:
         id:
           type: string
         person:
-          $ref: "#/components/schemas/RegisteredPerson"
+          $ref: "#/components/schemas/GrantedPerson"
         from:
           type: string
           format: date-time

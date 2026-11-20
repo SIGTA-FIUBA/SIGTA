@@ -141,7 +141,7 @@ func (h *AdministrationHandler) ListAreaMemberships(ctx context.Context, req api
 	for _, m := range memberships {
 		response = append(response, api.AreaMembership{
 			Id:          m.ID,
-			Person:      registeredPerson(m.UserID, users),
+			Person:      grantedPerson(m.UserID, users),
 			Roles:       nonNil(m.Roles),
 			Permissions: nonNil(m.Permissions),
 			Scope:       valueOrEmpty(&m.Scope),
@@ -202,17 +202,17 @@ func (h *AdministrationHandler) ChangeMembershipPermissions(ctx context.Context,
 	return api.ChangeMembershipPermissions200JSONResponse(membershipOf(m)), nil
 }
 
-// registeredPerson shows an id that is not a user, as an older membership
-// may name, with an empty name and no email; the client shows the id.
-func registeredPerson(id string, users map[string]domain.User) api.RegisteredPerson {
+// grantedPerson shows an id that is not a user, as an older membership may
+// name, with an empty name and no email; the client shows the id.
+func grantedPerson(id string, users map[string]domain.User) api.GrantedPerson {
 	user, ok := users[id]
 	if !ok {
-		return api.RegisteredPerson{Id: id}
+		return api.GrantedPerson{Id: id}
 	}
-	return personOf(user)
+	email := openapi_types.Email(user.Email)
+	return api.GrantedPerson{Id: user.ID, Name: user.Name, Email: &email}
 }
 
 func personOf(user domain.User) api.RegisteredPerson {
-	email := openapi_types.Email(user.Email)
-	return api.RegisteredPerson{Id: user.ID, Name: user.Name, Email: &email}
+	return api.RegisteredPerson{Id: user.ID, Name: user.Name, Email: openapi_types.Email(user.Email)}
 }

@@ -226,6 +226,41 @@ describe('AdministrationPage', () => {
     expect(screen.queryByText(/Nadie que haya ingresado/)).not.toBeInTheDocument()
   })
 
+  it('does not search with a single emoji, which the server counts as one character', async () => {
+    const fetch = stubApi(reads)
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Persona' }), '😀')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    const searches = fetch.mock.calls.filter(([request]) => new URL(request.url).pathname.endsWith('/people'))
+    expect(searches).toEqual([])
+  })
+
+  it('says when the search is refused because the person is no longer an administrator', async () => {
+    stubApi({ ...reads, '/people': { status: 403, body: { message: 'Acceso denegado.' } } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Otorgar una membresía' }))
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Persona' }), 'dos')
+
+    expect(await within(panel).findByText('Solo una persona administradora puede ver esta página.')).toBeVisible()
+  })
+
+  it('only ends the membership of someone who never entered SIGTA', async () => {
+    const unknown = { ...membership, person: { id: 'nadie', name: '' } }
+    stubApi({ ...reads, '/areas/office/memberships': { status: 200, body: [unknown] } })
+    renderPage()
+
+    const panel = await area('Dirección de Alumnos')
+    expect(await within(panel).findByText(/Nunca ingresó a SIGTA/)).toBeVisible()
+    expect(within(panel).getByRole('button', { name: 'Terminar la membresía de nadie' })).toBeVisible()
+    expect(within(panel).queryByRole('button', { name: 'Cambiar los permisos de nadie' })).not.toBeInTheDocument()
+  })
+
   it('changes the permissions of a membership', async () => {
     const fetch = stubApi(reads, { 'PUT /memberships/m1/permissions': { status: 200, body: {} } })
     renderPage()

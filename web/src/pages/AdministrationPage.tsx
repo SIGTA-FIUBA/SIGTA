@@ -20,7 +20,7 @@ import { useState, type ReactNode } from 'react'
 import { useRevalidator, useSearchParams } from 'react-router'
 import {
   actions,
-  peopleSearchMinimum,
+  searchesPeople,
   useAdministrationChange,
   useAdministrators,
   useAreaMemberships,
@@ -98,7 +98,7 @@ function PersonSearch({
   const [debounced] = useDebouncedValue(text, 300)
   const search = usePeopleSearch(debounced)
   const people = search.data ?? []
-  const searched = debounced.trim().length >= peopleSearchMinimum && search.isSuccess
+  const searched = searchesPeople(debounced) && search.isSuccess
 
   if (person !== null) {
     return (
@@ -146,7 +146,13 @@ function PersonSearch({
           : undefined
       }
       rightSection={search.isFetching ? <Loader size="xs" /> : undefined}
-      error={search.isError ? 'No pudimos buscar a la persona. Revisá tu conexión y volvé a intentarlo.' : undefined}
+      error={
+        search.isError
+          ? search.error instanceof ForbiddenError
+            ? notAdministrator
+            : 'No pudimos buscar a la persona. Revisá tu conexión y volvé a intentarlo.'
+          : undefined
+      }
     />
   )
 }
@@ -236,7 +242,7 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
         <Stack gap={0}>
           <Text fw={600}>{person}</Text>
           <Text size="sm" c="dimmed">
-            {membership.person.email}
+            {membership.person.email ?? 'Nunca ingresó a SIGTA: esta membresía solo se puede terminar.'}
           </Text>
         </Stack>
         {editing ? (
@@ -288,20 +294,22 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
             <Text size="sm" c="dimmed">
               Desde el {dateFormat.format(new Date(membership.from))}
               {membership.until ? ` hasta el ${dateFormat.format(new Date(membership.until))}` : ', sin fecha de fin'}.
-              Otorgada por {membership.granted_by.name || 'una persona que ya no está registrada'}.
+              Otorgada por {membership.granted_by.name || 'alguien que nunca ingresó a SIGTA'}.
             </Text>
           </Stack>
         )}
         {!editing && (
           <Group gap="xs">
-            <Button
-              variant="subtle"
-              size="xs"
-              aria-label={`Cambiar los permisos de ${person}`}
-              onClick={() => setEditing(true)}
-            >
-              Cambiar permisos
-            </Button>
+            {membership.person.email !== undefined && (
+              <Button
+                variant="subtle"
+                size="xs"
+                aria-label={`Cambiar los permisos de ${person}`}
+                onClick={() => setEditing(true)}
+              >
+                Cambiar permisos
+              </Button>
+            )}
             <ConfirmButton
               label="Terminar"
               ariaLabel={`Terminar la membresía de ${person}`}
@@ -363,7 +371,7 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
           />
           <TextInput
             label="Hasta"
-            description="Opcional. Sin fecha, vale hasta que se la termine."
+            description="Opcional. Vale hasta el final de ese día, incluido. Sin fecha, vale hasta que se la termine."
             type="date"
             min={today()}
             value={until}
@@ -863,7 +871,7 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
             <Text size="sm" c="dimmed">
               Desde el {dateFormat.format(new Date(administrator.from))}.{' '}
               {administrator.granted_by
-                ? `Otorgada por ${administrator.granted_by.name || 'una persona que ya no está registrada'}.`
+                ? `Otorgada por ${administrator.granted_by.name || 'alguien que nunca ingresó a SIGTA'}.`
                 : 'Primera persona administradora, dada al instalar SIGTA.'}
             </Text>
           </Stack>

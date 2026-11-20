@@ -247,10 +247,12 @@ func (e SubmissionProblemKind) Valid() bool {
 
 // Administrator defines model for Administrator.
 type Administrator struct {
-	From      time.Time        `json:"from"`
-	GrantedBy *Person          `json:"granted_by,omitempty"`
-	Id        string           `json:"id"`
-	Person    RegisteredPerson `json:"person"`
+	From      time.Time `json:"from"`
+	GrantedBy *Person   `json:"granted_by,omitempty"`
+	Id        string    `json:"id"`
+
+	// Person La persona de una membresía o de la administración. Una otorgada antes de que se exigiera haber entrado a SIGTA puede nombrar a alguien que nunca entró: entonces solo trae el identificador.
+	Person GrantedPerson `json:"person"`
 }
 
 // Area defines model for Area.
@@ -266,12 +268,14 @@ type Area struct {
 
 // AreaMembership defines model for AreaMembership.
 type AreaMembership struct {
-	From        time.Time        `json:"from"`
-	GrantedBy   Person           `json:"granted_by"`
-	Id          string           `json:"id"`
-	Permissions []string         `json:"permissions"`
-	Person      RegisteredPerson `json:"person"`
-	Roles       []string         `json:"roles"`
+	From        time.Time `json:"from"`
+	GrantedBy   Person    `json:"granted_by"`
+	Id          string    `json:"id"`
+	Permissions []string  `json:"permissions"`
+
+	// Person La persona de una membresía o de la administración. Una otorgada antes de que se exigiera haber entrado a SIGTA puede nombrar a alguien que nunca entró: entonces solo trae el identificador.
+	Person GrantedPerson `json:"person"`
+	Roles  []string      `json:"roles"`
 
 	// Scope Tipos de trámite a los que se limita. Vacío vale para todos
 	Scope []int64 `json:"scope"`
@@ -428,6 +432,16 @@ type FieldRequirement struct {
 
 // FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
 type FieldType string
+
+// GrantedPerson La persona de una membresía o de la administración. Una otorgada antes de que se exigiera haber entrado a SIGTA puede nombrar a alguien que nunca entró: entonces solo trae el identificador.
+type GrantedPerson struct {
+	// Email Ausente si la persona nunca entró a SIGTA
+	Email *openapi_types.Email `json:"email,omitempty"`
+	Id    string               `json:"id"`
+
+	// Name Vacío si la persona nunca entró a SIGTA
+	Name string `json:"name"`
+}
 
 // HistoryCorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
 type HistoryCorrectionRequest struct {
@@ -882,14 +896,11 @@ type Referral struct {
 	To string `json:"to"`
 }
 
-// RegisteredPerson defines model for RegisteredPerson.
+// RegisteredPerson Una persona que entró a SIGTA con su cuenta
 type RegisteredPerson struct {
-	// Email Ausente si la persona no está registrada
-	Email *openapi_types.Email `json:"email,omitempty"`
-	Id    string               `json:"id"`
-
-	// Name Vacío si la persona no está registrada
-	Name string `json:"name"`
+	Email openapi_types.Email `json:"email"`
+	Id    string              `json:"id"`
+	Name  string              `json:"name"`
 }
 
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento

@@ -413,7 +413,7 @@ export interface paths {
         put?: never;
         /**
          * Otorga una membresía a una persona
-         * @description Solo para administradores (ADR-020). La membresía pone a la persona en un área con algunos de sus roles y permisos, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
+         * @description Solo para administradores (ADR-020). La membresía pone a la persona en un área con algunos de sus roles y permisos, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. La persona tiene que haber entrado a SIGTA con su cuenta al menos una vez. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
          */
         post: operations["grantMembership"];
         delete?: never;
@@ -452,7 +452,7 @@ export interface paths {
         get?: never;
         /**
          * Cambia los roles y permisos de una membresía
-         * @description Solo para administradores (ADR-020). Termina la membresía y otorga otra a la misma persona, en la misma área, con el mismo alcance y el mismo fin, y con los roles y permisos nuevos. La nueva vale desde ahora, o desde el inicio de la anterior si todavía no empezó. Así la historia dice qué permisos tuvo la persona en cada momento.
+         * @description Solo para administradores (ADR-020). Termina la membresía y otorga otra a la misma persona, en la misma área, con el mismo alcance y el mismo fin, y con los roles y permisos nuevos. La nueva vale desde ahora, o desde el inicio de la anterior si todavía no empezó. Así la historia dice qué permisos tuvo la persona en cada momento. Como otorga una membresía, la persona tiene que haber entrado a SIGTA; la de alguien que nunca entró solo se termina.
          */
         put: operations["changeMembershipPermissions"];
         post?: never;
@@ -471,7 +471,7 @@ export interface paths {
         };
         /**
          * Busca personas registradas por parte del nombre o del correo
-         * @description Solo para administradores (ADR-020), para otorgarle a alguien una membresía o la administración. Una persona queda registrada al entrar a SIGTA con su cuenta. Devuelve hasta 10 personas cuyo nombre o correo contiene el texto, sin distinguir mayúsculas ni tildes, ordenadas por nombre. Con menos de 2 caracteres no devuelve a nadie, para no listar a quienes entraron.
+         * @description Solo para administradores (ADR-020), para otorgarle a alguien una membresía o la administración. Una persona queda registrada al entrar a SIGTA con su cuenta. Devuelve hasta 10 personas cuyo nombre o correo contiene el texto, sin distinguir mayúsculas ni tildes, ordenadas por nombre. Con menos de 2 caracteres no devuelve a nadie, porque casi todos coincidirían. El límite es por pedido: un administrador puede ver a cualquier persona que entró (DU-46).
          */
         get: operations["searchPeople"];
         put?: never;
@@ -1065,7 +1065,7 @@ export interface components {
         };
         AreaMembership: {
             id: string;
-            person: components["schemas"]["RegisteredPerson"];
+            person: components["schemas"]["GrantedPerson"];
             roles: string[];
             permissions: string[];
             /** @description Tipos de trámite a los que se limita. Vacío vale para todos */
@@ -1079,19 +1079,27 @@ export interface components {
             until?: string;
             granted_by: components["schemas"]["Person"];
         };
+        /** @description Una persona que entró a SIGTA con su cuenta */
         RegisteredPerson: {
             id: string;
-            /** @description Vacío si la persona no está registrada */
+            name: string;
+            /** Format: email */
+            email: string;
+        };
+        /** @description La persona de una membresía o de la administración. Una otorgada antes de que se exigiera haber entrado a SIGTA puede nombrar a alguien que nunca entró: entonces solo trae el identificador. */
+        GrantedPerson: {
+            id: string;
+            /** @description Vacío si la persona nunca entró a SIGTA */
             name: string;
             /**
              * Format: email
-             * @description Ausente si la persona no está registrada
+             * @description Ausente si la persona nunca entró a SIGTA
              */
             email?: string;
         };
         Administrator: {
             id: string;
-            person: components["schemas"]["RegisteredPerson"];
+            person: components["schemas"]["GrantedPerson"];
             /** Format: date-time */
             from: string;
             /** @description Ausente en el primer administrador, que se otorga por consola */

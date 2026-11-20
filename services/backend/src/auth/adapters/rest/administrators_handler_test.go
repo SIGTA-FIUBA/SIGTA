@@ -8,7 +8,7 @@ import (
 	"backend/src/api"
 )
 
-func emailOf(p api.RegisteredPerson) string {
+func emailOf(p api.GrantedPerson) string {
 	if p.Email == nil {
 		return ""
 	}
@@ -22,7 +22,7 @@ func TestAnAdministratorSearchesPeople(t *testing.T) {
 	res, err := get(t, admin, srv.URL+"/people?q=TITU")
 	var people []api.RegisteredPerson
 	decode(t, res, err, http.StatusOK, &people)
-	if len(people) != 1 || people[0].Id != "u1" || people[0].Name != "Titular" || emailOf(people[0]) != "titular@fi.uba.ar" {
+	if len(people) != 1 || people[0].Id != "u1" || people[0].Name != "Titular" || people[0].Email != "titular@fi.uba.ar" {
 		t.Fatalf("people = %+v", people)
 	}
 	res, err = get(t, admin, srv.URL+"/people?q=nadie")

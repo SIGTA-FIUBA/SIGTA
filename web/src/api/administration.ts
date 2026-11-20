@@ -76,8 +76,11 @@ export function useAdministrators() {
   })
 }
 
-// The shortest text the server searches people with; shorter finds nobody.
-export const peopleSearchMinimum = 2
+// searchesPeople tells whether the server searches people with text: it
+// needs 2 characters, counted as the server counts them, so an emoji is one.
+export function searchesPeople(text: string) {
+  return [...text.trim()].length >= 2
+}
 
 // usePeopleSearch looks for who entered SIGTA by part of the name or email.
 // The server folds case and accents and answers up to 10 people, so the list
@@ -86,7 +89,7 @@ export function usePeopleSearch(text: string) {
   const query = text.trim()
   return useQuery({
     queryKey: ['people', query],
-    enabled: query.length >= peopleSearchMinimum,
+    enabled: searchesPeople(query),
     queryFn: async () => {
       const { data, response } = await api.GET('/people', { params: { query: { q: query } } })
       return forbiddenOr('/people', data, response)

@@ -122,7 +122,7 @@ func (h *AdministrationHandler) EndAdministrator(ctx context.Context, req api.En
 // administratorOf leaves granted_by out for the initial grant of the system,
 // which nobody in SIGTA granted.
 func administratorOf(a domain.Administrator, users map[string]domain.User) api.Administrator {
-	administrator := api.Administrator{Id: a.ID, Person: registeredPerson(a.UserID, users), From: a.From}
+	administrator := api.Administrator{Id: a.ID, Person: grantedPerson(a.UserID, users), From: a.From}
 	if a.GrantedBy != "" {
 		administrator.GrantedBy = &api.Person{Id: a.GrantedBy, Name: users[a.GrantedBy].Name}
 	}
