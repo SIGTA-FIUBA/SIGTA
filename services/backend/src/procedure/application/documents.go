@@ -119,7 +119,8 @@ func attachedEvent(d domain.Document) domain.Event {
 	}
 }
 
-// List shows the applicant only the documents they see (detail.Applicant).
+// List shows the applicant only the documents they see (detail.Applicant),
+// and which of those is current for each requirement.
 func (s *DocumentService) List(ctx context.Context, userID, procedureID string) ([]input.AttachedDocument, error) {
 	p, content, err := s.procedures.visible(ctx, userID, procedureID)
 	if err != nil {
@@ -129,19 +130,15 @@ func (s *DocumentService) List(ctx context.Context, userID, procedureID string) 
 	if err != nil {
 		return nil, fmt.Errorf("documents of %s: %w", procedureID, err)
 	}
+	if p.Applicant == userID {
+		documents = detail.ForApplicant(content, p).Documents(documents)
+	}
 	current := map[string]bool{}
 	for _, d := range domain.Current(documents) {
 		current[d.ID] = true
 	}
 	attached := make([]input.AttachedDocument, 0, len(documents))
-	applicant := detail.ForApplicant(content, p)
 	for _, d := range documents {
-		if p.Applicant == userID {
-			if !applicant.Sees(d) {
-				continue
-			}
-			d = applicant.Document(d)
-		}
 		attached = append(attached, input.AttachedDocument{Document: d, Current: current[d.ID]})
 	}
 	return attached, nil

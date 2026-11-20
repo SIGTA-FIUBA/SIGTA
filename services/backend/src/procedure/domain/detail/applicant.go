@@ -30,12 +30,20 @@ func (a Applicant) Sees(d domain.Document) bool {
 	return a.sees(d.Step, d.Requirement)
 }
 
-// Document leaves out who attached a document of a staff step.
-func (a Applicant) Document(d domain.Document) domain.Document {
-	if !a.ownStep(d.Step) {
-		d.UploadedBy = ""
+// Documents keeps the documents the applicant sees, without who attached
+// those of staff steps.
+func (a Applicant) Documents(attached []domain.Document) []domain.Document {
+	seen := make([]domain.Document, 0, len(attached))
+	for _, d := range attached {
+		if !a.Sees(d) {
+			continue
+		}
+		if !a.ownStep(d.Step) {
+			d.UploadedBy = ""
+		}
+		seen = append(seen, d)
 	}
-	return d
+	return seen
 }
 
 func (a Applicant) sees(step, requirement string) bool {
@@ -53,29 +61,28 @@ func (a Applicant) ownStep(id string) bool {
 	})
 }
 
-// Steps leaves the fields and values of staff steps out, and their documents
-// but the resolution once the procedure closes. In the steps of the applicant it
-// leaves out a value or a file that staff entered for the same requirement.
-func (a Applicant) Steps(steps []Step) []Step {
-	seen := make([]Step, 0, len(steps))
-	for _, s := range steps {
-		if s.Step.Role != definition.RoleApplicant {
-			s.Fields, s.Values = nil, nil
-			s.Documents = slices.DeleteFunc(slices.Clone(s.Documents), func(r definition.DocumentRequirement) bool {
-				return !a.closed || !r.Document.Resolution
-			})
+// Steps puts together the steps as the applicant sees them, with the values
+// and documents they see: in their own steps, the last value or file they
+// entered, even if staff entered another one for the same requirement later.
+// Staff steps come without fields nor values, and without documents but the
+// resolution once the procedure closes.
+func (a Applicant) Steps(attached []domain.Document, entered []domain.FieldValue) []Step {
+	entered = slices.DeleteFunc(slices.Clone(entered), func(v domain.FieldValue) bool { return !a.ownStep(v.Step) })
+	steps := WithValues(WithFiles(Steps(a.content), a.Documents(attached)), entered)
+	for i, s := range steps {
+		if s.Step.Role == definition.RoleApplicant {
+			continue
 		}
-		s.Values = slices.DeleteFunc(slices.Clone(s.Values), func(v domain.FieldValue) bool { return !a.ownStep(v.Step) })
-		files := make([]domain.Document, 0, len(s.Files))
-		for _, d := range s.Files {
-			if a.Sees(d) {
-				files = append(files, a.Document(d))
-			}
-		}
-		s.Files = files
-		seen = append(seen, s)
+		s.Fields, s.Values = nil, nil
+		s.Documents = slices.DeleteFunc(slices.Clone(s.Documents), func(r definition.DocumentRequirement) bool {
+			return !a.closed || !r.Document.Resolution
+		})
+		s.Files = slices.DeleteFunc(slices.Clone(s.Files), func(d domain.Document) bool {
+			return !slices.ContainsFunc(s.Documents, func(r definition.DocumentRequirement) bool { return r.Document.ID == d.Requirement })
+		})
+		steps[i] = s
 	}
-	return seen
+	return steps
 }
 
 // History keeps every step done and when, without who did the steps of staff,

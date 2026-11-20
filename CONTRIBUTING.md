@@ -155,7 +155,7 @@ En desarrollo se publica además un segundo tipo de ejemplo, "Trámite de ejempl
 El titular abre su trámite en la misma dirección que el personal, `GET /procedures/{procedureId}`, pero ve solo una parte, y el filtro se hace en el servidor (`detail.Applicant`, que aplican `ProcedureDetailService.Detail` y `DocumentService`). El detalle lo dice con `as_applicant`. Vale también para alguien del personal que inició el trámite: lo ve como titular, aunque el trámite pase por su área.
 
 - Ve el estado, el paso abierto y su área, si está derivado y adónde, y todos los pasos hechos con su fecha. De los pasos del personal ve el área, no la persona: el evento llega sin `by`, y un documento del personal, como la resolución, sin `uploaded_by`.
-- Ve los datos y documentos de sus propios pasos. Si el personal volvió a cargar un dato que pide un paso del titular, no ve el valor del personal.
+- Ve los datos y documentos de sus propios pasos. Si el personal volvió a cargar un dato o un documento que pide un paso del titular, ve el último que cargó él, no el del personal.
 - No ve quién hizo cada paso del personal, las observaciones del personal (salvo el motivo de una devolución que vuelve a un paso suyo, ADR-025), el número de expediente externo, ni los datos y documentos de los pasos del personal. Los documentos que el personal adjunta tampoco aparecen en su historial.
 - Cuando el trámite se cierra, ve y descarga los documentos marcados como resolución (`resolution`). Antes de que se cierre no los ve, aunque ya estén adjuntos.
 

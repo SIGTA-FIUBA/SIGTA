@@ -30,19 +30,18 @@ func applicantContent() version.Content {
 func applicantSteps(t *testing.T, closed bool) []detail.Step {
 	t.Helper()
 	c := applicantContent()
-	steps := detail.WithValues(detail.WithFiles(detail.Steps(c), []domain.Document{
-		{ID: "D-1", Requirement: "transcript", Step: "request", UploadedBy: "applicant"},
-		{ID: "D-2", Requirement: "minutes", Step: "ruling"},
-		{ID: "D-3", Requirement: "resolution", Step: "ruling", UploadedBy: "commission"},
-	}), []domain.FieldValue{
-		{Field: "reason", Step: "request", Text: "Pase de carrera"},
-		{Field: "record_number", Step: "review", Text: "EX-1"},
-	})
 	p := domain.Procedure{OpenStep: "ruling"}
 	if closed {
 		p.OpenStep = ""
 	}
-	return detail.ForApplicant(c, p).Steps(steps)
+	return detail.ForApplicant(c, p).Steps([]domain.Document{
+		{ID: "D-1", Requirement: "transcript", Step: "request", UploadedBy: "applicant"},
+		{ID: "D-2", Requirement: "minutes", Step: "ruling"},
+		{ID: "D-3", Requirement: "resolution", Step: "ruling", UploadedBy: "commission"},
+	}, []domain.FieldValue{
+		{Field: "reason", Step: "request", Text: "Pase de carrera"},
+		{Field: "record_number", Step: "review", Text: "EX-1"},
+	})
 }
 
 func fileIDs(s detail.Step) []string {
@@ -81,19 +80,29 @@ func TestTheApplicantDoesNotSeeWhatStaffEntered(t *testing.T) {
 	}
 }
 
-// The reason is asked again in the review: what staff enters there is not
-// what the applicant entered.
-func TestTheApplicantDoesNotSeeAValueStaffEnteredForTheirField(t *testing.T) {
+// The reason is asked again in the review, and the transcript attached again
+// there: what staff enters for the same requirement leaves what the applicant
+// entered in their own step, not an empty one.
+func TestTheApplicantKeepsWhatTheyEnteredWhenStaffEntersItAgain(t *testing.T) {
 	c := applicantContent()
-	steps := detail.WithValues(detail.Steps(c), []domain.FieldValue{
+	c.Definition.Steps[1].Documents = []string{"transcript"}
+
+	seen := detail.ForApplicant(c, domain.Procedure{OpenStep: "ruling"}).Steps([]domain.Document{
+		{ID: "D-1", Requirement: "transcript", Step: "request", UploadedBy: "applicant"},
+		{ID: "D-4", Requirement: "transcript", Step: "review", UploadedBy: "staff"},
+	}, []domain.FieldValue{
 		{Field: "reason", Step: "request", Text: "Pase de carrera"},
 		{Field: "reason", Step: "review", Text: "Corregido por la Dirección"},
 	})
 
-	seen := detail.ForApplicant(c, domain.Procedure{OpenStep: "ruling"}).Steps(steps)
-
-	if len(seen[0].Values) != 0 {
-		t.Errorf("values of the request = %+v, want none: the last one is from staff", seen[0].Values)
+	if len(seen[0].Values) != 1 || seen[0].Values[0].Text != "Pase de carrera" {
+		t.Errorf("values of the request = %+v, want what the applicant entered", seen[0].Values)
+	}
+	if got := fileIDs(seen[0]); !slices.Equal(got, []string{"D-1"}) {
+		t.Errorf("files of the request = %v, want D-1, the one the applicant attached", got)
+	}
+	if len(seen[1].Documents) != 0 || len(seen[1].Files) != 0 {
+		t.Errorf("review = %+v, want no documents nor files", seen[1])
 	}
 }
 

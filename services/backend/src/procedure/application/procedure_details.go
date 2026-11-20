@@ -57,11 +57,13 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	if err != nil {
 		return input.ProcedureDetail{}, fmt.Errorf("history of %s: %w", procedureID, err)
 	}
-	steps := detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values)
+	var steps []detail.Step
 	asApplicant := p.Applicant == userID
 	if asApplicant {
 		applicant := detail.ForApplicant(content, p)
-		steps, history = applicant.Steps(steps), applicant.History(history)
+		steps, history = applicant.Steps(documents, values), applicant.History(history)
+	} else {
+		steps = detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values)
 	}
 	return input.ProcedureDetail{
 		Procedure:   p,
