@@ -1,14 +1,14 @@
 import type { components } from './api/schema'
-import { sizeText, typeName } from './documentFormats'
+import { sizeText, typeName } from './content/documentFormats'
 
 type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 type SubmissionProblem = components['schemas']['SubmissionProblem']
 
-// SubmissionValues holds what the applicant fills in before submitting: the
+// SubmissionDraft holds what the applicant fills in before submitting: the
 // text of each field, or its items for a list of subjects, and the file of
 // each document. Nothing reaches the server until the submission is sent.
-export type SubmissionValues = {
+export type SubmissionDraft = {
   values: Record<string, string | string[]>
   files: Record<string, File | null>
 }
@@ -16,16 +16,16 @@ export type SubmissionValues = {
 // The same bounds as the server, so that what passes here passes there.
 const maxText = 200
 const maxLongText = 5000
-export const maxItems = 100
+export const maxSubjects = 100
 // A decimal comma is accepted, as people write it here, and sent as a point,
 // the only separator the server takes.
-const number = /^-?[0-9]+([.,][0-9]+)?$/
-const date = /^\d{4}-\d{2}-\d{2}$/
+const numberPattern = /^-?[0-9]+([.,][0-9]+)?$/
+const datePattern = /^\d{4}-\d{2}-\d{2}$/
 // maxRequestBytes is the most a request can carry (api.MaxRequestBytes in the
 // backend), whatever each document allows.
 export const maxRequestBytes = 25 * 1024 * 1024
 
-export function initialValues(fields: FieldRequirement[], documents: DocumentRequirement[]): SubmissionValues {
+export function emptySubmission(fields: FieldRequirement[], documents: DocumentRequirement[]): SubmissionDraft {
   return {
     values: Object.fromEntries(fields.map((field) => [field.id, field.type === 'subject_list' ? [] : ''])),
     files: Object.fromEntries(documents.map((document) => [document.id, null])),
@@ -37,7 +37,7 @@ export function isEmpty(value: string | string[] | undefined) {
 }
 
 function validDate(text: string) {
-  if (!date.test(text)) {
+  if (!datePattern.test(text)) {
     return false
   }
   const parsed = new Date(`${text}T00:00:00Z`)
@@ -51,8 +51,8 @@ export function fieldError(field: FieldRequirement, value: string | string[] | u
     return field.required ? 'Completá este dato.' : null
   }
   if (Array.isArray(value)) {
-    if (value.length > maxItems) {
-      return `Cargá hasta ${maxItems} asignaturas.`
+    if (value.length > maxSubjects) {
+      return `Cargá hasta ${maxSubjects} asignaturas.`
     }
     if (value.some((item) => item.trim() === '' || item.trim().length > maxText)) {
       return `Cada asignatura tiene que tener entre 1 y ${maxText} caracteres.`
@@ -64,7 +64,7 @@ export function fieldError(field: FieldRequirement, value: string | string[] | u
     case 'long_text':
       return text.length > maxLongText ? `Escribí hasta ${maxLongText} caracteres.` : null
     case 'number':
-      return number.test(text) ? null : 'Escribí un número, con coma o punto para los decimales.'
+      return numberPattern.test(text) ? null : 'Escribí un número, con coma o punto para los decimales.'
     case 'date':
       return validDate(text) ? null : 'Elegí una fecha válida.'
     case 'option':
@@ -92,9 +92,9 @@ export function fileError(document: DocumentRequirement, file: File | null | und
   return null
 }
 
-// totalErrors marks the first file with which the files of the submission
+// totalSizeErrors marks the first file with which the files of the submission
 // add up to more than maxRequestBytes, even if each one fits its document.
-export function totalErrors(documents: DocumentRequirement[], files: Record<string, File | null>) {
+export function totalSizeErrors(documents: DocumentRequirement[], files: Record<string, File | null>) {
   let total = 0
   for (const document of documents) {
     total += files[document.id]?.size ?? 0
@@ -122,10 +122,10 @@ export function valueText(field: FieldRequirement, value: string | string[] | un
   return text
 }
 
-// formData puts the parts in the order the server reads them: the procedure
+// submissionBody puts the parts in the order the server reads them: the procedure
 // type, the values and then each document followed by its file. A field left
 // empty is not sent, and a number goes with a decimal point.
-export function formData(procedureType: number, fields: FieldRequirement[], submission: SubmissionValues) {
+export function submissionBody(procedureType: number, fields: FieldRequirement[], submission: SubmissionDraft) {
   const values = Object.fromEntries(
     fields
       .filter((field) => !isEmpty(submission.values[field.id]))

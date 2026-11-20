@@ -154,7 +154,7 @@ func TestSubmitAnswersTheProblems(t *testing.T) {
 }
 
 func TestSubmitOfATypeThatIsNotPublished(t *testing.T) {
-	recorder := serveSubmission(t, &fakeSubmissions{err: output.ErrNoVersion}, submitRequest(t, part{"procedure_type", "", "99"}, part{"values", "", `{}`}))
+	recorder := serveSubmission(t, &fakeSubmissions{err: output.ErrVersionNotFound}, submitRequest(t, part{"procedure_type", "", "99"}, part{"values", "", `{}`}))
 	if recorder.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", recorder.Code)
 	}

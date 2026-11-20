@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"backend/src/procedure/adapters/memory"
-	procdomain "backend/src/procedure/domain"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/ports/input"
@@ -21,7 +21,7 @@ func TestSubmitRecordsTheOpeningStepsAsDoneByTheApplicant(t *testing.T) {
 		{ID: "detail", Name: "Detalle", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"reason"}, Next: "review"},
 		{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: office.ID, Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},
 	}
-	types := newService(memory.NewProcedureVersions(), office)
+	types := newService(memory.NewProcedureTypeVersionRepository(), office)
 	if _, err := types.Publish(ctx, publication(1, 0, d)); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestSubmitRecordsTheOpeningStepsAsDoneByTheApplicant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []procdomain.Event{
+	want := []proceduredomain.Event{
 		{ProcedureID: "P-1", Step: "request", Action: definition.ActionEnterData, By: "ana", At: at, Next: "detail"},
 		{ProcedureID: "P-1", Step: "detail", Action: definition.ActionEnterData, By: "ana", At: at, Next: "review"},
 	}

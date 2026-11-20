@@ -19,13 +19,13 @@ import (
 	"backend/src/procedure/ports/output"
 )
 
-// openProcedureVersions returns where the published versions are kept and a
+// openProcedureTypeVersions returns where the published versions are kept and a
 // function that closes it.
-func openProcedureVersions(ctx context.Context, cfg config, logger *slog.Logger) (output.ProcedureVersions, func(), error) {
+func openProcedureTypeVersions(ctx context.Context, cfg config, logger *slog.Logger) (output.ProcedureTypeVersionRepository, func(), error) {
 	if cfg.databaseURL == "" {
 		// loadConfig asks for a database everywhere but development.
 		logger.Warn("SIGTA_DATABASE_URL is not set: the procedure types are lost when the server stops")
-		return proceduremem.NewProcedureVersions(), func() {}, nil
+		return proceduremem.NewProcedureTypeVersionRepository(), func() {}, nil
 	}
 	// The pool outlives ctx, which only bounds the checks.
 	pool, err := connect(context.WithoutCancel(ctx), cfg.databaseURL, appRole)
@@ -36,7 +36,7 @@ func openProcedureVersions(ctx context.Context, cfg config, logger *slog.Logger)
 		pool.Close()
 		return nil, nil, err
 	}
-	return postgres.NewProcedureVersions(pool), pool.Close, nil
+	return postgres.NewProcedureTypeVersionRepository(pool), pool.Close, nil
 }
 
 // openFiles returns where the files of the procedures are kept.
@@ -83,12 +83,12 @@ const (
 // connect opens a pool that acts as role, in the backend schema unless the URL
 // names another search_path.
 func connect(ctx context.Context, url, role string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(url)
+	poolConfig, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, err
 	}
-	actAs(config, role)
-	return pgxpool.NewWithConfig(ctx, config)
+	actAs(poolConfig, role)
+	return pgxpool.NewWithConfig(ctx, poolConfig)
 }
 
 // actAs makes every connection take role. The login does not have to be role

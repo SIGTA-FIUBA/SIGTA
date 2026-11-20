@@ -5,12 +5,16 @@ linters:
   enable:
     - bodyclose
     - depguard
+    - dupl
+    - errname
     - errorlint
     - gocritic
     - gosec
+    - importas
     - misspell
     - noctx
     - unconvert
+    - unparam
   settings:
     depguard:
       # A module uses another only through its public API, ports/input
@@ -35,6 +39,21 @@ linters:
           deny:
             - pkg: backend/src/procedure
               desc: procedure depends on auth, never the reverse (ADR-021)
+    importas:
+      # A package of another module, or one whose name repeats across
+      # modules, is imported with the same alias everywhere (CONTRIBUTING.md,
+      # "Nombres").
+      alias:
+        - pkg: backend/src/(auth|procedure)/adapters/memory
+          alias: ${1}mem
+        - pkg: backend/src/(auth|procedure)/adapters/rest
+          alias: ${1}rest
+        - pkg: backend/src/(auth|procedure)/application
+          alias: ${1}app
+        - pkg: backend/src/(auth|procedure)/domain
+          alias: ${1}domain
+        - pkg: backend/src/(auth|procedure)/ports/(input|output)
+          alias: ${1}${2}
     misspell:
       # Spanish domain text, not a typo of "materials".
       ignore-rules:

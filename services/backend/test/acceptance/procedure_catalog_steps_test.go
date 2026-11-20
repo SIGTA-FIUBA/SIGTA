@@ -30,7 +30,7 @@ type catalogWorld struct {
 }
 
 func registerCatalogSteps(sc *godog.ScenarioContext) {
-	versions := &tamperableVersions{ProcedureVersions: memory.NewProcedureVersions()}
+	versions := &tamperableVersions{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository()}
 	areas := authmem.NewAreaRepository(authdomain.Area{ID: "secretaria", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "register", Name: "Registrar"}}})
 	auth, staff, err := withSecretariat(areas, time.Now)
 	if err != nil {
@@ -68,12 +68,12 @@ func registerCatalogSteps(sc *godog.ScenarioContext) {
 // tamperableVersions alters what the store returns, as a change made behind
 // SIGTA's back would.
 type tamperableVersions struct {
-	*memory.ProcedureVersions
+	*memory.ProcedureTypeVersionRepository
 	altered bool
 }
 
 func (s *tamperableVersions) LatestOfEach(ctx context.Context) ([]version.ProcedureTypeVersion, error) {
-	versions, err := s.ProcedureVersions.LatestOfEach(ctx)
+	versions, err := s.ProcedureTypeVersionRepository.LatestOfEach(ctx)
 	if err == nil && s.altered {
 		versions[0].EncodedContent = append(versions[0].EncodedContent, ' ')
 	}

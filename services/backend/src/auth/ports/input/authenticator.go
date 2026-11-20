@@ -10,7 +10,7 @@ import (
 type Authenticator interface {
 	// BeginLogin returns where to send the browser and the pending login that only
 	// that browser should hold and bring back to CompleteLogin.
-	BeginLogin(loginHint string) (url string, pending domain.PendingLogin, err error)
+	BeginLogin(loginHint string) (url string, pending domain.PendingLogin)
 	CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (sessionToken string, err error)
 	Authenticate(ctx context.Context, sessionToken string) (domain.User, error)
 	Logout(ctx context.Context, sessionToken string) error
@@ -22,5 +22,5 @@ type Authenticator interface {
 func Unauthenticated(err error) bool {
 	return errors.Is(err, domain.ErrSessionNotFound) ||
 		errors.Is(err, domain.ErrSessionExpired) ||
-		errors.Is(err, domain.ErrUnknownUser)
+		errors.Is(err, domain.ErrUserNotFound)
 }

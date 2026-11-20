@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -88,35 +88,35 @@ type claims struct {
 	Name          string `json:"name"`
 }
 
-func (p *IdentityProvider) Exchange(ctx context.Context, code string, pending domain.PendingLogin) (out.Identity, error) {
+func (p *IdentityProvider) Exchange(ctx context.Context, code string, pending domain.PendingLogin) (output.Identity, error) {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, p.client)
 	token, err := p.oauth.Exchange(ctx, code, oauth2.VerifierOption(pending.CodeVerifier))
 	if err != nil {
-		return out.Identity{}, fmt.Errorf("exchange the code: %w", err)
+		return output.Identity{}, fmt.Errorf("exchange the code: %w", err)
 	}
 	raw, _ := token.Extra("id_token").(string)
 	if raw == "" {
-		return out.Identity{}, errors.New("the token response has no ID token")
+		return output.Identity{}, errors.New("the token response has no ID token")
 	}
 	idToken, err := p.verifier.Verify(ctx, raw)
 	if err != nil {
-		return out.Identity{}, fmt.Errorf("verify the ID token: %w", err)
+		return output.Identity{}, fmt.Errorf("verify the ID token: %w", err)
 	}
 	if pending.Nonce == "" || subtle.ConstantTimeCompare([]byte(idToken.Nonce), []byte(pending.Nonce)) != 1 {
-		return out.Identity{}, errors.New("the ID token nonce does not match the pending login")
+		return output.Identity{}, errors.New("the ID token nonce does not match the pending login")
 	}
 	var c claims
 	if err := idToken.Claims(&c); err != nil {
-		return out.Identity{}, fmt.Errorf("read the ID token claims: %w", err)
+		return output.Identity{}, fmt.Errorf("read the ID token claims: %w", err)
 	}
 	if !c.EmailVerified {
-		return out.Identity{}, errors.New("the ID token email is not verified")
+		return output.Identity{}, errors.New("the ID token email is not verified")
 	}
 	// A Google account can have an email of the domain without belonging to
 	// its Workspace; only Workspace accounts carry hd.
 	if !strings.EqualFold(c.HostedDomain, p.hostedDomain) {
 		p.logger.Warn("google login outside the hosted domain", "hd", c.HostedDomain, "want", p.hostedDomain)
-		return out.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, c.HostedDomain)
+		return output.Identity{}, fmt.Errorf("%w: hosted domain %q", domain.ErrDomainNotAllowed, c.HostedDomain)
 	}
-	return out.Identity{Subject: idToken.Subject, Email: c.Email, Name: c.Name}, nil
+	return output.Identity{Subject: idToken.Subject, Email: c.Email, Name: c.Name}, nil
 }

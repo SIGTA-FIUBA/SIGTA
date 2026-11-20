@@ -16,7 +16,7 @@ import (
 
 	"backend/src/auth/adapters/google"
 	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 
 	"github.com/go-jose/go-jose/v4"
 	"golang.org/x/oauth2"
@@ -143,7 +143,7 @@ func newPending() domain.PendingLogin {
 	return domain.PendingLogin{State: "state", Nonce: "nonce", CodeVerifier: oauth2.GenerateVerifier()}
 }
 
-func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending domain.PendingLogin) url.Values {
+func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending domain.PendingLogin) {
 	t.Helper()
 	u, err := url.Parse(p.AuthorizationURL(pending, ""))
 	if err != nil {
@@ -163,7 +163,6 @@ func authorize(t *testing.T, f *fakeGoogle, p *google.IdentityProvider, pending 
 		"iat":            now.Unix(),
 		"exp":            now.Add(time.Hour).Unix(),
 	}
-	return query
 }
 
 func TestLoginWithAnInstitutionalAccount(t *testing.T) {
@@ -176,7 +175,7 @@ func TestLoginWithAnInstitutionalAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := out.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}
+	want := output.Identity{Subject: "1234567890", Email: "titular@fi.uba.ar"}
 	if identity != want {
 		t.Fatalf("Exchange(%q) = %+v, want %+v", issuedCode, identity, want)
 	}

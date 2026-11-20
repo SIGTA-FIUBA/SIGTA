@@ -67,7 +67,7 @@ type ProcedureTypes interface {
 	// version.ErrUnknownFormat if the latest version cannot be trusted or read.
 	Publish(ctx context.Context, p Publication) (version.ProcedureTypeVersion, error)
 	// Version returns a published version after checking its digest, for the
-	// procedures that follow it. It fails with output.ErrNoVersion if the
+	// procedures that follow it. It fails with output.ErrVersionNotFound if the
 	// version does not exist, and with version.ErrAlteredContent or
 	// output.ErrWrongVersion if it cannot be trusted.
 	Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error)

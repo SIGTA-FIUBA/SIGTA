@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../../src/api/schema'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 type Detail = components['schemas']['ProcedureDetail']
 

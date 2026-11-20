@@ -20,7 +20,6 @@ services:
       SIGTA_ENV: development
       SIGTA_PUBLIC_URL: http://localhost:${SIGTA_PORT:-8000}/api
       SIGTA_APP_URL: http://localhost:${SIGTA_PORT:-8000}/
-      SIGTA_DOCUMENTS_DIR: /var/lib/sigta/documents
     volumes:
       - documents:/var/lib/sigta/documents
     depends_on:

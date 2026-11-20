@@ -33,6 +33,13 @@ jobs:
         with:
           version: v2.15.0
           working-directory: services/backend
+      - name: Check that there is no dead code
+        # deadcode lists the functions no program nor test reaches, and always
+        # exits with 0.
+        run: |
+          dead=$(go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...)
+          echo "$dead"
+          test -z "$dead"
       - name: Start PostgreSQL
         working-directory: .
         run: docker compose up --detach --wait --wait-timeout 120 db
@@ -69,6 +76,8 @@ jobs:
         run: |
           npm run lint
           npm run format:check
+      - name: Check that there are no unused files, exports or dependencies
+        run: npm run unused
       - name: Type check
         run: npm run typecheck
       - name: Test
@@ -79,6 +88,17 @@ jobs:
         run: |
           npm run generate
           git diff --exit-code -- src/api
+
+  test-layout:
+    name: Test layout
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check that each test is named after what it tests
+        run: scripts/check-test-layout.sh
 
   compose:
     name: Compose
@@ -97,16 +117,13 @@ jobs:
       - name: Show the logs
         if: failure()
         run: docker compose logs
-      - name: Stop the stack
-        if: always()
-        run: docker compose down --volumes
 
   # Single check to require in the ruleset of main, so adding or renaming a job
   # does not require changing the ruleset.
   ci:
     name: CI
     if: always()
-    needs: [backend, frontend, compose]
+    needs: [backend, frontend, test-layout, compose]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

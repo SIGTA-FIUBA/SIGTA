@@ -68,7 +68,7 @@ jobs:
         run: |
           gcloud run deploy "sigta-$ENVIRONMENT" --region "$GCP_REGION" --quiet \
             --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
-            --allow-unauthenticated --execution-environment gen2 --min-instances 1 --max-instances 1 \
+            --allow-unauthenticated --min-instances 1 --max-instances 1 \
             --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
             --add-volume "name=documents,type=cloud-storage,bucket=$GCP_PROJECT-sigta-$ENVIRONMENT-documents,mount-options=uid=65532;gid=65532" \
             --container proxy --image "$REGISTRY/proxy:$GITHUB_SHA" --port 80 --depends-on backend \

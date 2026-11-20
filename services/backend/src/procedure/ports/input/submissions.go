@@ -40,6 +40,6 @@ type Submissions interface {
 	// yet all or nothing: if recording fails after some document and before
 	// the procedure, those documents remain (ADR-024, SIG-75). It fails with a
 	// *submission.Error, which errors.Is matches with submission.ErrInvalid,
-	// or with output.ErrNoVersion if the type is not published.
+	// or with output.ErrVersionNotFound if the type is not published.
 	Submit(ctx context.Context, userID string, s Submission) (Started, error)
 }

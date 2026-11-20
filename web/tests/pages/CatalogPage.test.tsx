@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CatalogPage } from '../../src/pages/CatalogPage'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 const equivalence = {
   id: 1,

@@ -74,7 +74,7 @@ Monolito modular en Go más un servicio de IA en Python, todo sobre PostgreSQL c
 | `contracts/openapi.yaml` | Contrato de la API pública, fuente del código generado |
 | `services/backend/src/` | Servicio de trámites en Go, dividido por módulo (`auth/`, `procedure/`) y, dentro de cada uno, por componente: `domain/`, `application/` (casos de uso), `ports/input/` y `ports/output/`, `adapters/`. En `procedure/`, `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, `engine/`, que avanza un trámite cuando se confirma su paso abierto, `submission/`, lo que se envía para iniciarlo, e `inbox/`, la bandeja del personal (ADR-016, ADR-023). Además, `api/` (código generado desde el contrato y montaje de la API), `cmd/` (arranque, configuración y el comando `migrate`) y `migrations/` (migraciones de la base, embebidas en el binario; en `schema.go`, las tablas que solo crecen y el control del rol de la aplicación; y `dbtest/` para probar contra PostgreSQL; ADR-022) |
 | `services/backend/test/acceptance/` | Pasos de los escenarios de `features/`, con godog |
-| `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado y consultas compartidas), `theme/` (el único lugar del aspecto), `assets/` (logo de la FIUBA), `content/` (textos que comparten varias pantallas), `components/`, `layout/` (encabezado común, menú lateral y menú de la cuenta), `pages/`. Los tests van aparte, en `web/tests/`, con la misma estructura. Reglas en `web/DESIGN.md` |
+| `web/src/` | Frontend React + TypeScript con Mantine: `api/` (cliente generado, consultas compartidas y la sesión en `session.ts`), `theme/` (el único lugar del aspecto), `assets/` (logo de la FIUBA), `content/` (textos que comparten varias pantallas: qué es SIGTA en `platform.ts`, nombres y colores de cada estado en `procedureStates.ts`, formatos y tamaños de los documentos en `documentFormats.ts`), `components/`, `layout/` (encabezado común, menú lateral y menú de la cuenta), `pages/`, `dev/` (vistas con datos de prueba, solo en `npm run dev`). En la raíz, `routes.tsx` (las rutas) y `submission.ts` (validación y armado del envío de un trámite). Los tests van aparte, en `web/tests/`, con la misma estructura y lo que comparten en `tests/test-utils/`. Reglas en `web/DESIGN.md` |
 | `deploy/` | nginx y scripts de inicialización de PostgreSQL (roles por servicio; en el backend, uno para la aplicación y otro, dueño de las tablas, para las migraciones). `gcp/`: la configuración inicial de Google Cloud para los entornos de prueba (`prod` con `main` y `dev` con `develop`), que corren en Cloud Run ([docs/15-despliegue.md](docs/15-despliegue.md)) |
 | `docs/` | Artefactos de gestión: alcance, ADR, riesgos, backlog, plan. Ver [docs/README.md](docs/README.md) |
 | `features/` | Escenarios Gherkin de cada historia y su matriz de trazabilidad |
@@ -90,13 +90,17 @@ El servicio de IA en Python todavía no existe en el repositorio.
 | Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`) |
 | Regenerar código desde el contrato | `make contracts` |
 | Backend: tests y lint | `cd services/backend && go test -race ./...` y `golangci-lint run` |
+| Backend: código sin usar | `cd services/backend && go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...` (no tiene que listar nada) |
 | Backend: tests contra PostgreSQL | `docker compose up --detach --wait db` y los tests con `SIGTA_TEST_DATABASE_URL` (ver "Pruebas contra PostgreSQL" en CONTRIBUTING.md) |
-| Frontend: lint, tipos, tests | `cd web && npm run lint && npm run format:check && npm run typecheck && npm test` |
+| Frontend: lint, tipos, tests | `cd web && npm run lint && npm run format:check && npm run unused && npm run typecheck && npm test` |
+| Tests en su lugar | `scripts/check-test-layout.sh` |
 | Instalar el hook de commits | `npm install` en la raíz |
 
 ## Convenciones
 
 - **Idioma:** código, endpoints y nombres técnicos en inglés; documentación en español.
+- **Nombres:** cada archivo, función y variable se nombra con el vocabulario de arriba y por lo que es o hace, así el repositorio se recorre sin leer el código. Las reglas están en "Nombres" de CONTRIBUTING.md.
+- **Buscar antes de crear:** antes de escribir una función, un componente, un tipo, un texto o una ayuda de test, buscar si ya existe uno que lo haga, y usarlo o extenderlo. Dos piezas que hacen lo mismo con nombres distintos son lo que después obliga a un refactor.
 - **Commits y títulos de PR:** Conventional Commits, en inglés, una línea de hasta 72 caracteres (`feat(engine): add step confirmation`). Los valida commitlint en el hook y en la CI. Los PR se integran con squash, así que el título es el commit final.
 - **Ramas:** `<tipo>/sig-<n>-<descripción>`, con el tipo de Conventional Commits y el número del ticket (`ci/sig-59-ci-on-develop`, `docs/sig-10-agent-context`). No se usa el nombre que propone Linear. Los PR van contra `develop`; `main` solo recibe `develop` cuando hay una versión para mostrar.
 - **Comportamiento primero:** cada historia se especifica con escenarios Gherkin antes de implementarse, en inglés, en `features/`, con las etiquetas `@USxx @SIG-n`. Corren con godog dentro de `go test`, y un paso sin implementar hace fallar el pipeline, así que un `.feature` entra junto con sus pasos.
@@ -114,6 +118,7 @@ Las tareas recurrentes tienen una rutina en `.claude/skills/`. Seguirla cuando s
 | `gherkin-scenarios` | Redactar los escenarios de una historia desde sus criterios de aceptación |
 | `new-procedure-type` | Preparar el borrador de configuración de un tipo de trámite nuevo |
 | `open-pr` | Armar la rama, los commits y el PR con la plantilla completa |
+| `review-conventions` | Revisar un cambio contra las convenciones (nombres, ubicación, reutilización, tests) antes del PR |
 | `break-ui` | Probar una pantalla con datos extremos (nombres largos, listas vacías, un solo elemento) antes de darla por terminada |
 | `web-design-guidelines` | Revisar la accesibilidad, el foco, los formularios y los textos de una pantalla |
 | `mantine-form` | Armar formularios con `@mantine/form` |

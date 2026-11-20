@@ -6,9 +6,9 @@ import { api } from './client'
 export const catalogQuery = queryOptions({
   queryKey: ['procedure-types'],
   queryFn: async () => {
-    const { data, error } = await api.GET('/procedure-types')
-    if (error !== undefined || data === undefined) {
-      throw new Error('The catalog could not be loaded')
+    const { data, response } = await api.GET('/procedure-types')
+    if (data === undefined) {
+      throw new Error(`GET /procedure-types answered ${response.status}`)
     }
     return data
   },

@@ -7,16 +7,16 @@ import (
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
 var _ input.People = (*PeopleService)(nil)
 
 type PeopleService struct {
-	users out.UserRepository
+	users output.UserRepository
 }
 
-func NewPeopleService(users out.UserRepository) *PeopleService {
+func NewPeopleService(users output.UserRepository) *PeopleService {
 	return &PeopleService{users: users}
 }
 
@@ -26,8 +26,8 @@ func (s *PeopleService) Names(ctx context.Context, ids []string) (map[string]str
 		if _, done := names[id]; done {
 			continue
 		}
-		user, err := s.users.FindByID(ctx, id)
-		if errors.Is(err, domain.ErrUnknownUser) {
+		user, err := s.users.Get(ctx, id)
+		if errors.Is(err, domain.ErrUserNotFound) {
 			continue
 		}
 		if err != nil {

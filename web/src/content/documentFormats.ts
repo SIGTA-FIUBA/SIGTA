@@ -1,4 +1,4 @@
-import type { components } from './api/schema'
+import type { components } from '../api/schema'
 
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 
@@ -23,8 +23,9 @@ export function sizeText(bytes: number) {
   return `${Math.ceil(bytes / 1024)}\u00a0KB`
 }
 
-// documentDescription says which formats and size a document accepts.
-export function documentDescription(document: DocumentRequirement) {
+// documentDescription says the formats and the maximum size a document
+// accepts, leaving out what it does not limit.
+export function documentDescription(document: Pick<DocumentRequirement, 'accepted_types' | 'max_size'>) {
   const parts = []
   if (document.accepted_types.length > 0) {
     parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)

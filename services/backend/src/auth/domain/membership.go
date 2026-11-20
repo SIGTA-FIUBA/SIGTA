@@ -60,7 +60,6 @@ func sameScope(a, b []int64) bool {
 // memberships count, with the permissions that their roles and loose
 // permissions give. Being an administrator gives no access to procedures.
 type Access struct {
-	UserID        string
 	Administrator bool
 	Memberships   []Membership
 	granted       [][]string
@@ -68,7 +67,7 @@ type Access struct {
 
 // NewAccess takes the areas to resolve the roles of each membership: a role
 // counts with the permissions it has now.
-func NewAccess(userID string, administrator bool, memberships []Membership, areas []Area, at time.Time) Access {
+func NewAccess(administrator bool, memberships []Membership, areas []Area, at time.Time) Access {
 	active := slices.DeleteFunc(slices.Clone(memberships), func(m Membership) bool { return !m.ActiveAt(at) })
 	granted := make([][]string, len(active))
 	for i, m := range active {
@@ -76,7 +75,7 @@ func NewAccess(userID string, administrator bool, memberships []Membership, area
 			granted[i] = areas[j].GrantedBy(m.Roles, m.Permissions)
 		}
 	}
-	return Access{UserID: userID, Administrator: administrator, Memberships: active, granted: granted}
+	return Access{Administrator: administrator, Memberships: active, granted: granted}
 }
 
 // Holds tells whether the memberships in the area that cover the procedure

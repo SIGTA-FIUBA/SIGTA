@@ -10,7 +10,7 @@ import (
 
 	"backend/src/api"
 	"backend/src/auth/domain"
-	ports "backend/src/auth/ports/input"
+	"backend/src/auth/ports/input"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -22,22 +22,19 @@ const (
 )
 
 type AuthHandler struct {
-	auth          ports.Authenticator
-	memberships   ports.Memberships
+	auth          input.Authenticator
+	memberships   input.Memberships
 	afterLoginURL string
 	loginURL      string
 	secureCookies bool
 }
 
-func NewAuthHandler(auth ports.Authenticator, memberships ports.Memberships, afterLoginURL, loginURL string, secureCookies bool) *AuthHandler {
+func NewAuthHandler(auth input.Authenticator, memberships input.Memberships, afterLoginURL, loginURL string, secureCookies bool) *AuthHandler {
 	return &AuthHandler{auth: auth, memberships: memberships, afterLoginURL: afterLoginURL, loginURL: loginURL, secureCookies: secureCookies}
 }
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req api.BeginLoginRequestObject) (api.BeginLoginResponseObject, error) {
-	location, pending, err := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
-	if err != nil {
-		return nil, err
-	}
+	location, pending := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
 	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending), int(loginStateMaxAge.Seconds()))
 	return api.BeginLogin302Response{Headers: api.BeginLogin302ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
 }
@@ -112,8 +109,8 @@ func (h *AuthHandler) Logout(ctx context.Context, req api.LogoutRequestObject) (
 
 func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if ports.Unauthenticated(err) {
-		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized("Iniciá sesión para continuar.")}, nil
+	if input.Unauthenticated(err) {
+		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -154,8 +151,8 @@ func (h *AuthHandler) cookie(name, value string, maxAge int) string {
 	return c.String()
 }
 
-func unauthorized(message string) api.UnauthorizedJSONResponse {
-	return api.UnauthorizedJSONResponse{Message: message}
+func unauthorized() api.UnauthorizedJSONResponse {
+	return api.UnauthorizedJSONResponse{Message: messageSignIn}
 }
 
 func valueOf(s *string) string {

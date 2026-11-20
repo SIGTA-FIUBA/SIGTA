@@ -27,16 +27,16 @@ type MembershipService struct {
 	areas       output.AreaRepository
 	memberships output.MembershipRepository
 	newID       func() string
-	clock       func() time.Time
+	now         func() time.Time
 }
 
-func NewMembershipService(areas output.AreaRepository, administrators output.Administrators, memberships output.MembershipRepository, newID func() string, clock func() time.Time) *MembershipService {
+func NewMembershipService(areas output.AreaRepository, administrators output.AdministratorRepository, memberships output.MembershipRepository, newID func() string, now func() time.Time) *MembershipService {
 	return &MembershipService{
 		administratorGuard: administratorGuard{administrators: administrators},
 		areas:              areas,
 		memberships:        memberships,
 		newID:              newID,
-		clock:              clock,
+		now:                now,
 	}
 }
 
@@ -53,7 +53,7 @@ func (s *MembershipService) Access(ctx context.Context, userID string) (domain.A
 	if err != nil {
 		return domain.Access{}, fmt.Errorf("access of %s: %w", userID, err)
 	}
-	return domain.NewAccess(userID, administrator, memberships, areas, s.clock()), nil
+	return domain.NewAccess(administrator, memberships, areas, s.now()), nil
 }
 
 func (s *MembershipService) Holds(ctx context.Context, userID, area string, procedureType int64, permissions []string) (bool, error) {
@@ -64,16 +64,16 @@ func (s *MembershipService) Holds(ctx context.Context, userID, area string, proc
 	return access.Holds(area, procedureType, permissions), nil
 }
 
-func (s *MembershipService) Reach(ctx context.Context, userID string) ([]input.AreaReach, error) {
+func (s *MembershipService) Scopes(ctx context.Context, userID string) ([]input.AreaScope, error) {
 	access, err := s.Access(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	reach := make([]input.AreaReach, 0, len(access.Memberships))
+	scopes := make([]input.AreaScope, 0, len(access.Memberships))
 	for _, m := range access.Memberships {
-		reach = append(reach, input.AreaReach{Area: m.Area, Scope: slices.Clone(m.Scope)})
+		scopes = append(scopes, input.AreaScope{Area: m.Area, Scope: slices.Clone(m.Scope)})
 	}
-	return reach, nil
+	return scopes, nil
 }
 
 func (s *MembershipService) Grant(ctx context.Context, administratorID string, g input.MembershipGrant) (domain.Membership, error) {
@@ -92,7 +92,7 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 		GrantedBy:   administratorID,
 	}
 	if m.From.IsZero() {
-		m.From = s.clock().UTC()
+		m.From = s.now().UTC()
 	}
 	if err := s.validate(ctx, m); err != nil {
 		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
@@ -113,7 +113,7 @@ func (s *MembershipService) End(ctx context.Context, administratorID, membership
 	if err != nil {
 		return fmt.Errorf("membership %s: %w", membershipID, err)
 	}
-	now := s.clock().UTC()
+	now := s.now().UTC()
 	if !m.Until.IsZero() && !now.Before(m.Until) {
 		return fmt.Errorf("%w: membership %s already ended", domain.ErrInvalidMembership, membershipID)
 	}

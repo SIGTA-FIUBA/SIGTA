@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DocumentFile } from '../../../src/components/DocumentFile/DocumentFile'
-import { render } from '../../render'
+import { render } from '../../test-utils/render'
 
 const pdf = { id: 'D-1', file_name: 'constancia.pdf', media_type: 'application/pdf', size: 2048 }
 

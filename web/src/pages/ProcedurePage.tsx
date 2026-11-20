@@ -26,8 +26,8 @@ import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
-import { documentDescription } from '../documentFormats'
-import { stateColors, stateNames } from '../procedureState'
+import { documentDescription } from '../content/documentFormats'
+import { stateColors, stateNames } from '../content/procedureStates'
 import { fileError, valueText } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -82,8 +82,7 @@ function personName(person: { id: string; name: string }) {
   return person.name || person.id
 }
 
-function OpenStep({ detail }: { detail: Detail }) {
-  const step = detail.steps.find((candidate) => candidate.id === detail.open_step)
+function OpenStep({ step, canAct }: { step: Step | undefined; canAct: boolean }) {
   if (step === undefined) {
     return <Text>Sin paso abierto</Text>
   }
@@ -92,7 +91,7 @@ function OpenStep({ detail }: { detail: Detail }) {
       <Text>
         {step.name} · {responsible(step)}
       </Text>
-      {detail.can_act && <Badge variant="filled">Acción requerida</Badge>}
+      {canAct && <Badge variant="filled">Acción requerida</Badge>}
     </Group>
   )
 }
@@ -192,8 +191,7 @@ function stepName(detail: Detail, id: string | undefined) {
   return detail.steps.find((step) => step.id === id)?.name ?? id
 }
 
-function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
-  const step = detail.steps.find((candidate) => candidate.id === event.step)
+function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; step: Step | undefined }) {
   const outcome = step?.outcomes.find((candidate) => candidate.id === event.outcome)
   return (
     <Stack gap="xs">
@@ -234,9 +232,9 @@ function HistoryItem({ detail, event }: { detail: Detail; event: Event }) {
   )
 }
 
-function historyTitle(detail: Detail, event: Event) {
-  const step = detail.steps.find((candidate) => candidate.id === event.step)?.name ?? event.step
-  return event.document ? `Documento adjuntado en ${step}` : step
+function historyTitle(event: Event, step: Step | undefined) {
+  const name = step?.name ?? event.step
+  return event.document ? `Documento adjuntado en ${name}` : name
 }
 
 function History({ detail }: { detail: Detail }) {
@@ -245,11 +243,14 @@ function History({ detail }: { detail: Detail }) {
   }
   return (
     <Timeline active={detail.history.length - 1} bulletSize={20} lineWidth={2}>
-      {detail.history.map((event, i) => (
-        <Timeline.Item key={i} title={historyTitle(detail, event)}>
-          <HistoryItem detail={detail} event={event} />
-        </Timeline.Item>
-      ))}
+      {detail.history.map((event, i) => {
+        const step = detail.steps.find((candidate) => candidate.id === event.step)
+        return (
+          <Timeline.Item key={i} title={historyTitle(event, step)}>
+            <HistoryItem detail={detail} event={event} step={step} />
+          </Timeline.Item>
+        )
+      })}
     </Timeline>
   )
 }
@@ -568,7 +569,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Text>{personName(detail.applicant)}</Text>
           </Fact>
           <Fact label="Paso actual">
-            <OpenStep detail={detail} />
+            <OpenStep step={open} canAct={detail.can_act} />
           </Fact>
           {detail.referral && (
             <Fact label="Derivación">

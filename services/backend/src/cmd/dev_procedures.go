@@ -17,7 +17,7 @@ import (
 // something to show in local development. The applicants are the invented
 // accounts of devPeople (ADR-005), and the dates are relative to now so that
 // ages stay the same whenever the server starts.
-func addDevInbox(ctx context.Context, versions output.ProcedureVersions, procedures output.ProcedureRepository, now time.Time) error {
+func addDevInbox(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, now time.Time) error {
 	daysAgo := func(days int) time.Time { return now.Add(-time.Duration(days) * 24 * time.Hour) }
 	rows := []struct {
 		example        input.Publication

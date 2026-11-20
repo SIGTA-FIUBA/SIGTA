@@ -1,11 +1,12 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react", "typescript", "oxc", "jsx-a11y"],
-  "jsPlugins": ["./lint/design-rules.js"],
+  "jsPlugins": ["./lint/design-rules.js", "./lint/naming-rules.js"],
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }],
     "sigta-design/no-raw-design-values": "error",
+    "sigta-naming/file-name": "error",
     "react/forbid-component-props": ["error", { "forbid": ["style", "styles", "className", "classNames", "vars"] }],
     "react/forbid-dom-props": ["error", { "forbid": ["style", "className"] }],
     "no-restricted-imports": [

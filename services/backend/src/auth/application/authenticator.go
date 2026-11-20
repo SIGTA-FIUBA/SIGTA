@@ -14,32 +14,32 @@ import (
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
-	out "backend/src/auth/ports/output"
+	"backend/src/auth/ports/output"
 )
 
-var _ input.Authenticator = (*AuthService)(nil)
+var _ input.Authenticator = (*AuthenticatorService)(nil)
 
 type AuthConfig struct {
 	IdleTimeout   time.Duration
 	AllowedDomain string
 }
 
-type AuthService struct {
+type AuthenticatorService struct {
 	config   AuthConfig
-	identity out.IdentityProvider
-	users    out.UserRepository
-	sessions out.SessionStore
+	identity output.IdentityProvider
+	users    output.UserRepository
+	sessions output.SessionRepository
 	now      func() time.Time
 }
 
-func NewAuthService(
+func NewAuthenticatorService(
 	config AuthConfig,
-	identity out.IdentityProvider,
-	users out.UserRepository,
-	sessions out.SessionStore,
+	identity output.IdentityProvider,
+	users output.UserRepository,
+	sessions output.SessionRepository,
 	now func() time.Time,
-) *AuthService {
-	return &AuthService{
+) *AuthenticatorService {
+	return &AuthenticatorService{
 		config:   config,
 		identity: identity,
 		users:    users,
@@ -48,14 +48,14 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) BeginLogin(loginHint string) (string, domain.PendingLogin, error) {
+func (s *AuthenticatorService) BeginLogin(loginHint string) (string, domain.PendingLogin) {
 	pending := domain.PendingLogin{State: newToken(), Nonce: newToken(), CodeVerifier: newToken()}
-	return s.identity.AuthorizationURL(pending, loginHint), pending, nil
+	return s.identity.AuthorizationURL(pending, loginHint), pending
 }
 
 // CompleteLogin registers someone new to SIGTA as an applicant: only a
 // membership makes them staff (ADR-020).
-func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
+func (s *AuthenticatorService) CompleteLogin(ctx context.Context, code, state string, pending domain.PendingLogin) (string, error) {
 	if pending.State == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.State)) != 1 {
 		return "", domain.ErrLoginStateMismatch
 	}
@@ -67,8 +67,8 @@ func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pen
 	if !domain.InDomain(email, s.config.AllowedDomain) {
 		return "", domain.ErrDomainNotAllowed
 	}
-	user, err := s.users.FindByEmail(ctx, email)
-	if errors.Is(err, domain.ErrUnknownUser) {
+	user, err := s.users.GetByEmail(ctx, email)
+	if errors.Is(err, domain.ErrUserNotFound) {
 		user, err = s.register(ctx, email, identity.Name)
 	}
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *AuthService) CompleteLogin(ctx context.Context, code, state string, pen
 	return s.openSession(ctx, user.ID)
 }
 
-func (s *AuthService) register(ctx context.Context, email, name string) (domain.User, error) {
+func (s *AuthenticatorService) register(ctx context.Context, email, name string) (domain.User, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = email
@@ -91,12 +91,12 @@ func (s *AuthService) register(ctx context.Context, email, name string) (domain.
 
 // Authenticate extends the session, which expires only after IdleTimeout
 // without requests.
-func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (domain.User, error) {
+func (s *AuthenticatorService) Authenticate(ctx context.Context, sessionToken string) (domain.User, error) {
 	if sessionToken == "" {
 		return domain.User{}, domain.ErrSessionNotFound
 	}
 	tokenHash := hashToken(sessionToken)
-	session, err := s.sessions.Find(ctx, tokenHash)
+	session, err := s.sessions.Get(ctx, tokenHash)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find session: %w", err)
 	}
@@ -107,7 +107,7 @@ func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (do
 		}
 		return domain.User{}, domain.ErrSessionExpired
 	}
-	user, err := s.users.FindByID(ctx, session.UserID)
+	user, err := s.users.Get(ctx, session.UserID)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find user %s: %w", session.UserID, err)
 	}
@@ -117,7 +117,7 @@ func (s *AuthService) Authenticate(ctx context.Context, sessionToken string) (do
 	return user, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, sessionToken string) error {
+func (s *AuthenticatorService) Logout(ctx context.Context, sessionToken string) error {
 	if sessionToken == "" {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (s *AuthService) Logout(ctx context.Context, sessionToken string) error {
 	return nil
 }
 
-func (s *AuthService) openSession(ctx context.Context, userID string) (string, error) {
+func (s *AuthenticatorService) openSession(ctx context.Context, userID string) (string, error) {
 	token := newToken()
 	session := domain.Session{
 		TokenHash:  hashToken(token),
