@@ -8,8 +8,9 @@ CREATE TABLE users (
     name  text NOT NULL
 );
 
--- A session is not history: it is deleted when it is closed or expires, and
--- only the time it was last used changes. There is no reference to users,
+-- A session is not history: it is deleted when it is closed or used after
+-- it expired, and only the time it was last used changes. One that is never
+-- used again stays. There is no reference to users,
 -- as in the rest of the auth module: rows are not deleted, so the
 -- application checks that what they name exists.
 CREATE TABLE sessions (
