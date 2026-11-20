@@ -422,6 +422,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carga un dato que pide una subsanación pendiente
+         * @description Solo el titular, y solo un dato que pide una subsanación pendiente. El valor se valida como al iniciar el trámite y queda en el paso del titular que pide ese dato, junto con los anteriores, y en el historial. Cargarlo no responde la subsanación: eso es enviar la respuesta.
+         */
+        post: operations["enterProcedureValue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/correction-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envía la respuesta a las subsanaciones pendientes
+         * @description Solo el titular. Responde todas las subsanaciones pendientes, y exige que cada dato y documento que piden se haya cargado de nuevo después del último pedido que lo nombra; si falta alguno, responde 400 con un mensaje que los nombra. El trámite vuelve al personal en el mismo paso abierto, y la respuesta queda en el historial.
+         */
+        post: operations["answerCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}/documents": {
         parameters: {
             query?: never;
@@ -439,7 +479,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;
@@ -878,6 +918,20 @@ export interface components {
             returned: boolean;
             document?: components["schemas"]["HistoryDocument"];
             correction_request?: components["schemas"]["HistoryCorrectionRequest"];
+            value?: components["schemas"]["HistoryValue"];
+            /** @description Lo que pedían las subsanaciones que respondió el titular; ausente en los demás eventos. Responderlas no avanza el trámite: vuelve al personal en el mismo paso. */
+            correction_answer?: components["schemas"]["HistoryCorrectionRequest"];
+        };
+        /** @description El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso. */
+        HistoryValue: {
+            field: string;
+        };
+        NewProcedureValue: {
+            /** @description Identificador del dato */
+            field: string;
+            /** @description El valor; para subject_list va items */
+            text?: string;
+            items?: string[];
         };
         /** @description Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite. */
         HistoryDocument: {
@@ -903,6 +957,8 @@ export interface components {
             /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name?: string;
             state: components["schemas"]["ProcedureState"];
+            /** @description Si el titular tiene una subsanación pendiente */
+            correction_pending: boolean;
             /** Format: date-time */
             started_at: string;
             /**
@@ -1804,6 +1860,68 @@ export interface operations {
         };
         responses: {
             /** @description Subsanación pedida */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    enterProcedureValue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProcedureValue"];
+            };
+        };
+        responses: {
+            /** @description Dato cargado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureValue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    answerCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Respuesta enviada */
             201: {
                 headers: {
                     [name: string]: unknown;

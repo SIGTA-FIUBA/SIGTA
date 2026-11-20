@@ -122,6 +122,11 @@ export function valueText(field: FieldRequirement, value: string | string[] | un
   return text
 }
 
+// sentValue is a value as the server takes it: a number with a decimal point.
+export function sentValue(field: FieldRequirement, value: string | string[]) {
+  return field.type === 'number' && typeof value === 'string' ? value.trim().replace(',', '.') : value
+}
+
 // submissionBody puts the parts in the order the server reads them: the procedure
 // type, the values and then each document followed by its file. A field left
 // empty is not sent, and a number goes with a decimal point.
@@ -129,10 +134,7 @@ export function submissionBody(procedureType: number, fields: FieldRequirement[]
   const values = Object.fromEntries(
     fields
       .filter((field) => !isEmpty(submission.values[field.id]))
-      .map((field) => {
-        const value = submission.values[field.id]
-        return [field.id, field.type === 'number' && typeof value === 'string' ? value.trim().replace(',', '.') : value]
-      }),
+      .map((field) => [field.id, sentValue(field, submission.values[field.id]!)]),
   )
   const body = new FormData()
   body.append('procedure_type', String(procedureType))

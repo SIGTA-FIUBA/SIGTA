@@ -25,11 +25,12 @@ import { Link, useLocation, useParams } from 'react-router'
 import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
+import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
 import { documentDescription } from '../content/documentFormats'
 import { stateColors, stateNames } from '../content/procedureStates'
-import { fileError, valueText } from '../submission'
+import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
 type Step = components['schemas']['ProcedureStep']
@@ -385,6 +386,187 @@ function PendingCorrections({ detail }: { detail: Detail }) {
         <Text size="sm">El paso no se confirma hasta que el titular complete lo pedido.</Text>
       </Stack>
     </Alert>
+  )
+}
+
+// loadedSinceRequest says whether the applicant loaded the field or document
+// again after the last request that asks for it, as the server checks it when
+// the answer is sent.
+function loadedSinceRequest(detail: Detail, kind: 'field' | 'document', id: string) {
+  let loaded = false
+  for (const event of detail.history) {
+    const asked = event.correction_request
+    if (asked && (kind === 'field' ? asked.fields : asked.documents).includes(id)) {
+      loaded = false
+    } else if (
+      event.by?.id === detail.applicant.id &&
+      (kind === 'field' ? event.value?.field === id : event.document?.document === id)
+    ) {
+      loaded = true
+    }
+  }
+  return loaded
+}
+
+// requestedOfApplicant is everything the pending corrections ask for, once
+// each, with how the steps of the applicant ask for it.
+function requestedOfApplicant(detail: Detail) {
+  const steps = detail.steps.filter((step) => step.role === 'applicant')
+  const fields = new Map<string, FieldRequirement>()
+  const documents = new Map<string, DocumentRequirement>()
+  for (const request of detail.correction_requests) {
+    for (const id of request.fields) {
+      const field = steps.flatMap((step) => step.fields).find((candidate) => candidate.id === id)
+      if (field && !fields.has(id)) {
+        fields.set(id, field)
+      }
+    }
+    for (const id of request.documents) {
+      const document = steps.flatMap((step) => step.documents).find((candidate) => candidate.id === id)
+      if (document && !documents.has(id)) {
+        documents.set(id, document)
+      }
+    }
+  }
+  return { fields: [...fields.values()], documents: [...documents.values()] }
+}
+
+function EnterValue({ procedureId, field }: { procedureId: string; field: FieldRequirement }) {
+  const queryClient = useQueryClient()
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const required = { ...field, required: true }
+  const form = useForm<SubmissionDraft>({
+    mode: 'uncontrolled',
+    initialValues: emptySubmission([field], []),
+    validate: { values: { [field.id]: (value) => fieldError(required, value) } },
+  })
+
+  async function enter(values: SubmissionDraft) {
+    const value = sentValue(field, values.values[field.id] ?? '')
+    setFailure(null)
+    setSending(true)
+    try {
+      const { response, error } = await api.POST('/procedures/{procedureId}/values', {
+        params: { path: { procedureId } },
+        body: Array.isArray(value) ? { field: field.id, items: value } : { field: field.id, text: value },
+      })
+      if (response.ok) {
+        form.reset()
+      } else {
+        setFailure(error && 'message' in error ? error.message : 'No pudimos cargar el dato. Volvé a intentarlo.')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['procedure', procedureId] })
+    } catch {
+      setFailure('No pudimos cargar el dato. Revisá tu conexión y volvé a intentarlo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={form.onSubmit((values) => void enter(values))} noValidate>
+      <Stack gap="xs">
+        <FieldInput form={form} field={required} />
+        {failure && (
+          <Alert color="red" role="alert">
+            {failure}
+          </Alert>
+        )}
+        <Group>
+          <Button type="submit" variant="default" loading={sending} aria-label={`Cargar ${field.name}`}>
+            Cargar
+          </Button>
+        </Group>
+      </Stack>
+    </form>
+  )
+}
+
+function RequestedItem({ name, loaded, children }: { name: string; loaded: boolean; children: ReactNode }) {
+  return (
+    <Stack gap="xs">
+      <Group gap="xs">
+        <Text size="sm" fw={500}>
+          {name}
+        </Text>
+        <Badge variant="light" color={loaded ? 'green' : 'gray'}>
+          {loaded ? 'Cargado' : 'Pendiente'}
+        </Badge>
+      </Group>
+      {children}
+    </Stack>
+  )
+}
+
+// CorrectionAnswer lets the applicant load again what the pending corrections
+// ask for, one by one, and then send the answer, which takes the procedure
+// back to staff. What they load lands on the step of theirs that asks for it.
+function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: () => void }) {
+  const queryClient = useQueryClient()
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const { fields, documents } = requestedOfApplicant(detail)
+
+  async function answer() {
+    setFailure(null)
+    setSending(true)
+    try {
+      const { response, error } = await api.POST('/procedures/{procedureId}/correction-answer', {
+        params: { path: { procedureId: detail.id } },
+      })
+      if (response.ok) {
+        onAnswered()
+      } else {
+        setFailure(error && 'message' in error ? error.message : 'No pudimos enviar la respuesta. Volvé a intentarlo.')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['procedure', detail.id] })
+      await queryClient.invalidateQueries({ queryKey: ['me', 'procedures'] })
+    } catch {
+      setFailure('No pudimos enviar la respuesta. Revisá tu conexión y volvé a intentarlo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="md">
+        <Title order={2}>Responder la subsanación</Title>
+        <Text size="sm" c="dimmed">
+          Cargá de nuevo cada dato y documento que se pide. Cuando estén todos, enviá la respuesta: el trámite vuelve a
+          quien lo pidió, en el mismo paso.
+        </Text>
+        {fields.map((field) => (
+          <RequestedItem
+            key={`field-${field.id}`}
+            name={field.name}
+            loaded={loadedSinceRequest(detail, 'field', field.id)}
+          >
+            <EnterValue procedureId={detail.id} field={field} />
+          </RequestedItem>
+        ))}
+        {documents.map((document) => (
+          <RequestedItem
+            key={`document-${document.id}`}
+            name={document.name}
+            loaded={loadedSinceRequest(detail, 'document', document.id)}
+          >
+            <AttachDocument procedureId={detail.id} document={{ ...document, required: true }} onAttached={() => {}} />
+          </RequestedItem>
+        ))}
+        {failure && (
+          <Alert color="red" role="alert">
+            {failure}
+          </Alert>
+        )}
+        <Group>
+          <Button onClick={() => void answer()} loading={sending}>
+            Enviar la respuesta
+          </Button>
+        </Group>
+      </Stack>
+    </Paper>
   )
 }
 
@@ -812,6 +994,12 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
       </Paper>
       <SentBack detail={detail} />
       <PendingCorrections detail={detail} />
+      {detail.as_applicant && awaiting && (
+        <CorrectionAnswer
+          detail={detail}
+          onAnswered={() => setNotice('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')}
+        />
+      )}
       {detail.state === 'closed' && (
         <Stack gap="sm">
           <Title order={2}>Resolución</Title>

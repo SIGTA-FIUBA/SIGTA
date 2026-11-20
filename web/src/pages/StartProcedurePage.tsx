@@ -7,13 +7,9 @@ import {
   Group,
   Loader,
   Modal,
-  Select,
   Stack,
   Stepper,
-  TagsInput,
   Text,
-  Textarea,
-  TextInput,
   Title,
 } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
@@ -23,6 +19,7 @@ import { Link, useBlocker, useParams } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import { api } from '../api/client'
 import type { components } from '../api/schema'
+import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { documentDescription } from '../content/documentFormats'
 import {
@@ -30,7 +27,6 @@ import {
   fieldError,
   fileError,
   isEmpty,
-  maxSubjects,
   problemErrors,
   submissionBody,
   totalSizeErrors,
@@ -39,7 +35,6 @@ import {
 } from '../submission'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
-type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 type StartedProcedure = components['schemas']['StartedProcedure']
 type Form = UseFormReturnType<SubmissionDraft>
@@ -47,9 +42,6 @@ type Form = UseFormReturnType<SubmissionDraft>
 const stageData = 0
 const stageDocuments = 1
 const stageSummary = 2
-
-// Beyond this many options, a select lets the applicant type to find one.
-const searchableOptions = 7
 
 // failureText says what to do when the server rejects the submission for
 // something other than its content.
@@ -63,47 +55,6 @@ function failureText(status: number) {
       return 'No pudimos leer el envío. Revisá los archivos y volvé a intentarlo.'
     default:
       return 'No pudimos enviar el trámite. Volvé a intentarlo más tarde.'
-  }
-}
-
-function FieldInput({ form, field }: { form: Form; field: FieldRequirement }) {
-  const path = `values.${field.id}`
-  const common = {
-    label: field.name,
-    name: field.id,
-    withAsterisk: field.required,
-    key: form.key(path),
-    ...form.getInputProps(path),
-  }
-  switch (field.type) {
-    case 'long_text':
-      return <Textarea {...common} autosize minRows={3} maxRows={12} />
-    case 'number':
-      return <TextInput {...common} inputMode="decimal" description="Con coma o punto para los decimales." />
-    case 'date':
-      return <TextInput {...common} type="date" />
-    case 'option':
-      return (
-        <Select
-          {...common}
-          data={field.options.map((option) => ({ value: option.id, label: option.name }))}
-          placeholder="Elegí una opción…"
-          searchable={field.options.length > searchableOptions}
-          nothingFoundMessage="No hay opciones con ese texto."
-        />
-      )
-    case 'subject_list':
-      return (
-        <TagsInput
-          {...common}
-          description={`Escribí cada asignatura y apretá Enter. Hasta ${maxSubjects}.`}
-          splitChars={[]}
-          maxTags={maxSubjects}
-          clearable
-        />
-      )
-    default:
-      return <TextInput {...common} />
   }
 }
 

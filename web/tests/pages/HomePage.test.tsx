@@ -110,6 +110,16 @@ describe('HomePage', () => {
     expect(screen.queryByRole('region', { name: 'Mis trámites cerrados' })).not.toBeInTheDocument()
   })
 
+  it('says when the applicant has a correction to make', async () => {
+    stubApi(200, [{ ...withApplicant, correction_pending: true }, inOffice])
+    renderAs(false)
+
+    const pending = await screen.findByRole('link', { name: /Reconocimiento de créditos/ })
+    expect(within(pending).getByText('Subsanación pendiente del titular')).toBeVisible()
+    const other = screen.getByRole('link', { name: /Equivalencia entre asignaturas/ })
+    expect(within(other).queryByText(/Subsanación pendiente/)).toBeNull()
+  })
+
   it('says when there is no procedure in progress', async () => {
     stubApi(200, [])
     renderAs(true)
