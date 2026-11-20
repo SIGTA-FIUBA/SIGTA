@@ -232,7 +232,7 @@ func TestGetProcedureShowsThePendingCorrectionRequests(t *testing.T) {
 	at := time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)
 	d := openedDetail(true)
 	d.Procedure.OpenStep = "review"
-	d.Procedure.CorrectionRequests = []domain.CorrectionRequest{
+	d.CorrectionRequests = []domain.CorrectionRequest{
 		{Step: "review", By: "staff-1", At: at, Reason: "faltan los códigos", Fields: []string{"subjects"}},
 		{Step: "review", By: "staff-1", At: at.Add(time.Hour), Reason: "falta la firma", Documents: []string{"statement"}},
 	}

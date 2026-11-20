@@ -117,6 +117,23 @@ func TestDetailShowsTheHistoryInTheOrderItWasRecorded(t *testing.T) {
 	}
 }
 
+func TestDetailListsThePendingCorrectionRequests(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "review")
+	asked := domain.CorrectionRequest{Step: "review", By: reviewer, Reason: "the codes are missing", Fields: []string{"subjects"}}
+	if err := f.procedures.RequestCorrection(t.Context(), asked, domain.Event{ProcedureID: "P-2", Step: "review", By: reviewer}); err != nil {
+		t.Fatal(err)
+	}
+
+	detail, err := f.details.Detail(t.Context(), applicant, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []domain.CorrectionRequest{asked}; !reflect.DeepEqual(detail.CorrectionRequests, want) {
+		t.Errorf("correction requests = %+v, want %+v", detail.CorrectionRequests, want)
+	}
+}
+
 // Someone who cannot see a procedure gets the same answer as for one that
 // does not exist, so the detail does not tell which procedures exist.
 func TestDetailAnswersNotFoundToWhoCannotSeeTheProcedure(t *testing.T) {

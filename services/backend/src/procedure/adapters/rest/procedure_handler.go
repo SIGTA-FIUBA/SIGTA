@@ -55,7 +55,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 	for _, e := range d.History {
 		people = append(people, e.By)
 	}
-	for _, r := range p.CorrectionRequests {
+	for _, r := range d.CorrectionRequests {
 		people = append(people, r.By)
 	}
 	names, err := h.people.Names(ctx, people)
@@ -71,7 +71,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 		Applicant:          person(p.Applicant, names),
 		CanAct:             d.CanAct,
 		AsApplicant:        d.AsApplicant,
-		CorrectionRequests: make([]api.CorrectionRequest, 0, len(p.CorrectionRequests)),
+		CorrectionRequests: make([]api.CorrectionRequest, 0, len(d.CorrectionRequests)),
 		Steps:              make([]api.ProcedureStep, 0, len(d.Steps)),
 		History:            make([]api.ProcedureEvent, 0, len(d.History)),
 	}
@@ -85,7 +85,7 @@ func (h *ProcedureHandler) GetProcedure(ctx context.Context, req api.GetProcedur
 			DaysWithoutReturn: int64(r.DaysWithoutReturn),
 		}
 	}
-	for _, r := range p.CorrectionRequests {
+	for _, r := range d.CorrectionRequests {
 		response.CorrectionRequests = append(response.CorrectionRequests, api.CorrectionRequest{
 			Step:      r.Step,
 			By:        person(r.By, names),

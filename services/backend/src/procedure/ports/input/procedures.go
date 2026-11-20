@@ -21,8 +21,8 @@ func (v ProcedureView) CanAct() bool {
 
 // ProcedureDetail is a procedure with the name and the steps of the version it
 // started with, the value and the file that cover each field and document its
-// steps ask for, whether the person can act on the open step and the steps
-// done so far.
+// steps ask for, whether the person can act on the open step, the corrections
+// the applicant has pending and the steps done so far.
 type ProcedureDetail struct {
 	Procedure domain.Procedure
 	Name      string
@@ -31,8 +31,9 @@ type ProcedureDetail struct {
 	CanAct    bool
 	// AsApplicant is set when the person is the applicant, who sees only
 	// part of the procedure (detail.Applicant).
-	AsApplicant bool
-	Referral    *detail.Referral
+	AsApplicant        bool
+	Referral           *detail.Referral
+	CorrectionRequests []domain.CorrectionRequest
 	// History holds the steps done, in the order they were recorded.
 	History []domain.Event
 }

@@ -66,14 +66,15 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 		steps = detail.WithValues(detail.WithFiles(detail.Steps(content), documents), values)
 	}
 	return input.ProcedureDetail{
-		Procedure:   p,
-		Name:        content.Definition.Name,
-		State:       state,
-		Steps:       steps,
-		CanAct:      canAct,
-		AsApplicant: asApplicant,
-		Referral:    detail.ReferralOf(p, content, s.procedures.now()),
-		History:     history,
+		Procedure:          p,
+		Name:               content.Definition.Name,
+		State:              state,
+		Steps:              steps,
+		CanAct:             canAct,
+		AsApplicant:        asApplicant,
+		Referral:           detail.ReferralOf(p, content, s.procedures.now()),
+		CorrectionRequests: p.CorrectionRequests,
+		History:            history,
 	}, nil
 }
 

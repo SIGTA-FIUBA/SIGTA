@@ -8,6 +8,7 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
@@ -80,18 +81,25 @@ func (w *correctionWorld) thenRequest(result string) error {
 	return nil
 }
 
+// thenAsked reads the detail with the account of the applicant, who is the one
+// that has to see what is asked.
 func (w *correctionWorld) thenAsked(requirements, reason string) error {
 	p, err := w.procedures.Get(context.Background(), w.current)
 	if err != nil {
 		return err
 	}
+	details := application.NewProcedureDetailService(w.service, memory.NewDocumentRepository())
+	shown, err := details.Detail(context.Background(), p.Applicant, w.current)
+	if err != nil {
+		return err
+	}
 	want := list(requirements)
-	for _, r := range p.CorrectionRequests {
+	for _, r := range shown.CorrectionRequests {
 		if r.Reason == reason && slices.Equal(slices.Concat(r.Fields, r.Documents), want) {
 			return nil
 		}
 	}
-	return fmt.Errorf("the pending correction requests are %+v, want one of %v because %q", p.CorrectionRequests, want, reason)
+	return fmt.Errorf("the applicant sees the correction requests %+v, want one of %v because %q", shown.CorrectionRequests, want, reason)
 }
 
 func (w *correctionWorld) thenLeavesInbox(user string) error {
