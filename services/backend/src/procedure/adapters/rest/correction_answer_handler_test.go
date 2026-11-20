@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"backend/src/api"
-	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/engine"
@@ -54,7 +53,7 @@ func TestEnterProcedureValueErrors(t *testing.T) {
 		{"someone who is not the applicant", session, body, domain.ErrAccessDenied, http.StatusForbidden},
 		{"nothing pending", session, body, engine.ErrNoCorrectionPending, http.StatusConflict},
 		{"a field no pending correction asks for", session, body, engine.ErrNotRequested, http.StatusBadRequest},
-		{"an invalid value", session, body, application.ErrInvalidValue, http.StatusBadRequest},
+		{"an invalid value", session, body, submission.ErrInvalidValue, http.StatusBadRequest},
 		{"an unexpected failure", session, body, errors.New("store down"), http.StatusInternalServerError},
 	}
 	for _, tt := range tests {

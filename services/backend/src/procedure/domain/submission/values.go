@@ -1,6 +1,7 @@
 package submission
 
 import (
+	"errors"
 	"regexp"
 	"slices"
 	"strings"
@@ -72,6 +73,9 @@ func CheckValues(def definition.ProcedureTypeDefinition, values map[string]Value
 	}
 	return clean, nil
 }
+
+// ErrInvalidValue is a value that CheckValue rejects.
+var ErrInvalidValue = errors.New("the value is not valid for its field")
 
 // CheckValue returns the value as it is kept, without the spaces around it,
 // and whether it is a valid value of f.

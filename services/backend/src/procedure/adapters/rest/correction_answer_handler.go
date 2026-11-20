@@ -6,7 +6,6 @@ import (
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
-	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/engine"
 	"backend/src/procedure/domain/submission"
@@ -41,7 +40,7 @@ func (h *ProcedureHandler) EnterProcedureValue(ctx context.Context, req api.Ente
 		return api.EnterProcedureValue409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageNoCorrection}}, nil
 	case errors.Is(err, engine.ErrNotRequested):
 		return api.EnterProcedureValue400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageValueNotAsked}}, nil
-	case errors.Is(err, application.ErrInvalidValue):
+	case errors.Is(err, submission.ErrInvalidValue):
 		return api.EnterProcedureValue400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageInvalidValue}}, nil
 	case err != nil:
 		return nil, err
