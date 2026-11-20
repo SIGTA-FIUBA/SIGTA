@@ -332,8 +332,8 @@ const (
 // addDevProcedure leaves two procedures of the example type, one waiting on
 // the documents of the applicant and one on the review of staff, so that
 // there is something to show and to confirm until procedures can be started
-// and moved from the interface. A database that already has them keeps them as they
-// are, with whoever they were given to.
+// and moved from the interface. A database that already has them keeps them
+// as they are, with whoever they were given to.
 func addDevProcedure(ctx context.Context, versions output.ProcedureTypeVersionRepository, procedures output.ProcedureRepository, applicant string) error {
 	latest, err := versions.Latest(ctx, devProcedureType().ProcedureType)
 	if err != nil {
