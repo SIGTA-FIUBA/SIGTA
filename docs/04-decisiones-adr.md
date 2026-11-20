@@ -501,7 +501,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - El despliegue tiene que correr `migrate` antes de cada versión nueva del servidor, con una credencial que el servidor no recibe.
 - `roles.sql` corre solo al crear el volumen de la base, así que una base de desarrollo creada antes de este cambio se recrea con `docker compose down --volumes`.
 - Un error en una migración aplicada se corrige con otra migración.
-- Todavía no hay tablas de áreas ni de borradores de tipos de trámite: las áreas son del módulo de autorización, que sigue en memoria, y los borradores no existen en el dominio. Cada tabla llega con el adaptador que la usa, así sus permisos se prueban con el código que la lee.
+- Cada tabla llega con el adaptador que la usa, así sus permisos se prueban con el código que la lee: las de borradores, personas, áreas y trámites llegaron después, cada una en su migración.
 - Que los números de versión de un tipo de trámite no tengan huecos lo garantiza el adaptador, que agrega una versión solo si la anterior es la última: la base no tiene una restricción para eso, así que un `INSERT` directo con el rol de la aplicación puede dejar un hueco.
 - La restricción `approver_is_not_proposer` compara con `lower()`, que depende de la configuración regional de la base: con `en_US.UTF-8`, `lower('İnés')` es `inés`, mientras que el servicio, que compara en Go, los toma como distintos. Si la base rechaza una versión que el servicio aceptó, el adaptador lo informa como una autoría inválida. La configuración regional del servidor de la Subsecretaría de TICs está a confirmar.
 - Las pruebas de los adaptadores de PostgreSQL toman la base de `SIGTA_TEST_DATABASE_URL` y crean un esquema propio por prueba, con los permisos de `backend` y de `backend_migrations`. Sin la variable se saltean, salvo en la integración continua, donde fallan.
@@ -532,7 +532,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - La regla no exige cambios en la configuración de los tipos de trámite ni en las versiones publicadas.
 - El glosario llama pase al avance a un paso de otra área: con esta regla, todo pase es una derivación, también uno interno, por ejemplo de la Secretaría a la Dirección de Alumnos. Si la Secretaría los distingue, hace falta una de las alternativas descartadas (D-13).
 - Registrar el dictamen que trae el retorno queda para "Registrar retorno de la evaluación externa" (US21): acá el retorno solo termina la derivación.
-- Los trámites y sus eventos todavía están en memoria. Cuando pasen a PostgreSQL, `procedure_events` suma sus columnas, y la migración otorga `UPDATE` solo sobre las columnas del paso abierto y de la derivación (ADR-022).
+- Los trámites y sus eventos se guardan en PostgreSQL: la migración otorga `UPDATE` solo sobre las columnas del paso abierto, de la derivación y de la fecha del último movimiento (ADR-022).
 - La bandeja del personal tiene que calcular el estado con `domain.StateOf`, para que `referred` signifique lo mismo en el detalle y en la bandeja.
 
 ## ADR-024: Un trámite y sus datos y documentos se registran en una transacción, y un storage aparte se coordina con outbox y saga
@@ -543,7 +543,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Decisión.**
 - **Una transacción.** Iniciar un trámite registra en una sola transacción el trámite, los valores de sus campos y el registro de cada documento. Adjuntar un documento registra el documento y su evento del historial en otra.
-  - El mecanismo lo define SIG-75: un puerto de unidad de trabajo en `ports/output`, o un método del repositorio que registra el inicio completo. La aplicación no abre transacciones con `pgx`, y el adaptador en memoria da la misma garantía, probada con la suite de contrato de `ports/output/outputtest`.
+  - El mecanismo, elegido en SIG-75: un método del repositorio por operación, en `ports/output`. `ProcedureRepository.Add` recibe el inicio completo (trámite, eventos, valores y documentos) y `Attach`, el documento con su evento; el repositorio de documentos solo lee. Se prefirió a un puerto de unidad de trabajo porque hoy son dos operaciones y las dos son del mismo agregado. La aplicación no abre transacciones con `pgx`, y el adaptador en memoria da la misma garantía, probada con la suite de contrato de `ports/output/outputtest`.
   - Los archivos se escriben antes de la transacción. Con el disco local, lo único que puede sobrar es un archivo sin documento, que `RemoveUnreferencedFiles` borra al arrancar.
 - **Con un storage aparte, outbox y saga, subiendo antes de confirmar.**
   1. Reserva: una transacción corta registra cada archivo a subir, con su clave en el storage y el estado `pending`. Esa tabla es el log de la saga y la outbox.

@@ -13,7 +13,7 @@ Cómo se despliega SIGTA en sus dos entornos de prueba, en Cloud Run y Cloud SQL
 
 Los dos corren con `SIGTA_ENV=development`, como la demo: usuarios sintéticos e ingreso con Google (ADR-005). Cada uno tiene su base, su bucket, sus secretos y su cuenta de servicio, así que `dev` no puede leer nada de `prod`. Comparten solo el cliente de Google.
 
-Las sesiones, los trámites y los datos de los documentos todavía están en memoria. Por eso cada entorno corre en una sola instancia, siempre prendida, y cada despliegue o reinicio los pierde. Al arrancar, el backend también borra los archivos que ningún documento nombra, así que un reinicio vacía el bucket. Esto deja de pasar cuando esos datos estén en PostgreSQL.
+Las sesiones, las personas, las áreas, los trámites y los datos de los documentos se guardan en la base y sobreviven a un despliegue o un reinicio. Al arrancar, el backend borra los archivos que ningún documento nombra y que tienen más de una hora, así que cada entorno sigue corriendo en una sola instancia.
 
 ## Qué hay
 
