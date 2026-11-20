@@ -2,6 +2,7 @@ package postgres_test
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,44 @@ func TestAdministratorPeriodRepository(t *testing.T) {
 	outputtest.TestAdministratorPeriodRepository(t, func(t *testing.T) output.AdministratorPeriodRepository {
 		return postgres.NewAdministratorRepository(dbtest.NewSchema(t).Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
 	})
+}
+
+// Two administrators that end each other at once wait for each other, so that
+// the second one sees the first ended and SIGTA keeps one of them. The test
+// holds the lock until both are waiting for it, which they only do if they
+// take it.
+func TestEndsOfAdministratorsWaitForEachOther(t *testing.T) {
+	schema := dbtest.NewSchema(t)
+	r := postgres.NewAdministratorRepository(schema.Pool(t, dbtest.AppRole, dbtest.ReadCommitted))
+	from := time.Now().UTC().Add(-time.Hour)
+	for _, a := range []domain.Administrator{
+		{ID: "A-1", UserID: "U-1", From: from, GrantedBy: "U-0"}, {ID: "A-2", UserID: "U-2", From: from, GrantedBy: "U-0"},
+	} {
+		if err := r.Grant(t.Context(), a); err != nil {
+			t.Fatal(err)
+		}
+	}
+	holder, err := schema.Admin(t).Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = holder.Rollback(t.Context()) }()
+	if _, err := holder.Exec(t.Context(), "SELECT pg_advisory_xact_lock($1)", int64(postgres.AdministratorsLockKey)); err != nil {
+		t.Fatal(err)
+	}
+	end := from.Add(time.Minute)
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	wg.Go(func() { errs[0] = r.End(t.Context(), "A-1", end, "U-2") })
+	wg.Go(func() { errs[1] = r.End(t.Context(), "A-2", end, "U-1") })
+	schema.WaitForLocks(t, 2)
+	if err := holder.Rollback(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	wg.Wait()
+	if (errs[0] == nil) == (errs[1] == nil) || !errors.Is(errors.Join(errs...), domain.ErrLastAdministrator) {
+		t.Errorf("End() at once = %v; want one of them to fail with ErrLastAdministrator", errs)
+	}
 }
 
 // The application role only ends an open period: it cannot reopen one nor
