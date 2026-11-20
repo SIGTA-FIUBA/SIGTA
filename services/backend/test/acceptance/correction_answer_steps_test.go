@@ -38,12 +38,7 @@ func registerCorrectionAnswerSteps(sc *godog.ScenarioContext, details *myProcedu
 
 	sc.Then(`^they are asked for "([^"]*)" because "([^"]*)", by "([^"]*)"$`, w.thenAskedBy)
 	sc.Then(`^the "([^"]*)" of the "([^"]*)" step is "([^"]*)"$`, w.thenLoaded)
-	sc.Then(`^the attachment is rejected$`, func() error {
-		if w.loadErr == nil {
-			return errors.New("the attachment was accepted")
-		}
-		return nil
-	})
+	sc.Then(`^the attachment is rejected because (no pending correction asks for it|it is not up to the applicant)$`, w.thenAttachmentRejected)
 	sc.Then(`^the answer is (sent|denied)$`, w.thenAnswer)
 	sc.Then(`^the answer is rejected because "([^"]*)" (?:is|are) missing$`, w.thenMissing)
 	sc.Then(`^"([^"]*)" has the procedure in their inbox$`, w.thenInInbox)
@@ -125,6 +120,17 @@ func (w *correctionAnswerWorld) thenLoaded(requirement, step, want string) error
 		return fmt.Errorf("step %s has values %+v and files %+v, want %q as the %s", step, s.Values, s.Files, want, requirement)
 	}
 	return fmt.Errorf("the applicant does not see the step %q", step)
+}
+
+func (w *correctionAnswerWorld) thenAttachmentRejected(reason string) error {
+	want := engine.ErrNotRequested
+	if reason == "it is not up to the applicant" {
+		want = domain.ErrAccessDenied
+	}
+	if !errors.Is(w.loadErr, want) {
+		return fmt.Errorf("got %w, want the attachment rejected because %s", w.loadErr, reason)
+	}
+	return nil
 }
 
 func (w *correctionAnswerWorld) thenAnswer(result string) error {

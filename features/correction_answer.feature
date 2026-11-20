@@ -36,11 +36,11 @@ Feature: The applicant answers a correction request
   Scenario: the applicant loads only what they are asked for
     Given "operative@fi.uba.ar" requested a correction of "syllabus" because "the syllabus is missing"
     When "applicant@fi.uba.ar" tries to attach "analitico.pdf" as the "transcript"
-    Then the attachment is rejected
+    Then the attachment is rejected because no pending correction asks for it
 
   Scenario: the applicant loads nothing while no correction is pending
     When "applicant@fi.uba.ar" tries to attach "programa.pdf" as the "syllabus"
-    Then the attachment is rejected
+    Then the attachment is rejected because it is not up to the applicant
 
   Scenario: the answer is not sent until everything asked for is loaded again
     Given "operative@fi.uba.ar" requested a correction of "subjects, syllabus" because "the subject codes and the syllabus are missing"
