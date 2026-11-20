@@ -307,3 +307,9 @@ func TestStoppedDuringStartup(t *testing.T) {
 		t.Errorf("after a signal = %v, want nil", err)
 	}
 }
+
+func TestNowIsAsPostgreSQLKeepsIt(t *testing.T) {
+	if got := now(); got.Location() != time.UTC || got.Nanosecond()%1000 != 0 {
+		t.Errorf("now() = %v, want UTC to the microsecond", got)
+	}
+}

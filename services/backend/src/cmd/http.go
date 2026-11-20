@@ -69,24 +69,24 @@ func run(logger *slog.Logger) error {
 		return stoppedDuringStartup(stop, err)
 	}
 	defer closeStores()
-	administratorIDs, err := addDirectory(startup, cfg, stores, time.Now())
+	administratorIDs, err := addDirectory(startup, cfg, stores, now())
 	if err != nil {
 		return stoppedDuringStartup(stop, err)
 	}
 	administrators := memory.NewAdministratorRepository(administratorIDs...)
-	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, time.Now)
-	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, time.Now)
+	areaService := application.NewAreaService(stores.areas, administrators, stores.memberships, now)
+	memberships := application.NewMembershipService(stores.areas, administrators, stores.memberships, newID, now)
 
 	versions := stores.versions
-	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, time.Now)
-	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, time.Now)
+	procedureTypes := procedureapp.NewProcedureTypeService(versions, areaService, memberships, now)
+	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)
 	users := stores.users
 	if cfg.development() {
 		users, err = addDevExample(startup, cfg, logger, versions, procedureTypes, stores.procedures, users)
 		if err != nil {
 			return stoppedDuringStartup(stop, err)
 		}
-		if err := addDevInbox(startup, versions, stores.procedures, time.Now()); err != nil {
+		if err := addDevInbox(startup, versions, stores.procedures, now()); err != nil {
 			return stoppedDuringStartup(stop, fmt.Errorf("add the procedures of the inbox: %w", err))
 		}
 	}
@@ -99,7 +99,7 @@ func run(logger *slog.Logger) error {
 		identity,
 		users,
 		stores.sessions,
-		time.Now,
+		now,
 	)
 
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
@@ -107,8 +107,8 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, time.Now)
-	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, time.Now)
+	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, now)
+	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, now)
 	people := application.NewPeopleService(users)
 	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(startup)
@@ -123,7 +123,7 @@ func run(logger *slog.Logger) error {
 		procedurerest.NewCatalogHandler(procedureTypes),
 		authrest.NewAdministrationHandler(auth, areaService, memberships),
 		procedurerest.NewDocumentHandler(auth, people, documents),
-		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, time.Now), procedures),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
 		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
 	)
@@ -435,4 +435,11 @@ func devValues(p proceduredomain.Procedure) []proceduredomain.FieldValue {
 		value("reason", "Motivo de ejemplo: pido el trámite para probar SIGTA.\nSegunda línea del motivo."),
 		value("comment", "Comentario de ejemplo."),
 	}
+}
+
+// now is the time as PostgreSQL keeps it, in UTC and to the microsecond, so
+// that what a request answers right after saving says the same as a later
+// read.
+func now() time.Time {
+	return time.Now().UTC().Truncate(time.Microsecond)
 }
