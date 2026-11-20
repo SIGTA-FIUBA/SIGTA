@@ -279,7 +279,7 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 
 Las migraciones de la base (ADR-022) se aplican con el mismo binario, `backend migrate`, antes de arrancar el servidor. Cómo se aplican y qué roles crea `deploy/postgres/sql/roles.sql` está en "Base de datos" en [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Para ingresar en local hace falta un cliente de Google que tenga registrada `http://localhost:8000/api/auth/callback`, con sus credenciales en `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET`, en el shell o en un `.env` que no se versiona: `compose.yaml` se las pasa al backend. Quien ingresa es un titular, con el catálogo vacío hasta que alguien publique un tipo de trámite, y para eso hace falta el primer administrador (SIG-83).
+En local también se ingresa con Google. Hace falta un cliente de tipo "aplicación web", con sus credenciales en `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` (en el shell o en un `.env` que no se versiona), y red hacia Google: el backend lo consulta al arrancar, y sin el cliente no arranca. El cliente tiene que tener registrada la dirección de vuelta de cada forma de levantarlo: `http://localhost:8000/api/auth/callback` con `docker compose up` (`compose.yaml` le pasa las credenciales al backend), y `http://localhost:8080/auth/callback` con el backend por su cuenta (`cd services/backend && go run ./src/cmd`, con `SIGTA_ENV=development`) y la web con `npm run dev`. Quien ingresa es un titular, con el catálogo vacío hasta que alguien publique un tipo de trámite, y para eso hace falta el primer administrador (SIG-83).
 
 ## Inteligencia artificial
 

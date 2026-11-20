@@ -1,9 +1,9 @@
 # Local environment: `docker compose up --build` starts SIGTA at
 # http://localhost:8000, with the API under /api/. The credentials of the
-# database are for development only. Signing in needs a Google client that
-# has http://localhost:8000/api/auth/callback registered: its ID and secret go
-# in SIGTA_GOOGLE_CLIENT_ID and SIGTA_GOOGLE_CLIENT_SECRET, in the shell or in
-# a .env file next to this one.
+# database are for development only. The backend does not start without a
+# Google client that has http://localhost:8000/api/auth/callback registered:
+# its ID and secret go in SIGTA_GOOGLE_CLIENT_ID and SIGTA_GOOGLE_CLIENT_SECRET,
+# in the shell or in a .env file next to this one.
 name: sigta
 
 services:

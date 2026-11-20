@@ -87,7 +87,7 @@ El servicio de IA en Python todavía no existe en el repositorio.
 
 | Tarea | Comando |
 | --- | --- |
-| Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`) |
+| Levantar todo | `docker compose up --build` (http://localhost:8000, API en `/api/`). Pide un cliente de Google en `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` y red hacia Google: sin eso el backend no arranca (ver el README) |
 | Regenerar código desde el contrato | `make contracts` |
 | Backend: tests y lint | `cd services/backend && go test -race ./...` y `golangci-lint run` |
 | Backend: código sin usar | `cd services/backend && go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...` (no tiene que listar nada) |
