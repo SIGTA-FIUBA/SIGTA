@@ -189,6 +189,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada
 **Reemplaza:** ADR-003
+**Modificada por:** ADR-027: el entorno local también ingresa con Google, y el adaptador de identidad falso queda solo para las pruebas.
 
 **Contexto.** ADR-003 dejó la autenticación detrás de una interfaz, con una implementación local de credenciales propias por si el ingreso institucional no resultaba viable. En la reunión con la Subsecretaría de TICs del 9/10 se confirmó que SIGTA puede usar el ingreso con la cuenta de Google de la UBA, y que todos los titulares de los cinco trámites tienen cuenta UBA.
 
@@ -255,6 +256,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada por el equipo. A confirmar con los directores: contradice el anteproyecto, que pide archivos de configuración estáticos versionados en el repositorio, sin editor dinámico.
 **Reemplaza:** ADR-001
+**Modificada por:** ADR-027: ya no hay usuarios sintéticos con los dos permisos; nadie los tiene hasta que un administrador da las membresías.
 
 **Contexto.** ADR-001 mantenía los tipos de trámite como archivos en el repositorio, editados por el equipo mediante pull request, y quedó en revisión por D-07, que evaluaba un editor dentro de la aplicación. Con las versiones guardadas en la base y validadas al publicar (ADR-012), un editor ya no exige un motor aparte: es una interfaz sobre el mismo modelo. Además, al terminar el proyecto el equipo deja de estar disponible para hacer pull requests.
 
@@ -637,26 +639,31 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 ---
 
-## ADR-027: Las personas y las membresías viven solo en la base, sin archivo de usuarios
+## ADR-027: Las personas y las membresías viven solo en la base, sin archivo de usuarios ni datos de ejemplo
 
 **Estado:** propuesta, a acordar con el equipo
-**Modifica:** ADR-020, en la carga de las membresías iniciales
+**Modifica:** ADR-020, en la carga de las membresías iniciales; ADR-010, en la identidad del entorno local; ADR-013, en quién tiene los permisos de publicación
 
-**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que se hubieran dado de baja, y daba de baja las que dejaba de listar. Cuando un administrador pueda dar de baja una membresía desde SIGTA, con su registro de quién y cuándo, esa decisión podría deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corren con `SIGTA_ENV=development` y los usuarios sintéticos.
+**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que se hubieran dado de baja, y daba de baja las que dejaba de listar. Cuando un administrador pueda dar de baja una membresía desde SIGTA, con su registro de quién y cuándo, esa decisión podría deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corrían con `SIGTA_ENV=development`, que en cada arranque cargaba usuarios sintéticos con sus membresías, dos áreas de prueba, tres tipos de trámite de ejemplo y trámites inventados para la bandeja, y en local ofrecía un adaptador de identidad que dejaba entrar como cualquier correo. Esos usuarios eran otra lista fija de personas y membresías, escrita en el código, con el mismo problema que el archivo.
 
 **Decisión.**
 - Se saca `SIGTA_USERS_FILE`. El servidor ya no lo lee, y en producción no lo pide.
+- Se sacan los datos de ejemplo: los usuarios sintéticos, las áreas de prueba, los tipos de trámite de ejemplo y los trámites inventados. Nadie existe hasta que ingresa con Google, y cada prueba crea sus propios datos. Al arrancar, el servidor solo agrega la Secretaría si falta.
+- Se ingresa con Google en todos los entornos, también en local, con un cliente que tenga registrada la dirección local. El adaptador de identidad falso queda solo para las pruebas, y se saca `SIGTA_IDENTITY_PROVIDER`.
+- Los entornos desplegados corren con `SIGTA_ENV=production`. `development` solo pone valores por defecto para arrancar en local: las direcciones de `localhost`, el dominio y, sin base, todo en memoria.
 - Las personas se registran al ingresar con su cuenta de Google, como ya pasaba con quien no figuraba en el archivo.
 - Las membresías viven solo en la base y se cambian solo desde SIGTA. Hoy se dan por la API; la baja existe como caso de uso pero todavía no tiene endpoint ni pantalla.
-- La marca de administrador sigue en memoria y solo la tienen los usuarios sintéticos de desarrollo. Guardarla en la base y dar el primer administrador de un entorno desplegado con un comando de consola queda para SIG-83. De ahí en adelante, se administra desde SIGTA.
-- En desarrollo, los usuarios sintéticos y las áreas de prueba son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una que se dio de baja sigue de baja. Fuera de desarrollo solo se agrega la Secretaría.
+- La marca de administrador sigue en memoria y nadie la tiene. Guardarla en la base y dar el primer administrador de cada entorno con un comando de consola queda para SIG-83. De ahí en adelante, se administra desde SIGTA.
 
 **Alternativas descartadas.**
 - Mantener el archivo y documentar que prevalece sobre las bajas de un administrador: deja dos fuentes de verdad, y una de ellas sin trazabilidad.
 - Leer el archivo solo la primera vez: una base vacía en otro entorno lo volvería a aplicar, y el archivo seguiría guardando datos personales entre los secretos.
+- Dejar los usuarios sintéticos solo en local: siguen siendo personas y membresías fijadas en el código que vuelven en cada arranque, y obligan a mantener un ingreso que ningún entorno real usa.
 
 **Consecuencias.**
-- Hasta SIG-83, un entorno con `SIGTA_ENV=production` arranca sin administradores ni personal, y no hay cómo darle el primero.
-- Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien fuera de desarrollo solo se puede haciendo en la base.
+- Hasta SIG-83, ningún entorno, tampoco el local, tiene administradores ni personal, y no hay cómo dar el primero. Quien ingresa es un titular, con el catálogo vacío hasta que alguien publique un tipo de trámite.
+- Se pierden la bandeja de ejemplo, los tipos y trámites de ejemplo y el recorrido con usuarios de prueba (entrar como el operativo o la comisión con `login_hint` y confirmar sus pasos). Lo que cubrían lo prueban los tests, cada uno con sus datos: los casos de uso con adaptadores en memoria, los adaptadores contra PostgreSQL, el arranque con su reinicio contra la base y los escenarios con godog. Las pantallas con datos se siguen viendo en `npm run dev` (`web/src/dev/`), que no pasa por el servidor. Recorrer SIGTA a mano, con el personal, queda para después de SIG-83: se ingresa con Google, un administrador da las membresías y se publica un tipo de trámite.
+- Las bases de los entornos desplegados conservan los tipos de trámite de ejemplo ya publicados, porque las versiones no se borran, y sus pasos nombran áreas de prueba que ya no se crean. Se limpian recreando la base de cada entorno.
+- Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien solo se puede haciendo en la base.
 - Ya no hay un archivo con datos personales entre los secretos del despliegue.
-- El despliegue en Google Cloud no cambia, porque nunca pasó el archivo.
+- El despliegue en Google Cloud pasa a `SIGTA_ENV=production`, que exige la base y la carpeta de documentos que ya tenía.
