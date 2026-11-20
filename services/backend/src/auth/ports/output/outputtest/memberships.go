@@ -15,12 +15,19 @@ import (
 // TestMembershipRepository runs the contract of output.MembershipRepository.
 // newRepository returns an empty repository each time it is called.
 func TestMembershipRepository(t *testing.T, newRepository func(t *testing.T) output.MembershipRepository) {
-	t.Run("round trip", func(t *testing.T) { membershipRoundTrip(t, newRepository(t)) })
-	t.Run("lists in the order granted", func(t *testing.T) { listMemberships(t, newRepository(t)) })
-	t.Run("end a membership", func(t *testing.T) { endMembership(t, newRepository(t)) })
-	t.Run("only the validity of a membership changes", func(t *testing.T) { changeOnlyValidity(t, newRepository(t)) })
-	t.Run("concurrent grants", func(t *testing.T) { concurrentGrants(t, newRepository(t)) })
-	t.Run("replace a membership", func(t *testing.T) { replaceMembership(t, newRepository(t)) })
+	for _, c := range []struct {
+		name string
+		test func(*testing.T, output.MembershipRepository)
+	}{
+		{"round trip", membershipRoundTrip},
+		{"lists in the order granted", listMemberships},
+		{"end a membership", endMembership},
+		{"only the validity of a membership changes", changeOnlyValidity},
+		{"concurrent grants", concurrentGrants},
+		{"replace a membership", replaceMembership},
+	} {
+		t.Run(c.name, func(t *testing.T) { c.test(t, newRepository(t)) })
+	}
 }
 
 func membership(id, userID, area string) domain.Membership {
