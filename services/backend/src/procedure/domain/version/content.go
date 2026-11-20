@@ -22,6 +22,9 @@ import (
 // encoding, so format 3 still reads.
 const ContentFormat = 4
 
+// resolutionFormat is the format that added the resolution of a document.
+const resolutionFormat = 4
+
 // Content carries the staff areas its steps use, with the permissions they ask
 // for, so that a version reads the same after either is renamed.
 type Content struct {

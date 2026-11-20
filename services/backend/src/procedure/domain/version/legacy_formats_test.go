@@ -168,11 +168,18 @@ func TestFormatFour(t *testing.T) {
 	}
 }
 
-// A version of format 3 cannot carry a resolution: format 4 added it.
-func TestFormatThreeWithResolutionIsRejected(t *testing.T) {
-	encoded := bytes.Replace(readFixture(t, "format4.json"), []byte(`{"format":4,`), []byte(`{"format":3,`), 1)
-	if _, err := (version.ProcedureTypeVersion{EncodedContent: encoded}).DecodeContent(); err == nil {
-		t.Error("DecodeContent() = nil, want an error")
+// A version before format 4 cannot carry a resolution: format 4 added it.
+func TestFormatBeforeFourWithResolutionIsRejected(t *testing.T) {
+	for _, encoded := range [][]byte{
+		bytes.Replace(readFixture(t, "format4.json"), []byte(`{"format":4,`), []byte(`{"format":3,`), 1),
+		bytes.Replace(readFixture(t, "format2.json"), []byte(`"max_size":10485760}`), []byte(`"max_size":10485760,"resolution":true}`), 1),
+	} {
+		if !bytes.Contains(encoded, []byte(`"resolution":true`)) {
+			t.Fatalf("%s does not carry a resolution", encoded)
+		}
+		if _, err := (version.ProcedureTypeVersion{EncodedContent: encoded}).DecodeContent(); err == nil {
+			t.Errorf("DecodeContent(%s) = nil, want an error", encoded)
+		}
 	}
 }
 
