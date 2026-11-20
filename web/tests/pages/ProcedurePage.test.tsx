@@ -1103,4 +1103,32 @@ describe('ProcedurePage correction answer', () => {
 
     expect(await screen.findByText('Falta cargar de nuevo "Constancia".')).toBeDefined()
   })
+
+  it('shows in the history the values loaded again and the answer, with what it answered', async () => {
+    const answered: Detail = {
+      ...loaded,
+      can_act: true,
+      as_applicant: false,
+      correction_requests: [],
+      history: [
+        ...loaded.history,
+        {
+          step: 'review',
+          by: { id: 'a-1', name: 'Titular Uno' },
+          at: '2026-11-18T11:00:00Z',
+          observation: '',
+          declared: false,
+          send_back: false,
+          returned: false,
+          correction_answer: { fields: ['subjects'], documents: ['statement'] },
+        },
+      ],
+    }
+    stubPost(201, {}, answered)
+    renderPage()
+
+    expect(await screen.findByText('Dato cargado en Adjuntar documentos')).toBeDefined()
+    expect(screen.getByText('Respuesta a la subsanación en Revisar la solicitud')).toBeDefined()
+    expect(screen.getByText('Se respondió: Materias, Constancia')).toBeDefined()
+  })
 })

@@ -287,6 +287,14 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
         </Stack>
       )}
       {event.correction_request && <Text size="sm">Se pide: {requestedNames(detail, event.correction_request)}</Text>}
+      {event.value && (
+        <Text size="sm" fw={500}>
+          {requestedNames(detail, { fields: [event.value.field], documents: [] })}
+        </Text>
+      )}
+      {event.correction_answer && (
+        <Text size="sm">Se respondió: {requestedNames(detail, event.correction_answer)}</Text>
+      )}
       {event.send_back ? (
         <Text size="sm" fw={500}>
           Devuelto a {stepName(detail, event.next)}
@@ -319,6 +327,12 @@ function historyTitle(event: Event, step: Step | undefined) {
   const name = step?.name ?? event.step
   if (event.document) {
     return `Documento adjuntado en ${name}`
+  }
+  if (event.value) {
+    return `Dato cargado en ${name}`
+  }
+  if (event.correction_answer) {
+    return `Respuesta a la subsanación en ${name}`
   }
   return event.correction_request ? `Subsanación pedida en ${name}` : name
 }
