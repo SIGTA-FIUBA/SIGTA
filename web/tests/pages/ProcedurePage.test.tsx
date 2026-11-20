@@ -831,3 +831,144 @@ describe('ProcedurePage send back', () => {
     expect(screen.queryByText('Trámite devuelto')).toBeNull()
   })
 })
+
+describe('ProcedurePage correction request', () => {
+  const asksForSubjects: Detail = {
+    ...detail,
+    steps: [
+      {
+        ...detail.steps[0]!,
+        fields: [{ id: 'subjects', name: 'Materias', required: true, type: 'text', options: [] }],
+      },
+      detail.steps[1]!,
+    ],
+  }
+  const request = {
+    step: 'review',
+    by: { id: 's-1', name: 'Operativo Uno' },
+    at: '2026-11-17T15:00:00Z',
+    reason: 'Falta el código de cada materia.',
+    fields: ['subjects'],
+    documents: ['statement'],
+  }
+  const awaiting: Detail = { ...asksForSubjects, state: 'with_applicant', correction_requests: [request] }
+
+  // stubRequest answers the detail, and the correction request with status.
+  function stubRequest(status: number, body: unknown, current: Detail = asksForSubjects) {
+    const fetch = vi.fn(async (request: Request) =>
+      request.method === 'POST' ? Response.json(body, { status }) : Response.json(current),
+    )
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  async function sent(fetch: ReturnType<typeof stubRequest>) {
+    const posts = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
+    return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
+  }
+
+  async function openForm() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Pedir una subsanación' }))
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ['who cannot act', { ...asksForSubjects, can_act: false }],
+    ['a step of the applicant', { ...asksForSubjects, open_step: 'documents', state: 'with_applicant' as const }],
+  ])('does not offer to request a correction to %s', async (_, current) => {
+    stubRequest(201, {}, current)
+    renderPage()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('button', { name: 'Pedir una subsanación' })).toBeNull()
+  })
+
+  it('asks what is missing and why before sending', async () => {
+    const fetch = stubRequest(201, {})
+    renderPage()
+
+    await openForm()
+    await userEvent.click(screen.getByRole('button', { name: 'Pedir la subsanación' }))
+
+    expect(screen.getByText('Elegí qué falta.')).toBeDefined()
+    expect(screen.getByText('Escribí el motivo.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([])
+  })
+
+  it('sends the fields and documents asked for with the reason and says it is in the history', async () => {
+    const fetch = stubRequest(201, {})
+    renderPage()
+
+    await openForm()
+    await userEvent.click(screen.getByRole('combobox', { name: /Qué falta/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Materias' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Constancia' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /Motivo/ }), ' Falta el código de cada materia. ')
+    await userEvent.click(screen.getByRole('button', { name: 'Pedir la subsanación' }))
+
+    expect(await screen.findByText('Subsanación pedida. Quedó en el historial.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([
+      {
+        url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/correction-requests$/),
+        body: { reason: 'Falta el código de cada materia.', fields: ['subjects'], documents: ['statement'] },
+      },
+    ])
+  })
+
+  it('shows why the server did not take the request', async () => {
+    stubRequest(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' })
+    renderPage()
+
+    await openForm()
+    await userEvent.click(screen.getByRole('combobox', { name: /Qué falta/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Materias' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /Motivo/ }), 'Falta el código')
+    await userEvent.click(screen.getByRole('button', { name: 'Pedir la subsanación' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'El paso ya no está abierto: el trámite cambió mientras tanto.',
+    )
+    expect(screen.queryByText('Subsanación pedida. Quedó en el historial.')).toBeNull()
+  })
+
+  it('shows what is pending and does not offer to confirm the step until the applicant answers', async () => {
+    stubRequest(201, {}, awaiting)
+    renderPage()
+
+    expect(await screen.findByText('Subsanación pendiente')).toBeDefined()
+    expect(screen.getByText('Se pide: Materias, Constancia')).toBeDefined()
+    expect(screen.getByText('Falta el código de cada materia.')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Confirmar el paso' })).toBeNull()
+    expect(screen.queryByText('Acción requerida')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Pedir una subsanación' })).toBeDefined()
+  })
+
+  it('shows a correction request in the history with what it asks for and why', async () => {
+    stubRequest(
+      201,
+      {},
+      {
+        ...awaiting,
+        history: [
+          {
+            step: 'review',
+            by: request.by,
+            at: request.at,
+            observation: request.reason,
+            declared: false,
+            send_back: false,
+            returned: false,
+            correction_request: { fields: ['subjects'], documents: [] },
+          },
+        ],
+      },
+    )
+    renderPage()
+
+    expect(await screen.findByText('Subsanación pedida en Revisar la solicitud')).toBeDefined()
+    expect(screen.getByText('Se pide: Materias')).toBeDefined()
+    expect(screen.getByText('Motivo: Falta el código de cada materia.')).toBeDefined()
+  })
+})
