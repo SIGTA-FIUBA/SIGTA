@@ -85,7 +85,7 @@ func (s *InboxService) summary(ctx context.Context, userID string, p domain.Proc
 		StepName:          step.Name,
 		Area:              areaOf(step, c.Areas),
 		State:             state,
-		Actionable:        actionable,
+		Actionable:        actionable && !p.AwaitingApplicant(),
 		StartedAt:         p.StartedAt,
 		LastMovedAt:       p.MovedAt,
 	}, nil

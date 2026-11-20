@@ -105,9 +105,10 @@ func (failingAdvance) Advance(context.Context, proceduredomain.Procedure, proced
 func confirmationFixture(t *testing.T) (*ProcedureService, *memory.ProcedureRepository) {
 	t.Helper()
 	d := definition.ProcedureTypeDefinition{
-		Name: "Equivalencia",
+		Name:   "Equivalencia",
+		Fields: []definition.Field{{ID: "subjects", Name: "Materias", Type: definition.FieldText}},
 		Steps: []definition.Step{
-			{ID: "request", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Next: "file"},
+			{ID: "request", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"subjects"}, Next: "file"},
 			{ID: "file", Role: definition.RoleStaff, Area: "affairs", Permissions: []string{"verify"}, Action: definition.ActionConfirmExternalFact, Next: "evaluate"},
 			{ID: "evaluate", Role: definition.RoleStaff, Area: "commission", Permissions: []string{"evaluate"}, Action: definition.ActionConfirmExternalFact},
 		},
@@ -226,4 +227,82 @@ func TestConfirmWhenStoringFailsLeavesTheProcedureAsItWas(t *testing.T) {
 	if p.OpenStep != "file" || len(events) != 0 {
 		t.Errorf("open step = %q with %d events, want file with none", p.OpenStep, len(events))
 	}
+}
+
+func fileCorrection() input.CorrectionRequest {
+	return input.CorrectionRequest{Step: "file", Reason: "the subject codes are missing", Fields: []string{"subjects"}}
+}
+
+func TestRequestCorrectionLeavesTheProcedureWaitingForTheApplicant(t *testing.T) {
+	ctx := context.Background()
+	service, procedures := confirmationFixture(t)
+
+	event, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.By != "operative@fi.uba.ar" || !event.At.Equal(confirmedAt) || event.Observation != "the subject codes are missing" || event.CorrectionRequest == nil {
+		t.Errorf("event = %+v, want the request by operative at %v with its reason", event, confirmedAt)
+	}
+	p, err := procedures.Get(ctx, "P-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.OpenStep != "file" || len(p.CorrectionRequests) != 1 || p.CorrectionRequests[0].By != "operative@fi.uba.ar" {
+		t.Errorf("procedure = %+v, want it on file with the request of operative", p)
+	}
+	if _, err := service.Confirm(ctx, "operative@fi.uba.ar", "P-1", fileConfirmation()); !errors.Is(err, engine.ErrAwaitingApplicant) {
+		t.Errorf("Confirm = %v, want ErrAwaitingApplicant", err)
+	}
+	summary, err := NewInboxService(service).summary(ctx, "operative@fi.uba.ar", p, mustContent(t, service, p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Actionable || summary.State != proceduredomain.StateWithApplicant {
+		t.Errorf("inbox summary = %+v, want it with the applicant and not actionable", summary)
+	}
+}
+
+func TestRequestCorrectionRejectsAndChangesNothing(t *testing.T) {
+	notOpen := fileCorrection()
+	notOpen.Step = "evaluate"
+	noReason := fileCorrection()
+	noReason.Reason = ""
+
+	tests := []struct {
+		name    string
+		user    string
+		request input.CorrectionRequest
+		want    error
+	}{
+		{"staff without the permissions of the step", "commission@fi.uba.ar", fileCorrection(), proceduredomain.ErrAccessDenied},
+		{"the applicant", "applicant@fi.uba.ar", fileCorrection(), proceduredomain.ErrAccessDenied},
+		{"someone who cannot see the procedure", "other@fi.uba.ar", fileCorrection(), proceduredomain.ErrProcedureNotFound},
+		{"a step that is not open", "operative@fi.uba.ar", notOpen, engine.ErrStepNotOpen},
+		{"no reason", "operative@fi.uba.ar", noReason, engine.ErrNoReason},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			service, procedures := confirmationFixture(t)
+
+			if _, err := service.RequestCorrection(ctx, tt.user, "P-1", tt.request); !errors.Is(err, tt.want) {
+				t.Fatalf("RequestCorrection = %v, want %v", err, tt.want)
+			}
+			p, _ := procedures.Get(ctx, "P-1")
+			events, _ := procedures.Events(ctx, "P-1")
+			if len(p.CorrectionRequests) != 0 || len(events) != 0 {
+				t.Errorf("procedure = %+v with %d events, want no request", p, len(events))
+			}
+		})
+	}
+}
+
+func mustContent(t *testing.T, s *ProcedureService, p proceduredomain.Procedure) version.Content {
+	t.Helper()
+	c, err := s.content(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }

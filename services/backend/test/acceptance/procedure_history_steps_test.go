@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -143,6 +144,10 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 		if e.Referral != nil {
 			fileNumber = e.Referral.ExternalFileNumber
 		}
+		var correction string
+		if e.CorrectionRequest != nil {
+			correction = strings.Join(slices.Concat(e.CorrectionRequest.Fields, e.CorrectionRequest.Documents), ", ")
+		}
 		var sendBack string
 		if e.SendBack {
 			sendBack = "yes"
@@ -154,6 +159,7 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 			"observation":          e.Observation,
 			"outcome":              e.Outcome,
 			"send back":            sendBack,
+			"correction":           correction,
 			"action":               string(e.Action),
 			"document":             document,
 			"file":                 file,

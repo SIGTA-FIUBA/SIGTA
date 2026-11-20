@@ -98,9 +98,9 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 		}
 		if !a.ownStep(e.Step) {
 			e.By, e.Outcome = "", ""
-			// The reason of a send back is for the applicant when it takes
-			// the procedure back to one of their steps (ADR-025).
-			if !e.SendBack || !a.ownStep(e.Next) {
+			// The reason of a send back to one of their steps (ADR-025) and of
+			// a correction request (ADR-026) is for the applicant.
+			if e.CorrectionRequest == nil && (!e.SendBack || !a.ownStep(e.Next)) {
 				e.Observation = ""
 			}
 		}

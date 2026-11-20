@@ -62,10 +62,22 @@ type StepConfirmation struct {
 	ExternalFileNumber string
 }
 
+// CorrectionRequest is what staff asks the applicant for on the open step:
+// fields and documents of the procedure type, and why.
+type CorrectionRequest struct {
+	Step      string
+	Reason    string
+	Fields    []string
+	Documents []string
+}
+
 type Procedures interface {
 	Start(ctx context.Context, userID string, procedureType int64) (domain.Procedure, error)
 	Open(ctx context.Context, userID, procedureID string) (ProcedureView, error)
 	List(ctx context.Context, userID string) ([]domain.Procedure, error)
 	Act(ctx context.Context, userID, procedureID, stepID string) error
 	Confirm(ctx context.Context, userID, procedureID string, c StepConfirmation) (domain.Event, error)
+	// RequestCorrection is up to whoever can act on the open step, as a
+	// confirmation is.
+	RequestCorrection(ctx context.Context, userID, procedureID string, r CorrectionRequest) (domain.Event, error)
 }

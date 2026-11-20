@@ -16,6 +16,11 @@ type ProcedureRepository interface {
 	// recorded.
 	Values(ctx context.Context, procedureID string) ([]domain.FieldValue, error)
 	Advance(ctx context.Context, p domain.Procedure, e domain.Event) error
+	// RequestCorrection adds a pending correction request to the procedure of
+	// the event, together with the event, as one change. It fails with
+	// engine.ErrStepNotOpen if the procedure is no longer on the step the
+	// request was made on.
+	RequestCorrection(ctx context.Context, r domain.CorrectionRequest, e domain.Event) error
 	// Record appends an event that does not move the procedure, and fails
 	// with domain.ErrProcedureNotFound if there is no such procedure.
 	Record(ctx context.Context, e domain.Event) error

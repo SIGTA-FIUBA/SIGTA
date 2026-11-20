@@ -25,6 +25,7 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US22 | SIG-30 | [my_procedures.feature](my_procedures.feature) | 6 |
 | US23 | SIG-31 | [my_procedure_detail.feature](my_procedure_detail.feature) | 8 |
 | US19 | SIG-23, SIG-81 | [procedure_detail.feature](procedure_detail.feature) | 6 |
+| US33 | SIG-49 | [correction_request.feature](correction_request.feature) | 9 |
 | US37 | SIG-25 | [procedure_list_filters.feature](procedure_list_filters.feature) | 7 |
 | — | SIG-82 | [step_documents.feature](step_documents.feature) | 7 |
 | US72 | SIG-74 | [procedure_type_drafts.feature](procedure_type_drafts.feature) | 14 |

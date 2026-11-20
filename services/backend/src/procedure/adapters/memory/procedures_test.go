@@ -216,3 +216,97 @@ func TestStoredReferralsCannotBeChangedFromOutside(t *testing.T) {
 		t.Errorf("stored event referral = %+v, want it unchanged", *storedEvents[0].Referral)
 	}
 }
+
+func requested(step string) (domain.CorrectionRequest, domain.Event) {
+	r := domain.CorrectionRequest{Step: step, By: "staff@fi.uba.ar", Reason: "missing codes", Fields: []string{"subjects"}}
+	return r, domain.Event{ProcedureID: "P-1", Step: step, By: "staff@fi.uba.ar", Observation: "missing codes", CorrectionRequest: &domain.CorrectionRecord{Fields: []string{"subjects"}}}
+}
+
+func TestRequestCorrectionKeepsEachRequestPendingAndAppendsItsEvent(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		r, e := requested("file")
+		if err := s.RequestCorrection(ctx, r, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, _ := s.Get(ctx, "P-1")
+	if got.OpenStep != "file" || len(got.CorrectionRequests) != 2 {
+		t.Errorf("procedure = %+v, want it on file with two pending requests", got)
+	}
+	if events, _ := s.Events(ctx, "P-1"); len(events) != 2 || events[1].CorrectionRequest == nil {
+		t.Errorf("events = %+v, want both requests", events)
+	}
+}
+
+func TestRequestCorrectionOnAStepThatIsNotOpenChangesNothing(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	r, e := requested("approve")
+	if err := s.RequestCorrection(ctx, r, e); !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Fatalf("RequestCorrection = %v, want ErrStepNotOpen", err)
+	}
+	got, _ := s.Get(ctx, "P-1")
+	events, _ := s.Events(ctx, "P-1")
+	if len(got.CorrectionRequests) != 0 || len(events) != 0 {
+		t.Errorf("procedure = %+v with events %+v, want no request", got, events)
+	}
+	if err := NewProcedureRepository().RequestCorrection(ctx, r, e); !errors.Is(err, domain.ErrProcedureNotFound) {
+		t.Errorf("RequestCorrection on an unknown procedure = %v, want ErrProcedureNotFound", err)
+	}
+}
+
+// A confirmation read before a correction request must not move the procedure
+// once the request is stored.
+func TestAdvanceWhileTheApplicantHasACorrectionToMakeChangesNothing(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	r, e := requested("file")
+	if err := s.RequestCorrection(ctx, r, e); err != nil {
+		t.Fatal(err)
+	}
+
+	p, confirmation := confirmed("file", "approve")
+	if err := s.Advance(ctx, p, confirmation); !errors.Is(err, engine.ErrAwaitingApplicant) {
+		t.Fatalf("Advance = %v, want ErrAwaitingApplicant", err)
+	}
+	if got, _ := s.Get(ctx, "P-1"); got.OpenStep != "file" || len(got.CorrectionRequests) != 1 {
+		t.Errorf("procedure = %+v, want it on file with its request", got)
+	}
+}
+
+func TestStoredCorrectionRequestsCannotBeChangedFromOutside(t *testing.T) {
+	ctx := context.Background()
+	s := NewProcedureRepository()
+	if err := s.Add(ctx, onStep("file"), nil); err != nil {
+		t.Fatal(err)
+	}
+	r, e := requested("file")
+	if err := s.RequestCorrection(ctx, r, e); err != nil {
+		t.Fatal(err)
+	}
+
+	r.Fields[0] = "changed"
+	e.CorrectionRequest.Fields[0] = "changed"
+	got, _ := s.Get(ctx, "P-1")
+	got.CorrectionRequests[0].Fields[0] = "changed"
+	events, _ := s.Events(ctx, "P-1")
+	events[0].CorrectionRequest.Fields[0] = "changed"
+
+	stored, _ := s.Get(ctx, "P-1")
+	storedEvents, _ := s.Events(ctx, "P-1")
+	if stored.CorrectionRequests[0].Fields[0] != "subjects" || storedEvents[0].CorrectionRequest.Fields[0] != "subjects" {
+		t.Errorf("stored request = %+v and event = %+v, want them unchanged", stored.CorrectionRequests[0], *storedEvents[0].CorrectionRequest)
+	}
+}
