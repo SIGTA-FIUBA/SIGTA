@@ -17,7 +17,7 @@ import {
   Timeline,
   Title,
 } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
+import { useForm } from '@mantine/form'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
@@ -238,6 +238,10 @@ function doneBy(event: Event, step: Step | undefined) {
   return step ? responsible(step) : 'Personal'
 }
 
+function stepName(detail: Detail, id: string | undefined) {
+  return detail.steps.find((step) => step.id === id)?.name ?? id
+}
+
 function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; step: Step | undefined }) {
   const outcome = step?.outcomes.find((candidate) => candidate.id === event.outcome)
   return (
@@ -253,8 +257,16 @@ function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; st
           <DocumentFile procedureId={detail.id} file={event.document} />
         </Stack>
       )}
-      {outcome && <Text size="sm">Salida: {outcome.name}</Text>}
-      {event.observation && <Text size="sm">{event.observation}</Text>}
+      {event.send_back ? (
+        <Text size="sm" fw={500}>
+          Devuelto a {stepName(detail, event.next)}
+        </Text>
+      ) : (
+        outcome && <Text size="sm">Salida: {outcome.name}</Text>
+      )}
+      {event.observation && (
+        <Text size="sm">{event.send_back ? `Motivo: ${event.observation}` : event.observation}</Text>
+      )}
       {event.referral && (
         <Text size="sm">
           Derivado a {areaName(detail, event.referral.to)}
@@ -291,6 +303,23 @@ function History({ detail }: { detail: Detail }) {
         )
       })}
     </Timeline>
+  )
+}
+
+// SentBack tells the one who has the procedure again why it came back.
+function SentBack({ detail }: { detail: Detail }) {
+  const open = detail.steps.find((step) => step.id === detail.open_step)
+  const last = detail.history.filter((event) => !event.document).at(-1)
+  if (!last?.send_back || open?.role !== 'applicant' || last.next !== open.id) {
+    return null
+  }
+  return (
+    <Alert title="Trámite devuelto">
+      <Text size="sm">Volvió al paso {open.name}. Motivo:</Text>
+      {last.observation.split('\n').map((line, i) => (
+        <Text key={i}>{line === '' ? ' ' : line}</Text>
+      ))}
+    </Alert>
   )
 }
 
@@ -472,12 +501,19 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
     mode: 'uncontrolled',
     initialValues: { observation: '', outcome: null as string | null, externalFileNumber: '' },
     validate: {
-      observation: isNotEmpty('Escribí una observación.'),
+      observation: (value, values) =>
+        value.trim()
+          ? null
+          : step.outcomes.find((o) => o.id === values.outcome)?.send_back
+            ? 'Escribí el motivo de la devolución.'
+            : 'Escribí una observación.',
       outcome: (value) => (decide && !value ? 'Elegí una salida.' : null),
     },
   })
   const outcome = form.useWatchValue('outcome')
   const refers = leadsElsewhere(detail, step, outcome)
+  const sendBackOutcome = step.outcomes.find((o) => o.id === outcome && o.send_back)
+  const sentTo = sendBackOutcome && detail.steps.find((candidate) => candidate.id === sendBackOutcome.next)
 
   async function confirm(values: typeof form.values) {
     setFailure(null)
@@ -521,13 +557,15 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
               label="Salida"
               withAsterisk
               placeholder="Elegí una salida…"
+              description={sentTo ? `Devuelve el trámite a ${sentTo.name}.` : undefined}
               data={step.outcomes.map((o) => ({ value: o.id, label: o.name }))}
               key={form.key('outcome')}
               {...form.getInputProps('outcome')}
             />
           )}
           <Textarea
-            label="Observación"
+            label={sendBackOutcome ? 'Motivo de la devolución' : 'Observación'}
+            description={sentTo?.role === 'applicant' ? 'Lo ve el titular.' : undefined}
             withAsterisk
             autosize
             minRows={3}
@@ -596,6 +634,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
           )}
         </SimpleGrid>
       </Paper>
+      <SentBack detail={detail} />
       {detail.state === 'closed' && (
         <Stack gap="sm">
           <Title order={2}>Resolución</Title>

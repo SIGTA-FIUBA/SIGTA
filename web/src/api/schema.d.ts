@@ -482,6 +482,8 @@ export interface components {
             name: string;
             /** @description Paso al que lleva esa salida */
             next: string;
+            /** @description Si la salida devuelve el trámite a un paso anterior */
+            send_back: boolean;
         };
         /**
          * @description Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
@@ -822,6 +824,8 @@ export interface components {
             outcome?: string;
             /** @description Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004) */
             declared: boolean;
+            /** @description Si el evento devuelve el trámite a un paso anterior; la observación es entonces el motivo */
+            send_back: boolean;
             /** @description Paso que abre; ausente si cierra el trámite */
             next?: string;
             referral?: components["schemas"]["Referral"];

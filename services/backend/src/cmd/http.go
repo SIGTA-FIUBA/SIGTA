@@ -417,7 +417,7 @@ func devReferralProcedureType() input.Publication {
 		d.Steps[1],
 		{ID: devReviewStep, Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionDecide, Outcomes: []definition.Outcome{
 			{ID: "accept", Name: "Aceptar y derivar a la comisión", Next: devEvaluateStep},
-			{ID: "send_back", Name: "Devolver al titular", Next: devDocumentsStep},
+			{ID: "send_back", Name: "Devolver al titular", Next: devDocumentsStep, SendBack: true},
 		}},
 		{ID: devEvaluateStep, Name: "Dictamen de la comisión", Role: definition.RoleStaff, Area: devCommitteeArea, Permissions: []string{"evaluate"}, Action: definition.ActionConfirmExternalFact, Next: "communicate"},
 		{ID: "communicate", Name: "Comunicación del dictamen", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact},

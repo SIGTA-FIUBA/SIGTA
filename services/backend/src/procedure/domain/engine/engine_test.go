@@ -16,7 +16,7 @@ var equivalence = definition.ProcedureTypeDefinition{
 		{ID: "request", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Next: "check"},
 		{ID: "check", Role: definition.RoleStaff, Area: "affairs", Action: definition.ActionDecide, Outcomes: []definition.Outcome{
 			{ID: "accept", Next: "evaluate"},
-			{ID: "send_back", Next: "request"},
+			{ID: "send_back", Next: "request", SendBack: true},
 		}},
 		{ID: "evaluate", Role: definition.RoleStaff, Area: "commission", Action: definition.ActionConfirmExternalFact, Next: "review"},
 		{ID: "review", Role: definition.RoleStaff, Area: "board", Action: definition.ActionConfirmExternalFact, Next: "file"},
@@ -162,6 +162,18 @@ func TestOnlyExternalFactsAreDeclared(t *testing.T) {
 	}
 	if event.Declared {
 		t.Error("a decision is recorded as declared, want it only for external facts")
+	}
+}
+
+func TestOnlyASendBackOutcomeIsRecordedAsSendBack(t *testing.T) {
+	for outcome, want := range map[string]bool{"accept": false, "send_back": true} {
+		_, event, err := engine.Confirm(on("check"), equivalence, confirm("check", outcome))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if event.SendBack != want {
+			t.Errorf("outcome %q: send back = %v, want %v", outcome, event.SendBack, want)
+		}
 	}
 }
 

@@ -66,12 +66,21 @@ func (v ProcedureTypeVersion) DecodeContent() (Content, error) {
 		// definition again does not add a version that changes nothing.
 		c.Format = ContentFormat
 	}
-	// Compared with the format that added the key, not with the current
-	// one, so that a later format does not reject what a version could say.
+	// Compared with the format that added each key, not with the current one,
+	// so that a later format does not reject what a version could say.
+	if head.Format < sendBackFormat && hasSendBack(c.Definition) {
+		return Content{}, fmt.Errorf("decode content: format %d has no send backs, format %d added them", head.Format, sendBackFormat)
+	}
 	if head.Format < resolutionFormat && slices.ContainsFunc(c.Definition.Documents, func(d definition.Document) bool { return d.Resolution }) {
 		return Content{}, fmt.Errorf("decode content: format %d has no resolution, format %d added it", head.Format, resolutionFormat)
 	}
 	return c, nil
+}
+
+func hasSendBack(d definition.ProcedureTypeDefinition) bool {
+	return slices.ContainsFunc(d.Steps, func(s definition.Step) bool {
+		return slices.ContainsFunc(s.Outcomes, func(o definition.Outcome) bool { return o.SendBack })
+	})
 }
 
 func decodeStrict(encoded []byte, into any) error {

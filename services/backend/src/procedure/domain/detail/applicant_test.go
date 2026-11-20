@@ -171,3 +171,21 @@ func TestTheHistoryOfTheApplicant(t *testing.T) {
 		t.Error("History changed the events it was given")
 	}
 }
+
+// A send back to a step of the applicant tells them why, as ADR-025 asks; one
+// that stays among staff steps does not.
+func TestTheApplicantSeesTheReasonOfASendBackToTheirStep(t *testing.T) {
+	history := []domain.Event{
+		{Step: "review", By: "staff", Observation: "Falta el analítico", SendBack: true, Next: "request"},
+		{Step: "ruling", By: "commission", Observation: "Rever la nota", SendBack: true, Next: "review"},
+	}
+
+	seen := detail.ForApplicant(applicantContent(), domain.Procedure{}).History(history)
+
+	if seen[0].Observation != "Falta el analítico" || seen[0].By != "" {
+		t.Errorf("send back to the applicant = %+v, want its reason without who did it", seen[0])
+	}
+	if seen[1].Observation != "" {
+		t.Errorf("send back between staff steps = %+v, want no observation", seen[1])
+	}
+}

@@ -12,8 +12,9 @@ import (
 // dates and the area of every step, what they entered and attached themselves
 // and, once it closes, the documents that resolve it. What happens inside
 // each area (who did each step, observations, external file numbers, the
-// values and documents of staff steps) stays with staff. A member of staff who is the applicant of a
-// procedure sees it as its applicant.
+// values and documents of staff steps) stays with staff, but for the reason of
+// a send back to one of their steps. A member of staff who is the applicant of
+// a procedure sees it as its applicant.
 type Applicant struct {
 	content version.Content
 	closed  bool
@@ -78,7 +79,8 @@ func (a Applicant) Steps(steps []Step) []Step {
 }
 
 // History keeps every step done and when, without who did the steps of staff,
-// their observations and external file numbers, and only the attachments the
+// their observations (but the reason of a send back to a step of the
+// applicant) and external file numbers, and only the attachments the
 // applicant sees.
 func (a Applicant) History(history []domain.Event) []domain.Event {
 	seen := make([]domain.Event, 0, len(history))
@@ -87,7 +89,12 @@ func (a Applicant) History(history []domain.Event) []domain.Event {
 			continue
 		}
 		if !a.ownStep(e.Step) {
-			e.By, e.Observation = "", ""
+			e.By = ""
+			// The reason of a send back is for the applicant when it takes
+			// the procedure back to one of their steps (ADR-025).
+			if !e.SendBack || !a.ownStep(e.Next) {
+				e.Observation = ""
+			}
 		}
 		if e.Referral != nil {
 			r := *e.Referral

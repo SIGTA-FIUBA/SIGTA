@@ -29,6 +29,7 @@ func TestValidDefinitions(t *testing.T) {
 		change func(*definition.ProcedureTypeDefinition)
 	}{
 		{name: "base definition", change: func(*definition.ProcedureTypeDefinition) {}},
+		{name: "send back to an earlier step", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[2].Outcomes[1].SendBack = true }},
 		{name: "long text field", change: func(d *definition.ProcedureTypeDefinition) { d.Fields[0].Type = definition.FieldLongText }},
 		{name: "number field", change: func(d *definition.ProcedureTypeDefinition) { d.Fields[0].Type = definition.FieldNumber }},
 		{name: "date field", change: func(d *definition.ProcedureTypeDefinition) { d.Fields[0].Type = definition.FieldDate }},
@@ -120,6 +121,15 @@ func TestInvalidDefinitions(t *testing.T) {
 		{name: "outcomes outside decide", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[3].Outcomes = d.Steps[2].Outcomes }, want: []string{`step "closed": only decide has outcomes`}},
 		{name: "duplicated outcome name", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[2].Outcomes[1].Name = "Completa" }, want: []string{`step "review": outcome name "Completa" is listed twice`}},
 		{name: "outcome back to its own step", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[2].Outcomes[1].Next = "review" }, want: []string{`step "review": outcome "incomplete" goes back to its own step`}},
+		{name: "send back that goes forward", change: func(d *definition.ProcedureTypeDefinition) { d.Steps[2].Outcomes[0].SendBack = true }, want: []string{`step "review": outcome "complete" is a send back but does not lead to an earlier step`}},
+		{name: "send back that goes forward inside a loop", change: func(d *definition.ProcedureTypeDefinition) {
+			end := d.Steps[3]
+			end.ID = "end"
+			d.Steps[3].Next = "review"
+			d.Steps[2].Outcomes = append(d.Steps[2].Outcomes, definition.Outcome{ID: "finish", Name: "Finalizar", Next: "end"})
+			d.Steps[2].Outcomes[0].SendBack = true
+			d.Steps = append(d.Steps, end)
+		}, want: []string{`step "review": outcome "complete" is a send back but does not lead to an earlier step`}},
 		{name: "unreachable step", change: func(d *definition.ProcedureTypeDefinition) {
 			d.Steps[0].Next = "review"
 			d.Steps[2].Outcomes[1].Next = "request"

@@ -65,17 +65,25 @@ func formatTwoContent() version.Content {
 	return content
 }
 
-// formatThreeContent uses every key of format 3: the role of each step, areas
-// only for staff, and the permissions of the area that each staff step asks
-// for.
+// formatThreeContent uses every key of format 3, read as current content: the
+// role of each step, areas only for staff, and the permissions of the area
+// that each staff step asks for.
 func formatThreeContent() version.Content {
 	return formatTwoContent()
 }
 
-// formatFourContent uses every key of format 4: a document that is the
-// resolution of the procedure.
+// formatFourContent is format 3 plus the key that format 4 added: an outcome
+// that is a send back.
 func formatFourContent() version.Content {
 	content := formatThreeContent()
+	content.Definition.Steps[2].Outcomes[1].SendBack = true
+	return content
+}
+
+// formatFiveContent is format 4 plus the key that format 5 added: a document
+// that is the resolution of the procedure.
+func formatFiveContent() version.Content {
+	content := formatFourContent()
 	content.Definition.Documents[2].Resolution = true
 	return content
 }
@@ -126,18 +134,20 @@ func TestFormatTwo(t *testing.T) {
 	expectLegacy(t, readFixture(t, "format2.json"), formatTwoContent())
 }
 
-// Format 3 reads with the current shape, as the current format, and that
-// shape still encodes it byte for byte.
-func TestFormatThree(t *testing.T) {
-	stored := readFixture(t, "format3.json")
+// expectCurrent checks that an older format from format 3 on reads with the
+// current shape, as the current format, and that this shape still encodes it
+// byte for byte.
+func expectCurrent(t *testing.T, name string, format int, want version.Content) {
+	t.Helper()
+	stored := readFixture(t, name)
 	got, err := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest(stored), EncodedContent: stored}.DecodeContent()
 	if err != nil {
 		t.Fatalf("DecodeContent() = %v", err)
 	}
-	if want := formatThreeContent(); !reflect.DeepEqual(got, want) {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("DecodeContent() =\n%+v\nwant\n%+v", got, want)
 	}
-	got.Format = 3
+	got.Format = format
 	encoded, err := got.Encode()
 	if err != nil {
 		t.Fatalf("Encode() = %v", err)
@@ -145,34 +155,41 @@ func TestFormatThree(t *testing.T) {
 	if !bytes.Equal(encoded, stored) {
 		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
 	}
-}
-
-func TestFormatFour(t *testing.T) {
-	stored := readFixture(t, "format4.json")
-	got, err := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest(stored), EncodedContent: stored}.DecodeContent()
-	if err != nil {
-		t.Fatalf("DecodeContent() = %v", err)
-	}
-	if want := formatFourContent(); !reflect.DeepEqual(got, want) {
-		t.Errorf("DecodeContent() =\n%+v\nwant\n%+v", got, want)
-	}
-	encoded, err := formatFourContent().Encode()
-	if err != nil {
-		t.Fatalf("Encode() = %v", err)
-	}
-	if !bytes.Equal(encoded, stored) {
-		t.Errorf("Encode() =\n%s\nwant\n%s", encoded, stored)
-	}
-	if err := formatFourContent().Definition.Validate(formatFourContent().Areas); err != nil {
+	if err := want.Definition.Validate(want.Areas); err != nil {
 		t.Errorf("Validate() = %v, want the fixture to be a valid definition", err)
 	}
 }
 
-// A version before format 4 cannot carry a resolution: format 4 added it.
-func TestFormatBeforeFourWithResolutionIsRejected(t *testing.T) {
+func TestFormatThree(t *testing.T) {
+	expectCurrent(t, "format3.json", 3, formatThreeContent())
+}
+
+func TestFormatFour(t *testing.T) {
+	expectCurrent(t, "format4.json", 4, formatFourContent())
+}
+
+func TestFormatFive(t *testing.T) {
+	expectCurrent(t, "format5.json", 5, formatFiveContent())
+}
+
+// A format 3 version cannot carry a send back: format 4 added it.
+func TestFormatThreeWithSendBackIsRejected(t *testing.T) {
+	stored := bytes.Replace(readFixture(t, "format3.json"), []byte(`"next":"documents"}`), []byte(`"next":"documents","send_back":true}`), 1)
+	if bytes.Equal(stored, readFixture(t, "format3.json")) {
+		t.Fatal("the fixture has no outcome to mark")
+	}
+	if _, err := (version.ProcedureTypeVersion{EncodedContent: stored}).DecodeContent(); err == nil {
+		t.Error("DecodeContent() = nil, want an error")
+	}
+}
+
+// A version before format 5 cannot carry a resolution: format 5 added it.
+func TestFormatBeforeFiveWithResolutionIsRejected(t *testing.T) {
+	withResolution := []byte(`"max_size":10485760,"resolution":true}`)
 	for _, encoded := range [][]byte{
-		bytes.Replace(readFixture(t, "format4.json"), []byte(`{"format":4,`), []byte(`{"format":3,`), 1),
-		bytes.Replace(readFixture(t, "format2.json"), []byte(`"max_size":10485760}`), []byte(`"max_size":10485760,"resolution":true}`), 1),
+		bytes.Replace(readFixture(t, "format5.json"), []byte(`{"format":5,`), []byte(`{"format":4,`), 1),
+		bytes.Replace(readFixture(t, "format3.json"), []byte(`"max_size":10485760}`), withResolution, 1),
+		bytes.Replace(readFixture(t, "format2.json"), []byte(`"max_size":10485760}`), withResolution, 1),
 	} {
 		if !bytes.Contains(encoded, []byte(`"resolution":true`)) {
 			t.Fatalf("%s does not carry a resolution", encoded)

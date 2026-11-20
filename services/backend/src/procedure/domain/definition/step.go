@@ -35,10 +35,13 @@ type Step struct {
 	Next              string    `json:"next,omitempty"`
 }
 
+// Outcome is an option of a decision. A send back returns the procedure to an
+// earlier step: Next must be one that leads to the deciding step again.
 type Outcome struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Next string `json:"next"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Next     string `json:"next"`
+	SendBack bool   `json:"send_back,omitempty"`
 }
 
 type stepValidator struct {

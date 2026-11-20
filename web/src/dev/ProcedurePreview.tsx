@@ -10,6 +10,9 @@ const fixtureOptions: { value: FixtureName; label: string }[] = [
   { value: 'worst', label: 'Worst case' },
   { value: 'empty', label: 'Empty' },
   { value: 'one', label: 'One' },
+  { value: 'deciding', label: 'Deciding' },
+  { value: 'sentBack', label: 'Sent back' },
+  { value: 'sentBackWorst', label: 'Sent back, worst case' },
 ]
 
 function isFixture(value: string | null): value is FixtureName {

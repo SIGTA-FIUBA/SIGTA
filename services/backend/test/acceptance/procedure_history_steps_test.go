@@ -143,12 +143,17 @@ func (w *historyWorld) thenShows(table *godog.Table) error {
 		if e.Referral != nil {
 			fileNumber = e.Referral.ExternalFileNumber
 		}
+		var sendBack string
+		if e.SendBack {
+			sendBack = "yes"
+		}
 		got := map[string]string{
 			"step":                 e.Step,
 			"done by":              e.By,
 			"on":                   e.At.Format(time.DateOnly),
 			"observation":          e.Observation,
 			"outcome":              e.Outcome,
+			"send back":            sendBack,
 			"action":               string(e.Action),
 			"document":             document,
 			"file":                 file,
