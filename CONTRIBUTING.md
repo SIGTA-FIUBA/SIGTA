@@ -179,6 +179,15 @@ Las tablas del servicio de trámites se crean con las migraciones de `services/b
 
 `deploy/postgres/sql/roles.sql` crea los roles y esquemas de cada servicio solo al crear el volumen de la base. Si el volumen es anterior a la persistencia de los tipos de trámite, le falta el rol de migraciones: se recrea con `docker compose down --volumes`. El comando `migrate` lo sugiere solo con `SIGTA_ENV=development`, porque en otro entorno el mismo error viene de una contraseña o un permiso mal configurado.
 
+### El primer administrador
+
+Un entorno nuevo, también el local, arranca solo con la Secretaría, sin administradores ni personal (ADR-027). El primer administrador se da con `backend grant-admin <correo>`, que corre aparte como `migrate`, con `SIGTA_MIGRATIONS_DATABASE_URL`, a una persona que ya ingresó con Google:
+
+- En local, con Docker Compose: ingresar con Google en `http://localhost:8000` y después `docker compose run --rm migrate grant-admin <correo>`. Sin base no hay cómo, porque la marca se guarda en ella.
+- En `dev` y `prod`: ingresar con Google y después `gcloud run jobs execute sigta-<entorno>-migrate --args grant-admin,<correo> --wait`, el job de las migraciones con otro comando (ver [despliegue](docs/15-despliegue.md)).
+
+Falla si nadie se registró con ese correo o si ya hay un administrador vigente: los demás se dan desde SIGTA. Con el primer administrador se cargan las áreas, sus roles y permisos y las membresías del personal, desde la pantalla de administración (SIG-76).
+
 ### Pruebas contra PostgreSQL
 
 Los adaptadores de PostgreSQL y las migraciones se prueban contra una base real. Las pruebas toman la base de `SIGTA_TEST_DATABASE_URL`, con un usuario administrador, crean un esquema propio por prueba y consultan con los permisos de `backend` o de `backend_migrations`. Con Docker Compose:
