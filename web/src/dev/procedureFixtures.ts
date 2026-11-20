@@ -183,6 +183,64 @@ const one = detail(
   [started],
 )
 
-export const fixtures = { demo, worst, empty, one }
+const review: Step = {
+  id: 'review',
+  name: 'Revisión de la solicitud',
+  action: 'decide',
+  role: 'staff',
+  area: { id: 'office', name: 'Dirección de Alumnos' },
+  fields: [],
+  documents: [],
+  outcomes: [
+    { id: 'accept', name: 'Aceptar', next: 'communicate', send_back: false },
+    { id: 'send_back', name: 'Devolver al titular', next: 'request', send_back: true },
+  ],
+  values: [],
+  files: [],
+}
+
+const sendBack = (observation: string): Event => ({
+  step: 'review',
+  by: staff,
+  at: '2026-11-17T15:00:00Z',
+  observation,
+  outcome: 'send_back',
+  declared: false,
+  send_back: true,
+  next: 'request',
+  returned: false,
+})
+
+// The staff deciding on a step that can send the procedure back.
+const deciding: Detail = {
+  ...demo,
+  steps: [demo.steps[0]!, review, demo.steps[1]!],
+  open_step: 'review',
+}
+
+// The applicant, who has the procedure again after a send back: kind reason,
+// and the longest one the server accepts (5000 characters).
+const sentBack: Detail = {
+  ...deciding,
+  state: 'with_applicant',
+  open_step: 'request',
+  can_act: false,
+  history: [started, sendBack('Falta la firma en la solicitud.')],
+}
+const sentBackWorst: Detail = {
+  ...sentBack,
+  history: [
+    started,
+    sendBack(
+      Array.from(
+        { length: 12 },
+        (_, i) =>
+          `Párrafo ${i + 1}: la solicitud no incluye la firma del titular ni el sello de la unidad académica de origen, y el programa de la asignatura no coincide con el que figura en la constancia adjunta.`,
+      ).join('\n\n'),
+    ),
+  ],
+}
+
+export const fixtures = { demo, worst, empty, one, deciding, sentBack, sentBackWorst }
 
 export type FixtureName = keyof typeof fixtures

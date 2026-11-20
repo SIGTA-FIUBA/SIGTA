@@ -416,13 +416,45 @@ describe('ProcedurePage confirmation', () => {
     expect(reads.length).toBeGreaterThan(1)
   })
 
+  it('asks for the reason of a send back and says who sees it', async () => {
+    const fetch = stubConfirmation(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
+    expect(screen.getByText('Devuelve el trámite a Adjuntar documentos.')).toBeDefined()
+    expect(screen.getByText('Lo ve el titular.')).toBeDefined()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
+    expect(screen.getByText('Escribí el motivo de la devolución.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([])
+  })
+
+  it('sends a send back with its reason', async () => {
+    const fetch = stubConfirmation(201, {})
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /Motivo de la devolución/ }), 'Falta la firma')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
+
+    expect(await screen.findByText('Paso confirmado. Quedó en el historial.')).toBeDefined()
+    expect(await sent(fetch)).toEqual([
+      {
+        url: expect.stringMatching(/\/api\/procedures\/P-1\/steps\/review\/confirmation$/),
+        body: { observation: 'Falta la firma', outcome: 'send_back' },
+      },
+    ])
+  })
+
   it('shows why the server did not take the confirmation', async () => {
     stubConfirmation(409, { message: 'El paso ya no está abierto: el trámite cambió mientras tanto.' })
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
     await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
-    await userEvent.type(screen.getByRole('textbox', { name: /Observación/ }), 'Falta la firma')
+    await userEvent.type(screen.getByRole('textbox', { name: /Motivo de la devolución/ }), 'Falta la firma')
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
 
     expect((await screen.findByRole('alert')).textContent).toBe(
@@ -610,5 +642,64 @@ describe('ProcedurePage attachment', () => {
     expect(within(entry).getByRole('button', { name: 'Ver acta.pdf' })).toBeDefined()
     const link = within(entry).getByRole('link', { name: 'Descargar acta.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-2/content')
+  })
+})
+
+describe('ProcedurePage send back', () => {
+  const sendBack = {
+    step: 'review',
+    by: { id: 's-1', name: 'Operativa Dos' },
+    at: '2026-11-17T15:30:00Z',
+    observation: 'Falta la firma',
+    outcome: 'send_back',
+    declared: false,
+    send_back: true,
+    next: 'documents',
+    returned: false,
+  }
+  const returned: Detail = {
+    ...detail,
+    state: 'with_applicant',
+    open_step: 'documents',
+    can_act: false,
+    history: [sendBack],
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('shows a send back in the history with where it went and the reason', async () => {
+    stubApi(200, returned)
+    renderPage()
+
+    expect(await screen.findByText('Devuelto a Adjuntar documentos')).toBeDefined()
+    expect(screen.getByText('Motivo: Falta la firma')).toBeDefined()
+    expect(screen.queryByText(/^Salida:/)).toBeNull()
+  })
+
+  it('tells the applicant why the procedure came back', async () => {
+    stubApi(200, returned)
+    renderPage()
+
+    const alert = (await screen.findByText('Trámite devuelto')).closest('[role="alert"]') as HTMLElement
+    expect(within(alert).getByText('Volvió al paso Adjuntar documentos. Motivo:')).toBeDefined()
+    expect(within(alert).getByText('Falta la firma')).toBeDefined()
+  })
+
+  it('does not say it came back once the procedure moved on', async () => {
+    stubApi(200, { ...returned, open_step: 'review', state: 'in_office', history: [sendBack] })
+    renderPage()
+
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByText('Trámite devuelto')).toBeNull()
+  })
+
+  it('does not say it came back when the send back stays in an area', async () => {
+    stubApi(200, { ...returned, open_step: 'review', history: [{ ...sendBack, next: 'review' }] })
+    renderPage()
+
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByText('Trámite devuelto')).toBeNull()
   })
 })
