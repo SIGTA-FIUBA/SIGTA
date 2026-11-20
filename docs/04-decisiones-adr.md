@@ -577,3 +577,28 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 | D-11 | Si hay un administrador global o un responsable por área que da de alta a su propio personal (ADR-020) | La gestión de membresías | Canal con la Secretaría |
 | D-12 | Si el alcance por tipo de trámite se usa o alcanza con áreas más finas. Agrupar permisos ya se resolvió con roles (ADR-020) | La gestión de membresías | Canal con la Secretaría |
 | D-13 | Si un pase entre dos áreas del personal es siempre una derivación, o si hay pases internos que no cuentan días sin retorno (ADR-023) | La configuración del segundo trámite | Canal con la Secretaría |
+
+---
+
+## ADR-025: Una devolución es una salida de una decisión marcada como tal, y lleva a un paso anterior
+
+**Estado:** propuesta, a acordar con el equipo
+
+**Contexto.** US12 pide devolver un trámite a un paso anterior con un motivo, sin cerrarlo. Devolver ya era posible como cualquier otra salida de una decisión, pero el motor no la distinguía: nada exigía que el destino fuera un paso anterior, el historial no la diferenciaba de una aprobación y el titular no tenía cómo saber que lo involucraba.
+
+**Decisión.**
+- **Una marca en la salida.** Una salida de una decisión puede declararse devolución (`send_back`). Sigue siendo una salida, no una acción ni un estado (ADR-009): elige el paso al que lleva y el trámite sigue abierto.
+- **El destino es un paso anterior.** Al validar la definición, una devolución tiene que llevar a un paso desde el que se vuelve a llegar al paso que decide. Una que va hacia adelante se rechaza (`send_back_forward`).
+- **El motivo es la observación.** Confirmar una devolución exige la observación, como toda confirmación, y el evento queda marcado como devolución, con quién, cuándo y el motivo.
+- **El titular.** Una devolución involucra al titular cuando el paso al que vuelve es suyo: lo ve en el historial y en un aviso mientras el trámite está de vuelta en ese paso.
+- **Formato 4.** La marca sube el contenido de las versiones al formato 4. El formato 3 se sigue leyendo como contenido actual, sin devoluciones, así que ninguna versión publicada cambia: una salida que se publicó sin la marca sigue siendo una salida común hasta que se publique una versión nueva.
+- **Quién decide.** La definición no valida que decida la Secretaría: lo determinan los permisos del paso, como en cualquier decisión.
+
+**Alternativas descartadas.**
+- Una acción `send_back` aparte: el modelo de acciones se acordó con cuatro, y devolver es una salida posible de una decisión.
+- Tratar como devolución toda salida que va a un paso anterior, sin marca: un camino hacia atrás puede ser otra cosa, y la intención quedaría implícita en el grafo.
+- Un campo propio para el motivo: la observación ya es obligatoria y queda en el historial.
+
+**Consecuencias.**
+- El editor de tipos de trámite (US72) tiene que ofrecer la marca en cada salida.
+- La API suma `send_back` a las salidas de un paso y a los eventos del historial.
