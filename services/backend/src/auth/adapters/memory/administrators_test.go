@@ -8,5 +8,5 @@ import (
 )
 
 func TestAdministratorRepository(t *testing.T) {
-	outputtest.TestAdministratorRepository(t, func(*testing.T) output.AdministratorRepository { return NewAdministratorRepository() })
+	outputtest.TestAdministratorRepository(t, func(*testing.T) output.FirstAdministratorRepository { return NewAdministratorRepository() })
 }

@@ -16,7 +16,7 @@ import (
 func TestGrantAdminNeedsAnEmailAndItsURL(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	withURL := env(map[string]string{"SIGTA_MIGRATIONS_DATABASE_URL": "postgres://backend_migrations@db/sigta"})
-	for _, args := range [][]string{nil, {" "}, {"ana@fi.uba.ar", "beto@fi.uba.ar"}, {"--by=beto@fi.uba.ar", "ana@fi.uba.ar"}} {
+	for _, args := range [][]string{nil, {" "}, {"ana@fi.uba.ar", "beto@fi.uba.ar"}, {"--by=beto@fi.uba.ar", "ana@fi.uba.ar"}, {"--help"}} {
 		if err := grantAdminCommand(withURL, args, logger); err == nil || !strings.Contains(err.Error(), "usage") {
 			t.Errorf("grantAdminCommand(%q) = %v, want the usage", args, err)
 		}
@@ -28,8 +28,8 @@ func TestGrantAdminNeedsAnEmailAndItsURL(t *testing.T) {
 }
 
 // The administrator that grant-admin adds is one for the server, which
-// connects as the application role, together with the ones development
-// lists. It adds only the first: the others are granted in SIGTA.
+// connects as the application role, together with the synthetic one of
+// development when anyone can log in as anyone. It adds only the first.
 func TestGrantAdminMakesAnAdministratorForTheServer(t *testing.T) {
 	ctx := t.Context()
 	logger := slog.New(slog.DiscardHandler)
@@ -64,6 +64,18 @@ func TestGrantAdminMakesAnAdministratorForTheServer(t *testing.T) {
 			t.Errorf("IsAdministrator(%s) = %v, %v; want %v", id, got, err, want)
 		}
 	}
+	// With Google, someone whose real account has the email of the synthetic
+	// administrator would be it, so only the stored ones count.
+	cfg.identityProvider = identityGoogle
+	administrators, err = addDirectory(ctx, cfg, s, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[string]bool{ana.ID: true, "dev-admin": false} {
+		if got, err := administrators.IsAdministrator(ctx, id); err != nil || got != want {
+			t.Errorf("with Google, IsAdministrator(%s) = %v, %v; want %v", id, got, err, want)
+		}
+	}
 }
 
 func TestGrantAdminNeedsAMigratedSchema(t *testing.T) {
@@ -71,6 +83,14 @@ func TestGrantAdminNeedsAMigratedSchema(t *testing.T) {
 	owner := env(map[string]string{"SIGTA_MIGRATIONS_DATABASE_URL": schema.MemberURL(t, dbtest.MigrationsRole)})
 	if err := grantAdminCommand(owner, []string{"ana@fi.uba.ar"}, slog.New(slog.DiscardHandler)); !errors.Is(err, migrations.ErrPending) {
 		t.Errorf("grantAdminCommand() before migrating = %v, want ErrPending", err)
+	}
+}
+
+func TestCommandsCheckTheirArguments(t *testing.T) {
+	for _, args := range [][]string{{"grant-admin"}, {"migrate", "grant-admin", "ana@fi.uba.ar"}} {
+		if err := command(args, slog.New(slog.DiscardHandler)); err == nil || !strings.Contains(err.Error(), "usage: backend "+args[0]) {
+			t.Errorf("command(%q) = %v, want its usage", args, err)
+		}
 	}
 }
 

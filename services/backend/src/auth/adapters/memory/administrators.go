@@ -8,7 +8,7 @@ import (
 	"backend/src/auth/ports/output"
 )
 
-var _ output.AdministratorRepository = (*AdministratorRepository)(nil)
+var _ output.FirstAdministratorRepository = (*AdministratorRepository)(nil)
 
 type AdministratorRepository struct {
 	mu  sync.Mutex

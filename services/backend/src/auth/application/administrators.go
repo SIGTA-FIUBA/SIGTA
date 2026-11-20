@@ -16,13 +16,13 @@ var (
 	ErrNotSignedIn = errors.New("nobody signed in with that email")
 	// ErrHasAdministrators means the first administrator was granted
 	// already: the others are granted in SIGTA, which records who did it.
-	ErrHasAdministrators = errors.New("there is an administrator already: grant the others in SIGTA")
+	ErrHasAdministrators = errors.New("there is an administrator already: this command only grants the first one")
 )
 
 // GrantFirstAdministrator makes the user with email the first administrator,
 // as the initial grant of the system. It takes no author: nothing the one who
 // runs it types would prove who did. The server never calls it.
-func GrantFirstAdministrator(ctx context.Context, users output.UserRepository, administrators output.AdministratorRepository, email string, newID func() string, at time.Time) (domain.User, error) {
+func GrantFirstAdministrator(ctx context.Context, users output.UserRepository, administrators output.FirstAdministratorRepository, email string, newID func() string, at time.Time) (domain.User, error) {
 	email = domain.NormalizeEmail(email)
 	user, err := users.GetByEmail(ctx, email)
 	if errors.Is(err, domain.ErrUserNotFound) {

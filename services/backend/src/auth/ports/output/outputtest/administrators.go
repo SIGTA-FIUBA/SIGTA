@@ -1,6 +1,7 @@
 package outputtest
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -10,14 +11,19 @@ import (
 )
 
 // TestAdministratorRepository runs the contract of
-// output.AdministratorRepository. newRepository returns an empty repository
-// each time it is called.
-func TestAdministratorRepository(t *testing.T, newRepository func(t *testing.T) output.AdministratorRepository) {
+// output.FirstAdministratorRepository. newRepository returns an empty
+// repository each time it is called.
+func TestAdministratorRepository(t *testing.T, newRepository func(t *testing.T) output.FirstAdministratorRepository) {
 	t.Run("grant the first", func(t *testing.T) { grantFirst(t, newRepository(t)) })
-	t.Run("concurrent first grants", func(t *testing.T) { concurrentFirstGrants(t, newRepository(t)) })
+	// A race shows only in some rounds, so it runs several.
+	t.Run("concurrent first grants", func(t *testing.T) {
+		for round := range 20 {
+			t.Run(fmt.Sprint(round), func(t *testing.T) { concurrentFirstGrants(t, newRepository(t)) })
+		}
+	})
 }
 
-func grantFirst(t *testing.T, r output.AdministratorRepository) {
+func grantFirst(t *testing.T, r output.FirstAdministratorRepository) {
 	ctx := t.Context()
 	at := time.Date(2026, 11, 20, 13, 0, 0, 0, time.UTC)
 	if got, err := r.IsAdministrator(ctx, "U-1"); err != nil || got {
@@ -39,9 +45,9 @@ func grantFirst(t *testing.T, r output.AdministratorRepository) {
 	}
 }
 
-func concurrentFirstGrants(t *testing.T, r output.AdministratorRepository) {
+func concurrentFirstGrants(t *testing.T, r output.FirstAdministratorRepository) {
 	ctx := t.Context()
-	ids := []string{"U-1", "U-2", "U-3", "U-4", "U-5"}
+	ids := []string{"U-1", "U-2", "U-3", "U-4", "U-5", "U-6", "U-7", "U-8"}
 	var wg sync.WaitGroup
 	granted := make([]bool, len(ids))
 	for i, id := range ids {

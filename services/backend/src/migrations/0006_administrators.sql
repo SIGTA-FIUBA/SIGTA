@@ -4,8 +4,8 @@
 -- period without an end.
 -- grant_source says how a period was granted. The first administrator of an
 -- environment is the initial grant of the system ('bootstrap'), which the
--- grant-admin command adds as the role that owns the tables, and the only one
--- without granted_by: SIGTA stores no author that someone typed, and who ran
+-- grant-admin command adds as the role that owns the tables when there is no
+-- administrator, and the only kind without granted_by: SIGTA stores no author that someone typed, and who ran
 -- the command is in the audit logs of the infrastructure. The others are
 -- granted by an administrator ('administrator'), the user of the session that
 -- granted them.
@@ -22,7 +22,8 @@ CREATE TABLE administrators (
     granted_by   text,
     ended_by     text,
     CHECK ((grant_source = 'bootstrap') = (granted_by IS NULL)),
-    CHECK ((valid_until IS NULL) = (ended_by IS NULL))
+    CHECK ((valid_until IS NULL) = (ended_by IS NULL)),
+    CHECK (valid_until IS NULL OR valid_until > valid_from)
 );
 
 CREATE UNIQUE INDEX administrators_without_end ON administrators (user_id) WHERE valid_until IS NULL;

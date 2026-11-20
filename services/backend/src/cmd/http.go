@@ -33,7 +33,11 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	if err := command(os.Args[1:], logger); err != nil {
-		logger.Error("stopped", "error", err)
+		name := "server"
+		if len(os.Args) > 1 {
+			name = os.Args[1]
+		}
+		logger.Error(name+" failed", "error", err)
 		os.Exit(1)
 	}
 }
@@ -46,6 +50,9 @@ func command(args []string, logger *slog.Logger) error {
 	}
 	switch args[0] {
 	case "migrate":
+		if len(args) > 1 {
+			return errors.New("usage: backend migrate")
+		}
 		return migrateCommand(os.Getenv, logger)
 	case "grant-admin":
 		return grantAdminCommand(os.Getenv, args[1:], logger)

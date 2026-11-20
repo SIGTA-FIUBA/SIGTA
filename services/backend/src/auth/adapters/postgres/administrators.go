@@ -12,7 +12,7 @@ import (
 	"backend/src/database"
 )
 
-var _ output.AdministratorRepository = (*AdministratorRepository)(nil)
+var _ output.FirstAdministratorRepository = (*AdministratorRepository)(nil)
 
 // AdministratorRepository needs the role that owns the tables for GrantFirst:
 // the application role can only read them.
@@ -26,7 +26,7 @@ func NewAdministratorRepository(pool *pgxpool.Pool) *AdministratorRepository {
 
 func (a *AdministratorRepository) IsAdministrator(ctx context.Context, userID string) (bool, error) {
 	var administrator bool
-	err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT FROM administrators WHERE user_id = $1 AND (valid_until IS NULL OR valid_until > now()))", userID).Scan(&administrator)
+	err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT FROM administrators WHERE user_id = $1 AND valid_from <= now() AND (valid_until IS NULL OR valid_until > now()))", userID).Scan(&administrator)
 	if err != nil {
 		return false, fmt.Errorf("read whether %s is an administrator: %w", userID, err)
 	}

@@ -10,14 +10,12 @@ import (
 
 	authpostgres "backend/src/auth/adapters/postgres"
 	"backend/src/auth/application"
-	authdomain "backend/src/auth/domain"
 	authoutput "backend/src/auth/ports/output"
 	"backend/src/migrations"
 )
 
 // storedOrListedAdministrators answers for the administrators that the
-// database keeps and for those that the users file or development lists,
-// which are not stored.
+// stores keep and for the synthetic one of development, which is not stored.
 type storedOrListedAdministrators struct {
 	stored, listed authoutput.AdministratorRepository
 }
@@ -29,12 +27,6 @@ func (a storedOrListedAdministrators) IsAdministrator(ctx context.Context, userI
 	return a.stored.IsAdministrator(ctx, userID)
 }
 
-// GrantFirst looks only at the stored administrators: the listed ones come
-// from the configuration.
-func (a storedOrListedAdministrators) GrantFirst(ctx context.Context, administrator authdomain.Administrator) (bool, error) {
-	return a.stored.GrantFirst(ctx, administrator)
-}
-
 // grantAdminCommand makes the person who signed in with the email of args the
 // first administrator of an environment, as the initial grant of the system.
 // Like migrate, it connects as the role that owns the tables, which the server
@@ -42,7 +34,7 @@ func (a storedOrListedAdministrators) GrantFirst(ctx context.Context, administra
 // of the infrastructure. Once there is an administrator it fails:
 // administrators grant the others in SIGTA, which keeps who did it.
 func grantAdminCommand(getenv func(string) string, args []string, logger *slog.Logger) error {
-	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
+	if len(args) != 1 || strings.TrimSpace(args[0]) == "" || strings.HasPrefix(args[0], "-") {
 		return errors.New("usage: backend grant-admin <email>")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -63,6 +55,6 @@ func grantAdminCommand(getenv func(string) string, args []string, logger *slog.L
 	if err != nil {
 		return err
 	}
-	logger.Info("first administrator granted", "user", user.ID)
+	logger.Info("first administrator granted", "user", user.ID, "email", user.Email)
 	return nil
 }

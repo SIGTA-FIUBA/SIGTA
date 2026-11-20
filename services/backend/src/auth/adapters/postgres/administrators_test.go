@@ -15,7 +15,7 @@ import (
 )
 
 func TestAdministratorRepository(t *testing.T) {
-	outputtest.TestAdministratorRepository(t, func(t *testing.T) output.AdministratorRepository {
+	outputtest.TestAdministratorRepository(t, func(t *testing.T) output.FirstAdministratorRepository {
 		return postgres.NewAdministratorRepository(dbtest.NewSchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted))
 	})
 }
@@ -58,7 +58,8 @@ func TestAnEndedAdministratorDoesNotCount(t *testing.T) {
 	}
 }
 
-// Only the initial grant has no author, and an end always has one.
+// Only the initial grant has no author, an end always has one, and a period
+// ends after it starts.
 func TestEveryAdministratorButTheInitialHasWhoGrantedIt(t *testing.T) {
 	pool := dbtest.NewSchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
 	for _, values := range []string{
@@ -67,11 +68,36 @@ func TestEveryAdministratorButTheInitialHasWhoGrantedIt(t *testing.T) {
 		"('A-1', 'U-1', now(), now(), 'administrator', 'U-2', NULL)",
 		"('A-1', 'U-1', now(), NULL, 'administrator', 'U-2', 'U-2')",
 		"('A-1', 'U-1', now(), NULL, 'console', NULL, NULL)",
+		"('A-1', 'U-1', now(), NULL, 'console', 'U-2', NULL)",
+		"('A-1', 'U-1', now(), now() - interval '1 second', 'administrator', 'U-2', 'U-2')",
 	} {
 		_, err := pool.Exec(t.Context(), "INSERT INTO administrators (id, user_id, valid_from, valid_until, grant_source, granted_by, ended_by) VALUES "+values)
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != "23514" {
 			t.Errorf("INSERT %s = %v, want a check violation", values, err)
 		}
+	}
+}
+
+// A person has at most one period without an end.
+func TestAPersonHasOneOpenPeriod(t *testing.T) {
+	pool := dbtest.NewSchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+	if _, err := pool.Exec(t.Context(), "INSERT INTO administrators (id, user_id, valid_from, grant_source) VALUES ('A-1', 'U-1', now(), 'bootstrap')"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := pool.Exec(t.Context(), "INSERT INTO administrators (id, user_id, valid_from, grant_source, granted_by) VALUES ('A-2', 'U-1', now(), 'administrator', 'U-2')")
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != "23505" {
+		t.Errorf("a second open period = %v, want a unique violation", err)
+	}
+}
+
+// A period that has not started yet administers nothing.
+func TestAFutureAdministratorDoesNotCount(t *testing.T) {
+	pool := dbtest.NewSchema(t).Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+	if _, err := pool.Exec(t.Context(), "INSERT INTO administrators (id, user_id, valid_from, grant_source) VALUES ('A-1', 'U-1', now() + interval '1 day', 'bootstrap')"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := postgres.NewAdministratorRepository(pool).IsAdministrator(t.Context(), "U-1"); err != nil || got {
+		t.Errorf("IsAdministrator() before the period starts = %v, %v; want false", got, err)
 	}
 }
 
