@@ -113,6 +113,10 @@ func (h *DocumentHandler) AttachProcedureDocument(ctx context.Context, req api.A
 		return api.AttachProcedureDocument404JSONResponse{NotFoundJSONResponse: api.NotFoundJSONResponse{Message: messageNoProcedure}}, nil
 	case errors.Is(err, domain.ErrAccessDenied):
 		return api.AttachProcedureDocument403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageCannotAttach}}, nil
+	case errors.Is(err, engine.ErrStepNotOpen):
+		return api.AttachProcedureDocument409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageStepNotOpen}}, nil
+	case errors.Is(err, engine.ErrNoCorrectionPending):
+		return api.AttachProcedureDocument409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{Message: messageNoCorrection}}, nil
 	case err != nil:
 		return nil, err
 	}

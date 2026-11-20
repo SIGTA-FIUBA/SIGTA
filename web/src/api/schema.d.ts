@@ -479,7 +479,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), o la subsanación que pedía el documento ya se respondió, responde 409.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;
@@ -1998,6 +1998,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     downloadProcedureDocument: {

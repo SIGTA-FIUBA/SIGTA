@@ -108,7 +108,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # A client that does not exist: the check only follows the API up to
+      # the redirect to Google.
       - name: Start the stack
+        env:
+          SIGTA_GOOGLE_CLIENT_ID: ci
+          SIGTA_GOOGLE_CLIENT_SECRET: ci
         run: docker compose up --detach --build --wait --wait-timeout 120
       - name: Load the frontend through the proxy
         run: curl --fail --silent --show-error http://localhost:8000/ | grep --quiet '<div id="root">'

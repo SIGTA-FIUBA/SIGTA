@@ -20,7 +20,7 @@ const titular = "applicant@fi.uba.ar"
 
 func TestEnterValueIsOnlyForTheApplicantAndOnlyValid(t *testing.T) {
 	ctx := context.Background()
-	service, procedures := confirmationFixture(t)
+	service, procedures := confirmationFixture(t, "file")
 	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestEnterValueIsOnlyForTheApplicantAndOnlyValid(t *testing.T) {
 // answer it unseen.
 func TestAnAnswerDoesNotAnswerARequestMadeAfterItWasRead(t *testing.T) {
 	ctx := context.Background()
-	service, procedures := confirmationFixture(t)
+	service, procedures := confirmationFixture(t, "file")
 	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestAnAnswerDoesNotAnswerARequestMadeAfterItWasRead(t *testing.T) {
 func TestConcurrentAnswersAndARequestNeverAnswerTheRequestUnseen(t *testing.T) {
 	for round := range 200 {
 		ctx := context.Background()
-		service, procedures := confirmationFixture(t)
+		service, procedures := confirmationFixture(t, "file")
 		if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +141,7 @@ func (r *requestingOnHistory) Events(ctx context.Context, procedureID string) ([
 func TestARequestBetweenTheReadsOfAnAnswerStaysPending(t *testing.T) {
 	ctx := context.Background()
 	procedures := &requestingOnHistory{ProcedureRepository: memory.NewProcedureRepository()}
-	service := confirmationFixtureOver(t, procedures)
+	service := confirmationFixtureOver(t, procedures, procedures.ProcedureRepository, "file")
 	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", fileCorrection()); err != nil {
 		t.Fatal(err)
 	}
@@ -175,13 +175,13 @@ type answeringOnRecord struct {
 	answer func()
 }
 
-func (r *answeringOnRecord) RecordWhileAwaiting(ctx context.Context, e proceduredomain.Event) error {
+func (r *answeringOnRecord) Attach(ctx context.Context, d proceduredomain.Document, e proceduredomain.Event) error {
 	if r.answer != nil {
 		answer := r.answer
 		r.answer = nil
 		answer()
 	}
-	return r.ProcedureRepository.RecordWhileAwaiting(ctx, e)
+	return r.ProcedureRepository.Attach(ctx, d, e)
 }
 
 // An answer sent while a document is being attached for it leaves the
@@ -189,8 +189,8 @@ func (r *answeringOnRecord) RecordWhileAwaiting(ctx context.Context, e procedure
 func TestAnAttachmentAfterTheAnswerIsRefused(t *testing.T) {
 	ctx := context.Background()
 	procedures := &answeringOnRecord{ProcedureRepository: memory.NewProcedureRepository()}
-	service := confirmationFixtureOver(t, procedures)
-	documents := memory.NewDocumentRepository()
+	service := confirmationFixtureOver(t, procedures, procedures.ProcedureRepository, "file")
+	documents := memory.NewDocumentRepository(procedures.ProcedureRepository)
 	files := &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: confirmedAt}
 	attach := NewDocumentService(service, documents, files, func() string { return "D-1" }, func() time.Time { return confirmedAt })
 	proof := input.CorrectionRequest{Step: "file", Reason: "falta la constancia", Fields: []string{"subjects"}, Documents: []string{"proof"}}

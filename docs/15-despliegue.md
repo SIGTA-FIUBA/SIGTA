@@ -11,9 +11,9 @@ Cómo se despliega SIGTA en sus dos entornos de prueba, en Cloud Run y Cloud SQL
 
 `main` solo recibe `develop` cuando hay una versión para mostrar (CONTRIBUTING.md), así que pasar a `prod` es un PR de `develop` a `main`.
 
-Los dos corren con `SIGTA_ENV=development`, como la demo: usuarios sintéticos e ingreso con Google (ADR-005). Cada uno tiene su base, su bucket, sus secretos y su cuenta de servicio, así que `dev` no puede leer nada de `prod`. Comparten solo el cliente de Google.
+Los dos corren con `SIGTA_ENV=production` e ingreso con Google, sin usuarios de prueba ni datos de ejemplo: un entorno nuevo arranca solo con la Secretaría y sin administradores (ADR-027). Cada uno tiene su base, su bucket, sus secretos y su cuenta de servicio, así que `dev` no puede leer nada de `prod`. Comparten solo el cliente de Google.
 
-Las sesiones, los trámites y los datos de los documentos todavía están en memoria. Por eso cada entorno corre en una sola instancia, siempre prendida, y cada despliegue o reinicio los pierde. Al arrancar, el backend también borra los archivos que ningún documento nombra, así que un reinicio vacía el bucket. Esto deja de pasar cuando esos datos estén en PostgreSQL.
+Las sesiones, las personas, las áreas, los trámites y los datos de los documentos se guardan en la base y sobreviven a un despliegue o un reinicio. Al arrancar, el backend borra los archivos que ningún documento nombra y que tienen más de una hora, así que cada entorno sigue corriendo en una sola instancia.
 
 ## Qué hay
 
@@ -69,6 +69,10 @@ En los comandos, `<entorno>` es `prod` o `dev`, y todos llevan `--region us-east
 | Ver el estado y las revisiones | `gcloud run services describe sigta-<entorno>` y `gcloud run revisions list --service sigta-<entorno>` |
 | Ver los logs | `gcloud logging read 'resource.labels.service_name="sigta-<entorno>"' --freshness 1h`, o la pestaña Logs del servicio en la consola |
 | Volver a la versión anterior | `gcloud run services update-traffic sigta-<entorno> --to-revisions <revisión>=100` |
+| Dar el primer administrador, a alguien que ya ingresó | `gcloud run jobs execute sigta-<entorno>-migrate --args grant-admin,<correo> --wait`: el job de las migraciones, con otro comando. Falla si ya hay un administrador vigente: los demás se van a dar desde SIGTA. Un primer administrador dado por error se corrige en la base, porque todavía no hay baja de administradores: con el rol dueño de las tablas (`backend_migrations`) se cierra su período en la tabla `administrators` (`valid_until` y `ended_by`), y se vuelve a correr el comando |
+| Cargar las áreas, sus roles y permisos, y el personal | Desde la pantalla de administración de SIGTA (SIG-76), con el primer administrador. No hay comando ni migración para esto: la migración solo crea la Secretaría con sus permisos de plataforma (ADR-027) |
+| Ver a quién se le dio el primer administrador | La tabla `administrators`: su período es el de `grant_source = 'bootstrap'`, con la persona (`user_id`) y desde cuándo (`valid_from`). Quién lanzó el job no lo guarda SIGTA: queda a cargo del entorno donde se despliegue (ADR-027) |
+| Reparar la Secretaría, si el servidor no arranca porque no está como la deja la migración | El error dice qué le falta: el área o uno de sus permisos de plataforma no existe, está dado de baja o perdió la marca de sistema, casi siempre por un cambio a mano. `migrate` no la repara, porque la 0007 ya está aplicada: se vuelven a correr las sentencias de `services/backend/src/migrations/0007_secretariat.sql` con el rol dueño de las tablas (`backend_migrations`), que se pueden correr más de una vez y no tocan los nombres de lo que ya está bien |
 | Respaldar la base a pedido | `gcloud sql backups create --instance <instancia>` |
 | Respaldar los documentos | `gcloud storage cp -r gs://summer-function-513519-a1-sigta-<entorno>-documents .` |
 

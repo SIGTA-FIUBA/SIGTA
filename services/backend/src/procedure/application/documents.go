@@ -66,6 +66,9 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	if err != nil {
 		return domain.Document{}, err
 	}
+	if p.Closed() {
+		return domain.Document{}, fmt.Errorf("procedure %s: %w", p.ID, engine.ErrStepNotOpen)
+	}
 	step, requirement, err := s.whereToAttach(ctx, userID, p, content, u.Requirement)
 	if err != nil {
 		return domain.Document{}, err
@@ -92,34 +95,15 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 		UploadedBy:  userID,
 		UploadedAt:  s.now(),
 	}
-	if step != p.OpenStep {
-		return d, s.attachInAnswer(ctx, d)
+	err = s.procedures.procedures.Attach(ctx, d, attachedEvent(d))
+	if errors.Is(err, engine.ErrStepNotOpen) && step != p.OpenStep {
+		// An answer to the corrections came first.
+		err = engine.ErrNoCorrectionPending
 	}
-	if err := s.documents.Add(ctx, d); err != nil {
+	if err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
 	}
-	// Until SIG-75 records both together (ADR-024), a failure here leaves the
-	// document without its entry in the history.
-	if err := s.procedures.procedures.Record(ctx, attachedEvent(d)); err != nil {
-		return domain.Document{}, fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
-	}
 	return d, nil
-}
-
-// attachInAnswer records a document the applicant attaches in answer to a
-// correction. Its event goes first, checked against the pending corrections
-// as it is stored: an answer sent meanwhile either comes before it, and the
-// attachment is refused, or after it, and the document is part of that
-// answer. Until SIG-75 records both together (ADR-024), a failure recording
-// the document leaves its event without it.
-func (s *DocumentService) attachInAnswer(ctx context.Context, d domain.Document) error {
-	if err := s.procedures.procedures.RecordWhileAwaiting(ctx, attachedEvent(d)); err != nil {
-		return fmt.Errorf("record the attachment of %s in the history: %w", d.ID, err)
-	}
-	if err := s.documents.Add(ctx, d); err != nil {
-		return fmt.Errorf("record document: %w", err)
-	}
-	return nil
 }
 
 func attachedEvent(d domain.Document) domain.Event {
@@ -219,11 +203,11 @@ func (s *DocumentService) belowMaxFiles(ctx context.Context, procedureID, requir
 
 // RemoveUnreferencedFiles removes the stored files that no document names
 // and that are older than unreferencedAge, and returns how many it removed.
-// They come from an upload whose record failed or, while the records are in
+// They come from an upload whose record failed or, when the records are in
 // memory, from every document of a previous run, which no one can reach
 // anymore and which hold personal data. It runs at startup, before serving.
-// It assumes a single instance: while the records are in memory, another one
-// would lose the files of its documents.
+// With the records in memory it assumes a single instance: another one would
+// lose the files of its documents.
 func (s *DocumentService) RemoveUnreferencedFiles(ctx context.Context) (int, error) {
 	// Read before the records, so that a file stored and named meanwhile is
 	// not taken for unnamed.

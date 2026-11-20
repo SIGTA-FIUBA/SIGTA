@@ -96,6 +96,7 @@ Todo paso que ocurre fuera de la plataforma se modela como un paso de tipo *conf
 ## ADR-005: Sin datos personales reales en ningún entorno
 
 **Estado:** aceptada
+**Modificada por:** ADR-027: la base guarda el correo y el nombre de las cuentas reales que ingresan con Google, en todos los entornos. Los trámites, sus documentos y los datos de las pruebas siguen siendo sintéticos.
 
 **Contexto.**
 El proyecto trabaja sobre trámites que en producción involucran datos personales. La disponibilidad de datos reales depende además de tiempos burocráticos que el proyecto no controla.
@@ -189,6 +190,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada
 **Reemplaza:** ADR-003
+**Modificada por:** ADR-027: el entorno local también ingresa con Google, y el adaptador de identidad falso queda solo para las pruebas.
 
 **Contexto.** ADR-003 dejó la autenticación detrás de una interfaz, con una implementación local de credenciales propias por si el ingreso institucional no resultaba viable. En la reunión con la Subsecretaría de TICs del 9/10 se confirmó que SIGTA puede usar el ingreso con la cuenta de Google de la UBA, y que todos los titulares de los cinco trámites tienen cuenta UBA.
 
@@ -255,6 +257,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada por el equipo. A confirmar con los directores: contradice el anteproyecto, que pide archivos de configuración estáticos versionados en el repositorio, sin editor dinámico.
 **Reemplaza:** ADR-001
+**Modificada por:** ADR-027: ya no hay usuarios sintéticos con los dos permisos; nadie los tiene hasta que un administrador da las membresías.
 
 **Contexto.** ADR-001 mantenía los tipos de trámite como archivos en el repositorio, editados por el equipo mediante pull request, y quedó en revisión por D-07, que evaluaba un editor dentro de la aplicación. Con las versiones guardadas en la base y validadas al publicar (ADR-012), un editor ya no exige un motor aparte: es una interfaz sobre el mismo modelo. Además, al terminar el proyecto el equipo deja de estar disponible para hacer pull requests.
 
@@ -413,6 +416,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Estado:** aceptada. Lo que falta confirmar con la Secretaría queda en D-08, D-10, D-11 y D-12.
 **Reemplaza:** ADR-017 y ADR-019
+**Modificada por:** ADR-027, que saca `SIGTA_USERS_FILE`: las membresías iniciales ya no se cargan desde la configuración del despliegue, la marca de administrador se guarda en la base y el primer administrador se da por consola, y la Secretaría la crea una migración.
 
 **Contexto.** ADR-017 resolvió la misma respuesta de la Secretaría con roles configurables: conjuntos de permisos que define el administrador, y pasos que declaran el permiso que exigen. Esta decisión conserva esa idea, pero la ubica dentro de cada área: los permisos y los roles que los agrupan pertenecen a un área, y se asignan en la membresía. Además, ADR-019 ataba el permiso al tipo de trámite y separaba tres tipos de usuario excluyentes. En su respuesta al relevamiento, la Secretaría pidió un administrador, "usuarios internos del sistema para cada área interviniente con diferentes permisos otorgados por el administrador", un esquema "por rol (y eventualmente por tipo de trámite)" y el registro de quién hizo cada acción en cada expediente. Además, hoy la Secretaría avanza los pasos, pero más adelante pueden hacerlo otras áreas. Con ADR-019 quedaban tres problemas: el área no formaba parte del permiso; los pasos de un evaluador externo no los podía registrar nadie; y como cada persona tiene una sola cuenta UBA (ADR-010), quien administra no podía ser también personal. Por último, una persona del personal también puede ser alumna, y tiene que poder iniciar sus propios trámites con la misma cuenta.
 
@@ -440,7 +444,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Sumar un área, un permiso o un rol no requiere código. Exigir un permiso nuevo en un paso requiere publicar una versión del tipo de trámite. Cambiar los permisos de un rol, no.
 - Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
 - Las áreas, sus permisos y roles son entidades globales del módulo `auth`, junto con las membresías y la marca de administrador, porque describen a las personas y a la organización y no a un trámite. Cada versión de un tipo de trámite sigue guardando una copia de las áreas y los permisos de pasos que usa (`content.Areas`), para leerse igual si cambian de nombre. Desaparece el tipo de área `external`.
-- La Secretaría se crea al arrancar el servidor si no existe (`EnsureSecretariat`), y cuando haya PostgreSQL pasa a ser una migración con los mismos datos. El identificador `secretariat` y sus dos permisos de plataforma están reservados. `auth` los expone en su API pública, para que `procedure` los pida al publicar.
+- La Secretaría se crea al arrancar el servidor si no existe (`EnsureSecretariat`), y cuando haya PostgreSQL pasa a ser una migración con los mismos datos: es la 0007 (ADR-027). El identificador `secretariat` y sus dos permisos de plataforma están reservados. `auth` los expone en su API pública, para que `procedure` los pida al publicar.
 - Que la Secretaría edite los tipos de trámite resuelve en parte D-08: quien no tenga membresía en la Secretaría no propone ni aprueba versiones, y el equipo de proyecto necesita una para hacerlo. Queda abierto a quién se le otorgan esos permisos.
 - La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área.
 - Las reglas que dependen del trámite (qué ve y en qué pasos actúa cada persona, y quién publica) quedan en `procedure`, que le pregunta a `auth` por su API pública (ADR-021). `auth` no depende de `procedure`: por eso, al otorgar una membresía no se comprueba que los tipos de su alcance existan, y un tipo inexistente simplemente no coincide con ningún trámite.
@@ -501,7 +505,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - El despliegue tiene que correr `migrate` antes de cada versión nueva del servidor, con una credencial que el servidor no recibe.
 - `roles.sql` corre solo al crear el volumen de la base, así que una base de desarrollo creada antes de este cambio se recrea con `docker compose down --volumes`.
 - Un error en una migración aplicada se corrige con otra migración.
-- Todavía no hay tablas de áreas ni de borradores de tipos de trámite: las áreas son del módulo de autorización, que sigue en memoria, y los borradores no existen en el dominio. Cada tabla llega con el adaptador que la usa, así sus permisos se prueban con el código que la lee.
+- Cada tabla llega con el adaptador que la usa, así sus permisos se prueban con el código que la lee: las de borradores, personas, áreas y trámites llegaron después, cada una en su migración.
 - Que los números de versión de un tipo de trámite no tengan huecos lo garantiza el adaptador, que agrega una versión solo si la anterior es la última: la base no tiene una restricción para eso, así que un `INSERT` directo con el rol de la aplicación puede dejar un hueco.
 - La restricción `approver_is_not_proposer` compara con `lower()`, que depende de la configuración regional de la base: con `en_US.UTF-8`, `lower('İnés')` es `inés`, mientras que el servicio, que compara en Go, los toma como distintos. Si la base rechaza una versión que el servicio aceptó, el adaptador lo informa como una autoría inválida. La configuración regional del servidor de la Subsecretaría de TICs está a confirmar.
 - Las pruebas de los adaptadores de PostgreSQL toman la base de `SIGTA_TEST_DATABASE_URL` y crean un esquema propio por prueba, con los permisos de `backend` y de `backend_migrations`. Sin la variable se saltean, salvo en la integración continua, donde fallan.
@@ -532,7 +536,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - La regla no exige cambios en la configuración de los tipos de trámite ni en las versiones publicadas.
 - El glosario llama pase al avance a un paso de otra área: con esta regla, todo pase es una derivación, también uno interno, por ejemplo de la Secretaría a la Dirección de Alumnos. Si la Secretaría los distingue, hace falta una de las alternativas descartadas (D-13).
 - Registrar el dictamen que trae el retorno queda para "Registrar retorno de la evaluación externa" (US21): acá el retorno solo termina la derivación.
-- Los trámites y sus eventos todavía están en memoria. Cuando pasen a PostgreSQL, `procedure_events` suma sus columnas, y la migración otorga `UPDATE` solo sobre las columnas del paso abierto y de la derivación (ADR-022).
+- Los trámites y sus eventos se guardan en PostgreSQL: la migración otorga `UPDATE` solo sobre las columnas del paso abierto, de la derivación y de la fecha del último movimiento (ADR-022).
 - La bandeja del personal tiene que calcular el estado con `domain.StateOf`, para que `referred` signifique lo mismo en el detalle y en la bandeja.
 
 ## ADR-024: Un trámite y sus datos y documentos se registran en una transacción, y un storage aparte se coordina con outbox y saga
@@ -543,7 +547,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Decisión.**
 - **Una transacción.** Iniciar un trámite registra en una sola transacción el trámite, los valores de sus campos y el registro de cada documento. Adjuntar un documento registra el documento y su evento del historial en otra.
-  - El mecanismo lo define SIG-75: un puerto de unidad de trabajo en `ports/output`, o un método del repositorio que registra el inicio completo. La aplicación no abre transacciones con `pgx`, y el adaptador en memoria da la misma garantía, probada con la suite de contrato de `ports/output/outputtest`.
+  - El mecanismo, elegido en SIG-75: un método del repositorio por operación, en `ports/output`. `ProcedureRepository.Add` recibe el inicio completo (trámite, eventos, valores y documentos) y `Attach`, el documento con su evento; el repositorio de documentos solo lee. Se prefirió a un puerto de unidad de trabajo porque hoy son dos operaciones y las dos son del mismo agregado. La aplicación no abre transacciones con `pgx`, y el adaptador en memoria da la misma garantía, probada con la suite de contrato de `ports/output/outputtest`.
   - Los archivos se escriben antes de la transacción. Con el disco local, lo único que puede sobrar es un archivo sin documento, que `RemoveUnreferencedFiles` borra al arrancar.
 - **Con un storage aparte, outbox y saga, subiendo antes de confirmar.**
   1. Reserva: una transacción corta registra cada archivo a subir, con su clave en el storage y el estado `pending`. Esa tabla es el log de la saga y la outbox.
@@ -633,3 +637,47 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - La API suma `POST /procedures/{procedureId}/steps/{stepId}/correction-requests`, los pedidos pendientes en el detalle (`correction_requests`) y lo que pide cada uno en los eventos del historial (`correction_request`).
 - Cómo responde el titular (US34, SIG-50): carga de nuevo, de a uno, lo que piden las pendientes, cada cosa en el paso suyo que la pide y en el historial, y después envía la respuesta, que exige todo lo pedido y responde todas las pendientes juntas. Lo cargado cuenta si viene después, en el historial, del último pedido que lo nombra. La API suma `POST /procedures/{procedureId}/values`, `POST /procedures/{procedureId}/correction-answer` y, en los eventos, `value` y `correction_answer`; "Mis trámites" dice si hay una pendiente (`correction_pending`).
 - Si un pedido necesita algo que los pasos del titular no piden, se corrige el tipo (ADR-006).
+
+---
+
+## ADR-027: Las personas, las membresías y los administradores viven solo en la base, sin archivo de usuarios ni datos de ejemplo, y la Secretaría viaja con el código
+
+**Estado:** propuesta, a acordar con el equipo
+**Modifica:** ADR-020, en la carga de las membresías iniciales, en dónde se guarda la marca de administrador y en cómo se crea la Secretaría; ADR-010, en la identidad del entorno local; ADR-013, en quién tiene los permisos de publicación; ADR-005, en las cuentas que guarda la base
+
+**Contexto.** Mientras no había administración de membresías, `SIGTA_USERS_FILE` (PR #29) cargaba al arrancar las personas conocidas, sus membresías y la marca de administrador desde un JSON guardado con los secretos del despliegue. Con las personas y las membresías en PostgreSQL (SIG-75), el archivo pasó a competir con la base: en cada arranque volvía a dar las membresías que listaba, incluso las que se hubieran dado de baja, y daba de baja las que dejaba de listar. Cuando un administrador pueda dar de baja una membresía desde SIGTA, con su registro de quién y cuándo, esa decisión podría deshacerse al reiniciar con un cambio en un archivo que no deja ese registro. Los entornos de prueba nunca lo usaron: corrían con `SIGTA_ENV=development`, que en cada arranque cargaba usuarios sintéticos con sus membresías, dos áreas de prueba, tres tipos de trámite de ejemplo y trámites inventados para la bandeja, y en local ofrecía un adaptador de identidad que dejaba entrar como cualquier correo. Esos usuarios eran otra lista fija de personas y membresías, escrita en el código, con el mismo problema que el archivo.
+
+**Decisión.**
+- Se saca `SIGTA_USERS_FILE`. El servidor ya no lo lee, y en producción no lo pide.
+- Se sacan los datos de ejemplo: los usuarios sintéticos, las áreas de prueba, los tipos de trámite de ejemplo y los trámites inventados. Nadie existe hasta que ingresa con Google, y cada prueba crea sus propios datos. Al arrancar, el servidor no agrega nada.
+- Se ingresa con Google en todos los entornos, también en local, con un cliente que tenga registrada la dirección local. El adaptador de identidad falso queda solo para las pruebas, y se saca `SIGTA_IDENTITY_PROVIDER`.
+- Los entornos desplegados corren con `SIGTA_ENV=production`. `development` solo pone valores por defecto para arrancar en local: las direcciones de `localhost`, el dominio y, sin base, todo en memoria.
+- Las personas se registran al ingresar con su cuenta de Google, como ya pasaba con quien no figuraba en el archivo.
+- Las membresías viven solo en la base y se cambian solo desde SIGTA, con la pantalla de administración (SIG-76). La baja existe como caso de uso pero todavía no tiene endpoint.
+- La marca de administrador se guarda en la base (SIG-83), y el servidor solo la lee. Cada administrador es un período, con su origen, quién lo dio y desde cuándo; una baja lo cierra con quién y cuándo, sin borrar la fila, y una persona tiene a lo sumo un período abierto.
+- El primer administrador de un entorno lo da el comando de consola `backend grant-admin <correo>`, que corre aparte como `migrate`, con el rol dueño de las tablas, a una persona ya registrada, y solo si no hay ningún administrador vigente. Ese período es el alta inicial del sistema (`bootstrap`), el único tipo sin quién lo dio, y la base lo exige: el comando no pide un autor porque un dato que tipea quien lo corre no prueba nada. A quién se le dio y cuándo queda en la tabla de administradores. Quién corrió el comando no lo guarda SIGTA: queda a cargo del entorno donde se despliegue, en su registro de quién opera la consola, sin atarlo a un proveedor, a confirmar con la Subsecretaría de TICs (DU-39).
+- Los demás administradores y las bajas se van a dar desde SIGTA, y quién dio o cerró un período va a salir siempre del usuario de la sesión, autenticado con Google, nunca de un dato del pedido, como ya pasa con las membresías. Es trazabilidad por autenticación, no no repudio en sentido estricto: el ingreso con Google es a lo sumo firma electrónica, y la presunción de autoría es solo de la firma digital (Ley 25.506, arts. 5 y 7).
+- Lo que el código necesita viaja con el código; la configuración de la organización es del administrador y se edita desde SIGTA; las personas nunca van al repositorio. Es el criterio que siguen, por ejemplo, Django, Odoo, Rails, GitLab y Keycloak (SIG-83).
+- Por eso la Secretaría y sus dos permisos de plataforma, que el backend chequea por su identificador, los crea una migración versionada (`0007_secretariat.sql`), y el servidor solo controla al arrancar lo que el código necesita de ellos: si falta la Secretaría, si está dada de baja, o si ella o alguno de los dos permisos perdió la marca de sistema o se dio de baja, no arranca, en vez de taparlo. El nombre del área y de los permisos no se controla. En memoria, donde no hay migraciones, el servidor los agrega. El administrador no es un rol sino una marca con su tabla (`0006_administrators.sql`), y el primero se da con `backend grant-admin`, como alta inicial sin autor.
+- Ninguna otra área, rol, permiso ni membresía va en una migración ni en la configuración del despliegue. Las áreas del trámite ancla, sus roles y permisos, y el personal de cada una se cargan desde la pantalla de SIG-76; si cambian, se editan ahí, sin código.
+- `POST /api/areas/{id}/permissions` se mantiene. El backend chequea por nombre fijo solo los dos permisos de plataforma, y ese endpoint no los puede crear: rechaza sus identificadores en cualquier área, para que nadie dé en otra área un permiso que parece de plataforma y no lo es; la baja tampoco puede quitarlos. Los demás permisos son configuración: cada paso del personal nombra su área y los permisos de esa área que exige (ADR-020), y el backend los compara con los de las membresías sin conocerlos de antemano. Un tipo de trámite nuevo trae permisos nuevos, y crearlos no puede requerir código (ADR-006).
+
+**Alternativas descartadas.**
+- Mantener el archivo y documentar que prevalece sobre las bajas de un administrador: deja dos fuentes de verdad, y una de ellas sin trazabilidad.
+- Leer el archivo solo la primera vez: una base vacía en otro entorno lo volvería a aplicar, y el archivo seguiría guardando datos personales entre los secretos.
+- Cargar las áreas del trámite ancla en una migración o desde el código: son configuración de la organización, quedarían fuera del registro de quién y cuándo de la interfaz, y cambiarlas requeriría un cambio de código.
+- Que el servidor siga creando o reparando la Secretaría en cada arranque: el rol de la aplicación escribiría lo que es parte del esquema, y un cambio a mano se taparía en vez de verse.
+- Sacar el endpoint de creación de permisos: haría falta código para cada permiso de un tipo de trámite nuevo.
+- Que `grant-admin` reciba quién lo da (`--by`): es un dato tipeado. Una variable del despliegue con los correos de los administradores: deja la marca fuera de la base y sin autor. Que la primera cuenta que ingresa sea administradora: cualquier cuenta del dominio podría ganar la carrera.
+- Dejar los usuarios sintéticos solo en local: siguen siendo personas y membresías fijadas en el código que vuelven en cada arranque, y obligan a mantener un ingreso que ningún entorno real usa.
+
+**Consecuencias.**
+- Un entorno nuevo, también el local, arranca con la Secretaría y sin administradores ni personal, y el primer administrador se da con `backend grant-admin <correo>`, a alguien que ya ingresó con Google: en local, con `docker compose run --rm migrate grant-admin <correo>`; en los entornos desplegados, con el job de las migraciones, `gcloud run jobs execute sigta-<entorno>-migrate --args grant-admin,<correo> --wait` ([docs/15](15-despliegue.md)). Sin base no hay cómo, porque la marca se guarda en ella. Hasta que SIGTA permita dar los demás, es el único. Quien ingresa sin membresías es un titular, con el catálogo vacío hasta que alguien publique un tipo de trámite.
+- Hasta SIG-76, ningún entorno tiene las áreas del trámite ancla ni su personal: esa parte de SIG-83 queda pendiente de SIG-76, y el tipo de trámite ancla, de SIG-15.
+- Se pierden la bandeja de ejemplo, los tipos y trámites de ejemplo y el recorrido con usuarios de prueba (entrar como el operativo o la comisión con `login_hint` y confirmar sus pasos). Lo que cubrían lo prueban los tests, cada uno con sus datos: los casos de uso con adaptadores en memoria, los adaptadores contra PostgreSQL, el arranque con su reinicio contra la base y los escenarios con godog. En `npm run dev` siguen las vistas con datos de prueba del inicio de un trámite y de su detalle (`web/src/dev/`), que no pasan por el servidor; la bandeja no tiene una. Para recorrer SIGTA a mano con el personal, se ingresa con Google, se da el primer administrador con `grant-admin`, el administrador da las membresías y se publica un tipo de trámite.
+- Las bases de los entornos desplegados conservan los tipos de trámite de ejemplo ya publicados, porque las versiones no se borran, y sus pasos nombran áreas de prueba que ya no se crean. Se limpian recreando la base de cada entorno.
+- Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien solo se puede haciendo en la base. Lo mismo pasa con la marca de administrador, que todavía no tiene baja en ningún ticket: un primer administrador dado por error se corrige en la base, con el rol dueño de las tablas.
+- Si alguien cambia la Secretaría a mano y el servidor deja de arrancar, `migrate` no la repara, porque la 0007 ya está aplicada: se repara con el rol dueño de las tablas, como dice [docs/15-despliegue.md](15-despliegue.md).
+- Ya no hay un archivo con datos personales entre los secretos del despliegue.
+- Las únicas personas que guarda la base son las cuentas reales que ingresan con Google (su correo, su nombre y sus sesiones), como ya pasaba en los entornos desplegados. Los trámites y los documentos siguen siendo sintéticos, cargados por quien prueba. Es una excepción a ADR-005, que pedía datos sintéticos en todos los entornos: las cuentas se guardan porque ingresar con Google es la única forma de entrar.
+- El despliegue en Google Cloud pasa a `SIGTA_ENV=production`, que exige la base y la carpeta de documentos que ya tenía.

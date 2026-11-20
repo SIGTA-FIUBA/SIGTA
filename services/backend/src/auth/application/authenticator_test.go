@@ -39,7 +39,7 @@ func newFixture(t *testing.T) *fixture {
 			IdleTimeout:   30 * time.Minute,
 			AllowedDomain: "fi.uba.ar",
 		},
-		dev.NewIdentityProvider("http://api.test/auth/callback", ""),
+		dev.NewIdentityProvider("http://api.test/auth/callback"),
 		f.users,
 		memory.NewSessionRepository(),
 		func() time.Time { return f.now },

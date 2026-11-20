@@ -146,6 +146,19 @@ func AttachedSinceRequest(history []domain.Event, document string) int {
 	return n
 }
 
+// CanRecordAttachment says whether a document can be recorded on a procedure
+// as it is stored, by its open step, its applicant and whether a correction
+// is pending: on the open step or, attached by the applicant while a
+// correction is pending, on a step of theirs (ADR-026). Otherwise the step is
+// not open for it, also when an answer sent meanwhile left nothing pending.
+// Adapters check it when storing.
+func CanRecordAttachment(openStep, applicant string, awaiting bool, d domain.Document) error {
+	if openStep != "" && d.Step == openStep || awaiting && d.UploadedBy == applicant {
+		return nil
+	}
+	return ErrStepNotOpen
+}
+
 // CorrectionRequestsIn counts the correction requests a history records. It
 // only grows, so a different count means a request came in between.
 func CorrectionRequestsIn(history []domain.Event) int {

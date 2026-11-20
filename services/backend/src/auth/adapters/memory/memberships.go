@@ -63,7 +63,8 @@ func (r *MembershipRepository) Save(_ context.Context, m domain.Membership) erro
 	defer r.mu.Unlock()
 	m = cloneMembership(m)
 	if i := slices.IndexFunc(r.memberships, func(q domain.Membership) bool { return q.ID == m.ID }); i >= 0 {
-		r.memberships[i] = m
+		stored := &r.memberships[i]
+		stored.From, stored.Until, stored.EndedBy = m.From, m.Until, m.EndedBy
 		return nil
 	}
 	r.memberships = append(r.memberships, m)

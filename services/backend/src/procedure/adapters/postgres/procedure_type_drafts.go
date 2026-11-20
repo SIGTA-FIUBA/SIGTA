@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"backend/src/database"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -117,23 +119,9 @@ func draftArgs(d draft.Draft) ([]any, error) {
 	}
 	return []any{
 		d.ProcedureTypeID, d.Base, def, string(d.Status), d.Revision, d.EditedBy, d.EditedAt, d.Editors,
-		nullable(d.ProposedBy), nullableTime(d.ProposedAt),
-		nullable(d.Rejection.By), nullableTime(d.Rejection.At), nullable(d.Rejection.Reason),
+		database.Nullable(d.ProposedBy), database.NullableTime(d.ProposedAt),
+		database.Nullable(d.Rejection.By), database.NullableTime(d.Rejection.At), database.Nullable(d.Rejection.Reason),
 	}, nil
-}
-
-func nullable(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-func nullableTime(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	return &t
 }
 
 func scanDraft(row pgx.CollectableRow) (draft.Draft, error) {
@@ -154,21 +142,7 @@ func scanDraft(row pgx.CollectableRow) (draft.Draft, error) {
 	}
 	d.Status = draft.Status(status)
 	d.EditedAt = d.EditedAt.UTC()
-	d.ProposedBy, d.ProposedAt = valueOf(proposedBy), timeOf(proposedAt)
-	d.Rejection = draft.Rejection{By: valueOf(rejectedBy), At: timeOf(rejectedAt), Reason: valueOf(reason)}
+	d.ProposedBy, d.ProposedAt = database.ValueOf(proposedBy), database.TimeOf(proposedAt)
+	d.Rejection = draft.Rejection{By: database.ValueOf(rejectedBy), At: database.TimeOf(rejectedAt), Reason: database.ValueOf(reason)}
 	return d, nil
-}
-
-func valueOf(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func timeOf(t *time.Time) time.Time {
-	if t == nil {
-		return time.Time{}
-	}
-	return t.UTC()
 }

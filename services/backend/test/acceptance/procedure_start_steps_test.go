@@ -127,9 +127,9 @@ func (w *submissionWorld) setUp() error {
 	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
 	w.procedures = memory.NewProcedureRepository()
-	w.documents = memory.NewDocumentRepository()
+	w.documents = memory.NewDocumentRepository(w.procedures)
 	procedures := application.NewProcedureService(w.types, w.procedures, w.documents, w.memberships, w.newID, time.Now)
-	w.service = application.NewSubmissionService(procedures, w.documents, files, w.newID, time.Now)
+	w.service = application.NewSubmissionService(procedures, files, w.newID, time.Now)
 	return nil
 }
 

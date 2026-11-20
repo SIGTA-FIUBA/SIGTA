@@ -3,10 +3,14 @@ package migrations_test
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"reflect"
 	"testing"
 	"testing/fstest"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/src/migrations"
 	"backend/src/migrations/dbtest"
@@ -181,4 +185,124 @@ func TestMigrationNames(t *testing.T) {
 			}
 		})
 	}
+}
+
+// secretariatRow is a row of the Secretariat or of one of its permissions.
+type secretariatRow struct {
+	ID      string
+	Name    string
+	System  bool
+	Deleted bool
+}
+
+func secretariatRows(t *testing.T, pool *pgxpool.Pool) []secretariatRow {
+	t.Helper()
+	rows, err := pool.Query(t.Context(), `SELECT id, name, system, deleted_at IS NOT NULL FROM areas WHERE id = 'secretariat'
+		UNION ALL (SELECT id, name, system, deleted_at IS NOT NULL FROM area_permissions WHERE area_id = 'secretariat' ORDER BY number)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := pgx.CollectRows(rows, pgx.RowToStructByPos[secretariatRow])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+// TestSecretariatMigration adds the Secretariat with its platform permissions
+// to a new database, and to one where the server already added it before
+// migration 0007 existed: there it keeps the name and the other permissions,
+// and makes the platform ones system permissions again.
+func TestSecretariatMigration(t *testing.T) {
+	t.Run("a new database", func(t *testing.T) {
+		got := secretariatRows(t, dbtest.NewSchema(t).Admin(t))
+		want := []secretariatRow{
+			{ID: "secretariat", Name: "Secretaría de Gestión Académica", System: true},
+			{ID: "edit_procedure_types", Name: "Editar tipos de trámite", System: true},
+			{ID: "publish_procedure_types", Name: "Publicar tipos de trámite", System: true},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Secretariat = %+v, want %+v", got, want)
+		}
+	})
+	t.Run("a database that has it", func(t *testing.T) {
+		ctx := t.Context()
+		schema := dbtest.NewEmptySchema(t)
+		owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+		if _, err := migrations.ApplyFrom(ctx, owner, migrationsBefore(t, "0007")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := owner.Exec(ctx, `
+			INSERT INTO areas (id, number, name, system, deleted_at, deleted_by)
+			VALUES ('secretariat', 1, 'Secretaría renombrada', false, now(), 'admin');
+			INSERT INTO area_permissions (area_id, id, number, name, system, deleted_at, deleted_by) VALUES
+				('secretariat', 'review', 1, 'Revisar', false, NULL, NULL),
+				('secretariat', 'edit_procedure_types', 2, 'Editar', true, now(), 'admin'),
+				('secretariat', 'publish_procedure_types', 3, 'Publicar', false, NULL, NULL)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := migrations.Apply(ctx, owner); err != nil {
+			t.Fatal(err)
+		}
+		got := secretariatRows(t, owner)
+		want := []secretariatRow{
+			{ID: "secretariat", Name: "Secretaría renombrada", System: true},
+			{ID: "review", Name: "Revisar"},
+			{ID: "edit_procedure_types", Name: "Editar tipos de trámite", System: true},
+			{ID: "publish_procedure_types", Name: "Publicar tipos de trámite", System: true},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Secretariat = %+v, want %+v", got, want)
+		}
+	})
+	// The names are the administrators': a platform permission that is
+	// already one keeps the name it has.
+	t.Run("a database that has it complete", func(t *testing.T) {
+		ctx := t.Context()
+		schema := dbtest.NewEmptySchema(t)
+		owner := schema.Pool(t, dbtest.MigrationsRole, dbtest.ReadCommitted)
+		if _, err := migrations.ApplyFrom(ctx, owner, migrationsBefore(t, "0007")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := owner.Exec(ctx, `
+			INSERT INTO areas (id, number, name, system) VALUES ('secretariat', 1, 'Secretaría', true);
+			INSERT INTO area_permissions (area_id, id, number, name, system) VALUES
+				('secretariat', 'edit_procedure_types', 1, 'Editar', true),
+				('secretariat', 'publish_procedure_types', 2, 'Publicar', true)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := migrations.Apply(ctx, owner); err != nil {
+			t.Fatal(err)
+		}
+		got := secretariatRows(t, owner)
+		want := []secretariatRow{
+			{ID: "secretariat", Name: "Secretaría", System: true},
+			{ID: "edit_procedure_types", Name: "Editar", System: true},
+			{ID: "publish_procedure_types", Name: "Publicar", System: true},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Secretariat = %+v, want %+v", got, want)
+		}
+	})
+}
+
+// migrationsBefore returns the embedded migrations numbered before number.
+func migrationsBefore(t *testing.T, number string) fstest.MapFS {
+	t.Helper()
+	names, err := fs.Glob(migrations.Files, "*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := fstest.MapFS{}
+	for _, name := range names {
+		if name >= number {
+			continue
+		}
+		data, err := fs.ReadFile(migrations.Files, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before[name] = &fstest.MapFile{Data: data}
+	}
+	return before
 }

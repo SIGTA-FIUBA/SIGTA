@@ -1,6 +1,6 @@
 // Package acceptance runs the Gherkin scenarios in features/ with go test. It
-// uses the real services over the in-memory and development adapters, so it
-// needs no external service.
+// uses the real services over the in-memory adapters and a test identity
+// provider, so it needs no external service.
 package acceptance
 
 import (

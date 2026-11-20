@@ -46,6 +46,8 @@ linters:
       alias:
         - pkg: backend/src/(auth|procedure)/adapters/memory
           alias: ${1}mem
+        - pkg: backend/src/(auth|procedure)/adapters/postgres
+          alias: ${1}postgres
         - pkg: backend/src/(auth|procedure)/adapters/rest
           alias: ${1}rest
         - pkg: backend/src/(auth|procedure)/application

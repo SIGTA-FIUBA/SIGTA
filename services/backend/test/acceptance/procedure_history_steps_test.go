@@ -14,7 +14,6 @@ import (
 	"github.com/cucumber/godog"
 
 	"backend/src/procedure/adapters/disk"
-	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/application"
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/submission"
@@ -23,14 +22,13 @@ import (
 
 type historyWorld struct {
 	*confirmationWorld
-	documents *memory.DocumentRepository
-	history   []domain.Event
-	before    []domain.Event
-	readErr   error
+	history []domain.Event
+	before  []domain.Event
+	readErr error
 }
 
 func registerHistorySteps(sc *godog.ScenarioContext, base *confirmationWorld) {
-	w := &historyWorld{confirmationWorld: base, documents: memory.NewDocumentRepository()}
+	w := &historyWorld{confirmationWorld: base}
 
 	sc.Given(`^"([^"]*)" submitted a "([^"]*)" procedure on "([^"]*)"$`, w.givenSubmitted)
 	sc.Given(`^"([^"]*)" confirmed the "([^"]*)" step(?: choosing "([^"]*)")? with the observation "([^"]*)"$`, w.givenConfirmedWith)
@@ -58,7 +56,7 @@ func (w *historyWorld) givenSubmitted(user, name, date string) error {
 		values[f.Field.ID] = submission.Value{Text: "Texto de prueba"}
 	}
 	clock := func() time.Time { return w.now }
-	submissions := application.NewSubmissionService(w.service, memory.NewDocumentRepository(), nil, w.newID, clock)
+	submissions := application.NewSubmissionService(w.service, nil, w.newID, clock)
 	started, err := submissions.Submit(context.Background(), user, input.Submission{ProcedureType: w.typeID(name), Values: values})
 	if err != nil {
 		return err

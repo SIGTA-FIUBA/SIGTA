@@ -59,11 +59,11 @@ jobs:
             --image "$REGISTRY/backend:$GITHUB_SHA" --args migrate \
             --service-account "sigta-$ENVIRONMENT-run@$GCP_PROJECT.iam.gserviceaccount.com" \
             --set-cloudsql-instances "$GCP_PROJECT:$GCP_REGION:$SQL_INSTANCE" \
-            --set-env-vars SIGTA_ENV=development \
+            --set-env-vars SIGTA_ENV=production \
             --set-secrets "SIGTA_MIGRATIONS_DATABASE_URL=sigta-$ENVIRONMENT-migrations-database-url:latest" \
             --max-retries 0 --execute-now --wait
-      # One instance: sessions, procedures and documents are still kept in
-      # memory, and the server assumes it is the only one.
+      # One instance: the server assumes it is the only one, as when it
+      # removes at startup the files that no document names.
       - name: Deploy
         run: |
           gcloud run deploy "sigta-$ENVIRONMENT" --region "$GCP_REGION" --quiet \
@@ -78,7 +78,7 @@ jobs:
             --cpu 0.75 --memory 512Mi \
             --startup-probe "httpGet.port=8080,httpGet.path=/procedure-types,periodSeconds=2,failureThreshold=30" \
             --add-volume-mount "volume=documents,mount-path=/var/lib/sigta/documents" \
-            --set-env-vars "SIGTA_ENV=development,SIGTA_IDENTITY_PROVIDER=google,SIGTA_ALLOWED_DOMAIN=fi.uba.ar,SIGTA_PUBLIC_URL=https://$SIGTA_HOST/api,SIGTA_APP_URL=https://$SIGTA_HOST/" \
+            --set-env-vars "SIGTA_ENV=production,SIGTA_ALLOWED_DOMAIN=fi.uba.ar,SIGTA_PUBLIC_URL=https://$SIGTA_HOST/api,SIGTA_APP_URL=https://$SIGTA_HOST/" \
             --set-secrets "SIGTA_DATABASE_URL=sigta-$ENVIRONMENT-database-url:latest,SIGTA_GOOGLE_CLIENT_ID=sigta-google-client-id:latest,SIGTA_GOOGLE_CLIENT_SECRET=sigta-google-client-secret:latest"
       - name: Check SIGTA
         run: |

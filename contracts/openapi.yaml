@@ -903,8 +903,10 @@ paths:
         documento reemplaza al anterior, que queda registrado. Un trámite
         guarda hasta 20 archivos por documento; para responder una
         subsanación, cuentan solo los adjuntados desde el último pedido que
-        nombra ese documento. Cada archivo adjuntado queda en
-        el historial, sin avanzar el trámite.
+        nombra ese documento. Cada archivo adjuntado queda en el historial,
+        sin avanzar el trámite. Si el paso ya no está abierto (otro lo
+        confirmó o el trámite está cerrado), o la subsanación que pedía el
+        documento ya se respondió, responde 409.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -936,6 +938,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /procedures/{procedureId}/documents/{documentId}/content:
     parameters:
       - $ref: "#/components/parameters/ProcedureId"

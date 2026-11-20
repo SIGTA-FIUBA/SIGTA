@@ -168,6 +168,8 @@ func TestSubmitRejectsAMalformedRequest(t *testing.T) {
 		"values that are not JSON":   {{"procedure_type", "", "7"}, {"values", "", `reason=x`}},
 		"a number as a value":        {{"procedure_type", "", "7"}, {"values", "", `{"credits":12}`}},
 		"a list of numbers":          {{"procedure_type", "", "7"}, {"values", "", `{"subjects":[1]}`}},
+		"a NUL in a text":            {{"procedure_type", "", "7"}, {"values", "", `{"reason":"a\u0000b"}`}},
+		"a NUL in a list":            {{"procedure_type", "", "7"}, {"values", "", `{"subjects":["a\u0000"]}`}},
 		"a file without document":    {{"procedure_type", "", "7"}, {"values", "", `{}`}, {"file", "a.pdf", "%PDF"}},
 		"a document without file":    {{"procedure_type", "", "7"}, {"values", "", `{}`}, {"document", "", "transcript"}},
 	}
