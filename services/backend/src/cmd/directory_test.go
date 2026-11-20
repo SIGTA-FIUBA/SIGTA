@@ -7,7 +7,6 @@ import (
 
 	authmem "backend/src/auth/adapters/memory"
 	"backend/src/auth/domain"
-	authinput "backend/src/auth/ports/input"
 )
 
 // Someone who signed in before keeps the id they got then, and their
@@ -81,8 +80,8 @@ func TestAddPeopleKeepsWhatAnAdministratorEnded(t *testing.T) {
 	}
 }
 
-// Outside development only the Secretariat is added: people register by
-// signing in, and there is no administrator until one is given.
+// Outside development nothing is added: people register by signing in, and
+// there is no administrator until one is given.
 func TestAddDirectoryAddsNoPeopleOutsideDevelopment(t *testing.T) {
 	ctx := t.Context()
 	s := stores{users: authmem.NewUserRepository(), areas: authmem.NewAreaRepository(), memberships: authmem.NewMembershipRepository(), administrators: authmem.NewAdministratorRepository()}
@@ -101,8 +100,8 @@ func TestAddDirectoryAddsNoPeopleOutsideDevelopment(t *testing.T) {
 			t.Errorf("memberships of %s = %+v, %v; want none", synthetic.ID, m, err)
 		}
 	}
-	if all, err := s.areas.List(ctx); err != nil || len(all) != 1 || all[0].ID != authinput.SecretariatArea {
-		t.Errorf("areas = %+v, %v; want only the Secretariat", all, err)
+	if all, err := s.areas.List(ctx); err != nil || len(all) != 0 {
+		t.Errorf("areas = %+v, %v; want none", all, err)
 	}
 }
 

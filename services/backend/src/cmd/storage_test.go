@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	authapp "backend/src/auth/application"
 	authdomain "backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
 	"backend/src/migrations"
 	"backend/src/migrations/dbtest"
 	"backend/src/procedure/adapters/disk"
@@ -162,6 +164,44 @@ func assertOldDatabaseHint(t *testing.T, err error, codes ...string) {
 	}
 	if err == nil || !strings.Contains(err.Error(), migrations.OldDatabaseHint) {
 		t.Errorf("migrate = %v, want the hint to recreate the database", err)
+	}
+}
+
+// TestOpenStoresChecksTheSecretariat finds in a migrated database the same
+// Secretariat that the stores in memory start with, and refuses one that was
+// changed by hand.
+func TestOpenStoresChecksTheSecretariat(t *testing.T) {
+	ctx := t.Context()
+	schema := dbtest.NewSchema(t)
+	open := func(cfg config) (stores, error) {
+		s, closeStores, err := openStores(ctx, cfg, slog.New(slog.DiscardHandler))
+		if err == nil {
+			t.Cleanup(closeStores)
+		}
+		return s, err
+	}
+	inMemory, err := open(config{env: envDevelopment})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config{env: envProduction, databaseURL: schema.MemberURL(t, dbtest.AppRole)}
+	migrated, err := open(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := inMemory.areas.Get(ctx, authinput.SecretariatArea)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := migrated.areas.Get(ctx, authinput.SecretariatArea); err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("Secretariat of the migrations = %+v, %v; want the one in memory, %+v", got, err, want)
+	}
+
+	if _, err := schema.Admin(t).Exec(ctx, "UPDATE area_permissions SET deleted_at = now(), deleted_by = 'admin' WHERE id = $1", authinput.EditProcedureTypes); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := open(cfg); !errors.Is(err, authapp.ErrIncompleteSecretariat) {
+		t.Errorf("openStores() with a platform permission deleted = %v, want ErrIncompleteSecretariat", err)
 	}
 }
 

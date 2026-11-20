@@ -441,7 +441,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Sumar un área, un permiso o un rol no requiere código. Exigir un permiso nuevo en un paso requiere publicar una versión del tipo de trámite. Cambiar los permisos de un rol, no.
 - Cambiar el personal no genera versiones nuevas: la configuración define qué función hace cada paso, y la membresía define quién la cumple.
 - Las áreas, sus permisos y roles son entidades globales del módulo `auth`, junto con las membresías y la marca de administrador, porque describen a las personas y a la organización y no a un trámite. Cada versión de un tipo de trámite sigue guardando una copia de las áreas y los permisos de pasos que usa (`content.Areas`), para leerse igual si cambian de nombre. Desaparece el tipo de área `external`.
-- La Secretaría se crea al arrancar el servidor si no existe (`EnsureSecretariat`), y cuando haya PostgreSQL pasa a ser una migración con los mismos datos. El identificador `secretariat` y sus dos permisos de plataforma están reservados. `auth` los expone en su API pública, para que `procedure` los pida al publicar.
+- La Secretaría se crea al arrancar el servidor si no existe (`EnsureSecretariat`), y cuando haya PostgreSQL pasa a ser una migración con los mismos datos: es la 0007 (ADR-027). El identificador `secretariat` y sus dos permisos de plataforma están reservados. `auth` los expone en su API pública, para que `procedure` los pida al publicar.
 - Que la Secretaría edite los tipos de trámite resuelve en parte D-08: quien no tenga membresía en la Secretaría no propone ni aprueba versiones, y el equipo de proyecto necesita una para hacerlo. Queda abierto a quién se le otorgan esos permisos.
 - La derivación deja de definirse como "pasar a un paso de un área `external`" y pasa a ser un paso de otra área.
 - Las reglas que dependen del trámite (qué ve y en qué pasos actúa cada persona, y quién publica) quedan en `procedure`, que le pregunta a `auth` por su API pública (ADR-021). `auth` no depende de `procedure`: por eso, al otorgar una membresía no se comprueba que los tipos de su alcance existan, y un tipo inexistente simplemente no coincide con ningún trámite.
@@ -648,16 +648,24 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 **Decisión.**
 - Se saca `SIGTA_USERS_FILE`. El servidor ya no lo lee, y en producción no lo pide.
 - Las personas se registran al ingresar con su cuenta de Google, como ya pasaba con quien no figuraba en el archivo.
-- Las membresías viven solo en la base y se cambian solo desde SIGTA. Hoy se dan por la API; la baja existe como caso de uso pero todavía no tiene endpoint ni pantalla.
+- Las membresías viven solo en la base y se cambian solo desde SIGTA, con la pantalla de administración (SIG-76). La baja existe como caso de uso pero todavía no tiene endpoint.
 - La marca de administrador se guarda en la base (SIG-83). El primer administrador de un entorno se da con el comando de consola `backend grant-admin <correo>`, y de ahí en adelante se va a administrar desde SIGTA (ADR-020). Quién corrió el comando queda a cargo del entorno donde se despliegue, en su registro de quién opera la consola, sin atarlo a un proveedor: a confirmar con la Subsecretaría de TICs (DU-39). En desarrollo, el administrador sintético la tiene solo con el proveedor de identidad falso, sin guardarse.
-- En desarrollo, los usuarios sintéticos y las áreas de prueba son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una que se dio de baja sigue de baja. Fuera de desarrollo solo se agrega la Secretaría.
+- En desarrollo, los usuarios sintéticos y las áreas de prueba son datos de ejemplo que se cargan al arrancar. Cada membresía de ejemplo se agrega solo si su identificador no está guardado, así que una que se dio de baja sigue de baja. Fuera de desarrollo el servidor no agrega nada.
+- Lo que el código necesita viaja con el código; la configuración de la organización es del administrador y se edita desde SIGTA; las personas nunca van al repositorio. Es el criterio de Django, Odoo, Rails, GitLab y Keycloak (SIG-83).
+- Por eso la Secretaría y sus dos permisos de plataforma, que el backend chequea por su identificador, los crea una migración versionada (`0007_secretariat.sql`), y el servidor solo controla al arrancar que estén como ella los deja: si alguien los cambió a mano en la base, no arranca, en vez de taparlo. En memoria, donde no hay migraciones, el servidor los agrega. El administrador no es un rol sino una marca con su tabla (`0006_administrators.sql`), y el primero se da con `backend grant-admin`, como alta inicial sin autor.
+- Ninguna otra área, rol, permiso ni membresía va en una migración ni en la configuración del despliegue. Las áreas del trámite ancla, sus roles y permisos, y el personal de cada una se cargan desde la pantalla de SIG-76; si cambian, se editan ahí, sin código.
+- `POST /api/areas/{id}/permissions` se mantiene. El backend chequea por nombre fijo solo los dos permisos de plataforma, y ese endpoint no los puede crear (rechaza sus identificadores), como la baja no puede quitarlos. Los demás permisos son configuración: cada paso del personal nombra su área y los permisos de esa área que exige (ADR-020), y el backend los compara con los de las membresías sin conocerlos de antemano. Un tipo de trámite nuevo trae permisos nuevos, y crearlos no puede requerir código (ADR-006).
 
 **Alternativas descartadas.**
 - Mantener el archivo y documentar que prevalece sobre las bajas de un administrador: deja dos fuentes de verdad, y una de ellas sin trazabilidad.
 - Leer el archivo solo la primera vez: una base vacía en otro entorno lo volvería a aplicar, y el archivo seguiría guardando datos personales entre los secretos.
+- Cargar las áreas del trámite ancla en una migración o desde el código: son configuración de la organización, quedarían fuera del registro de quién y cuándo de la interfaz, y cambiarlas requeriría un cambio de código.
+- Que el servidor siga creando o reparando la Secretaría en cada arranque: el rol de la aplicación escribiría lo que es parte del esquema, y un cambio a mano se taparía en vez de verse.
+- Sacar el endpoint de creación de permisos: haría falta código para cada permiso de un tipo de trámite nuevo.
 
 **Consecuencias.**
-- Un entorno nuevo arranca sin administradores ni personal, y el primer administrador se da con `backend grant-admin`. Hasta que la interfaz dé los demás (SIG-76), es el único.
+- Un entorno nuevo arranca con la Secretaría y sin administradores ni personal, y el primer administrador se da con `backend grant-admin`. Hasta que la interfaz dé los demás (SIG-76), es el único.
+- Hasta SIG-76, un entorno desplegado no tiene las áreas del trámite ancla ni su personal: esa parte de SIG-83 queda pendiente de SIG-76.
 - Hasta que la baja de membresías tenga endpoint, quitarle el acceso a alguien fuera de desarrollo solo se puede haciendo en la base.
 - Ya no hay un archivo con datos personales entre los secretos del despliegue.
 - El despliegue en Google Cloud no cambia, porque nunca pasó el archivo.

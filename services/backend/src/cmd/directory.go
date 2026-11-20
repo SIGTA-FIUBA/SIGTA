@@ -7,7 +7,6 @@ import (
 	"time"
 
 	authmem "backend/src/auth/adapters/memory"
-	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	authoutput "backend/src/auth/ports/output"
 )
@@ -19,15 +18,12 @@ type people struct {
 	memberships    []domain.Membership
 }
 
-// addDirectory leaves the Secretariat in the stores on every start and, in
-// development, the example areas and the synthetic people. It returns the
-// administrators: the stored ones and, when anyone can log in as anyone
-// (the dev identity provider), the synthetic one. Outside development
-// everyone registers by signing in, and memberships are granted only in SIGTA.
+// addDirectory adds, in development, the example areas and the synthetic
+// people. It returns the administrators: the stored ones and, when anyone can
+// log in as anyone (the dev identity provider), the synthetic one. Outside
+// development everyone registers by signing in, and memberships are granted
+// only in SIGTA.
 func addDirectory(ctx context.Context, cfg config, s stores, now time.Time) (authoutput.AdministratorRepository, error) {
-	if err := application.EnsureSecretariat(ctx, s.areas); err != nil {
-		return nil, err
-	}
 	if !cfg.development() {
 		return s.administrators, nil
 	}

@@ -46,9 +46,14 @@ func NewAreaService(areas output.AreaRepository, administrators output.Administr
 	}
 }
 
+// ErrIncompleteSecretariat means the Secretariat or one of its platform
+// permissions, which migration 0007 adds, is missing, deleted or no longer a
+// system one.
+var ErrIncompleteSecretariat = errors.New("the Secretariat is not as the migrations leave it")
+
 // EnsureSecretariat creates the Secretariat with its platform permissions, or
-// adds the ones it lacks. It runs on every start, before anything reads the
-// areas, and changes nothing when they are already there.
+// adds the ones it lacks, in stores that are not migrated: those in memory.
+// It changes nothing when they are already there.
 func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	area, err := areas.Get(ctx, input.SecretariatArea)
 	switch {
@@ -57,6 +62,32 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 	case err != nil:
 		return fmt.Errorf("area %s: %w", input.SecretariatArea, err)
 	}
+	if !completeSecretariat(&area) {
+		return nil
+	}
+	if err := areas.Save(ctx, area); err != nil {
+		return fmt.Errorf("save area %s: %w", input.SecretariatArea, err)
+	}
+	return nil
+}
+
+// CheckSecretariat refuses a database whose Secretariat is not the one that
+// migration 0007 leaves, as when it was changed by hand. The server does not
+// fix it: what the code needs comes with the migrations.
+func CheckSecretariat(ctx context.Context, areas output.AreaRepository) error {
+	area, err := areas.Get(ctx, input.SecretariatArea)
+	if errors.Is(err, domain.ErrAreaNotFound) || err == nil && (area.Deleted() || completeSecretariat(&area)) {
+		return ErrIncompleteSecretariat
+	}
+	if err != nil {
+		return fmt.Errorf("area %s: %w", input.SecretariatArea, err)
+	}
+	return nil
+}
+
+// completeSecretariat marks the area as the Secretariat and adds or restores
+// its platform permissions. It reports whether it changed anything.
+func completeSecretariat(area *domain.Area) bool {
 	changed := !area.System
 	area.System = true
 	for _, permission := range platformPermissions {
@@ -70,13 +101,7 @@ func EnsureSecretariat(ctx context.Context, areas output.AreaRepository) error {
 			changed = true
 		}
 	}
-	if !changed {
-		return nil
-	}
-	if err := areas.Save(ctx, area); err != nil {
-		return fmt.Errorf("save area %s: %w", input.SecretariatArea, err)
-	}
-	return nil
+	return changed
 }
 
 func (s *AreaService) List(ctx context.Context) ([]domain.Area, error) {

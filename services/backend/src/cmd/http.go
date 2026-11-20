@@ -240,7 +240,7 @@ func devPeople() people {
 }
 
 // devAreas are the example areas of staff that development starts with,
-// besides the Secretariat, which EnsureSecretariat adds everywhere.
+// besides the Secretariat, which comes with the code.
 func devAreas() []domain.Area {
 	return []domain.Area{
 		{ID: "office", Name: "Área de prueba", Permissions: []domain.Permission{

@@ -70,6 +70,7 @@ En los comandos, `<entorno>` es `prod` o `dev`, y todos llevan `--region us-east
 | Ver los logs | `gcloud logging read 'resource.labels.service_name="sigta-<entorno>"' --freshness 1h`, o la pestaña Logs del servicio en la consola |
 | Volver a la versión anterior | `gcloud run services update-traffic sigta-<entorno> --to-revisions <revisión>=100` |
 | Dar el primer administrador, a alguien que ya ingresó | `gcloud run jobs execute sigta-<entorno>-migrate --args grant-admin,<correo> --wait`: el job de las migraciones, con otro comando. Falla si ya hay un administrador vigente: los demás se van a dar desde SIGTA (SIG-76). Un primer administrador dado por error se corrige desde SIGTA, cuando exista la baja (SIG-76): esa persona da el que correspondía y se da de baja |
+| Cargar las áreas, sus roles y permisos, y el personal | Desde la pantalla de administración de SIGTA (SIG-76), con el primer administrador. No hay comando ni migración para esto: la migración solo crea la Secretaría con sus permisos de plataforma (ADR-027) |
 | Ver a quién se le dio el primer administrador | Los logs de la ejecución del job. Quién la lanzó no lo guarda SIGTA: queda a cargo del entorno donde se despliegue (ADR-027) |
 | Respaldar la base a pedido | `gcloud sql backups create --instance <instancia>` |
 | Respaldar los documentos | `gcloud storage cp -r gs://summer-function-513519-a1-sigta-<entorno>-documents .` |

@@ -14,6 +14,7 @@ import (
 
 	authmem "backend/src/auth/adapters/memory"
 	authpostgres "backend/src/auth/adapters/postgres"
+	authapp "backend/src/auth/application"
 	authoutput "backend/src/auth/ports/output"
 	"backend/src/migrations"
 	"backend/src/procedure/adapters/disk"
@@ -37,16 +38,23 @@ type stores struct {
 	documents      output.DocumentRepository
 }
 
-// openStores returns the stores and a function that closes them.
+// openStores returns the stores and a function that closes them. The
+// Secretariat comes with the code (ADR-027): migration 0007 adds it to the
+// database, and the server only checks that it is there. In memory, where
+// there are no migrations, the server adds it.
 func openStores(ctx context.Context, cfg config, logger *slog.Logger) (stores, func(), error) {
 	if cfg.databaseURL == "" {
 		// loadConfig asks for a database everywhere but development.
 		logger.Warn("SIGTA_DATABASE_URL is not set: everything SIGTA keeps is lost when the server stops")
+		areas := authmem.NewAreaRepository()
+		if err := authapp.EnsureSecretariat(ctx, areas); err != nil {
+			return stores{}, nil, err
+		}
 		procedures := proceduremem.NewProcedureRepository()
 		return stores{
 			users:          authmem.NewUserRepository(),
 			sessions:       authmem.NewSessionRepository(),
-			areas:          authmem.NewAreaRepository(),
+			areas:          areas,
 			memberships:    authmem.NewMembershipRepository(),
 			administrators: authmem.NewAdministratorRepository(),
 			versions:       proceduremem.NewProcedureTypeVersionRepository(),
@@ -64,10 +72,15 @@ func openStores(ctx context.Context, cfg config, logger *slog.Logger) (stores, f
 		pool.Close()
 		return stores{}, nil, err
 	}
+	areas := authpostgres.NewAreaRepository(pool)
+	if err := authapp.CheckSecretariat(ctx, areas); err != nil {
+		pool.Close()
+		return stores{}, nil, fmt.Errorf("check the Secretariat: %w", err)
+	}
 	return stores{
 		users:          authpostgres.NewUserRepository(pool),
 		sessions:       authpostgres.NewSessionRepository(pool),
-		areas:          authpostgres.NewAreaRepository(pool),
+		areas:          areas,
 		memberships:    authpostgres.NewMembershipRepository(pool),
 		administrators: authpostgres.NewAdministratorRepository(pool),
 		versions:       procedurepostgres.NewProcedureTypeVersionRepository(pool),

@@ -102,6 +102,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
+| DU-40 | ¿Con qué áreas se configura el trámite ancla? SIG-83 pide seis: Dirección Académica, Comisión Curricular, Despacho del Consejo Directivo, Consejo Directivo, Dirección General y Mesa de Entrada. DU-05 supone en cambio que la Directora General es parte del área de la DA | Las seis de SIG-83, cada una un actor del expediente. Son configuración: las carga el administrador desde la pantalla de SIG-76, y si cambian se editan ahí, sin código (ADR-027) | Supuesto; a confirmar con la Secretaría |
 | DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 
 ## 5. Del inicio de un trámite
