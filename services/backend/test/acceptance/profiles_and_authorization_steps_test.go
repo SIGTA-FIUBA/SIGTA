@@ -261,7 +261,8 @@ func (w *authorizationWorld) givenAdministrator(user string) error {
 }
 
 // signIn registers the person as if they had entered SIGTA once, unless the
-// scenario says they never did.
+// scenario says they never did. The steps that grant something call it, so
+// scenarios take for granted that whoever they name signed in.
 func (w *authorizationWorld) signIn(user string) {
 	if !w.neverSignedIn[user] {
 		w.users.Add(signedIn(user))

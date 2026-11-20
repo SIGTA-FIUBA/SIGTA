@@ -102,6 +102,9 @@ func (s *MembershipService) Grant(ctx context.Context, administratorID string, g
 	if err := s.validate(ctx, m, ""); err != nil {
 		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
 	}
+	if err := s.requireSignedIn(ctx, m.UserID); err != nil {
+		return domain.Membership{}, err
+	}
 	if err := s.memberships.Save(ctx, m); err != nil {
 		return domain.Membership{}, fmt.Errorf("grant membership to %s: %w", m.UserID, err)
 	}
@@ -154,6 +157,9 @@ func (s *MembershipService) Change(ctx context.Context, administratorID, members
 	}
 	if err := s.validate(ctx, m, old.ID); err != nil {
 		return domain.Membership{}, fmt.Errorf("%w: %w", domain.ErrInvalidMembership, err)
+	}
+	if err := s.requireSignedIn(ctx, m.UserID); err != nil {
+		return domain.Membership{}, err
 	}
 	if err := s.memberships.Replace(ctx, ended(old, now, administratorID), m); err != nil {
 		return domain.Membership{}, fmt.Errorf("change membership %s: %w", membershipID, err)
@@ -217,6 +223,19 @@ func sameIDs(a, b []string) bool {
 	return slices.Equal(a, b)
 }
 
+// requireSignedIn refuses a membership for someone who never entered SIGTA,
+// such as an id typed by mistake. Any other failure is not the request's.
+func (s *MembershipService) requireSignedIn(ctx context.Context, userID string) error {
+	_, err := s.users.Get(ctx, userID)
+	switch {
+	case errors.Is(err, domain.ErrUserNotFound):
+		return fmt.Errorf("%w: person %s: %w", domain.ErrInvalidMembership, userID, err)
+	case err != nil:
+		return fmt.Errorf("person %s: %w", userID, err)
+	}
+	return nil
+}
+
 // validate leaves the scope unchecked: a procedure type that does not exist
 // matches no procedure, so checking it would only make auth depend on
 // procedure. replaced is the membership that m follows, if any, which does
@@ -225,9 +244,6 @@ func sameIDs(a, b []string) bool {
 func (s *MembershipService) validate(ctx context.Context, m domain.Membership, replaced string) error {
 	if m.UserID == "" {
 		return errors.New("a membership needs a person")
-	}
-	if _, err := s.users.Get(ctx, m.UserID); err != nil {
-		return fmt.Errorf("person %s: %w", m.UserID, err)
 	}
 	if len(m.Roles) == 0 && len(m.Permissions) == 0 {
 		return errors.New("a membership needs at least one role or permission")

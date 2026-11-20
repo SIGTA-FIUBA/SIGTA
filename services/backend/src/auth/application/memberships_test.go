@@ -1,6 +1,7 @@
 package application_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"backend/src/auth/application"
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
+	"backend/src/auth/ports/output"
 )
 
 var office = domain.Area{ID: "office", Name: "Mesa", Permissions: []domain.Permission{{ID: "review", Name: "Revisar"}, {ID: "approve", Name: "Aprobar"}}}
@@ -83,6 +85,36 @@ func TestAMembershipNeedsSomeoneWhoSignedIn(t *testing.T) {
 	}
 	if _, err := f.service.Grant(t.Context(), "admin", input.MembershipGrant{UserID: operative.ID, Area: "office", Permissions: []string{"review"}}); err != nil {
 		t.Errorf("Grant() to someone who signed in = %v", err)
+	}
+}
+
+// A membership granted before that check, to someone who never entered
+// SIGTA, is only ended: changing it would grant a new one.
+func TestAMembershipOfSomeoneWhoNeverSignedInIsNotChanged(t *testing.T) {
+	f := newMembershipFixture(domain.Membership{ID: "m1", UserID: "nadie", Area: "office", Permissions: []string{"review"}, GrantedBy: "admin"})
+
+	_, err := f.service.Change(t.Context(), "admin", "m1", nil, []string{"approve"})
+	if !errors.Is(err, domain.ErrInvalidMembership) || !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("Change() = %v, want ErrInvalidMembership and ErrUserNotFound", err)
+	}
+	if err := f.service.End(t.Context(), "admin", "m1"); err != nil {
+		t.Errorf("End() = %v", err)
+	}
+}
+
+// unreachableUsers fails as a database that does not answer.
+type unreachableUsers struct{ output.UserRepository }
+
+func (unreachableUsers) Get(context.Context, string) (domain.User, error) {
+	return domain.User{}, errors.New("connection refused")
+}
+
+func TestAFailureReadingThePersonIsNotAnInvalidMembership(t *testing.T) {
+	service := application.NewMembershipService(memory.NewAreaRepository(office), memory.NewAdministratorRepository("admin"), memory.NewMembershipRepository(), unreachableUsers{}, func() string { return "new1" }, time.Now)
+
+	_, err := service.Grant(t.Context(), "admin", input.MembershipGrant{UserID: operative.ID, Area: "office", Permissions: []string{"review"}})
+	if err == nil || errors.Is(err, domain.ErrInvalidMembership) {
+		t.Errorf("Grant() = %v, want an error that is not ErrInvalidMembership", err)
 	}
 }
 

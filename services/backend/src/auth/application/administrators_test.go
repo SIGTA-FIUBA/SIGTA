@@ -52,6 +52,28 @@ func TestGrantFirstAdministratorNeedsTheUserToHaveSignedIn(t *testing.T) {
 	}
 }
 
+// DU-43: an administrator may end their own administration while another
+// remains.
+func TestAnAdministratorEndsTheirOwnWhileAnotherRemains(t *testing.T) {
+	now := time.Now().Add(-time.Hour)
+	periods := memory.NewAdministratorRepository(operative.ID)
+	service := application.NewAdministratorService(periods, memory.NewUserRepository(applicant, operative), newAdministratorID, func() time.Time { return now })
+	if _, err := service.Grant(t.Context(), operative.ID, applicant.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	now = now.Add(time.Hour)
+	if err := service.End(t.Context(), operative.ID, "A-"+operative.ID); err != nil {
+		t.Fatalf("End() of their own = %v", err)
+	}
+	if ok, _ := periods.IsAdministrator(t.Context(), operative.ID); ok {
+		t.Error("the administration did not end")
+	}
+	if ok, _ := periods.IsAdministrator(t.Context(), applicant.ID); !ok {
+		t.Error("the other administrator lost it")
+	}
+}
+
 func TestAnAdministratorGrantsAndEndsAnother(t *testing.T) {
 	// The memory repository tells who administers at the real time.
 	now := time.Now().Add(-time.Hour)
