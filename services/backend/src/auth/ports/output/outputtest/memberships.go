@@ -15,11 +15,23 @@ import (
 // TestMembershipRepository runs the contract of output.MembershipRepository.
 // newRepository returns an empty repository each time it is called.
 func TestMembershipRepository(t *testing.T, newRepository func(t *testing.T) output.MembershipRepository) {
-	t.Run("round trip", func(t *testing.T) { membershipRoundTrip(t, newRepository(t)) })
-	t.Run("lists in the order granted", func(t *testing.T) { listMemberships(t, newRepository(t)) })
-	t.Run("end a membership", func(t *testing.T) { endMembership(t, newRepository(t)) })
-	t.Run("only the validity of a membership changes", func(t *testing.T) { changeOnlyValidity(t, newRepository(t)) })
-	t.Run("concurrent grants", func(t *testing.T) { concurrentGrants(t, newRepository(t)) })
+	for _, c := range []struct {
+		name string
+		test func(*testing.T, output.MembershipRepository)
+	}{
+		{"round trip", membershipRoundTrip},
+		{"lists in the order granted", listMemberships},
+		{"end a membership", endMembership},
+		{"only the validity of a membership changes", changeOnlyValidity},
+		{"concurrent grants", concurrentGrants},
+		{"replace a membership", replaceMembership},
+		{"a membership that overlaps another is not granted", refuseOverlap},
+		{"an ended membership is not ended again", refuseEndingTwice},
+		{"of overlapping grants at once only one is saved", concurrentOverlappingGrants},
+		{"of changes to one membership at once only one is saved", concurrentReplaces},
+	} {
+		t.Run(c.name, func(t *testing.T) { c.test(t, newRepository(t)) })
+	}
 }
 
 func membership(id, userID, area string) domain.Membership {
@@ -32,6 +44,7 @@ func membership(id, userID, area string) domain.Membership {
 		Scope:       []int64{3, 1},
 		From:        at,
 		GrantedBy:   "admin",
+		GrantedAt:   at.Add(-time.Hour),
 	}
 }
 
@@ -124,7 +137,11 @@ func concurrentGrants(t *testing.T, r output.MembershipRepository) {
 	var wg sync.WaitGroup
 	errs := make([]error, grants)
 	for i := range grants {
-		wg.Go(func() { errs[i] = r.Save(t.Context(), membership(fmt.Sprintf("M-%d", i), "U-1", "office")) })
+		wg.Go(func() {
+			m := membership(fmt.Sprintf("M-%d", i), "U-1", "office")
+			m.Scope = []int64{int64(i)}
+			errs[i] = r.Save(t.Context(), m)
+		})
 	}
 	wg.Wait()
 	for i, err := range errs {
@@ -135,4 +152,133 @@ func concurrentGrants(t *testing.T, r output.MembershipRepository) {
 	if list, err := r.ListByUser(t.Context(), "U-1"); err != nil || len(list) != grants {
 		t.Errorf("ListByUser() = %d memberships, %v; want %d", len(list), err, grants)
 	}
+}
+
+// Replace ends one membership and grants the one that follows it, both or
+// neither.
+func replaceMembership(t *testing.T, r output.MembershipRepository) {
+	old := membership("M-1", "U-1", "office")
+	grantAll(t, r, old)
+	ended := old
+	ended.Until, ended.EndedBy = at.Add(time.Hour), "admin"
+	granted := membership("M-2", "U-1", "office")
+	granted.Roles, granted.Permissions = nil, []string{"review"}
+	granted.From, granted.GrantedAt = ended.Until, ended.Until
+	if err := r.Replace(t.Context(), ended, granted); err != nil {
+		t.Fatalf("Replace() = %v", err)
+	}
+	got, err := r.ListByUser(t.Context(), "U-1")
+	if want := []domain.Membership{ended, granted}; err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("ListByUser() after Replace() = %+v, %v; want %+v", got, err, want)
+	}
+}
+
+func refuseOverlap(t *testing.T, r output.MembershipRepository) {
+	grantAll(t, r, membership("M-1", "U-1", "office"))
+	again := membership("M-2", "U-1", "office")
+	again.From = at.Add(24 * time.Hour)
+	if err := r.Save(t.Context(), again); !errors.Is(err, domain.ErrMembershipOverlaps) {
+		t.Errorf("Save() of an overlapping membership = %v, want ErrMembershipOverlaps", err)
+	}
+	ended := membership("M-1", "U-1", "office")
+	ended.Until, ended.EndedBy = at.Add(time.Hour), "admin"
+	granted := membership("M-3", "U-1", "office")
+	granted.From = at
+	if err := r.Replace(t.Context(), ended, granted); !errors.Is(err, domain.ErrMembershipOverlaps) {
+		t.Errorf("Replace() with one that overlaps the ended = %v, want ErrMembershipOverlaps", err)
+	}
+	if list, err := r.ListByUser(t.Context(), "U-1"); err != nil || len(list) != 1 || !list[0].Until.IsZero() {
+		t.Errorf("ListByUser() = %+v, %v; want M-1 alone and not ended", list, err)
+	}
+}
+
+func refuseEndingTwice(t *testing.T, r output.MembershipRepository) {
+	m := membership("M-1", "U-1", "office")
+	grantAll(t, r, m)
+	m.Until, m.EndedBy = at.Add(time.Hour), "admin"
+	grantAll(t, r, m)
+	later := m
+	later.Until, later.EndedBy = at.Add(2*time.Hour), "otro"
+	if err := r.Save(t.Context(), later); !errors.Is(err, domain.ErrMembershipEnded) {
+		t.Errorf("Save() ending an ended membership = %v, want ErrMembershipEnded", err)
+	}
+	granted := membership("M-2", "U-1", "office")
+	granted.From = later.Until
+	if err := r.Replace(t.Context(), later, granted); !errors.Is(err, domain.ErrMembershipEnded) {
+		t.Errorf("Replace() of an ended membership = %v, want ErrMembershipEnded", err)
+	}
+	if got, err := r.Get(t.Context(), "M-1"); err != nil || !reflect.DeepEqual(got, m) {
+		t.Errorf("Get() = %+v, %v; want %+v", got, err, m)
+	}
+	if _, err := r.Get(t.Context(), "M-2"); !errors.Is(err, domain.ErrMembershipNotFound) {
+		t.Errorf("Get(M-2) = %v, want ErrMembershipNotFound", err)
+	}
+}
+
+func concurrentOverlappingGrants(t *testing.T, r output.MembershipRepository) {
+	const grants = 10
+	var wg sync.WaitGroup
+	errs := make([]error, grants)
+	for i := range grants {
+		wg.Go(func() { errs[i] = r.Save(t.Context(), membership(fmt.Sprintf("M-%d", i), "U-1", "office")) })
+	}
+	wg.Wait()
+	if saved := countSaved(t, errs, domain.ErrMembershipOverlaps); saved != 1 {
+		t.Errorf("%d grants saved, want 1", saved)
+	}
+}
+
+// concurrentReplaces changes one membership several times at once, and ends
+// it at the same time: only one of them can end it.
+func concurrentReplaces(t *testing.T, r output.MembershipRepository) {
+	old := membership("M-1", "U-1", "office")
+	grantAll(t, r, old)
+	const changes = 10
+	var wg sync.WaitGroup
+	errs := make([]error, changes+1)
+	for i := range changes {
+		wg.Go(func() {
+			ended := old
+			ended.Until, ended.EndedBy = at.Add(time.Hour), "admin"
+			granted := membership(fmt.Sprintf("M-%d", i+2), "U-1", "office")
+			granted.From = ended.Until
+			errs[i] = r.Replace(t.Context(), ended, granted)
+		})
+	}
+	wg.Go(func() {
+		ended := old
+		ended.Until, ended.EndedBy = at.Add(time.Hour), "admin"
+		errs[changes] = r.Save(t.Context(), ended)
+	})
+	wg.Wait()
+	if saved := countSaved(t, errs, domain.ErrMembershipEnded); saved != 1 {
+		t.Errorf("%d changes saved, want 1", saved)
+	}
+	list, err := r.ListByUser(t.Context(), "U-1")
+	if err != nil {
+		t.Fatalf("ListByUser() = %v", err)
+	}
+	want := 2
+	if errs[changes] == nil {
+		want = 1
+	}
+	if len(list) != want || list[0].Until.IsZero() {
+		t.Errorf("ListByUser() = %+v; want M-1 ended and %d memberships", list, want)
+	}
+}
+
+// countSaved returns how many calls succeeded, failing the test for an error
+// other than refused.
+func countSaved(t *testing.T, errs []error, refused error) int {
+	t.Helper()
+	saved := 0
+	for i, err := range errs {
+		switch {
+		case err == nil:
+			saved++
+		case !errors.Is(err, refused):
+			t.Errorf("call number %d = %v, want nil or %v", i, err, refused)
+		}
+	}
+	return saved
 }

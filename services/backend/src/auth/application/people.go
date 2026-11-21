@@ -4,26 +4,46 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"backend/src/auth/domain"
 	"backend/src/auth/ports/input"
 	"backend/src/auth/ports/output"
 )
 
-var _ input.People = (*PeopleService)(nil)
+var (
+	_ input.People    = (*PeopleService)(nil)
+	_ input.Directory = (*PeopleService)(nil)
+)
+
+const actionSearchPeople = "search people"
 
 type PeopleService struct {
+	administratorGuard
 	users output.UserRepository
 }
 
-func NewPeopleService(users output.UserRepository) *PeopleService {
-	return &PeopleService{users: users}
+func NewPeopleService(users output.UserRepository, administrators output.AdministratorRepository) *PeopleService {
+	return &PeopleService{administratorGuard: administratorGuard{administrators: administrators}, users: users}
 }
 
 func (s *PeopleService) Names(ctx context.Context, ids []string) (map[string]string, error) {
-	names := make(map[string]string, len(ids))
+	users, err := s.Users(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]string, len(users))
+	for id, user := range users {
+		names[id] = user.Name
+	}
+	return names, nil
+}
+
+func (s *PeopleService) Users(ctx context.Context, ids []string) (map[string]domain.User, error) {
+	users := make(map[string]domain.User, len(ids))
 	for _, id := range ids {
-		if _, done := names[id]; done {
+		if _, done := users[id]; done {
 			continue
 		}
 		user, err := s.users.Get(ctx, id)
@@ -33,7 +53,22 @@ func (s *PeopleService) Names(ctx context.Context, ids []string) (map[string]str
 		if err != nil {
 			return nil, fmt.Errorf("user %s: %w", id, err)
 		}
-		names[id] = user.Name
+		users[id] = user
 	}
-	return names, nil
+	return users, nil
+}
+
+func (s *PeopleService) Search(ctx context.Context, administratorID, text string) ([]domain.User, error) {
+	if err := s.requireAdministrator(ctx, administratorID, actionSearchPeople); err != nil {
+		return nil, err
+	}
+	text = domain.FoldForSearch(strings.TrimSpace(text))
+	if utf8.RuneCountInString(text) < input.PeopleSearchMinimum {
+		return []domain.User{}, nil
+	}
+	users, err := s.users.Search(ctx, text, input.PeopleSearchLimit)
+	if err != nil {
+		return nil, fmt.Errorf("search people with %q: %w", text, err)
+	}
+	return users, nil
 }

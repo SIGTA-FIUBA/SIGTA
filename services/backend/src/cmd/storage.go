@@ -31,7 +31,7 @@ type stores struct {
 	sessions       authoutput.SessionRepository
 	areas          authoutput.AreaRepository
 	memberships    authoutput.MembershipRepository
-	administrators authoutput.AdministratorRepository
+	administrators authoutput.AdministratorPeriodRepository
 	versions       output.ProcedureTypeVersionRepository
 	drafts         output.ProcedureTypeDraftRepository
 	procedures     output.ProcedureRepository

@@ -16,6 +16,7 @@ import (
 
 	authmem "backend/src/auth/adapters/memory"
 	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
 	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
 	"backend/src/procedure/domain"
@@ -28,7 +29,9 @@ import (
 const (
 	applicant = "titular@fi.uba.ar"
 	reviewer  = "revisora@fi.uba.ar"
-	maxSize   = 1024
+	// outsider reviews in the office only another procedure type.
+	outsider = "otra@fi.uba.ar"
+	maxSize  = 1024
 	// documentID is the identifier of the first document attached.
 	documentID = "D-1"
 )
@@ -131,7 +134,7 @@ func newDocumentsFixture(t *testing.T) documentsFixture {
 	areas := authmem.NewAreaRepository(office)
 	administrators := authmem.NewAdministratorRepository("admin")
 	stored := authmem.NewMembershipRepository()
-	memberships := authapp.NewMembershipService(areas, administrators, stored, func() string { return "M-1" }, time.Now)
+	memberships := authapp.NewMembershipService(areas, administrators, stored, authmem.NewUserRepository(authdomain.User{ID: reviewer, Email: reviewer}, authdomain.User{ID: outsider, Email: outsider}), func() string { return "M-1" }, time.Now)
 	if _, err := memberships.Grant(ctx, "admin", authinput.MembershipGrant{UserID: reviewer, Area: office.ID, Permissions: []string{"review"}}); err != nil {
 		t.Fatal(err)
 	}

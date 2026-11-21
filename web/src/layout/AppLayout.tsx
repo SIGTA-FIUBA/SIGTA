@@ -68,6 +68,16 @@ export function AppLayout() {
         ]
       : []),
     { to: '/catalog', label: 'Catálogo de trámites', icon: 'catalog', active: pathname.startsWith('/catalog') },
+    ...(user?.administrator === true
+      ? [
+          {
+            to: '/administration',
+            label: 'Administración',
+            icon: 'administration' as const,
+            active: pathname.startsWith('/administration'),
+          },
+        ]
+      : []),
   ]
 
   function menuItem(link: MenuLink) {

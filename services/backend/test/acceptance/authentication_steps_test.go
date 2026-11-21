@@ -102,6 +102,7 @@ func (w *authenticationWorld) server() http.Handler {
 			memory.NewAreaRepository(w.areas...),
 			memory.NewAdministratorRepository(),
 			w.memberships,
+			w.users,
 			func() string { return "M-new" },
 			func() time.Time { return w.now },
 		)

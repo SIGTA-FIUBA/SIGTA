@@ -60,7 +60,7 @@ func newServiceOn(versions output.ProcedureTypeVersionRepository, areas *authmem
 	)
 	administrators := authmem.NewAdministratorRepository()
 	auth := authapp.NewAreaService(areas, administrators, memberships, time.Now)
-	staffAuthorizer := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
+	staffAuthorizer := authapp.NewMembershipService(areas, administrators, memberships, authmem.NewUserRepository(), func() string { return "id" }, time.Now)
 	return NewProcedureTypeService(versions, auth, staffAuthorizer, func() time.Time { return publishedAt })
 }
 
@@ -449,7 +449,7 @@ func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
 			administrators := authmem.NewAdministratorRepository()
 			service := NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(),
 				authapp.NewAreaService(areas, administrators, memberships, time.Now),
-				authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now),
+				authapp.NewMembershipService(areas, administrators, memberships, authmem.NewUserRepository(), func() string { return "id" }, time.Now),
 				time.Now)
 			if _, err := service.Publish(ctx, publication(tt.procedureType, 0, testDefinition())); !errors.Is(err, tt.want) {
 				t.Errorf("Publish() = %v, want %v", err, tt.want)

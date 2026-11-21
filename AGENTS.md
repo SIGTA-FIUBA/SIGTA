@@ -37,7 +37,7 @@ Usar los términos del [glosario](docs/01-glosario.md) en código, tickets, esce
 | Membresía | membership | Pertenencia de una persona a un área, con algunos roles y permisos de esa área, alcance opcional por tipo de trámite y vigencia | Una versión: la membresía no cambia al publicar |
 | Rol | role (de un área) | Grupo de permisos de un área que se asigna en una membresía; si cambia, cambia para todos los que lo tienen | El `role` de un paso (`applicant` o `staff`), que dice quién lo hace |
 | Secretaría | secretariat | La única área fija: la trae SIGTA, con los permisos de plataforma `edit_procedure_types` y `publish_procedure_types` | Un área creada por el administrador |
-| Administrador | administrator | Marca sobre una persona que le permite crear áreas, permisos y roles, y dar de alta membresías | Personal: no da acceso a los trámites |
+| Administrador | administrator | Marca sobre una persona que le permite crear y dar de baja áreas, permisos y roles, otorgar, cambiar y terminar membresías, y dar y quitar la administración | Personal: no da acceso a los trámites |
 | Paso | step | Unidad de avance, con responsable y acción | Estado del trámite, que se deriva del paso abierto |
 | Requisito | `field` o `document` del tipo de trámite | Dato, documento o condición que el trámite exige | Condición académica, que el modelo solo guarda como texto (`admissibility`) y nada aplica |
 | Área | area | Parte de la organización a la que pertenece el personal, creada como dato salvo la Secretaría; un paso del personal es de un área | Rol, que agrupa permisos de un área: el titular no tiene área, y cada paso dice quién lo hace (`applicant` o `staff`) |

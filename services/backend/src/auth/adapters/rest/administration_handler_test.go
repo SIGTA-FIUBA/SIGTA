@@ -133,18 +133,22 @@ func TestInvalidAreasAndMembershipsAreRejected(t *testing.T) {
 	res, err = post(t, admin, srv.URL+"/areas/dean/permissions", strings.NewReader(`{"id": "sign", "name": "Firmar"}`))
 	expectError(t, res, err, http.StatusBadRequest)
 
-	for name, body := range map[string]string{
-		"unknown area":        `{"user_id": "u1", "area": "dean", "permissions": ["review"]}`,
-		"unknown permission":  `{"user_id": "u1", "area": "office", "permissions": ["sign"]}`,
-		"no permissions":      `{"user_id": "u1", "area": "office", "permissions": []}`,
-		"no roles nor perms":  `{"user_id": "u1", "area": "office"}`,
-		"unknown role":        `{"user_id": "u1", "area": "office", "roles": ["clerk"]}`,
-		"repeated membership": `{"user_id": "u2", "area": "office", "permissions": ["approve"]}`,
-		"end before start":    `{"user_id": "u1", "area": "office", "permissions": ["review"], "from": "2030-01-02T00:00:00Z", "until": "2030-01-01T00:00:00Z"}`,
+	for name, tc := range map[string]struct{ body, message string }{
+		"unknown area":        {`{"user_id": "u1", "area": "dean", "permissions": ["review"]}`, "No existe esa área."},
+		"unknown person":      {`{"user_id": "nadie", "area": "office", "permissions": ["review"]}`, "nunca ingresó a SIGTA"},
+		"unknown permission":  {`{"user_id": "u1", "area": "office", "permissions": ["sign"]}`, "No existe ese permiso en esa área."},
+		"no permissions":      {`{"user_id": "u1", "area": "office", "permissions": []}`, "al menos un rol o un permiso"},
+		"no roles nor perms":  {`{"user_id": "u1", "area": "office"}`, "al menos un rol o un permiso"},
+		"unknown role":        {`{"user_id": "u1", "area": "office", "roles": ["clerk"]}`, "No existe ese rol en esa área."},
+		"repeated membership": {`{"user_id": "u2", "area": "office", "permissions": ["approve"]}`, "ya tiene una membresía vigente o futura"},
+		"end before start":    {`{"user_id": "u1", "area": "office", "permissions": ["review"], "from": "2030-01-02T00:00:00Z", "until": "2030-01-01T00:00:00Z"}`, "La fecha de fin"},
+		"end in the past":     {`{"user_id": "u1", "area": "office", "permissions": ["review"], "from": "2020-01-01T00:00:00Z", "until": "2020-02-01T00:00:00Z"}`, "La fecha de fin"},
 	} {
 		t.Run("membership with "+name, func(t *testing.T) {
-			res, err := post(t, admin, srv.URL+"/memberships", strings.NewReader(body))
-			expectError(t, res, err, http.StatusBadRequest)
+			res, err := post(t, admin, srv.URL+"/memberships", strings.NewReader(tc.body))
+			if message := expectError(t, res, err, http.StatusBadRequest); !strings.Contains(message, tc.message) {
+				t.Errorf("message = %q, want it to say %q", message, tc.message)
+			}
 		})
 	}
 }

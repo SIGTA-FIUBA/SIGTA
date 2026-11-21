@@ -75,6 +75,7 @@ func (r *AreaRepository) Save(_ context.Context, a domain.Area) error {
 // its deletion: in memory there are no migrations, so EnsureSecretariat puts
 // back what the code needs.
 func merge(stored, a domain.Area) domain.Area {
+	a.CreatedAt, a.CreatedBy = stored.CreatedAt, stored.CreatedBy
 	if stored.Deleted() {
 		a.DeletedAt, a.DeletedBy = stored.DeletedAt, stored.DeletedBy
 	}
@@ -87,6 +88,7 @@ func merge(stored, a domain.Area) domain.Area {
 		case permissions[i].Deleted() && !p.System:
 			permissions[i].Name, permissions[i].System = p.Name, p.System
 		default:
+			p.CreatedAt, p.CreatedBy = permissions[i].CreatedAt, permissions[i].CreatedBy
 			permissions[i] = p
 		}
 	}

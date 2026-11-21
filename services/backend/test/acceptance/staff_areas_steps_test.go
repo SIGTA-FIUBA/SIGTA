@@ -114,6 +114,7 @@ func (w *authorizationWorld) thenCanGrant(administrator, can, user, area, kind, 
 	} else {
 		g.Permissions = list(ids)
 	}
+	w.signIn(user)
 	_, err := w.memberships.Grant(context.Background(), administrator, g)
 	if can == "can" {
 		return err
