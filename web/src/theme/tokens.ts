@@ -84,6 +84,8 @@ export const tokens = {
       bold: text('font.weight.semibold'),
     },
     trackingTitle: text('font.tracking.title'),
+    trackingDisplay: text('font.tracking.display'),
+    display: { size: text('font.fluid.display.size'), lineHeight: text('font.fluid.display.lineHeight') },
     sizes: sizes('font.size', scaled),
     lineHeights: sizes('font.lineHeight', scaled),
   },
@@ -104,6 +106,7 @@ export const tokens = {
   radius: sizes('radius', scaled),
   defaultRadius: text('radius.default'),
   shadow: text('shadow.overlay'),
+  borderWidth: scaled('border.width'),
   focus: { width: scaled('focus.width'), offset: scaled('focus.offset') },
   motion: {
     fast: ms('motion.fast'),
@@ -115,6 +118,7 @@ export const tokens = {
   breakpoints: sizes('breakpoint'),
   layout: {
     content: scaled('layout.content'),
+    pagePadding: scaled('layout.pagePadding'),
     nav: Number.parseFloat(text('layout.nav')),
     navCompact: Number.parseFloat(text('layout.navCompact')),
     topBar: Number.parseFloat(text('layout.topBar')),
@@ -134,8 +138,6 @@ export const tokens = {
       bar: scaled('component.navItem.bar'),
     },
     counter: { height: scaled('component.counter.height') },
-    stepBar: { height: scaled('component.stepBar.height'), gap: scaled('component.stepBar.gap') },
-    newsDot: { size: scaled('component.newsDot.size') },
     skeleton: { row: scaled('component.skeleton.row'), figures: scaled('component.skeleton.figures') },
     avatar: { size: scaled('component.avatar.size') },
     badge: { height: scaled('component.badge.height') },

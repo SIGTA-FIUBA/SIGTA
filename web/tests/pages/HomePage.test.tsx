@@ -206,8 +206,8 @@ describe('HomePage', () => {
 
     const activity = await screen.findByRole('list', { name: 'Movimientos recientes' })
     const lines = within(activity).getAllByRole('listitem')
-    expect(lines[0]).toHaveTextContent('Equivalencia de Titular Dos pasó a Registrar expediente')
-    expect(lines[1]).toHaveTextContent('Equivalencia de Titular Uno pasó a Registrar expediente')
+    expect(lines[0]).toHaveTextContent('Equivalencia de Titular Dos está en Registrar expediente')
+    expect(lines[1]).toHaveTextContent('Equivalencia de Titular Uno está en Registrar expediente')
   })
 
   it('says so when no procedure needs action', async () => {
@@ -217,11 +217,29 @@ describe('HomePage', () => {
     expect(await screen.findByText('No hay trámites pendientes')).toBeVisible()
   })
 
-  it('shows the staff their own procedures too, and no steps', async () => {
+  it('shows the staff their own procedures too, and how the staff works', async () => {
     stubApi({ mine: [inOffice] })
     renderAs(true)
 
     expect(await screen.findByRole('link', { name: /Equivalencia entre asignaturas/ })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Cómo se trabaja en SIGTA' })).toBeVisible()
+    expect(screen.getByText('Bandeja de trámites')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Cómo se realiza un trámite' })).not.toBeInTheDocument()
+  })
+
+  it('puts no area in charge of a procedure waiting on its applicant', async () => {
+    stubApi({ inbox: [{ ...item, id: 'waiting', state: 'with_applicant' }] })
+    renderAs(true)
+
+    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    expect(within(list).getByText('Pendiente del titular')).toBeVisible()
+    expect(within(list).queryByText(/A cargo de/)).toBeNull()
+  })
+
+  it('says when the inbox of the staff could not be loaded', async () => {
+    stubApi({ status: 500 })
+    renderAs(true)
+
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('No se pudieron cargar los trámites')
   })
 })

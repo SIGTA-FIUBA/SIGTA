@@ -7,8 +7,8 @@ import { EmptyState } from '../components/EmptyState/EmptyState'
 import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { StepList } from '../components/StepList/StepList'
-import { applicantHowTo } from '../content/platform'
-import { movedText, procedureStates } from '../content/procedures'
+import { applicantHowTo, staffHowTo } from '../content/platform'
+import { movedText, procedurePath, procedureStates } from '../content/procedures'
 
 type User = components['schemas']['User']
 type Item = components['schemas']['ProcedureListItem']
@@ -17,7 +17,7 @@ type MyProcedure = components['schemas']['MyProcedure']
 
 // The home page shows the latest procedures that need action and the latest
 // news, no more: the rest is in the inbox.
-const latest = 5
+const recentCount = 5
 
 const dateFormat = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -29,10 +29,6 @@ function todayText() {
 
 function byLastMove(a: Item, b: Item) {
   return Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
-}
-
-function procedureLink(item: Item) {
-  return `/procedures/${encodeURIComponent(item.id)}`
 }
 
 // Figure is one cell of the summary: a number and what it counts. With a
@@ -80,15 +76,17 @@ function Pending({ list }: { list: ProcedureList }) {
   }
   return (
     <ProcedureRows label="Trámites que requieren acción">
-      {items.slice(0, latest).map((item) => (
+      {items.slice(0, recentCount).map((item) => (
         <ProcedureRow
           key={item.id}
-          to={procedureLink(item)}
+          to={procedurePath(item.id)}
           state={{ from: '/' }}
           type={item.procedure_type_name}
           applicant={item.applicant.name}
           step={{ name: item.step_name }}
-          area={item.area?.name}
+          // A procedure waiting on its applicant is in no area's hands, even
+          // if its open step belongs to one.
+          area={item.state === 'with_applicant' ? undefined : item.area?.name}
           status={procedureStates[item.state]}
           date={movedText(item.last_moved_at)}
         />
@@ -97,10 +95,11 @@ function Pending({ list }: { list: ProcedureList }) {
   )
 }
 
-// Activity lists the latest moves of every visible procedure, one entry each;
-// a long one wraps instead of running past the screen of a phone.
+// Activity lists the latest moves of every visible procedure, one entry each,
+// with the step where it is now: the list does not say what the move was. A
+// long one wraps instead of running past the screen of a phone.
 function Activity({ list }: { list: ProcedureList }) {
-  const items = [...list.items].sort(byLastMove).slice(0, latest)
+  const items = [...list.items].sort(byLastMove).slice(0, recentCount)
   if (items.length === 0) {
     return <Text c="dimmed">Todavía no hay movimientos.</Text>
   }
@@ -110,10 +109,10 @@ function Activity({ list }: { list: ProcedureList }) {
         <List.Item key={item.id}>
           <Group justify="space-between" wrap="nowrap" gap="md" align="flex-start">
             <Text size="sm">
-              <Anchor component={Link} to={procedureLink(item)} state={{ from: '/' }} inherit>
+              <Anchor component={Link} to={procedurePath(item.id)} state={{ from: '/' }} inherit>
                 {item.procedure_type_name} de {item.applicant.name}
               </Anchor>{' '}
-              pasó a {item.step_name}
+              está en {item.step_name}
             </Text>
             <Text size="xs" c="gray.6" flex="none">
               {movedText(item.last_moved_at)}
@@ -154,7 +153,11 @@ function Section({
 function StaffHome() {
   const procedures = useInboxProcedures()
   if (procedures.isError) {
-    return <EmptyState title="No se pudieron cargar los trámites" text="Volvé a intentarlo en unos minutos." />
+    return (
+      <Alert color="red" role="alert">
+        No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+      </Alert>
+    )
   }
   const list = procedures.data
   return (
@@ -199,7 +202,7 @@ function MyProcedureRows({ label, procedures }: { label: string; procedures: MyP
       {procedures.map((procedure) => (
         <ProcedureRow
           key={procedure.id}
-          to={`/procedures/${encodeURIComponent(procedure.id)}`}
+          to={procedurePath(procedure.id)}
           state={{ from: '/' }}
           type={procedure.procedure_type_name}
           note={procedure.correction_pending ? 'Subsanación pendiente del titular' : undefined}
@@ -252,8 +255,8 @@ function MyProcedures() {
 
 // HomePage greets the person and shows what to do next. The staff gets the
 // summary, the procedures that need action and the latest moves; everyone,
-// the procedures they started; the applicant, how a procedure is done. The destinations live in the menu, so
-// no button here repeats them.
+// the procedures they started, and how SIGTA is used by their profile. The
+// destinations live in the menu, so no button here repeats them.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -270,7 +273,11 @@ export function HomePage() {
       </Stack>
       {staff && <StaffHome />}
       <MyProcedures />
-      {!staff && (
+      {staff ? (
+        <Section id="how" title="Cómo se trabaja en SIGTA">
+          <StepList steps={staffHowTo} />
+        </Section>
+      ) : (
         <Section id="how" title="Cómo se realiza un trámite">
           <StepList steps={applicantHowTo} />
         </Section>

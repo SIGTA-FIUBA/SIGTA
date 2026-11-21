@@ -24,12 +24,16 @@ export function UserMenu({ user, onLogout, compact = false }: UserMenuProps) {
   const avatar = <Avatar name={user.name} aria-hidden />
   return (
     <Menu position={compact ? 'right-end' : 'top-start'} width={compact ? undefined : 'target'}>
-      <Menu.Target>
-        {compact ? (
-          <Tooltip label={user.name} position="right">
+      {/* The tooltip wraps the target, not the button: inside the target it
+          would swallow the attributes that say the button opens a menu. */}
+      {compact ? (
+        <Tooltip label={user.name} position="right">
+          <Menu.Target>
             <NavLink component="button" variant="menu-icon" aria-label={label} leftSection={avatar} />
-          </Tooltip>
-        ) : (
+          </Menu.Target>
+        </Tooltip>
+      ) : (
+        <Menu.Target>
           <NavLink
             component="button"
             variant="menu"
@@ -39,8 +43,8 @@ export function UserMenu({ user, onLogout, compact = false }: UserMenuProps) {
             description={profileName(user)}
             rightSection={<Icon name="selector" size={16} />}
           />
-        )}
-      </Menu.Target>
+        </Menu.Target>
+      )}
       <Menu.Dropdown>
         <Menu.Label>
           <Text size="sm" c="bright" truncate="end">

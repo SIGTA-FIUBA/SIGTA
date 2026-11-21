@@ -39,7 +39,7 @@ const lines = [
   '',
   'Reglas para construir pantallas: no escribir colores ni medidas sueltas, no usar style ni className, usar los componentes de este catálogo con valores del tema (tamaños xs a xl, colores por nombre). Detalle en DESIGN.md.',
   '',
-  '## Fundamentos',
+  '## Fuentes',
   '',
   '- [tokens.json](tokens.json): colores, tipografías, tamaños, espaciado, radios, anchos de pantalla y decisiones por componente, en formato de design tokens del W3C. En el repositorio: web/src/theme/tokens.json.',
   '- [DESIGN.md](DESIGN.md): reglas de la interfaz y su motivo.',

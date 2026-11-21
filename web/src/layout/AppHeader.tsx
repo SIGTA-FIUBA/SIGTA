@@ -18,12 +18,12 @@ type AppHeaderProps = {
 // the right. With a session it only shows on a phone, to open the menu.
 export function AppHeader({ start, end, signature = false }: AppHeaderProps) {
   return (
-    <Group h="100%" px="lg" justify="space-between" wrap="nowrap">
+    <Group h="100%" px={{ base: 'md', sm: 'lg' }} justify="space-between" wrap="nowrap">
       <Group h="100%" gap="sm" wrap="nowrap">
         {start}
         <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
           {signature ? (
-            <BrandSignature />
+            <BrandSignature compact />
           ) : (
             <Image src="/brand/sigta-horizontal-color.svg" alt="" h="var(--sigta-logo-height)" w="auto" />
           )}

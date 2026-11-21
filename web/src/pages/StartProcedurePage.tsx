@@ -22,6 +22,7 @@ import type { components } from '../api/schema'
 import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { documentDescription } from '../content/documentFormats'
+import { procedurePath } from '../content/procedures'
 import {
   emptySubmission,
   fieldError,
@@ -143,7 +144,7 @@ function StartedNotice({ procedure }: { procedure: StartedProcedure }) {
         <Text>Guardalo para seguirlo. Ya quedó para que el personal lo revise.</Text>
       </Alert>
       <Group>
-        <Button component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`}>
+        <Button component={Link} to={procedurePath(procedure.id)}>
           Ver el trámite
         </Button>
         <Button component={Link} to="/" variant="default">

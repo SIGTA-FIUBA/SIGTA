@@ -306,14 +306,15 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 
 **Decisión.**
 - La interfaz se construye con componentes de Mantine 9, sin Tailwind ni CSS propio.
-- El aspecto (colores, tipografía, radios, valores por defecto de cada componente) se define solo en `web/src/theme/theme.ts`.
+- El aspecto (colores, tipografía, radios, medidas) sale de `web/src/theme/tokens.json`, en el formato de design tokens del W3C. `web/src/theme/theme.ts` arma con esos valores el tema de Mantine y los valores por defecto de cada componente, y los pocos estados que Mantine no cubre (hover, foco, el ítem activo del menú) van en los módulos CSS de `web/src/theme/`, con variables del tema.
+- El catálogo de diseño (Storybook, servido en `/design/` con un `llms.txt` para agentes) muestra los tokens, el logo y cada componente. Un componente nuevo entra con su historia.
 - Las pantallas usan valores del tema, nunca colores ni medidas escritos a mano. Lo controla el lint con `react/forbid-component-props`, `react/forbid-dom-props`, `no-restricted-imports` y una regla propia en `web/lint/design-rules.js`.
 - Las reglas de diseño, con su motivo, están en `web/DESIGN.md`.
 - La única excepción es el botón de ingreso con Google, que Google exige con colores y tipografía propios.
 
 **Consecuencias.**
-- Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en un solo archivo.
-- La paleta institucional queda a confirmar hasta que se defina la identidad visual. Mientras tanto se usa el azul de Mantine.
+- Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en `tokens.json` y llega a la aplicación y al catálogo a la vez.
+- La paleta institucional queda a confirmar con la facultad (SIG-79).
 - El frontend depende de Mantine: cambiar de biblioteca implica reescribir las pantallas.
 - El frontend compilado pesa 533 kB sin comprimir (166 kB comprimido), por encima del aviso de 500 kB de Vite. A revisar con división por rutas cuando crezca la cantidad de pantallas.
 
