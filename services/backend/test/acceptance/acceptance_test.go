@@ -7,11 +7,18 @@ import (
 	"testing"
 
 	"github.com/cucumber/godog"
+
+	authdomain "backend/src/auth/domain"
 )
 
 // scenarioAdministrator creates the areas, permissions and memberships the
 // scenarios need.
 const scenarioAdministrator = "admin@fi.uba.ar"
+
+// signedIn is someone who entered SIGTA once, as a membership requires.
+func signedIn(id string) authdomain.User {
+	return authdomain.User{ID: id, Email: id, Name: id}
+}
 
 // TestScenarios fails on a scenario that fails and, because of Strict, on a
 // step that has no implementation: a scenario cannot pass without running.
@@ -24,6 +31,7 @@ func TestScenarios(t *testing.T) {
 			registerCatalogSteps(sc)
 			authorization := registerAuthorizationSteps(sc)
 			registerStaffAreaSteps(sc, authorization)
+			registerStaffAdministrationSteps(sc, authorization)
 			confirmations := registerConfirmationSteps(sc, authorization)
 			registerHistorySteps(sc, confirmations)
 			registerCorrectionRequestSteps(sc, confirmations)

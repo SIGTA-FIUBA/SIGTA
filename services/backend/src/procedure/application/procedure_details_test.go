@@ -143,14 +143,13 @@ func TestDetailListsThePendingCorrectionRequests(t *testing.T) {
 // does not exist, so the detail does not tell which procedures exist.
 func TestDetailAnswersNotFoundToWhoCannotSeeTheProcedure(t *testing.T) {
 	f := newDocumentsFixture(t)
-	other := "otra@fi.uba.ar"
-	if _, err := f.memberships.Grant(t.Context(), "admin", authinput.MembershipGrant{UserID: other, Area: office.ID, Permissions: []string{"review"}, Scope: []int64{2}}); err != nil {
+	if _, err := f.memberships.Grant(t.Context(), "admin", authinput.MembershipGrant{UserID: outsider, Area: office.ID, Permissions: []string{"review"}, Scope: []int64{2}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ user, procedure string }{
 		{"nadie@fi.uba.ar", "P-1"},
 		{"nadie@fi.uba.ar", "P-missing"},
-		{other, "P-1"},
+		{outsider, "P-1"},
 	} {
 		if _, err := f.details.Detail(t.Context(), tc.user, tc.procedure); !errors.Is(err, domain.ErrProcedureNotFound) {
 			t.Errorf("%s on %s: err = %v, want ErrProcedureNotFound", tc.user, tc.procedure, err)

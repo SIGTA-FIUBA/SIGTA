@@ -5,6 +5,7 @@ package outputtest
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 
@@ -18,6 +19,7 @@ func TestUserRepository(t *testing.T, newRepository func(t *testing.T) output.Us
 	t.Run("register and find", func(t *testing.T) { registerAndFind(t, newRepository(t)) })
 	t.Run("one user per email", func(t *testing.T) { oneUserPerEmail(t, newRepository(t)) })
 	t.Run("concurrent first logins", func(t *testing.T) { concurrentFirstLogins(t, newRepository(t)) })
+	t.Run("search", func(t *testing.T) { search(t, newRepository(t)) })
 }
 
 func registerAndFind(t *testing.T, r output.UserRepository) {
@@ -74,6 +76,44 @@ func concurrentFirstLogins(t *testing.T, r output.UserRepository) {
 	for i := range logins {
 		if errs[i] != nil || got[i] != got[0] {
 			t.Errorf("Register() number %d = %+v, %v; want %+v like the others", i, got[i], errs[i], got[0])
+		}
+	}
+}
+
+func search(t *testing.T, r output.UserRepository) {
+	ctx := t.Context()
+	ana := domain.User{ID: "U-1", Email: "ana@fi.uba.ar", Name: "Ana Pérez"}
+	alvaro := domain.User{ID: "U-2", Email: "alvaro@fi.uba.ar", Name: "ÁLVARO GÓMEZ"}
+	luz := domain.User{ID: "U-3", Email: "luz_rey@fi.uba.ar", Name: "Luz Rey"}
+	lucia := domain.User{ID: "U-4", Email: "luzarey@fi.uba.ar", Name: "Lucía Rey"}
+	joao := domain.User{ID: "U-5", Email: "joao@example.org", Name: "João Conceição"}
+	ozge := domain.User{ID: "U-6", Email: "ozge@example.org", Name: "ÖZGE ÇELIK"}
+	slash := domain.User{ID: "U-7", Email: "slash@example.org", Name: `Back\Slash`}
+	for _, u := range []domain.User{luz, ana, lucia, alvaro, joao, ozge, slash} {
+		if _, err := r.Register(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		text  string
+		limit int
+		want  []domain.User
+	}{
+		{"perez", 10, []domain.User{ana}},
+		{"alvaro gomez", 10, []domain.User{alvaro}},
+		{"fi.uba", 10, []domain.User{alvaro, ana, lucia, luz}},
+		{"fi.uba", 2, []domain.User{alvaro, ana}},
+		{"conceicao", 10, []domain.User{joao}},
+		{"ozge cel", 10, []domain.User{ozge}},
+		{"example", 10, []domain.User{slash, joao, ozge}},
+		{"luz_", 10, []domain.User{luz}},
+		{`k\s`, 10, []domain.User{slash}},
+		{"%", 10, nil},
+		{"nadie", 10, nil},
+	} {
+		got, err := r.Search(ctx, tc.text, tc.limit)
+		if err != nil || len(got) != len(tc.want) || (len(got) > 0 && !slices.Equal(got, tc.want)) {
+			t.Errorf("Search(%q, %d) = %+v, %v; want %+v", tc.text, tc.limit, got, err, tc.want)
 		}
 	}
 }

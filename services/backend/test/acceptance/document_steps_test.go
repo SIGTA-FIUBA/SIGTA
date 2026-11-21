@@ -39,6 +39,7 @@ var pdfOfSize = regexp.MustCompile(`^a PDF of (\d+) bytes$`)
 type documentWorld struct {
 	areas       *authapp.AreaService
 	memberships *authapp.MembershipService
+	people      *authmem.UserRepository
 	types       *application.ProcedureTypeService
 	procedures  movableProcedures
 	documents   *memory.DocumentRepository
@@ -121,7 +122,8 @@ func (w *documentWorld) setUp() error {
 	// The Secretariat comes with SIGTA: it is not created again.
 	w.known[authinput.SecretariatArea] = true
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
-	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
+	w.people = authmem.NewUserRepository()
+	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.people, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
 	recorded := memory.NewProcedureRepository()
 	w.procedures = movableProcedures{ProcedureRepository: recorded, openStep: map[string]string{}, entered: map[string][]domain.FieldValue{}}
@@ -214,6 +216,7 @@ func (w *documentWorld) givenStaff(table *godog.Table) error {
 				return err
 			}
 		}
+		w.people.Add(signedIn(user))
 		_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 			UserID: user, Area: idOf(area), Permissions: permissions,
 		})
@@ -228,6 +231,7 @@ func (w *documentWorld) givenScopedStaff(user, area, permission string) error {
 	if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 		return err
 	}
+	w.people.Add(signedIn(user))
 	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 		UserID: user, Area: idOf(area), Permissions: []string{permission}, Scope: []int64{2},
 	})

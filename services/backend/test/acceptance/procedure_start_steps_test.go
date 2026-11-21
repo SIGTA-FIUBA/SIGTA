@@ -39,6 +39,7 @@ const (
 type submissionWorld struct {
 	areas       *authapp.AreaService
 	memberships *authapp.MembershipService
+	people      *authmem.UserRepository
 	types       *application.ProcedureTypeService
 	procedures  *memory.ProcedureRepository
 	documents   *memory.DocumentRepository
@@ -124,7 +125,8 @@ func (w *submissionWorld) setUp() error {
 		authdomain.Membership{ID: "M-approver", UserID: defaultAuthors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
 	)
 	w.areas = authapp.NewAreaService(areas, administrators, stored, time.Now)
-	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.newID, time.Now)
+	w.people = authmem.NewUserRepository()
+	w.memberships = authapp.NewMembershipService(areas, administrators, stored, w.people, w.newID, time.Now)
 	w.types = application.NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), w.areas, w.memberships, time.Now)
 	w.procedures = memory.NewProcedureRepository()
 	w.documents = memory.NewDocumentRepository(w.procedures)
@@ -206,6 +208,7 @@ func (w *submissionWorld) givenStaff(user, area, permission string) error {
 	if err := ensure(w.areas, w.known, idOf(area), area, permission); err != nil {
 		return err
 	}
+	w.people.Add(signedIn(user))
 	_, err := w.memberships.Grant(context.Background(), scenarioAdministrator, authinput.MembershipGrant{
 		UserID: user, Area: idOf(area), Permissions: []string{permission},
 	})

@@ -106,7 +106,7 @@ type started struct {
 // people, memberships and procedure types from those who use SIGTA.
 func start(ctx context.Context, cfg config, stores stores, files output.Files, identity authoutput.IdentityProvider, logger *slog.Logger) (started, error) {
 	areaService := application.NewAreaService(stores.areas, stores.administrators, stores.memberships, now)
-	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, newID, now)
+	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, stores.users, newID, now)
 
 	procedureTypes := procedureapp.NewProcedureTypeService(stores.versions, areaService, memberships, now)
 	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)
@@ -125,7 +125,7 @@ func start(ctx context.Context, cfg config, stores stores, files output.Files, i
 	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
 	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, now)
 	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, now)
-	people := application.NewPeopleService(stores.users)
+	people := application.NewPeopleService(stores.users, stores.administrators)
 	// Once, at startup: the server assumes it is the only instance.
 	removed, err := documents.RemoveUnreferencedFiles(ctx)
 	if err != nil {
@@ -137,7 +137,7 @@ func start(ctx context.Context, cfg config, stores stores, files output.Files, i
 	server := api.NewServer(
 		authHandler,
 		procedurerest.NewCatalogHandler(procedureTypes),
-		authrest.NewAdministrationHandler(auth, areaService, memberships),
+		authrest.NewAdministrationHandler(auth, areaService, memberships, application.NewAdministratorService(stores.administrators, stores.users, newID, now), people),
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),

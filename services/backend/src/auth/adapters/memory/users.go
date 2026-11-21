@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"backend/src/auth/domain"
@@ -63,4 +66,19 @@ func (r *UserRepository) Get(_ context.Context, id string) (domain.User, error) 
 		return domain.User{}, domain.ErrUserNotFound
 	}
 	return u, nil
+}
+
+func (r *UserRepository) Search(_ context.Context, text string, limit int) ([]domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var found []domain.User
+	for _, u := range r.users {
+		if strings.Contains(domain.FoldForSearch(u.Name), text) || strings.Contains(domain.FoldForSearch(u.Email), text) {
+			found = append(found, u)
+		}
+	}
+	slices.SortFunc(found, func(a, b domain.User) int {
+		return cmp.Or(cmp.Compare(domain.FoldForSearch(a.Name), domain.FoldForSearch(b.Name)), cmp.Compare(a.Email, b.Email))
+	})
+	return found[:min(limit, len(found))], nil
 }

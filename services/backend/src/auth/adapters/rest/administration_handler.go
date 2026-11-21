@@ -15,13 +15,15 @@ var _ api.AdministrationServer = (*AdministrationHandler)(nil)
 // The use cases decide who is an administrator: this handler only finds who
 // is behind the session.
 type AdministrationHandler struct {
-	auth        input.Authenticator
-	areas       input.Areas
-	memberships input.Memberships
+	auth           input.Authenticator
+	areas          input.Areas
+	memberships    input.Memberships
+	administrators input.Administrators
+	directory      input.Directory
 }
 
-func NewAdministrationHandler(auth input.Authenticator, areas input.Areas, memberships input.Memberships) *AdministrationHandler {
-	return &AdministrationHandler{auth: auth, areas: areas, memberships: memberships}
+func NewAdministrationHandler(auth input.Authenticator, areas input.Areas, memberships input.Memberships, administrators input.Administrators, directory input.Directory) *AdministrationHandler {
+	return &AdministrationHandler{auth: auth, areas: areas, memberships: memberships, administrators: administrators, directory: directory}
 }
 
 const (
@@ -32,7 +34,20 @@ const (
 	messageInvalidRole       = "No se pudo guardar el rol: revisá que el identificador esté en minúsculas, empiece con una letra y no esté en uso en el área, que el nombre no esté vacío ni repetido, y que tenga al menos un permiso del área."
 	messageUnknownArea       = "No existe esa área."
 	messageUnknownRole       = "No existe ese rol en esa área."
-	messageInvalidGrant      = "No se pudo otorgar la membresía: revisá el área, sus roles y permisos, las fechas y que la persona no tenga ya una membresía vigente en esa área con el mismo alcance."
+	messageInvalidGrant      = "No se pudo otorgar la membresía: elegí a la persona y al menos un rol o un permiso del área, sin repetir ninguno."
+	messageGrantOverlaps     = "La persona ya tiene una membresía vigente o futura en esa área con el mismo alcance: cambiá sus permisos o terminala antes."
+	messageChangeOverlaps    = "Mientras tanto se otorgó otra membresía a la persona en esa área con el mismo alcance: recargá la página."
+	messageGrantPeriod       = "La fecha de fin tiene que ser posterior a la de inicio y a hoy."
+	messageInvalidChange     = "No se pudieron cambiar los permisos: elegí al menos un rol o un permiso del área, distintos de los que la membresía ya tiene."
+	messageUnknownPermission = "No existe ese permiso en esa área."
+	messageUnknownMembership = "No existe esa membresía."
+	messageSystemArea        = "La Secretaría viene con SIGTA y no se puede dar de baja."
+	messageAreaInUse         = "El área tiene membresías vigentes o futuras: terminalas antes de darla de baja."
+	messageSystemPermission  = "Este permiso viene con SIGTA y no se puede dar de baja."
+	messagePermissionInRole  = "El permiso es parte de un rol: sacalo del rol antes de darlo de baja."
+	messagePermissionHeld    = "Hay membresías vigentes o futuras con este permiso: cambiá sus permisos o terminalas antes de darlo de baja."
+	messageRoleHeld          = "Hay membresías vigentes o futuras con este rol: cambiá sus permisos o terminalas antes de darlo de baja."
+	messageMembershipEnded   = "La membresía ya terminó."
 )
 
 func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAreaRequestObject) (api.CreateAreaResponseObject, error) {
@@ -52,7 +67,7 @@ func (h *AdministrationHandler) CreateArea(ctx context.Context, req api.CreateAr
 	case err != nil:
 		return nil, err
 	}
-	return api.CreateArea201JSONResponse{Id: area.ID, Name: area.Name, Permissions: []api.Permission{}, Roles: []api.Role{}}, nil
+	return api.CreateArea201JSONResponse(areaOf(area)), nil
 }
 
 func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.GrantMembershipRequestObject) (api.GrantMembershipResponseObject, error) {
@@ -75,12 +90,36 @@ func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.Gra
 	switch {
 	case errors.Is(err, domain.ErrAccessDenied):
 		return api.GrantMembership403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: messageNotAdmin}}, nil
+	case errors.Is(err, domain.ErrMembershipOverlaps):
+		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageGrantOverlaps}}, nil
 	case errors.Is(err, domain.ErrInvalidMembership):
-		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: messageInvalidGrant}}, nil
+		return api.GrantMembership400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: invalidMembership(err, messageInvalidGrant)}}, nil
 	case err != nil:
 		return nil, err
 	}
-	response := api.GrantMembership201JSONResponse{
+	return api.GrantMembership201JSONResponse(membershipOf(m)), nil
+}
+
+// invalidMembership says what is wrong with a membership refused with
+// domain.ErrInvalidMembership, or otherwise.
+func invalidMembership(err error, otherwise string) string {
+	switch {
+	case errors.Is(err, domain.ErrMembershipPeriod):
+		return messageGrantPeriod
+	case errors.Is(err, domain.ErrUserNotFound):
+		return messageUnknownPerson
+	case errors.Is(err, domain.ErrAreaNotFound):
+		return messageUnknownArea
+	case errors.Is(err, domain.ErrRoleNotFound):
+		return messageUnknownRole
+	case errors.Is(err, domain.ErrPermissionNotFound):
+		return messageUnknownPermission
+	}
+	return otherwise
+}
+
+func membershipOf(m domain.Membership) api.Membership {
+	return api.Membership{
 		Id:          m.ID,
 		UserId:      m.UserID,
 		Area:        m.Area,
@@ -88,12 +127,9 @@ func (h *AdministrationHandler) GrantMembership(ctx context.Context, req api.Gra
 		Permissions: nonNil(m.Permissions),
 		Scope:       valueOrEmpty(&m.Scope),
 		From:        m.From,
+		Until:       timeOrNil(m.Until),
 		GrantedBy:   m.GrantedBy,
 	}
-	if !m.Until.IsZero() {
-		response.Until = &m.Until
-	}
-	return response, nil
 }
 
 func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.CreatePermissionRequestObject) (api.CreatePermissionResponseObject, error) {
@@ -115,7 +151,7 @@ func (h *AdministrationHandler) CreatePermission(ctx context.Context, req api.Cr
 	case err != nil:
 		return nil, err
 	}
-	return api.CreatePermission201JSONResponse{Id: permission.ID, Name: permission.Name}, nil
+	return api.CreatePermission201JSONResponse{Id: permission.ID, Name: permission.Name, System: permission.System}, nil
 }
 
 func (h *AdministrationHandler) CreateRole(ctx context.Context, req api.CreateRoleRequestObject) (api.CreateRoleResponseObject, error) {
@@ -162,6 +198,18 @@ func (h *AdministrationHandler) UpdateRolePermissions(ctx context.Context, req a
 	return api.UpdateRolePermissions200JSONResponse(roleOf(role)), nil
 }
 
+func areaOf(a domain.Area) api.Area {
+	permissions := make([]api.Permission, 0, len(a.Permissions))
+	for _, p := range a.Permissions {
+		permissions = append(permissions, api.Permission{Id: p.ID, Name: p.Name, System: p.System})
+	}
+	roles := make([]api.Role, 0, len(a.Roles))
+	for _, role := range a.Roles {
+		roles = append(roles, roleOf(role))
+	}
+	return api.Area{Id: a.ID, Name: a.Name, System: a.System, Permissions: permissions, Roles: roles}
+}
+
 func roleOf(r domain.Role) api.Role {
 	return api.Role{Id: r.ID, Name: r.Name, Permissions: nonNil(r.Permissions())}
 }
@@ -185,6 +233,13 @@ func valueOrEmpty(scope *[]int64) []int64 {
 		return []int64{}
 	}
 	return *scope
+}
+
+func timeOrNil(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func timeOrZero(t *time.Time) time.Time {
