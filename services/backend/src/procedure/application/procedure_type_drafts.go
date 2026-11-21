@@ -1,9 +1,11 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	authinput "backend/src/auth/ports/input"
@@ -57,7 +59,7 @@ func (s *ProcedureTypeDraftService) Create(ctx context.Context, userID string, d
 		if err != nil {
 			return input.DraftView{}, err
 		}
-		return s.view(ctx, d)
+		return s.view(ctx, userID, d)
 	}
 	return input.DraftView{}, fmt.Errorf("create a procedure type: %d attempts lost to other drafts: %w", newTypeAttempts, output.ErrDraftExists)
 }
@@ -104,7 +106,7 @@ func (s *ProcedureTypeDraftService) Open(ctx context.Context, userID string, pro
 	if err := s.drafts.Add(ctx, d); err != nil {
 		return input.DraftView{}, fmt.Errorf("procedure type %d: %w", procedureType, err)
 	}
-	return s.view(ctx, d)
+	return s.view(ctx, userID, d)
 }
 
 func (s *ProcedureTypeDraftService) Get(ctx context.Context, userID string, procedureType int64) (input.DraftView, error) {
@@ -115,7 +117,7 @@ func (s *ProcedureTypeDraftService) Get(ctx context.Context, userID string, proc
 	if err != nil {
 		return input.DraftView{}, err
 	}
-	return s.view(ctx, d)
+	return s.view(ctx, userID, d)
 }
 
 func (s *ProcedureTypeDraftService) List(ctx context.Context, userID string) ([]input.DraftView, error) {
@@ -132,13 +134,85 @@ func (s *ProcedureTypeDraftService) List(ctx context.Context, userID string) ([]
 		if !ok {
 			continue
 		}
-		view, err := s.view(ctx, d)
+		view, err := s.view(ctx, userID, d)
 		if err != nil {
 			return nil, err
 		}
 		views = append(views, view)
 	}
 	return views, nil
+}
+
+// Editable lists the procedure types with a version and the drafts of new
+// ones, each where userID holds either permission. The areas go only to
+// whoever can edit or review something, as /areas goes only to
+// administrators.
+func (s *ProcedureTypeDraftService) Editable(ctx context.Context, userID string) (input.EditableProcedureTypes, error) {
+	canCreate, err := s.holdsAny(ctx, userID, noProcedureType, authinput.EditProcedureTypes)
+	if err != nil {
+		return input.EditableProcedureTypes{}, err
+	}
+	versions, err := s.types.versions.LatestOfEach(ctx)
+	if err != nil {
+		return input.EditableProcedureTypes{}, fmt.Errorf("list latest versions: %w", err)
+	}
+	drafts, err := s.drafts.List(ctx)
+	if err != nil {
+		return input.EditableProcedureTypes{}, fmt.Errorf("list drafts: %w", err)
+	}
+	draftOf := make(map[int64]draft.Draft, len(drafts))
+	for _, d := range drafts {
+		draftOf[d.ProcedureTypeID] = d
+	}
+	editable := input.EditableProcedureTypes{CanCreate: canCreate}
+	add := func(t input.EditableProcedureType) error {
+		canEdit, err := s.holdsAny(ctx, userID, t.ProcedureTypeID, authinput.EditProcedureTypes)
+		if err != nil {
+			return err
+		}
+		canPublish, err := s.holdsAny(ctx, userID, t.ProcedureTypeID, authinput.PublishProcedureTypes)
+		if err != nil {
+			return err
+		}
+		if !canEdit && !canPublish {
+			return nil
+		}
+		if d, ok := draftOf[t.ProcedureTypeID]; ok {
+			view, err := s.view(ctx, userID, d)
+			if err != nil {
+				return err
+			}
+			t.Draft = &view
+		}
+		t.CanOpenDraft = canEdit && t.Latest > 0 && t.Draft == nil
+		editable.ProcedureTypes = append(editable.ProcedureTypes, t)
+		return nil
+	}
+	for _, v := range versions {
+		content, err := v.DecodeContent()
+		if err != nil {
+			return input.EditableProcedureTypes{}, fmt.Errorf("procedure type %d version %d: %w", v.ProcedureTypeID, v.Number, err)
+		}
+		if err := add(input.EditableProcedureType{ProcedureTypeID: v.ProcedureTypeID, Name: content.Definition.Name, Latest: v.Number, PublishedAt: v.PublishedAt}); err != nil {
+			return input.EditableProcedureTypes{}, err
+		}
+		delete(draftOf, v.ProcedureTypeID)
+	}
+	for _, d := range drafts {
+		if _, isNew := draftOf[d.ProcedureTypeID]; !isNew {
+			continue
+		}
+		if err := add(input.EditableProcedureType{ProcedureTypeID: d.ProcedureTypeID, Name: d.Definition.Name}); err != nil {
+			return input.EditableProcedureTypes{}, err
+		}
+	}
+	slices.SortFunc(editable.ProcedureTypes, func(a, b input.EditableProcedureType) int { return cmp.Compare(a.ProcedureTypeID, b.ProcedureTypeID) })
+	if canCreate || len(editable.ProcedureTypes) > 0 {
+		if editable.Areas, err = s.types.currentStaffAreas(ctx); err != nil {
+			return input.EditableProcedureTypes{}, err
+		}
+	}
+	return editable, nil
 }
 
 func (s *ProcedureTypeDraftService) Edit(ctx context.Context, userID string, procedureType int64, revision int, def definition.ProcedureTypeDefinition) (input.DraftView, error) {
@@ -210,7 +284,7 @@ func (s *ProcedureTypeDraftService) change(ctx context.Context, userID string, p
 	if err := s.drafts.Update(ctx, next); err != nil {
 		return input.DraftView{}, err
 	}
-	return s.view(ctx, next)
+	return s.view(ctx, userID, next)
 }
 
 // current checks the permission before reading the draft, so that whoever
@@ -261,15 +335,26 @@ func (s *ProcedureTypeDraftService) validate(ctx context.Context, d draft.Draft)
 	return d.Definition.Validate(areas)
 }
 
-func (s *ProcedureTypeDraftService) view(ctx context.Context, d draft.Draft) (input.DraftView, error) {
-	err := s.validate(ctx, d)
+// view adds to the draft its problems and what userID can do with it.
+func (s *ProcedureTypeDraftService) view(ctx context.Context, userID string, d draft.Draft) (input.DraftView, error) {
+	canEdit, err := s.holdsAny(ctx, userID, d.ProcedureTypeID, authinput.EditProcedureTypes)
+	if err != nil {
+		return input.DraftView{}, err
+	}
+	canPublish, err := s.holdsAny(ctx, userID, d.ProcedureTypeID, authinput.PublishProcedureTypes)
+	if err != nil {
+		return input.DraftView{}, err
+	}
+	view := input.DraftView{Draft: d, CanEdit: canEdit, CanReview: canPublish && !d.Involves(userID)}
+	err = s.validate(ctx, d)
 	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
-		return input.DraftView{Draft: d, Problems: invalid.Problems}, nil
+		view.Problems = invalid.Problems
+		return view, nil
 	}
 	if err != nil {
 		return input.DraftView{}, err
 	}
-	return input.DraftView{Draft: d}, nil
+	return view, nil
 }
 
 // at keeps microseconds, as PostgreSQL does.

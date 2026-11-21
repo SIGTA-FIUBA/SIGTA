@@ -133,6 +133,47 @@ func (h *ProcedureTypeDraftHandler) ListProcedureTypeDrafts(ctx context.Context,
 	return response, nil
 }
 
+func (h *ProcedureTypeDraftHandler) ListEditableProcedureTypes(ctx context.Context, req api.ListEditableProcedureTypesRequestObject) (api.ListEditableProcedureTypesResponseObject, error) {
+	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
+	if authinput.Unauthenticated(err) {
+		return api.ListEditableProcedureTypes401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: messageSignIn}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	editable, err := h.drafts.Editable(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	response := api.ListEditableProcedureTypes200JSONResponse{
+		CanCreate:      editable.CanCreate,
+		ProcedureTypes: make([]api.EditableProcedureType, 0, len(editable.ProcedureTypes)),
+		Areas:          make([]api.StepArea, 0, len(editable.Areas)),
+	}
+	for _, t := range editable.ProcedureTypes {
+		item := api.EditableProcedureType{ProcedureTypeId: t.ProcedureTypeID, Name: t.Name, Version: t.Latest, CanOpenDraft: t.CanOpenDraft}
+		if t.Latest > 0 {
+			item.PublishedAt = &t.PublishedAt
+		}
+		if t.Draft != nil {
+			d, err := draftResponse(*t.Draft)
+			if err != nil {
+				return nil, err
+			}
+			item.Draft = &d
+		}
+		response.ProcedureTypes = append(response.ProcedureTypes, item)
+	}
+	for _, a := range editable.Areas {
+		area := api.StepArea{Id: a.ID, Name: a.Name, Permissions: make([]api.StepAreaPermission, 0, len(a.Permissions))}
+		for _, p := range a.Permissions {
+			area.Permissions = append(area.Permissions, api.StepAreaPermission{Id: p.ID, Name: p.Name})
+		}
+		response.Areas = append(response.Areas, area)
+	}
+	return response, nil
+}
+
 func (h *ProcedureTypeDraftHandler) GetProcedureTypeDraft(ctx context.Context, req api.GetProcedureTypeDraftRequestObject) (api.GetProcedureTypeDraftResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
 	if authinput.Unauthenticated(err) {
@@ -345,6 +386,8 @@ func draftResponse(view input.DraftView) (api.ProcedureTypeDraft, error) {
 		EditedAt:        d.EditedAt,
 		Editors:         d.Editors,
 		Problems:        problems(view.Problems),
+		CanEdit:         view.CanEdit,
+		CanReview:       view.CanReview,
 	}
 	if d.ProposedBy != "" {
 		response.ProposedBy = &d.ProposedBy

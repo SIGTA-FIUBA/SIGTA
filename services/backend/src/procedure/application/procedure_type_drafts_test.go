@@ -186,6 +186,90 @@ func TestDraftPermissions(t *testing.T) {
 	}
 }
 
+func TestADraftSaysWhatThePersonCanDoWithIt(t *testing.T) {
+	ctx := t.Context()
+	s := newDraftService(t)
+	if _, err := s.Create(ctx, "ana", testDefinition()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Propose(ctx, "ana", 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	for user, want := range map[string][2]bool{"ana": {true, false}, "beto": {false, true}, "carla": {true, false}, "eva": {true, true}} {
+		view, err := s.Get(ctx, user, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := [2]bool{view.CanEdit, view.CanReview}; got != want {
+			t.Errorf("Get(%s): can edit, can review = %v, want %v", user, got, want)
+		}
+	}
+	if _, err := s.Create(ctx, "eva", testDefinition()); err != nil {
+		t.Fatal(err)
+	}
+	if view, err := s.Get(ctx, "eva", 2); err != nil || !view.CanEdit || view.CanReview {
+		t.Errorf("Get(eva) of a draft she edited = %+v, %v, want to edit and not to review", view, err)
+	}
+}
+
+func TestEditableListsWhatThePersonCanEditOrReview(t *testing.T) {
+	ctx := t.Context()
+	s := newDraftService(t)
+	publish(t, s, 1, testDefinition())
+	created, err := s.Create(ctx, "ana", definition.ProcedureTypeDefinition{Name: "Nuevo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ana, err := s.Editable(ctx, "ana")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ana.CanCreate || len(ana.ProcedureTypes) != 2 || len(ana.Areas) == 0 {
+		t.Fatalf("Editable(ana) = %+v, want both procedure types, the areas and to create", ana)
+	}
+	published, fresh := ana.ProcedureTypes[0], ana.ProcedureTypes[1]
+	if published.ProcedureTypeID != 1 || published.Name != testDefinition().Name || published.Latest != 1 || published.PublishedAt.IsZero() || !published.CanOpenDraft || published.Draft != nil {
+		t.Errorf("published type = %+v", published)
+	}
+	if fresh.ProcedureTypeID != created.Draft.ProcedureTypeID || fresh.Name != "Nuevo" || fresh.Latest != 0 || fresh.CanOpenDraft || fresh.Draft == nil || !fresh.Draft.CanEdit {
+		t.Errorf("type with only a draft = %+v", fresh)
+	}
+
+	beto, err := s.Editable(ctx, "beto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if beto.CanCreate || len(beto.ProcedureTypes) != 2 || beto.ProcedureTypes[0].CanOpenDraft {
+		t.Errorf("Editable(beto), who only approves = %+v", beto)
+	}
+	carla, err := s.Editable(ctx, "carla")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if carla.CanCreate || len(carla.ProcedureTypes) != 1 || carla.ProcedureTypes[0].ProcedureTypeID != 1 {
+		t.Errorf("Editable(carla), scoped to procedure type 1 = %+v", carla)
+	}
+	dani, err := s.Editable(ctx, "dani")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dani.CanCreate || len(dani.ProcedureTypes) != 0 || len(dani.Areas) != 0 {
+		t.Errorf("Editable(dani), in no area = %+v, want nothing", dani)
+	}
+
+	if _, err := s.Open(ctx, "ana", 1); err != nil {
+		t.Fatal(err)
+	}
+	ana, err = s.Editable(ctx, "ana")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened := ana.ProcedureTypes[0]; opened.Draft == nil || opened.CanOpenDraft {
+		t.Errorf("type with a draft of a new version = %+v, want the draft and nothing to open", opened)
+	}
+}
+
 func publish(t *testing.T, s *ProcedureTypeDraftService, procedureType int64, d definition.ProcedureTypeDefinition) {
 	t.Helper()
 	if _, err := s.types.Publish(t.Context(), publication(procedureType, 0, d)); err != nil {

@@ -2,6 +2,7 @@ package input
 
 import (
 	"context"
+	"time"
 
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/draft"
@@ -14,6 +15,35 @@ import (
 type DraftView struct {
 	Draft    draft.Draft
 	Problems []definition.ValidationProblem
+	// What the person who asked can do with it, so that a screen offers only
+	// that. CanEdit is to edit, propose and discard it; CanReview, to approve
+	// or reject it once proposed, which whoever edited or proposed it cannot.
+	CanEdit   bool
+	CanReview bool
+}
+
+// EditableProcedureTypes is what a person can edit or review: the procedure
+// types with a published version or a draft where they hold either
+// permission, whether they can create a new one, and the areas that a step
+// can belong to, with the permissions a step can ask for.
+type EditableProcedureTypes struct {
+	CanCreate      bool
+	ProcedureTypes []EditableProcedureType
+	Areas          []definition.Area
+}
+
+// EditableProcedureType names a procedure type by its latest version or, if
+// it has none, by its draft. Latest is 0 for a procedure type without
+// versions. CanOpenDraft tells whether the person can open the draft of a new
+// version: they hold the permission to edit, there is a version, and there
+// is no draft.
+type EditableProcedureType struct {
+	ProcedureTypeID int64
+	Name            string
+	Latest          int
+	PublishedAt     time.Time
+	CanOpenDraft    bool
+	Draft           *DraftView
 }
 
 // ProcedureTypeDrafts is how a procedure type is edited and published
@@ -35,6 +65,9 @@ type ProcedureTypeDrafts interface {
 	Get(ctx context.Context, userID string, procedureType int64) (DraftView, error)
 	// List returns the drafts the person can see, ordered by procedure type.
 	List(ctx context.Context, userID string) ([]DraftView, error)
+	// Editable returns what the person can edit or review, ordered by
+	// procedure type. Without either permission it is empty.
+	Editable(ctx context.Context, userID string) (EditableProcedureTypes, error)
 	// Edit fails with draft.ErrDraftProposed while the draft is proposed.
 	Edit(ctx context.Context, userID string, procedureType int64, revision int, d definition.ProcedureTypeDefinition) (DraftView, error)
 	// Propose fails with draft.ErrDraftProposed if it is already proposed, and with

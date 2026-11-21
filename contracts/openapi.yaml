@@ -174,6 +174,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /editable-procedure-types:
+    get:
+      operationId: listEditableProcedureTypes
+      summary: Tipos de trámite que la persona puede editar o aprobar
+      description: >
+        Para la pantalla de edición de tipos de trámite (ADR-013). Lista, por
+        número, los tipos de trámite con una versión publicada y los borradores
+        de tipos nuevos en los que la persona tiene el permiso de editar o el
+        de publicar, cada uno con su borrador si lo tiene, y dice si puede
+        crear uno nuevo. A quien puede editar o aprobar algo le trae además las
+        áreas del personal con los permisos que un paso puede exigir, para
+        elegir el área de cada paso. Sin ninguno de los dos permisos, todo
+        viene vacío.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Lo que la persona puede editar o aprobar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditableProcedureTypes"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /procedure-type-drafts:
     get:
       operationId: listProcedureTypeDrafts
@@ -1833,7 +1857,7 @@ components:
           type: string
     ProcedureTypeDraft:
       type: object
-      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems]
+      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems, can_edit, can_review]
       properties:
         procedure_type_id:
           type: integer
@@ -1870,6 +1894,72 @@ components:
           description: Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
           items:
             $ref: "#/components/schemas/DefinitionProblem"
+        can_edit:
+          type: boolean
+          description: Si quien pregunta puede editarlo, proponerlo y descartarlo
+        can_review:
+          type: boolean
+          description: >
+            Si quien pregunta puede aprobarlo o rechazarlo cuando está
+            propuesto: tiene el permiso de publicar y no lo editó ni lo propuso
+    EditableProcedureTypes:
+      type: object
+      required: [can_create, procedure_types, areas]
+      properties:
+        can_create:
+          type: boolean
+          description: Si puede crear un tipo de trámite nuevo, para lo que hace falta el permiso de editar sin alcance limitado
+        procedure_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditableProcedureType"
+        areas:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepArea"
+    EditableProcedureType:
+      type: object
+      required: [procedure_type_id, name, version, can_open_draft]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: El de la última versión o, si no tiene ninguna, el de su borrador
+        version:
+          type: integer
+          description: La última versión publicada, o 0 si no tiene ninguna
+        published_at:
+          type: string
+          format: date-time
+          description: Cuándo se publicó la última versión; ausente si no tiene ninguna
+        can_open_draft:
+          type: boolean
+          description: Si puede abrir el borrador de una versión nueva, porque tiene el permiso de editar, hay una versión publicada y no hay borrador
+        draft:
+          $ref: "#/components/schemas/ProcedureTypeDraft"
+    StepArea:
+      type: object
+      description: Un área del personal que puede hacer un paso, con los permisos que el paso puede exigir
+      required: [id, name, permissions]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepAreaPermission"
+    StepAreaPermission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
     NewProcedureType:
       type: object
       required: [definition]

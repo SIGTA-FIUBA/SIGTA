@@ -28,6 +28,7 @@ import (
 type fakeDrafts struct {
 	view      input.DraftView
 	published version.ProcedureTypeVersion
+	editable  input.EditableProcedureTypes
 	err       error
 
 	user       string
@@ -54,6 +55,11 @@ func (f *fakeDrafts) Get(_ context.Context, user string, _ int64) (input.DraftVi
 func (f *fakeDrafts) List(_ context.Context, user string) ([]input.DraftView, error) {
 	f.user = user
 	return []input.DraftView{f.view}, f.err
+}
+
+func (f *fakeDrafts) Editable(_ context.Context, user string) (input.EditableProcedureTypes, error) {
+	f.user = user
+	return f.editable, f.err
 }
 
 func (f *fakeDrafts) Edit(_ context.Context, user string, _ int64, revision int, d definition.ProcedureTypeDefinition) (input.DraftView, error) {
@@ -114,6 +120,50 @@ func callDrafts(t *testing.T, drafts *fakeDrafts, method, path, body string) *ht
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, r)
 	return recorder
+}
+
+func TestListEditableProcedureTypesSaysWhatThePersonCanDo(t *testing.T) {
+	proposed := proposedView()
+	proposed.CanReview = true
+	drafts := &fakeDrafts{editable: input.EditableProcedureTypes{
+		CanCreate: true,
+		ProcedureTypes: []input.EditableProcedureType{
+			{ProcedureTypeID: 1, Name: "Equivalencia", Latest: 3, PublishedAt: editedAt, CanOpenDraft: true},
+			{ProcedureTypeID: 7, Name: "Equivalencias", Draft: &proposed},
+		},
+		Areas: []definition.Area{{ID: "commission", Name: "Comisión Curricular", Permissions: []definition.Permission{{ID: "evaluate", Name: "Dictaminar"}}}},
+	}}
+
+	recorder := callDrafts(t, drafts, http.MethodGet, "/editable-procedure-types", "")
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body)
+	}
+	var got api.EditableProcedureTypes
+	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if drafts.user != "ana" || !got.CanCreate || len(got.ProcedureTypes) != 2 || len(got.Areas) != 1 {
+		t.Fatalf("answer = %+v for %q", got, drafts.user)
+	}
+	published, fresh := got.ProcedureTypes[0], got.ProcedureTypes[1]
+	if published.Version != 3 || published.PublishedAt == nil || !published.PublishedAt.Equal(editedAt) || !published.CanOpenDraft || published.Draft != nil {
+		t.Errorf("published type = %+v", published)
+	}
+	if fresh.Version != 0 || fresh.PublishedAt != nil || fresh.CanOpenDraft || fresh.Draft == nil || !fresh.Draft.CanReview || fresh.Draft.CanEdit {
+		t.Errorf("type with only a draft = %+v", fresh)
+	}
+	if area := got.Areas[0]; area.Id != "commission" || len(area.Permissions) != 1 || area.Permissions[0].Name != "Dictaminar" {
+		t.Errorf("area = %+v", area)
+	}
+}
+
+func TestListEditableProcedureTypesWithoutPermissionsIsEmpty(t *testing.T) {
+	recorder := callDrafts(t, &fakeDrafts{}, http.MethodGet, "/editable-procedure-types", "")
+
+	if recorder.Code != http.StatusOK || recorder.Body.String() != `{"areas":[],"can_create":false,"procedure_types":[]}`+"\n" {
+		t.Errorf("status %d: %s, want empty lists", recorder.Code, recorder.Body)
+	}
 }
 
 func TestGetProcedureTypeDraftShowsTheDraft(t *testing.T) {
