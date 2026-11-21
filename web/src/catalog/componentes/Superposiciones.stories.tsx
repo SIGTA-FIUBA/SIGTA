@@ -26,7 +26,7 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Components drawn over the page. Each story opens its overlay from a button
 // and starts closed, so the docs page stays usable.

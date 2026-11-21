@@ -3,10 +3,14 @@ import {
   type CSSVariablesResolver,
   createTheme,
   Input,
+  List,
+  Modal,
   NavLink,
   Paper,
   rem,
   SegmentedControl,
+  Spoiler,
+  Text,
   Title,
 } from '@mantine/core'
 import classes from './interactions.module.css'
@@ -17,6 +21,11 @@ import typography from './typography.module.css'
 // components with theme values (sizes such as "md", colors such as "dimmed"),
 // never raw colors or measures; the lint rules in lint/ enforce it. The values
 // come from tokens.json, so a design decision is changed there and nowhere else.
+
+// A word with no place to break, such as a file name or a pasted link, breaks
+// where it has to instead of running past its box. break-word, unlike
+// anywhere, does not narrow the box to fit the word broken up.
+const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
 
 export const theme = createTheme({
   colors: { fiuba: tokens.color.fiuba },
@@ -34,6 +43,11 @@ export const theme = createTheme({
   fontFamily: tokens.font.sans,
   fontFamilyMonospace: tokens.font.mono,
   headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.headingWeight, sizes: tokens.headings },
+  other: {
+    // The height of a document opened in the page, below the header of its
+    // full screen modal.
+    documentHeight: 'calc(100dvh - 9rem)',
+  },
   components: {
     // The side menu (variant="menu") sits on the logo's light blue: each link
     // is a white box with dark text, and the current page is filled in dark
@@ -69,10 +83,18 @@ export const theme = createTheme({
       classNames: { root: classes.touch },
     }),
     SegmentedControl: SegmentedControl.extend({ classNames: { control: classes.touch } }),
+    Text: Text.extend({ styles: breakLongWords }),
     // The headline of the landing page grows with the screen.
     Title: Title.extend({
+      styles: breakLongWords,
       classNames: (_theme, props) => ({ root: props.variant === 'display' ? typography.display : '' }),
     }),
+    List: List.extend({ styles: { item: breakLongWords.root } }),
+    // A long title, such as the name of a file, breaks instead of pushing the
+    // close button out of the screen.
+    Modal: Modal.extend({ styles: { title: { ...breakLongWords.root, minWidth: 0 } } }),
+    // A long text shows its first lines and opens the rest on request.
+    Spoiler: Spoiler.extend({ defaultProps: { maxHeight: 120 } }),
   },
 })
 

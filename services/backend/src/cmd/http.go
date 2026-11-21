@@ -2,119 +2,190 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"backend/src/api"
-	"backend/src/auth/adapters/dev"
 	"backend/src/auth/adapters/google"
-	"backend/src/auth/adapters/memory"
 	authrest "backend/src/auth/adapters/rest"
 	"backend/src/auth/application"
-	"backend/src/auth/domain"
-	out "backend/src/auth/ports/output"
-	proceduremem "backend/src/procedure/adapters/memory"
+	authoutput "backend/src/auth/ports/output"
 	procedurerest "backend/src/procedure/adapters/rest"
-	"backend/src/procedure/adapters/roleaccess"
 	procedureapp "backend/src/procedure/application"
-	"backend/src/procedure/domain/definition"
-	"backend/src/procedure/domain/inbox"
-	"backend/src/procedure/domain/version"
-	"backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/output"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	if err := run(logger); err != nil {
-		logger.Error("server stopped", "error", err)
+	if err := command(os.Args[1:], logger); err != nil {
+		name := "server"
+		if len(os.Args) > 1 {
+			name = os.Args[1]
+		}
+		logger.Error(name+" failed", "error", err)
 		os.Exit(1)
 	}
 }
 
+// command runs the server, or the command that args names. A command it
+// does not know fails, so that a mistyped one does not start a server.
+func command(args []string, logger *slog.Logger) error {
+	if len(args) == 0 {
+		return run(logger)
+	}
+	switch args[0] {
+	case "migrate":
+		if len(args) > 1 {
+			return errors.New("usage: backend migrate")
+		}
+		return migrateCommand(os.Getenv, logger)
+	case "grant-admin":
+		return grantAdminCommand(os.Getenv, args[1:], logger)
+	}
+	return fmt.Errorf("unknown command %q: usage: backend [migrate | grant-admin <email>]", args[0])
+}
+
 func run(logger *slog.Logger) error {
+	// Taken before anything else, so that a SIGTERM while the server waits for
+	// the database also runs the deferred functions instead of killing it.
+	stop, cancelStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancelStop()
 	cfg, err := loadConfig(os.Getenv)
 	if err != nil {
 		return err
 	}
-	users, err := usersOf(cfg)
-	if err != nil {
-		return err
-	}
-	identity, err := identityProviderOf(cfg, logger)
+	identity, err := googleIdentityProvider(cfg, logger)
 	if err != nil {
 		return err
 	}
 
-	auth := application.NewAuthService(
+	// Bounds the start against the database, so one that does not answer
+	// stops it.
+	startup, cancel := context.WithTimeout(stop, 30*time.Second)
+	defer cancel()
+	stores, closeStores, err := openStores(startup, cfg, logger)
+	if err != nil {
+		return stoppedDuringStartup(stop, err)
+	}
+	defer closeStores()
+	files, err := openFiles(cfg, logger)
+	if err != nil {
+		return err
+	}
+	started, err := start(startup, cfg, stores, files, identity, logger)
+	if err != nil {
+		return stoppedDuringStartup(stop, err)
+	}
+
+	server := &http.Server{
+		Addr:              ":8080",
+		Handler:           api.Mount(http.NewServeMux(), started.server, logger),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       api.ReadTimeout,
+	}
+	logger.Info("listening", "env", cfg.env)
+	return serve(stop, server, server.ListenAndServe)
+}
+
+type started struct {
+	server         api.Server
+	procedureTypes *procedureapp.ProcedureTypeService
+	documents      *procedureapp.DocumentService
+}
+
+// start wires the services over the stores and removes the files that no
+// document names. It adds nothing: the Secretariat comes with the stores
+// (openStores), the first administrator from the grant-admin command, and
+// people, memberships and procedure types from those who use SIGTA.
+func start(ctx context.Context, cfg config, stores stores, files output.Files, identity authoutput.IdentityProvider, logger *slog.Logger) (started, error) {
+	areaService := application.NewAreaService(stores.areas, stores.administrators, stores.memberships, now)
+	memberships := application.NewMembershipService(stores.areas, stores.administrators, stores.memberships, newID, now)
+
+	procedureTypes := procedureapp.NewProcedureTypeService(stores.versions, areaService, memberships, now)
+	drafts := procedureapp.NewProcedureTypeDraftService(stores.drafts, procedureTypes, memberships, now)
+
+	auth := application.NewAuthenticatorService(
 		application.AuthConfig{
 			IdleTimeout:   30 * time.Minute,
 			AllowedDomain: cfg.allowedDomain,
 		},
 		identity,
-		memory.NewUserRepository(users...),
-		memory.NewSessionStore(),
-		time.Now,
+		stores.users,
+		stores.sessions,
+		now,
 	)
 
-	authHandler := authrest.NewAuthHandler(auth, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
-	procedureTypes := procedureapp.NewProcedureTypeService(proceduremem.NewProcedureVersions(), proceduremem.NewAreaCatalog(devAreas()...), time.Now)
-	if cfg.development() {
-		if _, err := procedureTypes.Publish(context.Background(), devProcedureType()); err != nil {
-			return fmt.Errorf("publish the example procedure type: %w", err)
-		}
+	authHandler := authrest.NewAuthHandler(auth, memberships, cfg.appURL, cfg.loginURL(), cfg.secureCookies())
+	procedures := procedureapp.NewProcedureService(procedureTypes, stores.procedures, stores.documents, memberships, newID, now)
+	documents := procedureapp.NewDocumentService(procedures, stores.documents, files, newID, now)
+	people := application.NewPeopleService(stores.users)
+	// Once, at startup: the server assumes it is the only instance.
+	removed, err := documents.RemoveUnreferencedFiles(ctx)
+	if err != nil {
+		return started{}, fmt.Errorf("remove the files that no document names: %w", err)
 	}
-	summaries := proceduremem.NewProcedureSummaries()
-	if cfg.development() {
-		for _, summary := range devProcedures(time.Now()) {
-			summaries.Add(summary)
-		}
+	if removed > 0 {
+		logger.Info("removed the files that no document names", "files", removed)
 	}
-	inboxHandler := procedurerest.NewInboxHandler(procedureapp.NewInboxService(roleaccess.Permissions{}, summaries, time.Now), personOf(auth))
-	app := api.NewServer(authHandler, procedurerest.NewCatalogHandler(procedureTypes), inboxHandler)
-
-	router := http.NewServeMux()
-	api.Mount(router, app, logger)
-
-	server := &http.Server{
-		Addr:              ":8080",
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	logger.Info("listening", "env", cfg.env, "identity_provider", cfg.identityProvider, "users", len(users))
-	return server.ListenAndServe()
+	server := api.NewServer(
+		authHandler,
+		procedurerest.NewCatalogHandler(procedureTypes),
+		authrest.NewAdministrationHandler(auth, areaService, memberships),
+		procedurerest.NewDocumentHandler(auth, people, documents),
+		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, now), procedures),
+		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
+		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
+	)
+	return started{server, procedureTypes, documents}, nil
 }
 
-// personOf lets the procedure module ask who has a session, without
-// depending on the auth module.
-func personOf(auth *application.AuthService) procedurerest.Authenticate {
-	return func(ctx context.Context, sessionToken string) (inbox.Person, error) {
-		user, err := auth.Authenticate(ctx, sessionToken)
-		if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) || errors.Is(err, domain.ErrUnknownUser) {
-			return inbox.Person{}, procedurerest.ErrNoSession
-		}
-		if err != nil {
-			return inbox.Person{}, err
-		}
-		return inbox.Person{ID: user.ID, Role: string(user.Role)}, nil
+// stoppedDuringStartup returns nil instead of err if the server was asked to
+// stop while it started, since then err is only the interrupted wait.
+func stoppedDuringStartup(stop context.Context, err error) error {
+	if stop.Err() != nil {
+		return nil
 	}
+	return err
 }
 
-func usersOf(cfg config) ([]domain.User, error) {
-	if cfg.usersFile != "" {
-		return loadUsers(cfg.usersFile, cfg.allowedDomain)
+// shutdownTimeout is how long the requests in flight have to finish once the
+// server is asked to stop. Docker waits 10 seconds before it kills it.
+const shutdownTimeout = 8 * time.Second
+
+// serve runs listen until stop is done, and then lets the requests in flight
+// finish before it returns, so that they do not lose the database that the
+// deferred functions of run close.
+func serve(stop context.Context, server *http.Server, listen func() error) error {
+	failed := make(chan error, 1)
+	go func() { failed <- listen() }()
+	select {
+	case err := <-failed:
+		return err
+	case <-stop.Done():
 	}
-	// loadConfig asks for a users file everywhere but development.
-	return devUsers(), nil
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shut down: %w", err)
+	}
+	if err := <-failed; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
-func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, error) {
-	if cfg.identityProvider == identityDev {
-		return dev.NewIdentityProvider(cfg.callbackURL(), devApplicantEmail), nil
-	}
+func newID() string {
+	return rand.Text()
+}
+
+func googleIdentityProvider(cfg config, logger *slog.Logger) (authoutput.IdentityProvider, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return google.NewIdentityProvider(ctx, google.Config{
@@ -126,49 +197,9 @@ func identityProviderOf(cfg config, logger *slog.Logger) (out.IdentityProvider, 
 	}, logger)
 }
 
-// devApplicantEmail is who the development identity provider logs in by
-// default.
-const devApplicantEmail = "titular@fi.uba.ar"
-
-// devUsers are synthetic accounts, one per role, for local development.
-func devUsers() []domain.User {
-	return []domain.User{
-		{ID: "dev-applicant", Email: devApplicantEmail, Name: "Titular de prueba", Role: domain.RoleApplicant},
-		{ID: "dev-operative", Email: "operativo@fi.uba.ar", Name: "Operativo de prueba", Role: domain.RoleStaffOperative},
-		{ID: "dev-approver", Email: "aprobacion@fi.uba.ar", Name: "Aprobación de prueba", Role: domain.RoleStaffApprover},
-	}
-}
-
-func devAreas() []definition.Area {
-	return []definition.Area{
-		{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant},
-		{ID: "office", Name: "Área de prueba", Kind: definition.AreaOffice},
-	}
-}
-
-// devProcedureType is a made-up procedure type, so that the catalog has
-// something to show in local development. It describes no real process.
-func devProcedureType() input.Publication {
-	return input.Publication{
-		ProcedureType: 1,
-		Authorship:    version.Authorship{ProposedBy: "dev-operative", ApprovedBy: "dev-approver"},
-		Definition: definition.ProcedureTypeDefinition{
-			Name:          "Trámite de ejemplo",
-			Description:   "Un trámite inventado para probar SIGTA en desarrollo.",
-			Deadlines:     []string{"Plazo de ejemplo: hasta 30 días antes del inicio de la cursada."},
-			Admissibility: []string{"Condición de ejemplo: tener una cuenta de prueba."},
-			Fields: []definition.Field{
-				{ID: "reason", Name: "Motivo", Type: definition.FieldLongText},
-				{ID: "comment", Name: "Comentario", Type: definition.FieldLongText},
-			},
-			Documents: []definition.Document{
-				{ID: "statement", Name: "Constancia de ejemplo", AcceptedTypes: []string{"application/pdf", "image/png"}, MaxSize: 10 << 20},
-			},
-			Steps: []definition.Step{
-				{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"reason"}, OptionalFields: []string{"comment"}, Next: "documents"},
-				{ID: "documents", Name: "Documentación", Area: "applicant", Action: definition.ActionUploadDocument, Documents: []string{"statement"}, Next: "review"},
-				{ID: "review", Name: "Revisión", Area: "office", Profile: definition.ProfileStaffOperative, Action: definition.ActionConfirmExternalFact},
-			},
-		},
-	}
+// now is the time as PostgreSQL keeps it, in UTC and to the microsecond, so
+// that what a request answers right after saving says the same as a later
+// read.
+func now() time.Time {
+	return time.Now().UTC().Truncate(time.Microsecond)
 }

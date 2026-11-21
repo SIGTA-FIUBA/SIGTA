@@ -1,6 +1,6 @@
 // Package acceptance runs the Gherkin scenarios in features/ with go test. It
-// uses the real services over the in-memory and development adapters, so it
-// needs no external service.
+// uses the real services over the in-memory adapters and a test identity
+// provider, so it needs no external service.
 package acceptance
 
 import (
@@ -8,6 +8,10 @@ import (
 
 	"github.com/cucumber/godog"
 )
+
+// scenarioAdministrator creates the areas, permissions and memberships the
+// scenarios need.
+const scenarioAdministrator = "admin@fi.uba.ar"
 
 // TestScenarios fails on a scenario that fails and, because of Strict, on a
 // step that has no implementation: a scenario cannot pass without running.
@@ -18,7 +22,17 @@ func TestScenarios(t *testing.T) {
 			registerProcedureTypeSteps(sc)
 			registerAuthenticationSteps(sc)
 			registerCatalogSteps(sc)
+			authorization := registerAuthorizationSteps(sc)
+			registerStaffAreaSteps(sc, authorization)
+			confirmations := registerConfirmationSteps(sc, authorization)
+			registerHistorySteps(sc, confirmations)
+			registerCorrectionRequestSteps(sc, confirmations)
+			registerMyProceduresSteps(sc, confirmations)
+			registerCorrectionAnswerSteps(sc, registerMyProcedureDetailSteps(sc, confirmations))
+			registerDetailSteps(sc, registerDocumentSteps(sc))
+			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)
+			registerProcedureTypeDraftSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",

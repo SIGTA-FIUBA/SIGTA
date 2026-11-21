@@ -10,7 +10,7 @@ import (
 
 	"backend/src/api"
 	"backend/src/auth/domain"
-	ports "backend/src/auth/ports/input"
+	"backend/src/auth/ports/input"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -22,23 +22,19 @@ const (
 )
 
 type AuthHandler struct {
-	auth ports.Authenticator
-	// appURL is where the browser lands after logging in.
-	appURL   string
-	loginURL string
-	// secureCookies must be true everywhere but local development over HTTP.
+	auth          input.Authenticator
+	memberships   input.Memberships
+	afterLoginURL string
+	loginURL      string
 	secureCookies bool
 }
 
-func NewAuthHandler(auth ports.Authenticator, appURL, loginURL string, secureCookies bool) *AuthHandler {
-	return &AuthHandler{auth: auth, appURL: appURL, loginURL: loginURL, secureCookies: secureCookies}
+func NewAuthHandler(auth input.Authenticator, memberships input.Memberships, afterLoginURL, loginURL string, secureCookies bool) *AuthHandler {
+	return &AuthHandler{auth: auth, memberships: memberships, afterLoginURL: afterLoginURL, loginURL: loginURL, secureCookies: secureCookies}
 }
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req api.BeginLoginRequestObject) (api.BeginLoginResponseObject, error) {
-	location, pending, err := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
-	if err != nil {
-		return nil, err
-	}
+	location, pending := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
 	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending), int(loginStateMaxAge.Seconds()))
 	return api.BeginLogin302Response{Headers: api.BeginLogin302ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
 }
@@ -58,7 +54,7 @@ func (h *AuthHandler) CompleteLogin(ctx context.Context, req api.CompleteLoginRe
 	if err != nil {
 		return nil, err
 	}
-	redirect := api.CompleteLogin302Response{Headers: api.CompleteLogin302ResponseHeaders{Location: &h.appURL}}
+	redirect := api.CompleteLogin302Response{Headers: api.CompleteLogin302ResponseHeaders{Location: &h.afterLoginURL}}
 	return withCookies{response: redirect, cookies: []string{h.sessionCookie(token), expiredState}}, nil
 }
 
@@ -113,17 +109,22 @@ func (h *AuthHandler) Logout(ctx context.Context, req api.LogoutRequestObject) (
 
 func (h *AuthHandler) GetCurrentUser(ctx context.Context, req api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
-	if isUnauthenticated(err) {
-		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized("Iniciá sesión para continuar.")}, nil
+	if input.Unauthenticated(err) {
+		return api.GetCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	access, err := h.memberships.Access(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
 	return api.GetCurrentUser200JSONResponse{
-		Id:    user.ID,
-		Email: openapi_types.Email(user.Email),
-		Name:  user.Name,
-		Role:  api.Role(user.Role),
+		Id:            user.ID,
+		Email:         openapi_types.Email(user.Email),
+		Name:          user.Name,
+		Staff:         access.IsStaff(),
+		Administrator: access.Administrator,
 	}, nil
 }
 
@@ -133,13 +134,11 @@ func (h *AuthHandler) sessionCookie(token string) string {
 	return h.cookie(sessionCookie, token, 0)
 }
 
-// expiredCookie tells the browser to delete the cookie.
 func (h *AuthHandler) expiredCookie(name string) string {
 	return h.cookie(name, "", -1)
 }
 
 func (h *AuthHandler) cookie(name, value string, maxAge int) string {
-	// Secure is off only for local development over plain HTTP.
 	c := http.Cookie{ //nolint:gosec // G124: Secure comes from configuration.
 		Name:     name,
 		Value:    value,
@@ -152,14 +151,8 @@ func (h *AuthHandler) cookie(name, value string, maxAge int) string {
 	return c.String()
 }
 
-func isUnauthenticated(err error) bool {
-	return errors.Is(err, domain.ErrSessionNotFound) ||
-		errors.Is(err, domain.ErrSessionExpired) ||
-		errors.Is(err, domain.ErrUnknownUser)
-}
-
-func unauthorized(message string) api.UnauthorizedJSONResponse {
-	return api.UnauthorizedJSONResponse{Message: message}
+func unauthorized() api.UnauthorizedJSONResponse {
+	return api.UnauthorizedJSONResponse{Message: messageSignIn}
 }
 
 func valueOf(s *string) string {

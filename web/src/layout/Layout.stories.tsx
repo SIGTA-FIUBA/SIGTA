@@ -13,17 +13,28 @@ type ProcedureList = components['schemas']['ProcedureList']
 
 // The frame of the pages runs inside a router, as in the app. The session
 // and the inbox count are invented, so the stories make no requests.
-const staff: User = { id: 'u1', email: 'operativo@ejemplo.edu.ar', name: 'Laura Méndez', role: 'staff_operative' }
-const applicant: User = { id: 'u2', email: 'titular@ejemplo.edu.ar', name: 'Martín Sosa', role: 'applicant' }
+const staff: User = {
+  id: 'u1',
+  email: 'operativo@ejemplo.edu.ar',
+  name: 'Laura Méndez',
+  staff: true,
+  administrator: false,
+}
+const applicant: User = {
+  id: 'u2',
+  email: 'titular@ejemplo.edu.ar',
+  name: 'Martín Sosa',
+  staff: false,
+  administrator: false,
+}
 
 function procedures(actionable: number): ProcedureList {
   const item = {
     procedure_type: 1,
     procedure_type_name: 'Equivalencia entre asignaturas',
-    applicant_name: 'Martín Sosa',
+    applicant: { id: 'u2', name: 'Martín Sosa' },
     step_name: 'Revisión de la Secretaría',
-    area: 'secretaria',
-    area_name: 'Secretaría Académica',
+    area: { id: 'secretaria', name: 'Secretaría Académica' },
     state: 'in_office' as const,
     started_at: '2026-11-02T10:00:00Z',
     last_moved_at: '2026-11-10T10:00:00Z',

@@ -71,7 +71,17 @@ No hay historias de documentación en el backlog (ADR-007). La documentación se
 
 Linear es la fuente de verdad de las historias: descripción, criterios de aceptación, estimación y estado viven en el ticket. El [backlog](08-backlog.md) del repositorio es solo un índice.
 
-`Backlog` → `Todo` (cumple DoR) → `In Progress` → `In Review` → `Done` (cumple DoD)
+`Backlog` → `Todo` (cumple DoR) → `In Progress` → `In Review` → `In Dev` (cumple DoD) → `Done`
+
+| Estado | Significa |
+| --- | --- |
+| `In Review` | Hay un PR abierto, esperando la revisión de un par |
+| `In Dev` | El PR se integró en `develop` y está desplegado en el entorno `dev` (https://sigta-dev.lopeztancredi.com.ar). Falta el pase a `main` |
+| `Done` | Llegó a `main` y está desplegado en `prod` (https://sigta.lopeztancredi.com.ar) |
+
+`In Dev` y `Done` son estados de tipo completado: los dos cuentan como terminados para la velocidad y el burnup, y un ticket en `In Dev` no se arrastra al sprint siguiente.
+
+La integración de Linear con GitHub mueve los tickets sola: al abrir el PR pasan a `In Review`, al integrarlo en `develop` a `In Dev`, y al integrarlo en `main` a `Done`. Integrar en cualquier otra rama, como en un PR apilado, no los mueve. El pase de `develop` a `main` es un PR que no nombra tickets, así que al hacerlo se pasan a mano a `Done` todos los que están en `In Dev`.
 
 Estados adicionales: `Canceled` y `Duplicate`.
 
@@ -100,7 +110,7 @@ Se registran en la planilla de gestión y se revisan en cada reunión quincenal.
 
 | Indicador | Cómo se calcula | Para qué sirve |
 |---|---|---|
-| SP comprometidos vs. completados | Suma de SP del sprint backlog vs. SP en `Terminado` | Detecta sobrecompromiso sistemático |
+| SP comprometidos vs. completados | Suma de SP del sprint backlog vs. SP en `In Dev` o `Done` (los dos cumplen la DoD) | Detecta sobrecompromiso sistemático |
 | Velocidad | SP completados, promedio móvil de 3 sprints | Base de la replanificación |
 | Tickets reabiertos | Tickets que vuelven de `Terminado` | Señal de que la DoD no se está aplicando |
 | Bugs abiertos por criticidad | Conteo por nivel al cierre del sprint | Salud del producto |

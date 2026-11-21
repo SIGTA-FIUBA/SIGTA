@@ -5,7 +5,7 @@ Feature: Define and publish a procedure type
   so that a new procedure type needs no code changes.
 
   Background:
-    Given the areas "applicant", "student affairs" and "curricular commission"
+    Given the staff areas are "student affairs" and "curricular commission"
     And "ana" proposes and "beto" approves every publication
 
   Scenario: publishing a valid definition creates its first version
@@ -50,14 +50,18 @@ Feature: Define and publish a procedure type
     And the problem is reported
 
     Examples:
-      | problem                                  |
-      | a step with an action outside the four   |
-      | a step in an unknown area                |
-      | a reference to an undeclared document    |
-      | a step unreachable from the first one    |
-      | a step that never reaches a closing step |
-      | a field no step uses                     |
-      | an office step without a profile         |
+      | problem                                                  |
+      | a step with an action outside the four                   |
+      | a step in an unknown area                                |
+      | a reference to an undeclared document                    |
+      | a step unreachable from the first one                    |
+      | a step that never reaches a closing step                 |
+      | a send back that goes forward                            |
+      | a resolution that a step of the applicant asks for       |
+      | a field no step uses                                     |
+      | a staff step without permissions                         |
+      | a step that asks for a permission its area does not have |
+      | an applicant step in a staff area                        |
 
   Scenario: a procedure in progress keeps its version
     Given a procedure that started with version 1 of "subject equivalence"
@@ -75,3 +79,10 @@ Feature: Define and publish a procedure type
     When a procedure asks for version 1
     Then the version is not returned
     And nothing is published on top of it
+
+  @SIG-65
+  Scenario: a procedure does not follow a version published again with other content
+    Given a procedure that started with version 2 of "subject equivalence"
+    And version 2 was lost and published again with other content
+    When the procedure asks for the version it follows
+    Then the version is not returned because it is not the one the procedure follows

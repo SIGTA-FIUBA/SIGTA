@@ -7,7 +7,12 @@ import (
 	"testing"
 	"time"
 
+	authmem "backend/src/auth/adapters/memory"
+	authapp "backend/src/auth/application"
+	authdomain "backend/src/auth/domain"
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/adapters/memory"
+	proceduredomain "backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
@@ -15,7 +20,7 @@ import (
 )
 
 var (
-	applicant   = definition.Area{ID: "applicant", Name: "Titular", Kind: definition.AreaApplicant}
+	office      = authdomain.Area{ID: "office", Name: "Secretaría", Permissions: []authdomain.Permission{{ID: "review", Name: "Revisar"}}}
 	publishedAt = time.Date(2026, 11, 1, 12, 0, 0, 123456789, time.UTC)
 	authors     = version.Authorship{ProposedBy: "ana", ApprovedBy: "beto"}
 	errStore    = errors.New("store unavailable")
@@ -27,7 +32,7 @@ func testDefinition() definition.ProcedureTypeDefinition {
 		Description: "Un trámite para las pruebas",
 		Fields:      []definition.Field{{ID: "national_id", Name: "DNI", Type: definition.FieldText}},
 		Steps: []definition.Step{
-			{ID: "request", Name: "Solicitud", Area: "applicant", Action: definition.ActionEnterData, Fields: []string{"national_id"}},
+			{ID: "request", Name: "Solicitud", Role: definition.RoleApplicant, Action: definition.ActionEnterData, Fields: []string{"national_id"}},
 		},
 	}
 }
@@ -36,14 +41,33 @@ func publication(procedureType int64, base int, d definition.ProcedureTypeDefini
 	return input.Publication{ProcedureType: procedureType, Base: base, Definition: d, Authorship: authors}
 }
 
-func newService(versions output.ProcedureVersions, areas ...definition.Area) *ProcedureTypeService {
-	return NewProcedureTypeService(versions, memory.NewAreaCatalog(areas...), func() time.Time { return publishedAt })
+// newService reads the staff areas from auth, as the server does (ADR-021).
+func newService(versions output.ProcedureTypeVersionRepository, areas ...authdomain.Area) *ProcedureTypeService {
+	return newServiceOn(versions, authmem.NewAreaRepository(areas...))
+}
+
+// newServiceOn lets ana and carla propose, and beto and dario approve, in the
+// Secretariat.
+func newServiceOn(versions output.ProcedureTypeVersionRepository, areas *authmem.AreaRepository) *ProcedureTypeService {
+	if err := authapp.EnsureSecretariat(context.Background(), areas); err != nil {
+		panic(err)
+	}
+	memberships := authmem.NewMembershipRepository(
+		authdomain.Membership{ID: "m1", UserID: authors.ProposedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
+		authdomain.Membership{ID: "m2", UserID: authors.ApprovedBy, Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
+		authdomain.Membership{ID: "m3", UserID: "carla", Area: authinput.SecretariatArea, Permissions: []string{authinput.EditProcedureTypes}},
+		authdomain.Membership{ID: "m4", UserID: "dario", Area: authinput.SecretariatArea, Permissions: []string{authinput.PublishProcedureTypes}},
+	)
+	administrators := authmem.NewAdministratorRepository()
+	auth := authapp.NewAreaService(areas, administrators, memberships, time.Now)
+	staffAuthorizer := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
+	return NewProcedureTypeService(versions, auth, staffAuthorizer, func() time.Time { return publishedAt })
 }
 
 // fakeVersions wraps the memory adapter so that a test can make it fail or
 // lose a race.
 type fakeVersions struct {
-	*memory.ProcedureVersions
+	*memory.ProcedureTypeVersionRepository
 	latestErr error
 	addErr    error
 	stale     bool
@@ -52,9 +76,9 @@ type fakeVersions struct {
 
 func (f *fakeVersions) Get(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
 	if f.wrongRow {
-		return f.ProcedureVersions.Get(ctx, procedureType+1, number)
+		return f.ProcedureTypeVersionRepository.Get(ctx, procedureType+1, number)
 	}
-	return f.ProcedureVersions.Get(ctx, procedureType, number)
+	return f.ProcedureTypeVersionRepository.Get(ctx, procedureType, number)
 }
 
 func (f *fakeVersions) Latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
@@ -63,25 +87,32 @@ func (f *fakeVersions) Latest(ctx context.Context, procedureType int64) (version
 	}
 	if f.stale {
 		f.stale = false
-		return version.ProcedureTypeVersion{}, output.ErrNoVersion
+		return version.ProcedureTypeVersion{}, output.ErrVersionNotFound
 	}
-	return f.ProcedureVersions.Latest(ctx, procedureType)
+	return f.ProcedureTypeVersionRepository.Latest(ctx, procedureType)
 }
 
 func (f *fakeVersions) Add(ctx context.Context, v version.ProcedureTypeVersion) error {
 	if f.addErr != nil {
 		return f.addErr
 	}
-	return f.ProcedureVersions.Add(ctx, v)
+	return f.ProcedureTypeVersionRepository.Add(ctx, v)
 }
 
-type failingCatalog struct{}
+// everyoneHolds lets anyone publish, for tests about something else.
+type everyoneHolds struct{ authinput.StaffAuthorizer }
 
-func (failingCatalog) List(context.Context) ([]definition.Area, error) { return nil, errStore }
+func (everyoneHolds) Holds(context.Context, string, string, int64, []string) (bool, error) {
+	return true, nil
+}
+
+type failingAreas struct{ authinput.Areas }
+
+func (failingAreas) List(context.Context) ([]authdomain.Area, error) { return nil, errStore }
 
 func TestPublish(t *testing.T) {
 	ctx := context.Background()
-	service := newService(memory.NewProcedureVersions(), applicant)
+	service := newService(memory.NewProcedureTypeVersionRepository())
 	publish := func(p input.Publication) int {
 		t.Helper()
 		v, err := service.Publish(ctx, p)
@@ -136,7 +167,7 @@ func TestPublish(t *testing.T) {
 
 func TestPublishFromAnOutdatedBase(t *testing.T) {
 	ctx := context.Background()
-	service := newService(memory.NewProcedureVersions(), applicant)
+	service := newService(memory.NewProcedureTypeVersionRepository())
 	if _, err := service.Publish(ctx, publication(1, 0, testDefinition())); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
@@ -162,13 +193,20 @@ func TestPublishFromAnOutdatedBase(t *testing.T) {
 
 func TestPublishAfterRenamingAnArea(t *testing.T) {
 	ctx := context.Background()
-	versions := memory.NewProcedureVersions()
-	if _, err := newService(versions, applicant).Publish(ctx, publication(1, 0, testDefinition())); err != nil {
+	versions := memory.NewProcedureTypeVersionRepository()
+	areas := authmem.NewAreaRepository(office)
+	reviewed := testDefinition()
+	reviewed.Steps[0].Next = "review"
+	reviewed.Steps = append(reviewed.Steps, definition.Step{ID: "review", Name: "Revisión", Role: definition.RoleStaff, Area: "office", Permissions: []string{"review"}, Action: definition.ActionConfirmExternalFact})
+	if _, err := newServiceOn(versions, areas).Publish(ctx, publication(1, 0, reviewed)); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
-	renamed := applicant
-	renamed.Name = "Estudiante"
-	v, err := newService(versions, renamed).Publish(ctx, publication(1, 1, testDefinition()))
+	renamed := office
+	renamed.Name = "Dirección de Alumnos"
+	if err := areas.Save(ctx, renamed); err != nil {
+		t.Fatal(err)
+	}
+	v, err := newServiceOn(versions, areas).Publish(ctx, publication(1, 1, reviewed))
 	if err != nil || v.Number != 2 {
 		t.Errorf("Publish() = version %d, %v, want version 2", v.Number, err)
 	}
@@ -176,8 +214,12 @@ func TestPublishAfterRenamingAnArea(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get() = %v", err)
 	}
-	if c, err := first.DecodeContent(); err != nil || c.Areas[0].Name != "Titular" {
-		t.Errorf("version 1 areas = %v, %v, want the previous name", c.Areas, err)
+	c, err := first.DecodeContent()
+	if err != nil {
+		t.Fatalf("DecodeContent() = %v", err)
+	}
+	if want := []definition.Area{{ID: "office", Name: "Secretaría", Permissions: []definition.Permission{{ID: "review", Name: "Revisar"}}}}; !reflect.DeepEqual(c.Areas, want) {
+		t.Errorf("version 1 areas = %v, want the previous name %v", c.Areas, want)
 	}
 }
 
@@ -190,14 +232,14 @@ func TestPublishRejects(t *testing.T) {
 		p       input.Publication
 		want    error
 	}{
-		{name: "invalid definition", service: newService(memory.NewProcedureVersions(), applicant), p: publication(1, 0, invalid), want: definition.ErrInvalidDefinition},
-		{name: "invalid areas", service: newService(memory.NewProcedureVersions(), applicant, applicant), p: publication(1, 0, testDefinition()), want: definition.ErrInvalidAreas},
-		{name: "same proposer and approver", service: newService(memory.NewProcedureVersions(), applicant), p: input.Publication{
+		{name: "invalid definition", service: newService(memory.NewProcedureTypeVersionRepository()), p: publication(1, 0, invalid), want: definition.ErrInvalidDefinition},
+		{name: "area stored with an invalid id", service: newService(memory.NewProcedureTypeVersionRepository(), authdomain.Area{ID: "Office", Name: "Secretaría"}), p: publication(1, 0, testDefinition()), want: definition.ErrInvalidAreas},
+		{name: "same proposer and approver", service: newService(memory.NewProcedureTypeVersionRepository()), p: input.Publication{
 			ProcedureType: 1, Definition: testDefinition(), Authorship: version.Authorship{ProposedBy: "ana", ApprovedBy: "ana"},
 		}, want: version.ErrInvalidAuthorship},
-		{name: "area catalog fails", service: NewProcedureTypeService(memory.NewProcedureVersions(), failingCatalog{}, time.Now), p: publication(1, 0, testDefinition()), want: errStore},
-		{name: "latest fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), latestErr: errStore}, applicant), p: publication(1, 0, testDefinition()), want: errStore},
-		{name: "add fails", service: newService(&fakeVersions{ProcedureVersions: memory.NewProcedureVersions(), addErr: errStore}, applicant), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "area catalog fails", service: NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), failingAreas{}, everyoneHolds{}, time.Now), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "latest fails", service: newService(&fakeVersions{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository(), latestErr: errStore}), p: publication(1, 0, testDefinition()), want: errStore},
+		{name: "add fails", service: newService(&fakeVersions{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository(), addErr: errStore}), p: publication(1, 0, testDefinition()), want: errStore},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -210,7 +252,7 @@ func TestPublishRejects(t *testing.T) {
 
 // tamper stores version 1 of procedure type 1 with content that does not
 // match its digest.
-func tamper(t *testing.T, versions *memory.ProcedureVersions) {
+func tamper(t *testing.T, versions *memory.ProcedureTypeVersionRepository) {
 	t.Helper()
 	encoded := []byte(`{"format":1,"definition":{"name":"Alterado"}}`)
 	v := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest([]byte("{}")), EncodedContent: encoded, Authorship: authors}
@@ -221,24 +263,24 @@ func tamper(t *testing.T, versions *memory.ProcedureVersions) {
 
 func TestAlteredVersion(t *testing.T) {
 	ctx := context.Background()
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	tamper(t, versions)
-	service := newService(versions, applicant)
+	service := newService(versions)
 	if _, err := service.Publish(ctx, publication(1, 1, testDefinition())); !errors.Is(err, version.ErrAlteredContent) {
 		t.Errorf("Publish() on an altered latest version = %v, want ErrAlteredContent", err)
 	}
 	if _, err := service.Version(ctx, 1, 1); !errors.Is(err, version.ErrAlteredContent) {
 		t.Errorf("Version() of an altered version = %v, want ErrAlteredContent", err)
 	}
-	if _, err := service.Version(ctx, 1, 2); !errors.Is(err, output.ErrNoVersion) {
-		t.Errorf("Version() of a missing version = %v, want ErrNoVersion", err)
+	if _, err := service.Version(ctx, 1, 2); !errors.Is(err, output.ErrVersionNotFound) {
+		t.Errorf("Version() of a missing version = %v, want ErrVersionNotFound", err)
 	}
 }
 
 func TestVersionFromAnotherRow(t *testing.T) {
 	ctx := context.Background()
-	versions := &fakeVersions{ProcedureVersions: memory.NewProcedureVersions()}
-	service := newService(versions, applicant)
+	versions := &fakeVersions{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository()}
+	service := newService(versions)
 	for _, procedureType := range []int64{1, 2} {
 		if _, err := service.Publish(ctx, publication(procedureType, 0, testDefinition())); err != nil {
 			t.Fatalf("Publish() = %v", err)
@@ -250,13 +292,53 @@ func TestVersionFromAnotherRow(t *testing.T) {
 	}
 }
 
+// TestPinnedVersionPublishedAgain loses the stored versions and publishes
+// version 1 again with other content, which a procedure that started with the
+// first one must not follow.
+func TestPinnedVersionPublishedAgain(t *testing.T) {
+	ctx := context.Background()
+	first, err := newService(memory.NewProcedureTypeVersionRepository()).Publish(ctx, publication(1, 0, testDefinition()))
+	if err != nil {
+		t.Fatalf("Publish() = %v", err)
+	}
+	service := newService(memory.NewProcedureTypeVersionRepository())
+	if _, err := service.Pinned(ctx, first.Pin()); !errors.Is(err, output.ErrVersionNotFound) {
+		t.Errorf("Pinned() of a lost version = %v, want ErrVersionNotFound", err)
+	}
+	other := testDefinition()
+	other.Name = "Otro trámite"
+	again, err := service.Publish(ctx, publication(1, 0, other))
+	if err != nil {
+		t.Fatalf("Publish() = %v", err)
+	}
+	if _, err := service.Pinned(ctx, first.Pin()); !errors.Is(err, version.ErrNotPinnedVersion) {
+		t.Errorf("Pinned() of a version published again = %v, want ErrNotPinnedVersion", err)
+	}
+	if got, err := service.Pinned(ctx, again.Pin()); err != nil || got.Digest != again.Digest {
+		t.Errorf("Pinned() of the stored version = %s, %v, want %s", got.Digest, err, again.Digest)
+	}
+}
+
+func TestPinnedVersionAltered(t *testing.T) {
+	ctx := context.Background()
+	versions := memory.NewProcedureTypeVersionRepository()
+	tamper(t, versions)
+	stored, err := versions.Get(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
+	if _, err := newService(versions).Pinned(ctx, stored.Pin()); !errors.Is(err, version.ErrAlteredContent) {
+		t.Errorf("Pinned() of an altered version = %v, want ErrAlteredContent", err)
+	}
+}
+
 // A stale Latest misses the last version, as if another publication had added
 // it right after this one read the latest. Losing the race is rejected even
 // with the same content: publishing again returns the stored version.
 func TestConcurrentPublications(t *testing.T) {
 	ctx := context.Background()
-	versions := &fakeVersions{ProcedureVersions: memory.NewProcedureVersions()}
-	service := newService(versions, applicant)
+	versions := &fakeVersions{ProcedureTypeVersionRepository: memory.NewProcedureTypeVersionRepository()}
+	service := newService(versions)
 	if _, err := service.Publish(ctx, publication(1, 0, testDefinition())); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
@@ -269,7 +351,7 @@ func TestConcurrentPublications(t *testing.T) {
 
 func TestCatalog(t *testing.T) {
 	ctx := context.Background()
-	service := newService(memory.NewProcedureVersions(), applicant)
+	service := newService(memory.NewProcedureTypeVersionRepository())
 	changed := testDefinition()
 	changed.Name = "Trámite cambiado"
 	for _, p := range []input.Publication{
@@ -306,13 +388,85 @@ func TestCatalog(t *testing.T) {
 }
 
 func TestCatalogWithUnreadableContent(t *testing.T) {
-	versions := memory.NewProcedureVersions()
+	versions := memory.NewProcedureTypeVersionRepository()
 	encoded := []byte(`{"format":99}`)
 	v := version.ProcedureTypeVersion{ProcedureTypeID: 1, Number: 1, Digest: version.Digest(encoded), EncodedContent: encoded, Authorship: authors}
 	if err := versions.Add(context.Background(), v); err != nil {
 		t.Fatalf("Add() = %v", err)
 	}
-	if entries, err := newService(versions, applicant).Catalog(context.Background()); err == nil {
+	if entries, err := newService(versions).Catalog(context.Background()); err == nil {
 		t.Errorf("Catalog() = %+v, want an error", entries)
+	}
+}
+
+func TestPublishAsksForTheSecretariatPermissions(t *testing.T) {
+	ctx := context.Background()
+	membership := func(id, userID string, scope []int64, permissions ...string) authdomain.Membership {
+		return authdomain.Membership{ID: id, UserID: userID, Area: authinput.SecretariatArea, Permissions: permissions, Scope: scope}
+	}
+	sameIDElsewhere := authdomain.Area{ID: "office", Name: "Oficina", Permissions: []authdomain.Permission{
+		{ID: authinput.EditProcedureTypes, Name: "Editar"},
+		{ID: authinput.PublishProcedureTypes, Name: "Publicar"},
+	}}
+	tests := []struct {
+		name          string
+		memberships   []authdomain.Membership
+		procedureType int64
+		want          error
+	}{
+		{name: "proposer edits and approver publishes", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.EditProcedureTypes),
+			membership("m2", "beto", nil, authinput.PublishProcedureTypes),
+		}, procedureType: 1},
+		{name: "proposer cannot edit", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.PublishProcedureTypes),
+			membership("m2", "beto", nil, authinput.PublishProcedureTypes),
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
+		{name: "approver cannot publish", memberships: []authdomain.Membership{
+			membership("m1", "ana", nil, authinput.EditProcedureTypes),
+			membership("m2", "beto", nil, authinput.EditProcedureTypes),
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
+		{name: "the same permissions in another area are not enough", memberships: []authdomain.Membership{
+			{ID: "m1", UserID: "ana", Area: "office", Permissions: []string{authinput.EditProcedureTypes}},
+			{ID: "m2", UserID: "beto", Area: "office", Permissions: []string{authinput.PublishProcedureTypes}},
+		}, procedureType: 1, want: proceduredomain.ErrAccessDenied},
+		{name: "a scope covers its procedure types", memberships: []authdomain.Membership{
+			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
+			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
+		}, procedureType: 1},
+		{name: "a scope does not cover a new procedure type", memberships: []authdomain.Membership{
+			membership("m1", "ana", []int64{1}, authinput.EditProcedureTypes),
+			membership("m2", "beto", []int64{1}, authinput.PublishProcedureTypes),
+		}, procedureType: 2, want: proceduredomain.ErrAccessDenied},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			areas := authmem.NewAreaRepository(sameIDElsewhere)
+			if err := authapp.EnsureSecretariat(ctx, areas); err != nil {
+				t.Fatalf("EnsureSecretariat() = %v", err)
+			}
+			memberships := authmem.NewMembershipRepository(tt.memberships...)
+			administrators := authmem.NewAdministratorRepository()
+			service := NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(),
+				authapp.NewAreaService(areas, administrators, memberships, time.Now),
+				authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now),
+				time.Now)
+			if _, err := service.Publish(ctx, publication(tt.procedureType, 0, testDefinition())); !errors.Is(err, tt.want) {
+				t.Errorf("Publish() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAStepCannotAskForAPlatformPermission(t *testing.T) {
+	d := testDefinition()
+	d.Steps[0].Next = "edit"
+	d.Steps = append(d.Steps, definition.Step{
+		ID: "edit", Name: "Edición", Role: definition.RoleStaff, Area: authinput.SecretariatArea,
+		Permissions: []string{authinput.EditProcedureTypes}, Action: definition.ActionConfirmExternalFact,
+	})
+	_, err := newService(memory.NewProcedureTypeVersionRepository()).Publish(context.Background(), publication(1, 0, d))
+	if !errors.Is(err, definition.ErrInvalidDefinition) {
+		t.Fatalf("Publish() = %v, want %v", err, definition.ErrInvalidDefinition)
 	}
 }

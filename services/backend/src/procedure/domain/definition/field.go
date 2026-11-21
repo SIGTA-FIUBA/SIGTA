@@ -2,6 +2,7 @@ package definition
 
 import (
 	"mime"
+	"slices"
 	"strings"
 )
 
@@ -36,8 +37,11 @@ type Document struct {
 	Name string `json:"name"`
 	// AcceptedTypes are media types, such as "application/pdf".
 	AcceptedTypes []string `json:"accepted_types,omitempty"`
-	// MaxSize is in bytes.
-	MaxSize int64 `json:"max_size,omitempty"`
+	MaxSizeBytes  int64    `json:"max_size,omitempty"`
+	// Resolution marks the document that resolves the procedure, which its
+	// applicant downloads once it closes. It says nothing about the result
+	// of the procedure, which is not modeled (ADR-009).
+	Resolution bool `json:"resolution,omitempty"`
 }
 
 func validateFields(fields []Field, seen map[string]bool) []ValidationProblem {
@@ -67,12 +71,14 @@ func validateDocuments(documents []Document, seen map[string]bool) []ValidationP
 			switch {
 			case !validMediaType(mediaType):
 				problems = append(problems, ValidationProblem{Code: CodeInvalidAcceptedType, Path: []Element{ref}, Value: mediaType})
+			case !slices.Contains(DetectedTypes, mediaType):
+				problems = append(problems, ValidationProblem{Code: CodeUndetectedAcceptedType, Path: []Element{ref}, Value: mediaType})
 			case accepted[mediaType]:
 				problems = append(problems, ValidationProblem{Code: CodeRepeatedAcceptedType, Path: []Element{ref}, Value: mediaType})
 			}
 			accepted[mediaType] = true
 		}
-		if doc.MaxSize <= 0 {
+		if doc.MaxSizeBytes <= 0 {
 			problems = append(problems, ValidationProblem{Code: CodeNoMaxSize, Path: []Element{ref}})
 		}
 	}
@@ -84,6 +90,46 @@ func validateDocuments(documents []Document, seen map[string]bool) []ValidationP
 func validMediaType(value string) bool {
 	parsed, _, err := mime.ParseMediaType(value)
 	return err == nil && parsed == value && strings.Contains(value, "/") && !strings.Contains(value, "*")
+}
+
+// DetectedTypes are the types that the upload can recognize in a file, the
+// only ones a document can accept: the upload checks the type it detects in
+// the content, not the one the browser sends. They are the ones that
+// http.DetectContentType returns, without parameters, except
+// application/octet-stream, which it returns for any content it does not
+// recognize. A Word or OpenDocument file is detected as application/zip, so
+// those formats cannot be asked for yet.
+var DetectedTypes = []string{
+	"application/ogg",
+	"application/pdf",
+	"application/postscript",
+	"application/vnd.ms-fontobject",
+	"application/wasm",
+	"application/x-gzip",
+	"application/x-rar-compressed",
+	"application/zip",
+	"audio/aiff",
+	"audio/midi",
+	"audio/mpeg",
+	"audio/wave",
+	"font/collection",
+	"font/otf",
+	"font/ttf",
+	"font/woff",
+	"font/woff2",
+	"image/bmp",
+	"image/gif",
+	"image/jpeg",
+	"image/png",
+	"image/vnd.microsoft.icon",
+	"image/webp",
+	"image/x-icon",
+	"text/html",
+	"text/plain",
+	"text/xml",
+	"video/avi",
+	"video/mp4",
+	"video/webm",
 }
 
 func validateOptions(f Field) []ValidationProblem {

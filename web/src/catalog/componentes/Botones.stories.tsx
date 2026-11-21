@@ -12,7 +12,7 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Buttons and the controls that act on a click. Each story shows the component
 // as SIGTA uses it; the controls of the first one try every property.

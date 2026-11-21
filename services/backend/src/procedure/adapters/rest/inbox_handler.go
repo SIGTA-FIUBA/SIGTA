@@ -6,36 +6,30 @@ import (
 	"strconv"
 
 	"backend/src/api"
+	authinput "backend/src/auth/ports/input"
+	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/inbox"
-	ports "backend/src/procedure/ports/input"
+	"backend/src/procedure/ports/input"
 )
 
-// ErrNoSession is what an Authenticate returns when the request has no valid
-// session.
-var ErrNoSession = errors.New("no valid session")
+var _ api.InboxServer = (*InboxHandler)(nil)
 
-// Authenticate tells who has the session, as the auth module knows them. The
-// procedure module does not depend on the auth module: the composition root
-// joins them.
-type Authenticate func(ctx context.Context, sessionToken string) (inbox.Person, error)
-
+// The use case decides what the inbox shows: this handler only finds who is
+// behind the session and the names of the applicants.
 type InboxHandler struct {
-	inbox        ports.Inbox
-	authenticate Authenticate
+	auth   authinput.Authenticator
+	people authinput.People
+	inbox  input.Inbox
 }
 
-func NewInboxHandler(inbox ports.Inbox, authenticate Authenticate) *InboxHandler {
-	return &InboxHandler{inbox: inbox, authenticate: authenticate}
+func NewInboxHandler(auth authinput.Authenticator, people authinput.People, inbox input.Inbox) *InboxHandler {
+	return &InboxHandler{auth: auth, people: people, inbox: inbox}
 }
 
 func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProceduresRequestObject) (api.ListProceduresResponseObject, error) {
-	token := ""
-	if req.Params.SigtaSession != nil {
-		token = *req.Params.SigtaSession
-	}
-	person, err := h.authenticate(ctx, token)
-	if errors.Is(err, ErrNoSession) {
-		return api.ListProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: "Iniciá sesión para continuar."}}, nil
+	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
+	if authinput.Unauthenticated(err) {
+		return api.ListProcedures401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: messageSignIn}}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -43,14 +37,22 @@ func (h *InboxHandler) ListProcedures(ctx context.Context, req api.ListProcedure
 	if !validParams(req.Params) {
 		return api.ListProcedures400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Message: api.InvalidRequestMessage}}, nil
 	}
-	list, err := h.inbox.List(ctx, person, queryOf(req.Params))
-	if errors.Is(err, ports.ErrNotStaff) {
-		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal de la Secretaría."}}, nil
+	list, err := h.inbox.List(ctx, user.ID, queryOf(req.Params))
+	if errors.Is(err, input.ErrNotStaff) {
+		return api.ListProcedures403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Message: "La bandeja es solo para el personal."}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.ListProcedures200JSONResponse(procedureList(list)), nil
+	applicants := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		applicants = append(applicants, item.ApplicantID)
+	}
+	names, err := h.people.Names(ctx, applicants)
+	if err != nil {
+		return nil, err
+	}
+	return api.ListProcedures200JSONResponse(procedureList(list, names)), nil
 }
 
 // validParams rejects values the contract does not list: the generated code
@@ -70,7 +72,7 @@ func queryOf(p api.ListProceduresParams) inbox.Query {
 		q.ProcedureType = *p.ProcedureType
 	}
 	if p.State != nil {
-		q.State = inbox.State(*p.State)
+		q.State = domain.State(*p.State)
 	}
 	if p.Area != nil {
 		q.Area = *p.Area
@@ -81,38 +83,35 @@ func queryOf(p api.ListProceduresParams) inbox.Query {
 	return q
 }
 
-func procedureList(list inbox.List) api.ProcedureList {
+func procedureList(list inbox.List, names map[string]string) api.ProcedureList {
 	response := api.ProcedureList{
 		Items:          make([]api.ProcedureListItem, 0, len(list.Items)),
 		ProcedureTypes: make([]api.NamedOption, 0, len(list.ProcedureTypes)),
 		Areas:          make([]api.NamedOption, 0, len(list.Areas)),
 	}
 	for _, item := range list.Items {
-		response.Items = append(response.Items, api.ProcedureListItem{
+		listItem := api.ProcedureListItem{
 			Id:                item.ID,
 			ProcedureType:     item.ProcedureType,
 			ProcedureTypeName: item.ProcedureTypeName,
-			ApplicantName:     item.ApplicantName,
+			Applicant:         person(item.ApplicantID, names),
 			StepName:          item.StepName,
-			Area:              item.Area.ID,
-			AreaName:          item.Area.Name,
 			State:             api.ProcedureState(item.State),
 			Actionable:        item.Actionable,
 			StartedAt:         item.StartedAt,
 			LastMovedAt:       item.LastMovedAt,
 			AgeDays:           item.AgeDays,
-			DaysReferred:      item.DaysReferred,
-		})
+		}
+		if item.Area != nil {
+			listItem.Area = &api.NamedOption{Id: item.Area.ID, Name: item.Area.Name}
+		}
+		response.Items = append(response.Items, listItem)
 	}
 	for _, option := range list.ProcedureTypes {
-		response.ProcedureTypes = append(response.ProcedureTypes, api.NamedOption{Id: idText(option.ID), Name: option.Name})
+		response.ProcedureTypes = append(response.ProcedureTypes, api.NamedOption{Id: strconv.FormatInt(option.ID, 10), Name: option.Name})
 	}
 	for _, option := range list.Areas {
 		response.Areas = append(response.Areas, api.NamedOption{Id: option.ID, Name: option.Name})
 	}
 	return response
-}
-
-func idText(id int64) string {
-	return strconv.FormatInt(id, 10)
 }

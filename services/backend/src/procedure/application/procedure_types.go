@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	authinput "backend/src/auth/ports/input"
 	"backend/src/procedure/domain/catalog"
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/submission"
 	"backend/src/procedure/domain/version"
 	"backend/src/procedure/ports/input"
 	"backend/src/procedure/ports/output"
@@ -16,22 +19,26 @@ import (
 var _ input.ProcedureTypes = (*ProcedureTypeService)(nil)
 
 type ProcedureTypeService struct {
-	versions output.ProcedureVersions
-	areas    output.AreaCatalog
-	now      func() time.Time
+	versions        output.ProcedureTypeVersionRepository
+	areas           authinput.Areas
+	staffAuthorizer authinput.StaffAuthorizer
+	now             func() time.Time
 }
 
-func NewProcedureTypeService(versions output.ProcedureVersions, areas output.AreaCatalog, now func() time.Time) *ProcedureTypeService {
-	return &ProcedureTypeService{versions: versions, areas: areas, now: now}
+func NewProcedureTypeService(versions output.ProcedureTypeVersionRepository, areas authinput.Areas, staffAuthorizer authinput.StaffAuthorizer, now func() time.Time) *ProcedureTypeService {
+	return &ProcedureTypeService{versions: versions, areas: areas, staffAuthorizer: staffAuthorizer, now: now}
 }
 
 func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication) (version.ProcedureTypeVersion, error) {
 	if err := p.Authorship.Validate(); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
 	}
-	areas, err := s.areas.List(ctx)
+	if err := s.authorize(ctx, p); err != nil {
+		return version.ProcedureTypeVersion{}, err
+	}
+	areas, err := s.currentStaffAreas(ctx)
 	if err != nil {
-		return version.ProcedureTypeVersion{}, fmt.Errorf("list areas: %w", err)
+		return version.ProcedureTypeVersion{}, err
 	}
 	if err := p.Definition.Validate(areas); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d: %w", p.ProcedureType, err)
@@ -76,6 +83,28 @@ func (s *ProcedureTypeService) Publish(ctx context.Context, p input.Publication)
 	return v, nil
 }
 
+// currentStaffAreas leaves out the platform permissions: they enable a
+// function of SIGTA, so a step that asks for one asks for a permission that does not
+// exist.
+func (s *ProcedureTypeService) currentStaffAreas(ctx context.Context) ([]definition.Area, error) {
+	authAreas, err := s.areas.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list areas: %w", err)
+	}
+	areas := make([]definition.Area, 0, len(authAreas))
+	for _, a := range authAreas {
+		area := definition.Area{ID: a.ID, Name: a.Name}
+		for _, p := range a.Permissions {
+			if p.System {
+				continue
+			}
+			area.Permissions = append(area.Permissions, definition.Permission{ID: p.ID, Name: p.Name})
+		}
+		areas = append(areas, area)
+	}
+	return areas, nil
+}
+
 func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error) {
 	v, err := s.versions.Get(ctx, procedureType, number)
 	if err != nil {
@@ -83,6 +112,17 @@ func (s *ProcedureTypeService) Version(ctx context.Context, procedureType int64,
 	}
 	if err := check(v, procedureType, number); err != nil {
 		return version.ProcedureTypeVersion{}, fmt.Errorf("procedure type %d version %d: %w", procedureType, number, err)
+	}
+	return v, nil
+}
+
+func (s *ProcedureTypeService) Pinned(ctx context.Context, pin version.Pin) (version.ProcedureTypeVersion, error) {
+	v, err := s.Version(ctx, pin.ProcedureTypeID, pin.Number)
+	if err != nil {
+		return version.ProcedureTypeVersion{}, err
+	}
+	if err := pin.Check(v); err != nil {
+		return version.ProcedureTypeVersion{}, err
 	}
 	return v, nil
 }
@@ -102,15 +142,18 @@ func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntr
 			return nil, fmt.Errorf("procedure type %d version %d: %w", v.ProcedureTypeID, v.Number, err)
 		}
 		fields, documents := catalog.ApplicantRequirements(content)
+		submissionFields, submissionDocuments := submission.Requirements(content.Definition)
 		entries = append(entries, input.CatalogEntry{
-			ProcedureType: v.ProcedureTypeID,
-			Version:       v.Number,
-			Name:          content.Definition.Name,
-			Description:   content.Definition.Description,
-			Deadlines:     content.Definition.Deadlines,
-			Admissibility: content.Definition.Admissibility,
-			Fields:        fields,
-			Documents:     documents,
+			ProcedureType:       v.ProcedureTypeID,
+			Version:             v.Number,
+			Name:                content.Definition.Name,
+			Description:         content.Definition.Description,
+			Deadlines:           content.Definition.Deadlines,
+			Admissibility:       content.Definition.Admissibility,
+			Fields:              fields,
+			Documents:           documents,
+			SubmissionFields:    submission.Fields(submissionFields),
+			SubmissionDocuments: submission.Documents(submissionDocuments),
 		})
 	}
 	return entries, nil
@@ -121,7 +164,7 @@ func (s *ProcedureTypeService) Catalog(ctx context.Context) ([]input.CatalogEntr
 // it would hide the alteration.
 func (s *ProcedureTypeService) latest(ctx context.Context, procedureType int64) (version.ProcedureTypeVersion, error) {
 	v, err := s.versions.Latest(ctx, procedureType)
-	if errors.Is(err, output.ErrNoVersion) {
+	if errors.Is(err, output.ErrVersionNotFound) {
 		return version.ProcedureTypeVersion{}, nil
 	}
 	if err != nil {
@@ -158,4 +201,29 @@ func sameContent(v version.ProcedureTypeVersion, encoded []byte) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(again, encoded), nil
+}
+
+// authorize asks that whoever proposed the version can edit procedure types,
+// and whoever approved it can publish them, in the Secretariat (ADR-020). The
+// scope of their memberships counts: someone limited to some procedure types
+// cannot create a new one, whose ID no scope lists.
+func (s *ProcedureTypeService) authorize(ctx context.Context, p input.Publication) error {
+	authors := []struct {
+		userID     string
+		permission string
+		action     string
+	}{
+		{p.Authorship.ProposedBy, authinput.EditProcedureTypes, "propose"},
+		{p.Authorship.ApprovedBy, authinput.PublishProcedureTypes, "approve"},
+	}
+	for _, author := range authors {
+		holds, err := s.staffAuthorizer.Holds(ctx, author.userID, authinput.SecretariatArea, p.ProcedureType, []string{author.permission})
+		if err != nil {
+			return fmt.Errorf("permissions of %s in %s: %w", author.userID, authinput.SecretariatArea, err)
+		}
+		if !holds {
+			return fmt.Errorf("procedure type %d: %w", p.ProcedureType, denied(author.userID, author.action+" a version"))
+		}
+	}
+	return nil
 }

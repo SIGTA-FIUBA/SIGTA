@@ -5,60 +5,81 @@ Feature: Procedure inbox
   so that I do not go through spreadsheets or mailboxes.
 
   Background:
-    Given these procedures in progress:
-      | id  | procedure type      | open step          | area                 | area kind | profile         | started days ago | moved days ago |
-      | p-1 | subject equivalence | Record file number | Students office      | office    | staff_operative | 3                | 3              |
-      | p-2 | credit recognition  | Sign resolution    | Students office      | office    | staff_approver  | 20               | 2              |
-      | p-3 | subject equivalence | Ruling             | Curricular committee | external  |                 | 30               | 12             |
-      | p-4 | credit recognition  | Requested document | Applicant            | applicant |                 | 8                | 1              |
+    Given these procedure types:
+      | procedure type      | step               | done by                          |
+      | subject equivalence | Request            | the applicant                    |
+      | subject equivalence | Record file number | Students office, "record"        |
+      | subject equivalence | Ruling             | Curricular committee, "evaluate" |
+      | credit recognition  | Requested document | the applicant                    |
+      | credit recognition  | Sign resolution    | Students office, "sign"          |
+    And these memberships:
+      | staff                | area                 | permissions  | procedure types    |
+      | operative@fi.uba.ar  | Students office      | record       |                    |
+      | approver@fi.uba.ar   | Students office      | record, sign |                    |
+      | credits@fi.uba.ar    | Students office      | record, sign | credit recognition |
+      | commission@fi.uba.ar | Curricular committee | evaluate     |                    |
+    And these procedures in progress:
+      | id  | procedure type      | applicant         | open step          | started days ago | moved days ago |
+      | p-1 | subject equivalence | lucia@fi.uba.ar   | Record file number | 3                | 3              |
+      | p-2 | credit recognition  | martin@fi.uba.ar  | Sign resolution    | 20               | 2              |
+      | p-3 | subject equivalence | sofia@fi.uba.ar   | Ruling             | 30               | 12             |
+      | p-4 | credit recognition  | tomas@fi.uba.ar   | Requested document | 8                | 1              |
 
-  Scenario: the inbox shows what an operative profile can act on
-    When a staff member with the "staff_operative" profile opens their inbox
+  Scenario: the inbox shows the procedures whose open step the staff member holds the permissions for
+    When "operative@fi.uba.ar" opens their inbox
     Then it lists the procedures "p-1"
 
-  Scenario: the approval profile also acts on the operative steps
-    When a staff member with the "staff_approver" profile opens their inbox
+  Scenario: whoever holds the permissions of several steps sees all of them
+    When "approver@fi.uba.ar" opens their inbox
     Then it lists the procedures "p-2, p-1"
 
-  Scenario: each item shows its procedure type, pending step and age
-    When a staff member with the "staff_operative" profile opens their inbox
+  Scenario: each item shows its procedure type, applicant, pending step and age
+    When "operative@fi.uba.ar" opens their inbox
     Then "p-1" shows the procedure type "subject equivalence"
+    And "p-1" shows the applicant "lucia@fi.uba.ar"
     And "p-1" shows the pending step "Record file number" in "Students office"
     And "p-1" is 3 days old
 
-  Scenario: every procedure in progress can be listed, not only the actionable ones
-    When a staff member with the "staff_operative" profile lists all the procedures
+  Scenario: every procedure in progress that goes through the area can be listed, not only the actionable ones
+    When "operative@fi.uba.ar" lists all the procedures
     Then it lists the procedures "p-3, p-2, p-4, p-1"
     And "p-1" is marked as actionable
     And "p-2" is not marked as actionable
 
   Scenario Outline: each item states the state derived from its open step
-    When a staff member with the "staff_operative" profile lists all the procedures
+    When "operative@fi.uba.ar" lists all the procedures
     Then "<id>" is in the state "<state>"
 
     Examples:
       | id  | state          |
       | p-1 | in_office      |
-      | p-3 | referred       |
+      | p-3 | in_office      |
       | p-4 | with_applicant |
 
-  Scenario: a referred procedure shows how long it has been without return
-    When a staff member with the "staff_operative" profile lists all the procedures
-    Then "p-3" has been referred for 12 days
-    And "p-1" shows no referral days
+  Scenario: a step of the applicant shows no area
+    When "operative@fi.uba.ar" lists all the procedures
+    Then "p-4" shows the pending step "Requested document" with no area
 
-  Scenario: a staff member sees only the procedure types they hold a profile in
-    Given a staff member holds the "staff_operative" profile only in "credit recognition"
-    When they list all the procedures
+  Scenario: a membership limited to some procedure types sees only those
+    When "credits@fi.uba.ar" lists all the procedures
     Then it lists the procedures "p-2, p-4"
 
-  Scenario: the profile held in each procedure type decides what needs action
-    Given a staff member holds the "staff_operative" profile in "credit recognition" and the "staff_approver" profile in "subject equivalence"
-    When they open their inbox
+  Scenario: an area sees only the procedure types that go through it
+    When "commission@fi.uba.ar" lists all the procedures
+    Then it lists the procedures "p-3, p-1"
+
+  Scenario: a closed procedure is not in the inbox
+    Given the procedure "p-1" has no open step
+    When "operative@fi.uba.ar" lists all the procedures
+    Then it lists the procedures "p-3, p-2, p-4"
+
+  Scenario: a staff member does not find their own procedure in the inbox
+    Given "operative@fi.uba.ar" has a procedure "p-5" of "subject equivalence" waiting on "Record file number"
+    When "operative@fi.uba.ar" opens their inbox
     Then it lists the procedures "p-1"
 
-  Scenario: an applicant cannot open the inbox
-    When an applicant asks for the inbox
+  Scenario: someone with no membership cannot open the inbox
+    When "lucia@fi.uba.ar" asks for the inbox
     Then they are told the inbox is only for the staff
 
   Scenario: someone without a session cannot open the inbox

@@ -24,7 +24,7 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Components that place other components on the screen. Each item is a panel
 // with a border, so the space between them shows the layout.

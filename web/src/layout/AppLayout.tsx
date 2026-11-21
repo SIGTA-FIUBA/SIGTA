@@ -15,19 +15,13 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
-import { useProcedures } from '../api/procedures'
-import { MenuIcon, type MenuIconName } from '../components/MenuIcon/MenuIcon'
-import { logout, type optionalSession } from '../session'
+import { useInboxProcedures } from '../api/procedures'
+import { logout, type optionalSession } from '../api/session'
 import { AppHeader } from './AppHeader'
+import { MenuIcon, type MenuIconName } from './MenuIcon'
 import { UserMenu } from './UserMenu'
 
-const profileNames: Record<string, string> = {
-  applicant: 'Titular',
-  staff_operative: 'Perfil operativo',
-  staff_approver: 'Perfil de aprobación',
-}
-
-type MenuLink = { to: string; label: string; icon: MenuIconName; active: boolean; pending?: number }
+type MenuLink = { to: string; label: string; icon: MenuIconName; active: boolean; actionableCount?: number }
 
 // AppLayout frames every page: the faculty's logo and the account menu on
 // top, the menu on the left in the faculty's light blue, and the page beside
@@ -39,11 +33,11 @@ export function AppLayout() {
   const { pathname } = useLocation()
   const [menuOpen, { toggle: toggleMenu, close: closeMenu }] = useDisclosure(false)
   const [logoutFailed, setLogoutFailed] = useState(false)
-  const staff = user !== null && user.role !== 'applicant'
+  const staff = user?.staff === true
   // The menu shows how many procedures need action; the inbox shares the
   // request, so it costs nothing more.
-  const procedures = useProcedures(staff)
-  const pending = procedures.data?.items.filter((item) => item.actionable).length
+  const procedures = useInboxProcedures(staff)
+  const actionableCount = procedures.data?.items.filter((item) => item.actionable).length
 
   async function handleLogout() {
     if (await logout()) {
@@ -61,7 +55,7 @@ export function AppLayout() {
             to: '/inbox',
             label: 'Bandeja de trámites',
             icon: 'inbox' as const,
-            pending,
+            actionableCount,
             active: pathname.startsWith('/inbox') || pathname.startsWith('/procedures'),
           },
         ]
@@ -116,14 +110,14 @@ export function AppLayout() {
                   label={link.label}
                   leftSection={<MenuIcon name={link.icon} />}
                   rightSection={
-                    link.pending !== undefined && link.pending > 0 ? (
+                    link.actionableCount ? (
                       <Badge
                         variant={link.active ? 'white' : 'filled'}
                         size="sm"
                         circle
-                        aria-label={`${link.pending} con acción requerida`}
+                        aria-label={`${link.actionableCount} con acción requerida`}
                       >
-                        {link.pending}
+                        {link.actionableCount}
                       </Badge>
                     ) : undefined
                   }
@@ -144,7 +138,7 @@ export function AppLayout() {
                     {user.name}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {profileNames[user.role]}
+                    {user.staff ? 'Personal' : 'Titular'}
                   </Text>
                 </Stack>
               </Group>

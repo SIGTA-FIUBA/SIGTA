@@ -1,7 +1,7 @@
 import { ActionBar, Button, Checkbox, Stack, Text, Toolbar } from '@mantine/core'
 import { type ReactNode, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Bars that group the actions on a list. ActionBar appears while there is a
 // selection; Toolbar stays above the list.

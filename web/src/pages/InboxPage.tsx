@@ -13,44 +13,29 @@ import {
   Text,
   Title,
 } from '@mantine/core'
-import { Link, useLocation, useOutletContext, useSearchParams } from 'react-router'
-import { ForbiddenError, useProcedures } from '../api/procedures'
+import { Link, useLocation, useSearchParams } from 'react-router'
+import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { stateColors, stateNames } from '../content/procedureStates'
 
-type Item = components['schemas']['ProcedureListItem']
-type State = components['schemas']['ProcedureState']
-type View = components['schemas']['ProcedureListView']
-type Sort = components['schemas']['ProcedureListSort']
-type User = components['schemas']['User']
+type ProcedureListItem = components['schemas']['ProcedureListItem']
+type ProcedureState = components['schemas']['ProcedureState']
+type ProcedureListView = components['schemas']['ProcedureListView']
+type ProcedureListSort = components['schemas']['ProcedureListSort']
 
-const stateNames: Record<State, string> = {
-  in_office: 'En la Secretaría',
-  referred: 'En evaluación externa',
-  with_applicant: 'Pendiente del titular',
-}
-
-const stateColors: Record<State, string> = {
-  in_office: 'fiuba',
-  referred: 'orange',
-  with_applicant: 'gray',
-}
-
-const profileNames: Record<string, string> = {
-  staff_operative: 'Perfil operativo',
-  staff_approver: 'Perfil de aprobación',
-}
+const inboxStates: ProcedureState[] = ['in_office', 'referred', 'with_applicant']
 
 const sortOptions = [
   { value: 'oldest', label: 'Mayor antigüedad' },
   { value: 'last_moved', label: 'Movimiento más reciente' },
 ]
 
-const stateOptions = (Object.keys(stateNames) as State[]).map((state) => ({ value: state, label: stateNames[state] }))
+const stateOptions = inboxStates.map((state) => ({ value: state, label: stateNames[state] }))
 
 type Filters = {
-  view: View
-  sort: Sort
-  state?: State
+  view: ProcedureListView
+  sort: ProcedureListSort
+  state?: ProcedureState
   procedureType?: number
   area?: string
 }
@@ -63,7 +48,7 @@ function readFilters(params: URLSearchParams): Filters {
   return {
     view: params.get('view') === 'all' ? 'all' : 'mine',
     sort: params.get('sort') === 'last_moved' ? 'last_moved' : 'oldest',
-    state: state !== null && state in stateNames ? (state as State) : undefined,
+    state: inboxStates.find((known) => known === state),
     procedureType: Number.isInteger(type) && type > 0 ? type : undefined,
     area: params.get('area') ?? undefined,
   }
@@ -72,17 +57,17 @@ function readFilters(params: URLSearchParams): Filters {
 // The API applies who can see what and what needs action. The page asks once
 // for everything visible and filters, sorts and counts it here, which is only
 // presentation: the list is small, since it holds procedures in progress.
-function matches(item: Item, filters: Filters) {
+function matchesFilters(item: ProcedureListItem, filters: Filters) {
   return (
     (filters.view === 'all' || item.actionable) &&
     (filters.state === undefined || item.state === filters.state) &&
     (filters.procedureType === undefined || item.procedure_type === filters.procedureType) &&
-    (filters.area === undefined || item.area === filters.area)
+    (filters.area === undefined || item.area?.id === filters.area)
   )
 }
 
-function compare(sort: Sort) {
-  return (a: Item, b: Item) => {
+function compare(sort: ProcedureListSort) {
+  return (a: ProcedureListItem, b: ProcedureListItem) => {
     const byDate =
       sort === 'last_moved'
         ? Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
@@ -108,10 +93,6 @@ function movedText(timestamp: string) {
     return 'Hoy'
   }
   return days === 1 ? 'Hace 1 día' : `Hace ${days} días`
-}
-
-function referredText(days: number) {
-  return days === 1 ? '1 día sin retorno' : `${days} días sin retorno`
 }
 
 type Tile = { key: string; label: string; count: number; hint: string; selected: boolean; onSelect: () => void }
@@ -146,30 +127,29 @@ function SummaryTile({ tile }: { tile: Tile }) {
   )
 }
 
-function StateCell({ item }: { item: Item }) {
+function StateBadge({ item }: { item: ProcedureListItem }) {
   return (
-    <Stack gap="xs" align="flex-start">
-      <Badge variant="light" color={stateColors[item.state]}>
-        {stateNames[item.state]}
-      </Badge>
-      {item.days_referred !== undefined && (
-        <Text size="xs" c="orange.9" fw={600}>
-          {referredText(item.days_referred)}
-        </Text>
-      )}
-    </Stack>
+    <Badge variant="light" color={stateColors[item.state]}>
+      {stateNames[item.state]}
+    </Badge>
   )
 }
 
-function ItemLink({ item, from }: { item: Item; from: string }) {
+// A step of the applicant has no area: the applicant is shown as the one in
+// charge.
+function responsibleText(item: ProcedureListItem) {
+  return item.area?.name ?? 'Titular'
+}
+
+function ProcedureLink({ item, from }: { item: ProcedureListItem; from: string }) {
   return (
     <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
-      {item.applicant_name}
+      {item.applicant.name || 'Titular sin nombre registrado'}
     </Anchor>
   )
 }
 
-function ActionBadge({ item, show }: { item: Item; show: boolean }) {
+function ActionBadge({ item, show }: { item: ProcedureListItem; show: boolean }) {
   return show && item.actionable ? (
     <Badge variant="filled" size="sm">
       Acción requerida
@@ -177,7 +157,15 @@ function ActionBadge({ item, show }: { item: Item; show: boolean }) {
   ) : null
 }
 
-function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; showAction: boolean }) {
+function ProceduresTable({
+  items,
+  from,
+  showAction,
+}: {
+  items: ProcedureListItem[]
+  from: string
+  showAction: boolean
+}) {
   return (
     <Table.ScrollContainer minWidth={860} visibleFrom="md">
       <Table verticalSpacing="sm" highlightOnHover>
@@ -195,7 +183,7 @@ function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; 
             <Table.Tr key={item.id}>
               <Table.Td>
                 <Stack gap={0}>
-                  <ItemLink item={item} from={from} />
+                  <ProcedureLink item={item} from={from} />
                   <Text size="sm" c="dimmed">
                     {item.procedure_type_name}
                   </Text>
@@ -208,12 +196,12 @@ function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; 
                     <ActionBadge item={item} show={showAction} />
                   </Group>
                   <Text size="sm" c="dimmed">
-                    {item.area_name}
+                    {responsibleText(item)}
                   </Text>
                 </Stack>
               </Table.Td>
               <Table.Td>
-                <StateCell item={item} />
+                <StateBadge item={item} />
               </Table.Td>
               <Table.Td ta="right">{ageText(item.age_days)}</Table.Td>
               <Table.Td ta="right">
@@ -229,7 +217,15 @@ function ItemsTable({ items, from, showAction }: { items: Item[]; from: string; 
   )
 }
 
-function ItemCards({ items, from, showAction }: { items: Item[]; from: string; showAction: boolean }) {
+function ProcedureCards({
+  items,
+  from,
+  showAction,
+}: {
+  items: ProcedureListItem[]
+  from: string
+  showAction: boolean
+}) {
   return (
     <Stack gap="sm" hiddenFrom="md">
       {items.map((item) => (
@@ -237,14 +233,12 @@ function ItemCards({ items, from, showAction }: { items: Item[]; from: string; s
           <Stack gap="xs">
             <Group justify="space-between" align="flex-start" gap="xs">
               <Stack gap={0}>
-                <ItemLink item={item} from={from} />
+                <ProcedureLink item={item} from={from} />
                 <Text size="sm" c="dimmed">
                   {item.procedure_type_name}
                 </Text>
               </Stack>
-              <Badge variant="light" color={stateColors[item.state]}>
-                {stateNames[item.state]}
-              </Badge>
+              <StateBadge item={item} />
             </Group>
             <Stack gap={0}>
               <Group gap="xs">
@@ -252,17 +246,15 @@ function ItemCards({ items, from, showAction }: { items: Item[]; from: string; s
                 <ActionBadge item={item} show={showAction} />
               </Group>
               <Text size="sm" c="dimmed">
-                {item.area_name}
+                {responsibleText(item)}
               </Text>
             </Stack>
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
                 Iniciado hace {ageText(item.age_days).toLowerCase()}
               </Text>
-              <Text size="sm" c={item.days_referred !== undefined ? 'orange.9' : 'dimmed'}>
-                {item.days_referred !== undefined
-                  ? referredText(item.days_referred)
-                  : `Último movimiento: ${movedText(item.last_moved_at).toLowerCase()}`}
+              <Text size="sm" c="dimmed">
+                Último movimiento: {movedText(item.last_moved_at).toLowerCase()}
               </Text>
             </Group>
           </Stack>
@@ -275,15 +267,14 @@ function ItemCards({ items, from, showAction }: { items: Item[]; from: string; s
 export function InboxPage() {
   const [params, setParams] = useSearchParams()
   const location = useLocation()
-  const user = useOutletContext<User | null | undefined>()
   const filters = readFilters(params)
 
-  const list = useProcedures()
+  const procedures = useInboxProcedures()
 
-  function update(changes: Record<string, string | null>) {
+  function updateParams(changes: Record<string, string | null>) {
     const next = new URLSearchParams(params)
     for (const [name, value] of Object.entries(changes)) {
-      if (value === null || value === '') {
+      if (value === null) {
         next.delete(name)
       } else {
         next.set(name, value)
@@ -292,55 +283,52 @@ export function InboxPage() {
     setParams(next, { replace: true })
   }
 
-  const all = list.data?.items ?? []
-  const count = (state: State) => all.filter((item) => item.state === state).length
-  const actionable = all.filter((item) => item.actionable).length
-  const shown = all.filter((item) => matches(item, filters)).sort(compare(filters.sort))
-  const filtered = filters.procedureType !== undefined || filters.state !== undefined || filters.area !== undefined
+  const all = procedures.data?.items ?? []
+  const countByState = (state: ProcedureState) => all.filter((item) => item.state === state).length
+  const actionableCount = all.filter((item) => item.actionable).length
+  const shown = all.filter((item) => matchesFilters(item, filters)).sort(compare(filters.sort))
+  const hasFilters = filters.procedureType !== undefined || filters.state !== undefined || filters.area !== undefined
   const from = `${location.pathname}${location.search}`
 
-  const stateTile = (state: State, hint: string): Tile => ({
+  const stateTile = (state: ProcedureState, hint: string): Tile => ({
     key: state,
     label: stateNames[state],
-    count: count(state),
+    count: countByState(state),
     hint,
     selected: filters.view === 'all' && filters.state === state,
-    onSelect: () => update({ view: 'all', state: filters.state === state ? null : state }),
+    onSelect: () => updateParams({ view: 'all', state: filters.state === state ? null : state }),
   })
   const tiles: Tile[] = [
     {
       key: 'mine',
       label: 'Acción requerida',
-      count: actionable,
-      hint: 'Instancias asignadas a este perfil',
-      selected: filters.view === 'mine' && !filtered,
-      onSelect: () => update({ view: null, state: null, type: null, area: null }),
+      count: actionableCount,
+      hint: 'Pasos abiertos que exigen los permisos de esta cuenta',
+      selected: filters.view === 'mine' && !hasFilters,
+      onSelect: () => updateParams({ view: null, state: null, type: null, area: null }),
     },
-    stateTile('in_office', 'En áreas de la Secretaría'),
-    stateTile('referred', 'Derivados a evaluadores externos'),
+    stateTile('in_office', 'En las áreas del personal'),
+    stateTile('referred', 'En otra área, sin volver todavía al área de la que salió'),
     stateTile('with_applicant', 'Documentación o datos solicitados'),
   ]
 
   return (
     <Stack gap="lg">
-      <Stack gap={0}>
-        <Title order={1}>Bandeja de trámites</Title>
-        {user != null && profileNames[user.role] !== undefined && <Text c="dimmed">{profileNames[user.role]}</Text>}
-      </Stack>
+      <Title order={1}>Bandeja de trámites</Title>
 
-      {list.isPending && <Loader aria-label="Cargando los trámites" />}
-      {list.isError && list.error instanceof ForbiddenError && (
-        <Alert role="alert">La bandeja de trámites está disponible solo para el personal de la Secretaría.</Alert>
+      {procedures.isPending && <Loader aria-label="Cargando los trámites" />}
+      {procedures.isError && procedures.error instanceof ForbiddenError && (
+        <Alert role="alert">La bandeja de trámites está disponible solo para el personal.</Alert>
       )}
-      {list.isError && !(list.error instanceof ForbiddenError) && (
+      {procedures.isError && !(procedures.error instanceof ForbiddenError) && (
         <Alert color="red" role="alert">
           No se pudo cargar la bandeja de trámites. Volvé a intentarlo más tarde.
         </Alert>
       )}
 
-      {list.isSuccess && (
+      {procedures.isSuccess && (
         <>
-          <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+          <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
             {tiles.map((tile) => (
               <SummaryTile key={tile.key} tile={tile} />
             ))}
@@ -352,9 +340,9 @@ export function InboxPage() {
                 <SegmentedControl
                   aria-label="Trámites a mostrar"
                   value={filters.view}
-                  onChange={(value) => update({ view: value === 'mine' ? null : value })}
+                  onChange={(value) => updateParams({ view: value === 'mine' ? null : value })}
                   data={[
-                    { value: 'mine', label: `Asignados (${actionable})` },
+                    { value: 'mine', label: `Asignados (${actionableCount})` },
                     { value: 'all', label: `Todos (${all.length})` },
                   ]}
                 />
@@ -363,9 +351,9 @@ export function InboxPage() {
                     label="Tipo de trámite"
                     placeholder="Todos"
                     clearable
-                    data={list.data.procedure_types.map((option) => ({ value: option.id, label: option.name }))}
+                    data={procedures.data.procedure_types.map((option) => ({ value: option.id, label: option.name }))}
                     value={filters.procedureType === undefined ? null : String(filters.procedureType)}
-                    onChange={(value) => update({ type: value })}
+                    onChange={(value) => updateParams({ type: value })}
                   />
                   <Select
                     label="Estado"
@@ -373,38 +361,38 @@ export function InboxPage() {
                     clearable
                     data={stateOptions}
                     value={filters.state ?? null}
-                    onChange={(value) => update({ state: value })}
+                    onChange={(value) => updateParams({ state: value })}
                   />
                   <Select
                     label="Responsable"
                     placeholder="Todos"
                     clearable
-                    data={list.data.areas.map((option) => ({ value: option.id, label: option.name }))}
+                    data={procedures.data.areas.map((option) => ({ value: option.id, label: option.name }))}
                     value={filters.area ?? null}
-                    onChange={(value) => update({ area: value })}
+                    onChange={(value) => updateParams({ area: value })}
                   />
                   <Select
                     label="Ordenar por"
                     allowDeselect={false}
                     data={sortOptions}
                     value={filters.sort}
-                    onChange={(value) => update({ sort: value === 'oldest' ? null : value })}
+                    onChange={(value) => updateParams({ sort: value === 'oldest' ? null : value })}
                   />
                 </Group>
               </Group>
 
               {shown.length === 0 ? (
                 <Text c="dimmed" p="md">
-                  {filtered
+                  {hasFilters
                     ? 'No hay trámites que coincidan con los filtros.'
                     : filters.view === 'mine'
-                      ? 'No hay trámites que requieran acción de este perfil.'
+                      ? 'No hay trámites que requieran acción de esta cuenta.'
                       : 'No hay trámites en curso.'}
                 </Text>
               ) : (
                 <>
-                  <ItemsTable items={shown} from={from} showAction={filters.view === 'all'} />
-                  <ItemCards items={shown} from={from} showAction={filters.view === 'all'} />
+                  <ProceduresTable items={shown} from={from} showAction={filters.view === 'all'} />
+                  <ProcedureCards items={shown} from={from} showAction={filters.view === 'all'} />
                 </>
               )}
               <Text size="sm" c="dimmed" p="md" aria-live="polite">

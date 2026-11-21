@@ -2,12 +2,10 @@ package output
 
 import (
 	"context"
-	"time"
 
 	"backend/src/auth/domain"
 )
 
-// Identity is what an identity provider asserts about whoever just logged in.
 type Identity struct {
 	Subject string
 	Email   string
@@ -26,27 +24,4 @@ type IdentityProvider interface {
 	// sending the PKCE code verifier and checking the ID token's nonce
 	// against the pending login.
 	Exchange(ctx context.Context, code string, pending domain.PendingLogin) (Identity, error)
-}
-
-// UserRepository stores users. Emails arrive already normalized.
-type UserRepository interface {
-	// FindByEmail and FindByID fail with domain.ErrUnknownUser if there is no
-	// such user.
-	FindByEmail(ctx context.Context, email string) (domain.User, error)
-	FindByID(ctx context.Context, id string) (domain.User, error)
-	// Register adds a user and returns it. If the email is already registered
-	// it returns that user instead, so two first logins of the same person at
-	// once do not create two users.
-	Register(ctx context.Context, user domain.User) (domain.User, error)
-}
-
-// SessionStore stores open sessions by the hash of their token.
-type SessionStore interface {
-	Save(ctx context.Context, session domain.Session) error
-	// Find and Touch fail with domain.ErrSessionNotFound if there is no such
-	// session.
-	Find(ctx context.Context, tokenHash string) (domain.Session, error)
-	Touch(ctx context.Context, tokenHash string, seenAt time.Time) error
-	// Delete does not fail if the session is already gone.
-	Delete(ctx context.Context, tokenHash string) error
 }

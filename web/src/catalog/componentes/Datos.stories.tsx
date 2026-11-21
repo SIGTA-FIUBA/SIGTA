@@ -26,7 +26,7 @@ import {
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Components that show data: tables, states, people, panels and lists. Each
 // story shows the component as SIGTA uses it; the controls of the first ones

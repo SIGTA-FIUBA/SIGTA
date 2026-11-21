@@ -1,9 +1,111 @@
-import { Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import { Alert, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
 import { Link, useOutletContext } from 'react-router'
+import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { applicantSteps, principles, staffSteps } from '../content/platform'
+import { applicantHowTo, principles, staffHowTo } from '../content/platform'
+import { stateColors, stateNames } from '../content/procedureStates'
 
 type User = components['schemas']['User']
+type MyProcedure = components['schemas']['MyProcedure']
+
+const dateFormat = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'America/Argentina/Buenos_Aires',
+})
+
+function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
+  return (
+    <Paper
+      component={Link}
+      to={`/procedures/${encodeURIComponent(procedure.id)}`}
+      variant="interactive"
+      withBorder
+      p="md"
+      td="none"
+      c="inherit"
+    >
+      <Stack gap="xs">
+        <Group justify="space-between" gap="xs" align="flex-start">
+          <Text fw={600} c="fiuba.7">
+            {procedure.procedure_type_name}
+          </Text>
+          <Badge variant="light" color={stateColors[procedure.state]}>
+            {stateNames[procedure.state]}
+          </Badge>
+        </Group>
+        {procedure.state === 'closed' ? (
+          <Text size="sm" c="dimmed">
+            Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
+          </Text>
+        ) : (
+          <>
+            {procedure.correction_pending && (
+              <Text size="sm" fw={600} c="fiuba.7">
+                Subsanación pendiente del titular
+              </Text>
+            )}
+            <Text size="sm">Paso actual: {procedure.step_name}</Text>
+            <Text size="sm" c="dimmed">
+              Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
+            </Text>
+          </>
+        )}
+      </Stack>
+    </Paper>
+  )
+}
+
+function MyProcedureGrid({ procedures }: { procedures: MyProcedure[] }) {
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+      {procedures.map((procedure) => (
+        <MyProcedureCard key={procedure.id} procedure={procedure} />
+      ))}
+    </SimpleGrid>
+  )
+}
+
+// MyProceduresSection lists what the person started, so that signing in
+// answers where each procedure is. The closed ones go apart, for their
+// applicant to reach the resolution.
+function MyProceduresSection() {
+  const myProcedures = useMyProcedures()
+  const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []
+  const closed = myProcedures.data?.filter((procedure) => procedure.state === 'closed') ?? []
+  return (
+    <>
+      <section aria-labelledby="my-procedures">
+        <Stack gap="sm">
+          <Title order={2} id="my-procedures" size="h4">
+            Mis trámites en curso
+          </Title>
+          {myProcedures.isPending && <Loader aria-label="Cargando los trámites" />}
+          {myProcedures.isError && (
+            <Alert color="red" role="alert">
+              No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+            </Alert>
+          )}
+          {myProcedures.isSuccess && inProgress.length === 0 && (
+            <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
+          )}
+          {inProgress.length > 0 && <MyProcedureGrid procedures={inProgress} />}
+        </Stack>
+      </section>
+      {closed.length > 0 && (
+        <section aria-labelledby="my-closed-procedures">
+          <Stack gap="sm">
+            <Title order={2} id="my-closed-procedures" size="h4">
+              Mis trámites cerrados
+            </Title>
+            <MyProcedureGrid procedures={closed} />
+          </Stack>
+        </section>
+      )}
+    </>
+  )
+}
 
 type Shortcut = { to: string; title: string; text: string }
 
@@ -23,9 +125,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
 }
 
 export function HomePage() {
-  // The layout passes the person with the session; outside it there is none.
-  const user = useOutletContext<User | null | undefined>()
-  const staff = user != null && user.role !== 'applicant'
+  const { staff } = useOutletContext<User>()
 
   const shortcuts: Shortcut[] = [
     ...(staff
@@ -33,7 +133,7 @@ export function HomePage() {
           {
             to: '/inbox',
             title: 'Bandeja de trámites',
-            text: 'Trámites en curso y acciones pendientes del perfil.',
+            text: 'Trámites en curso y acciones pendientes de la cuenta.',
           },
         ]
       : []),
@@ -43,7 +143,7 @@ export function HomePage() {
       text: 'Requisitos, plazos y documentación de cada trámite.',
     },
   ]
-  const steps = staff ? staffSteps : applicantSteps
+  const howTo = staff ? staffHowTo : applicantHowTo
 
   return (
     <Stack gap="xl">
@@ -57,6 +157,8 @@ export function HomePage() {
           académicos de la facultad, del inicio a la resolución.
         </Text>
       </Stack>
+
+      <MyProceduresSection />
 
       <section aria-labelledby="shortcuts">
         <Stack gap="sm">
@@ -77,8 +179,8 @@ export function HomePage() {
             {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
           </Title>
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
-            {steps.map((step, index) => (
-              <Paper key={step.title} withBorder p="lg">
+            {howTo.map((item, index) => (
+              <Paper key={item.title} withBorder p="lg">
                 <Stack gap="sm">
                   <ThemeIcon variant="light" radius="xl" aria-hidden>
                     <Text size="sm" fw={700}>
@@ -86,10 +188,10 @@ export function HomePage() {
                     </Text>
                   </ThemeIcon>
                   <Title order={3} size="h5">
-                    {step.title}
+                    {item.title}
                   </Title>
                   <Text size="sm" c="dimmed">
-                    {step.text}
+                    {item.text}
                   </Text>
                 </Stack>
               </Paper>

@@ -19,10 +19,10 @@ func TestApplicantRequirements(t *testing.T) {
 		},
 		Documents: []definition.Document{{ID: "shared", Name: "Documento"}, {ID: "minutes", Name: "Acta"}},
 		Steps: []definition.Step{
-			{ID: "data", Area: "applicant", Fields: []string{"shared"}, OptionalFields: []string{"note", "both"}},
-			{ID: "again", Area: "applicant", Fields: []string{"both"}, OptionalFields: []string{"shared"}},
-			{ID: "documents", Area: "applicant", OptionalDocuments: []string{"shared"}},
-			{ID: "review", Area: "office", Fields: []string{"staff"}, Documents: []string{"minutes"}},
+			{ID: "data", Role: definition.RoleApplicant, Fields: []string{"shared"}, OptionalFields: []string{"note", "both"}},
+			{ID: "again", Role: definition.RoleApplicant, Fields: []string{"both"}, OptionalFields: []string{"shared"}},
+			{ID: "documents", Role: definition.RoleApplicant, OptionalDocuments: []string{"shared"}},
+			{ID: "review", Role: definition.RoleStaff, Area: "office", Fields: []string{"staff"}, Documents: []string{"minutes"}},
 		},
 	}, definitiontest.Areas())
 

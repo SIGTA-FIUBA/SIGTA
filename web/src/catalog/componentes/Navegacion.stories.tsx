@@ -24,7 +24,7 @@ import {
   useTree,
 } from '@mantine/core'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MenuIcon } from '../../components/MenuIcon/MenuIcon'
+import { MenuIcon } from '../../layout/MenuIcon'
 
 // Links and the controls that move between pages or parts of a page. Each story
 // shows the component as SIGTA uses it.

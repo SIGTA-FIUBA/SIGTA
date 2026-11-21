@@ -74,6 +74,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trámites de la persona con sesión abierta
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         */
+        get: operations["listMyProcedures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedure-types": {
         parameters: {
             query?: never;
@@ -87,7 +107,231 @@ export interface paths {
          */
         get: operations["listProcedureTypes"];
         put?: never;
+        /**
+         * Crea el borrador de un tipo de trámite nuevo
+         * @description Para quien tiene el permiso de proponer en el área de diseño de trámites, sin alcance limitado a algunos tipos (ADR-013). El tipo de trámite recibe un número que no tiene otro tipo ni otro borrador, y no aparece en el catálogo hasta que se aprueba su primera versión. El borrador puede estar incompleto: problems dice qué le falta.
+         */
+        post: operations["createProcedureType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-type-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Borradores de tipos de trámite
+         * @description Los que la persona puede proponer o aprobar, por número de tipo de trámite.
+         */
+        get: operations["listProcedureTypeDrafts"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Borrador de un tipo de trámite
+         * @description Para quien puede proponerlo o aprobarlo.
+         */
+        get: operations["getProcedureTypeDraft"];
+        /**
+         * Reemplaza la definición del borrador
+         * @description Para quien puede proponer en ese tipo de trámite, mientras el borrador no está propuesto. revision es la del borrador que se editó: si cambió desde entonces, no se guarda.
+         */
+        put: operations["editProcedureTypeDraft"];
+        /**
+         * Abre el borrador de una versión nueva
+         * @description Para quien puede proponer en ese tipo de trámite. Empieza con la definición de la última versión publicada. Un tipo de trámite tiene a lo sumo un borrador.
+         */
+        post: operations["openProcedureTypeDraft"];
+        /**
+         * Descarta el borrador
+         * @description Para quien puede proponer en ese tipo de trámite, mientras el borrador no está propuesto.
+         */
+        delete: operations["discardProcedureTypeDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propone el borrador para que otra persona lo apruebe
+         * @description Para quien puede proponer en ese tipo de trámite. La definición tiene que ser válida con las áreas actuales: si no, responde 422 con los problemas. Mientras está propuesto, el borrador no se edita.
+         */
+        post: operations["proposeProcedureTypeDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rechaza la propuesta y la devuelve a edición
+         * @description Para quien puede aprobar en ese tipo de trámite y no la propuso. El motivo queda en el borrador hasta que se vuelve a proponer.
+         */
+        post: operations["rejectProcedureTypeDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedure-types/{procedureTypeId}/draft/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aprueba la propuesta y la publica como versión nueva
+         * @description Para quien puede aprobar en ese tipo de trámite y no la propuso. Valida la definición con las áreas actuales y la publica con quién la propuso, quién la aprobó y la fecha; el borrador se borra. Una versión publicada no cambia, y los trámites en curso siguen con la suya. Si otra versión se publicó desde que se abrió el borrador, responde 409. Si la definición es igual a la última versión, no publica nada y devuelve esa versión.
+         */
+        post: operations["approveProcedureTypeDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crea un área del personal
+         * @description Solo para administradores (ADR-020). El identificador queda fijo: va en minúsculas, empieza con una letra y no puede ser el de un área existente o dada de baja, ni el de la Secretaría (secretariat), que trae SIGTA. El nombre no puede repetir el de otra área. El área empieza sin permisos ni roles.
+         */
+        post: operations["createArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crea un permiso en un área del personal
+         * @description Solo para administradores (ADR-020). Los permisos son de un área y los exigen los pasos del personal de esa área. El identificador queda fijo y no puede repetir el de otro permiso del área, aunque esté dado de baja. El nombre no puede repetir el de otro permiso del área. En la Secretaría están reservados edit_procedure_types y publish_procedure_types, que trae SIGTA.
+         */
+        post: operations["createPermission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crea un rol en un área del personal
+         * @description Solo para administradores (ADR-020). Un rol agrupa permisos del área para otorgarlos juntos. El identificador queda fijo y no puede repetir el de otro rol del área, aunque esté dado de baja. El nombre no puede repetir el de otro rol del área.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{areaId}/roles/{roleId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reemplaza los permisos de un rol
+         * @description Solo para administradores (ADR-020). Cambia al instante lo que puede hacer cada persona con una membresía que tiene el rol. El cambio queda registrado con quién y cuándo.
+         */
+        put: operations["updateRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Otorga una membresía a una persona
+         * @description Solo para administradores (ADR-020). La membresía pone a la persona en un área con algunos de sus roles y permisos, opcionalmente solo para algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de otra membresía vigente de la misma persona.
+         */
+        post: operations["grantMembership"];
         delete?: never;
         options?: never;
         head?: never;
@@ -103,9 +347,162 @@ export interface paths {
         };
         /**
          * Bandeja y listado de trámites del personal
-         * @description Solo para el personal. Con view=mine devuelve lo que el perfil de quien mira puede hacer ahora; con view=all, todos los trámites en curso. Los filtros se combinan. Las opciones de filtro salen de todos los trámites de la vista, sin filtrar, para que elegir un filtro no haga desaparecer los demás.
+         * @description Solo para el personal, quien tiene al menos una membresía vigente (ADR-020). Con view=mine devuelve los trámites cuyo paso abierto puede hacer quien mira; con view=all, todos los trámites en curso que puede ver: los de los tipos de trámite que cubren sus membresías y que pasan por sus áreas. Los trámites cerrados no aparecen. Los filtros se combinan. Las opciones de filtro salen de todos los trámites de la vista, sin filtrar, para que elegir un filtro no haga desaparecer los demás.
          */
         get: operations["listProcedures"];
+        put?: never;
+        /**
+         * Inicia un trámite
+         * @description Inicia un trámite a nombre de quien tiene la sesión, sea o no del personal, con la última versión del tipo de trámite. Lleva los datos y documentos que piden los pasos del titular antes del primer paso del personal (submission en el catálogo), y deja el trámite en el paso siguiente. Se crea todo o nada. El servidor reconoce el tipo de cada archivo por su contenido y lo compara con los tipos y el tamaño máximo del documento.
+         */
+        post: operations["submitProcedure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detalle de un trámite
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Muestra su estado, su titular, el paso abierto y los pasos de la versión con la que se inició, con quién hace cada uno, los datos y documentos que pide y sus salidas, y el historial de los pasos hechos. Al titular no le muestra lo que el personal escribe en cada área: ni quién hizo cada paso del personal (ve el área), ni las observaciones, ni el número de expediente externo, ni los datos y documentos de los pasos del personal, salvo la resolución cuando el trámite se cierra (as_applicant). Para quien no lo ve, el trámite no existe.
+         */
+        get: operations["getProcedure"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/steps/{stepId}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirma el paso abierto de un trámite
+         * @description Lo confirma quien tiene, en el área del paso, los permisos que el paso exige, con una observación. Quién confirma y cuándo los pone el servidor. El trámite pasa al paso siguiente: el configurado o, en una decisión, el de la salida elegida. Pasar a un paso de otra área lo deriva, y volver al área de la que salió es el retorno (ADR-020). Un paso que ocurrió fuera de SIGTA queda registrado como declarado por quien lo confirma (ADR-004). Los pasos del titular no se confirman: los completa el titular. Mientras haya una subsanación pendiente, el paso no se confirma.
+         */
+        post: operations["confirmStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/steps/{stepId}/correction-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pide una subsanación al titular sobre el paso abierto
+         * @description La pide quien puede confirmar el paso abierto, que tiene que ser del personal. Dice qué falta, con datos y documentos que piden los pasos del titular, y por qué. El trámite no cambia de paso: queda con el titular, y el paso no se confirma, hasta que el titular responda. Se puede pedir más de una sobre el mismo trámite. También canaliza lo que pide ampliar un evaluador externo. Quién la pide y cuándo los pone el servidor.
+         */
+        post: operations["requestCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carga un dato que pide una subsanación pendiente
+         * @description Solo el titular, y solo un dato que pide una subsanación pendiente. El valor se valida como al iniciar el trámite y queda en el paso del titular que pide ese dato, junto con los anteriores, y en el historial. Cargarlo no responde la subsanación: eso es enviar la respuesta.
+         */
+        post: operations["enterProcedureValue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/correction-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envía la respuesta a las subsanaciones pendientes
+         * @description Solo el titular. Responde todas las subsanaciones pendientes, y exige que cada dato y documento que piden se haya cargado de nuevo después del último pedido que lo nombra; si falta alguno, responde 400 con un mensaje que los nombra. El trámite vuelve al personal en el mismo paso abierto, y la respuesta queda en el historial.
+         */
+        post: operations["answerCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Documentos adjuntos a un trámite
+         * @description Para quien puede ver el trámite: su titular y el personal de las áreas por las que pasa. Están en el orden en que se adjuntaron, incluidos los que otro documento reemplazó. Al titular le muestra solo los que ve en el detalle: los de sus pasos y la resolución cuando el trámite se cierra.
+         */
+        get: operations["listProcedureDocuments"];
+        put?: never;
+        /**
+         * Adjunta un documento a un trámite
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), o la subsanación que pedía el documento ya se respondió, responde 409.
+         */
+        post: operations["attachProcedureDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/procedures/{procedureId}/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Descarga el archivo de un documento adjunto
+         * @description Para quien puede ver el trámite. Al titular, un documento que no ve en el detalle le responde como uno que no existe. Las cabeceras piden al navegador que guarde el archivo en vez de mostrarlo, y que no lo interprete si igual lo abre.
+         */
+        get: operations["downloadProcedureDocument"];
         put?: never;
         post?: never;
         delete?: never;
@@ -126,13 +523,46 @@ export interface components {
          * @enum {string}
          */
         LoginError: "state_mismatch" | "rejected" | "domain_not_allowed";
-        /** @enum {string} */
-        Role: "applicant" | "staff_operative" | "staff_approver";
+        /**
+         * @description Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
+         * @enum {string}
+         */
+        ProcedureState: "with_applicant" | "in_office" | "referred" | "closed";
+        NamedOption: {
+            id: string;
+            name: string;
+        };
+        Person: {
+            id: string;
+            /** @description Vacío si la persona no está registrada */
+            name: string;
+        };
+        StepOutcome: {
+            id: string;
+            name: string;
+            /** @description Paso al que lleva esa salida */
+            next: string;
+            /** @description Si la salida devuelve el trámite a un paso anterior */
+            send_back: boolean;
+        };
+        /**
+         * @description Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
+         * @enum {string}
+         */
+        StepRole: "applicant" | "staff";
         FieldRequirement: {
             id: string;
             name: string;
             required: boolean;
+            type: components["schemas"]["FieldType"];
+            /** @description Opciones de un campo option, vacío en los demás tipos. Se envía el id */
+            options: components["schemas"]["NamedOption"][];
         };
+        /**
+         * @description Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+         * @enum {string}
+         */
+        FieldType: "text" | "long_text" | "number" | "date" | "option" | "degree" | "subject_list";
         DocumentRequirement: {
             id: string;
             name: string;
@@ -144,10 +574,13 @@ export interface components {
              * @description Tamaño máximo en bytes
              */
             max_size: number;
+            /** @description Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009). */
+            resolution: boolean;
         };
         CatalogEntry: {
             /** Format: int64 */
             id: number;
+            /** Format: int64 */
             version: number;
             name: string;
             description: string;
@@ -156,9 +589,37 @@ export interface components {
             admissibility: string[];
             fields: components["schemas"]["FieldRequirement"][];
             documents: components["schemas"]["DocumentRequirement"][];
+            submission: components["schemas"]["SubmissionForm"];
+        };
+        /** @description Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación. */
+        SubmissionForm: {
+            fields: components["schemas"]["FieldRequirement"][];
+            documents: components["schemas"]["DocumentRequirement"][];
+        };
+        StartedProcedure: {
+            id: string;
+            state: components["schemas"]["ProcedureState"];
+            /** @description Paso que espera el trámite; falta si quedó cerrado */
+            open_step?: string;
+        };
+        SubmissionProblem: {
+            /**
+             * @description missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+             * @enum {string}
+             */
+            code: "missing" | "invalid" | "not_asked" | "repeated" | "type_not_accepted" | "too_large" | "empty";
+            /** @enum {string} */
+            kind: "field" | "document";
+            /** @description Identificador del campo o del documento */
+            id: string;
+        };
+        SubmissionRejected: {
+            message: string;
+            /** @description Vacío si el pedido está mal formado */
+            problems: components["schemas"]["SubmissionProblem"][];
         };
         /**
-         * @description mine: lo que el perfil de quien mira puede hacer ahora. all: todos los trámites en curso.
+         * @description mine: los trámites cuyo paso abierto puede hacer quien mira. all: todos los trámites en curso que puede ver.
          * @default mine
          * @enum {string}
          */
@@ -169,40 +630,28 @@ export interface components {
          * @enum {string}
          */
         ProcedureListSort: "oldest" | "last_moved";
-        /**
-         * @description Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
-         * @enum {string}
-         */
-        ProcedureState: "with_applicant" | "in_office" | "referred";
-        NamedOption: {
-            id: string;
-            name: string;
-        };
         ProcedureListItem: {
             id: string;
             /** Format: int64 */
             procedure_type: number;
             procedure_type_name: string;
-            applicant_name: string;
-            /** @description Paso abierto, el que se espera ahora */
+            applicant: components["schemas"]["Person"];
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name: string;
-            /** @description Área responsable del paso abierto */
-            area: string;
-            area_name: string;
+            /** @description Área del paso abierto; ausente si lo hace el titular */
+            area?: components["schemas"]["NamedOption"];
             state: components["schemas"]["ProcedureState"];
-            /** @description Si el perfil de quien mira puede hacer el paso abierto */
+            /** @description Si quien mira tiene los permisos que exige el paso abierto */
             actionable: boolean;
             /** Format: date-time */
             started_at: string;
             /**
              * Format: date-time
-             * @description Cuándo el trámite llegó al paso abierto
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
             /** @description Días desde que empezó el trámite */
             age_days: number;
-            /** @description Solo si está derivado: días que lleva en el evaluador externo sin retorno */
-            days_referred?: number;
         };
         ProcedureList: {
             items: components["schemas"]["ProcedureListItem"][];
@@ -211,15 +660,417 @@ export interface components {
             /** @description Áreas responsables presentes en la vista, para filtrar */
             areas: components["schemas"]["NamedOption"][];
         };
+        /** @description Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra. */
+        ProcedureTypeDefinition: {
+            name: string;
+            description?: string;
+            deadlines?: string[];
+            admissibility?: string[];
+            fields?: components["schemas"]["DefinitionField"][];
+            documents?: components["schemas"]["DefinitionDocument"][];
+            steps: components["schemas"]["DefinitionStep"][];
+        };
+        DefinitionField: {
+            id: string;
+            name: string;
+            /** @description text, long_text, number, date, option, degree o subject_list */
+            type: string;
+            options?: components["schemas"]["FieldOption"][];
+        };
+        FieldOption: {
+            id: string;
+            name: string;
+        };
+        DefinitionDocument: {
+            id: string;
+            name: string;
+            accepted_types?: string[];
+            /** Format: int64 */
+            max_size?: number;
+            /** @description Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009). */
+            resolution?: boolean;
+        };
+        DefinitionStep: {
+            id: string;
+            name: string;
+            /** @description applicant o staff */
+            role?: string;
+            area?: string;
+            permissions?: string[];
+            /** @description enter_data, upload_document, confirm_external_fact o decide */
+            action: string;
+            fields?: string[];
+            optional_fields?: string[];
+            documents?: string[];
+            optional_documents?: string[];
+            outcomes?: components["schemas"]["StepOutcome"][];
+            next?: string;
+        };
+        /** @description Algo que falla en una definición. code es estable: la pantalla arma su propio texto con él y ubica el problema con path, del elemento más externo al más interno. text está en inglés, para registros. */
+        DefinitionProblem: {
+            code: string;
+            path: components["schemas"]["ProblemElement"][];
+            value?: string;
+            other?: string;
+            text: string;
+        };
+        ProblemElement: {
+            /** @description definition, area, permission, field, option, document, step, outcome, deadline o admissibility */
+            kind: string;
+            id?: string;
+            /** @description Para plazos y condiciones, que no tienen id. Empieza en 1 */
+            position?: number;
+        };
+        InvalidDefinition: {
+            message: string;
+            problems: components["schemas"]["DefinitionProblem"][];
+        };
+        /**
+         * @description editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+         * @enum {string}
+         */
+        DraftStatus: "editing" | "proposed";
+        DraftRejection: {
+            by: string;
+            /** Format: date-time */
+            at: string;
+            reason: string;
+        };
+        ProcedureTypeDraft: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            /** @description La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna */
+            base: number;
+            /** @description Crece con cada cambio. Cada cambio dice sobre cuál se hizo */
+            revision: number;
+            status: components["schemas"]["DraftStatus"];
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+            edited_by: string;
+            /** Format: date-time */
+            edited_at: string;
+            /** @description Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza */
+            editors: string[];
+            proposed_by?: string;
+            /** Format: date-time */
+            proposed_at?: string;
+            rejection?: components["schemas"]["DraftRejection"];
+            /** @description Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer */
+            problems: components["schemas"]["DefinitionProblem"][];
+        };
+        NewProcedureType: {
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+        };
+        DraftEdit: {
+            revision: number;
+            definition: components["schemas"]["ProcedureTypeDefinition"];
+        };
+        DraftRevision: {
+            revision: number;
+        };
+        DraftRejectionRequest: {
+            revision: number;
+            reason: string;
+        };
+        PublishedVersion: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            number: number;
+            digest: string;
+            proposed_by: string;
+            approved_by: string;
+            /** Format: date-time */
+            published_at: string;
+        };
         User: {
             id: string;
             /** Format: email */
             email: string;
             name: string;
-            role: components["schemas"]["Role"];
+            /** @description Si tiene al menos una membresía vigente (ADR-020). Cualquiera puede iniciar trámites, sea o no del personal; el personal no actúa en los pasos del personal de sus propios trámites */
+            staff: boolean;
+            /** @description Si puede otorgar y dar de baja membresías. No da acceso a los trámites */
+            administrator: boolean;
+        };
+        Area: {
+            id: string;
+            name: string;
+            permissions: components["schemas"]["Permission"][];
+            roles: components["schemas"]["Role"][];
+        };
+        /** @description Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento */
+        Role: {
+            id: string;
+            name: string;
+            /** @description Identificadores de permisos del área */
+            permissions: string[];
+        };
+        NewRole: {
+            /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
+            id: string;
+            name: string;
+            /** @description Identificadores de permisos del área, al menos uno */
+            permissions: string[];
+        };
+        RolePermissions: {
+            /** @description Identificadores de permisos del área, al menos uno */
+            permissions: string[];
+        };
+        NewArea: {
+            /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
+            id: string;
+            name: string;
+        };
+        Permission: {
+            id: string;
+            name: string;
+        };
+        NewPermission: {
+            /** @description Minúsculas, dígitos y guiones bajos, empezando con una letra */
+            id: string;
+            name: string;
+        };
+        /** @description Necesita al menos un rol o un permiso del área */
+        NewMembership: {
+            user_id: string;
+            /** @description Identificador del área */
+            area: string;
+            /** @description Identificadores de roles del área */
+            roles?: string[];
+            /** @description Identificadores de permisos del área, sueltos */
+            permissions?: string[];
+            /** @description Tipos de trámite a los que se limita. Vacío o ausente vale para todos, incluidos los que se publiquen después */
+            scope?: number[];
+            /**
+             * Format: date-time
+             * @description Desde cuándo vale. Ausente vale desde ahora
+             */
+            from?: string;
+            /**
+             * Format: date-time
+             * @description Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+             */
+            until?: string;
+        };
+        Membership: {
+            id: string;
+            user_id: string;
+            area: string;
+            roles: string[];
+            permissions: string[];
+            scope: number[];
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            until?: string;
+            granted_by: string;
+        };
+        StepConfirmation: {
+            /** @description Qué se hizo o se verificó. No puede quedar vacía */
+            observation: string;
+            /** @description Identificador de la salida elegida; solo en un paso decide */
+            outcome?: string;
+            /** @description Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite */
+            external_file_number?: string;
+        };
+        NewCorrectionRequest: {
+            /** @description Por qué se pide. No puede quedar vacío */
+            reason: string;
+            /** @description Identificadores de los datos que se piden, de los que piden los pasos del titular */
+            fields?: string[];
+            /** @description Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno */
+            documents?: string[];
+        };
+        /** @description Subsanación pedida que el titular todavía no respondió */
+        CorrectionRequest: {
+            /** @description Paso abierto sobre el que se pidió */
+            step: string;
+            /** @description Quién la pidió. Ausente para el titular: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
+            /** Format: date-time */
+            at: string;
+            reason: string;
+            fields: string[];
+            documents: string[];
+        };
+        /** @description Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite. */
+        HistoryCorrectionRequest: {
+            fields: string[];
+            documents: string[];
+        };
+        ProcedureEvent: {
+            /** @description Paso hecho, o el paso abierto en el que se adjuntó el documento */
+            step: string;
+            /** @description Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona. */
+            by?: components["schemas"]["Person"];
+            /** Format: date-time */
+            at: string;
+            observation: string;
+            /** @description Salida elegida; ausente si el paso no es decide */
+            outcome?: string;
+            /** @description Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004) */
+            declared: boolean;
+            /** @description Si el evento devuelve el trámite a un paso anterior; la observación es entonces el motivo */
+            send_back: boolean;
+            /** @description Paso que abre; ausente si cierra el trámite */
+            next?: string;
+            referral?: components["schemas"]["Referral"];
+            /** @description Si devuelve el trámite al área de la que se había derivado */
+            returned: boolean;
+            document?: components["schemas"]["HistoryDocument"];
+            correction_request?: components["schemas"]["HistoryCorrectionRequest"];
+            value?: components["schemas"]["HistoryValue"];
+            /** @description Lo que pedían las subsanaciones que respondió el titular; ausente en los demás eventos. Responderlas no avanza el trámite: vuelve al personal en el mismo paso. */
+            correction_answer?: components["schemas"]["HistoryCorrectionRequest"];
+        };
+        /** @description El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso. */
+        HistoryValue: {
+            field: string;
+        };
+        NewProcedureValue: {
+            /** @description Identificador del dato */
+            field: string;
+            /** @description El valor; para subject_list va items */
+            text?: string;
+            items?: string[];
+        };
+        /** @description Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite. */
+        HistoryDocument: {
+            /** @description Identificador del archivo adjuntado, el mismo de ProcedureDocument */
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            file_name: string;
+        };
+        /** @description Paso del trámite a otra área (ADR-020) */
+        Referral: {
+            /** @description Identificador del área de la que sale */
+            from: string;
+            /** @description Identificador del área a la que se deriva */
+            to: string;
+            external_file_number?: string;
+        };
+        MyProcedure: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            procedure_type_name: string;
+            /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
+            step_name?: string;
+            state: components["schemas"]["ProcedureState"];
+            /** @description Si el titular tiene una subsanación pendiente */
+            correction_pending: boolean;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
+             */
+            last_moved_at: string;
+        };
+        ProcedureDetail: {
+            id: string;
+            /** Format: int64 */
+            procedure_type: number;
+            /**
+             * Format: int64
+             * @description Versión del tipo de trámite con la que se inició
+             */
+            version: number;
+            /** @description Nombre del tipo de trámite */
+            name: string;
+            state: components["schemas"]["ProcedureState"];
+            applicant: components["schemas"]["Person"];
+            /** @description Identificador del paso que espera ahora; ausente si el trámite está cerrado */
+            open_step?: string;
+            /** @description Si quien mira puede hacer el paso abierto: confirmarlo o pedir una subsanación sobre él */
+            can_act: boolean;
+            /** @description Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa. */
+            as_applicant: boolean;
+            referral?: components["schemas"]["ProcedureReferral"];
+            /** @description Las subsanaciones pedidas que el titular todavía no respondió, en el orden en que se pidieron. Mientras haya alguna, el trámite está con el titular y el paso abierto no se confirma. */
+            correction_requests: components["schemas"]["CorrectionRequest"][];
+            /** @description Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso. */
+            steps: components["schemas"]["ProcedureStep"][];
+            /** @description Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación, cada documento adjuntado después y cada subsanación pedida. No se puede cambiar ni borrar. */
+            history: components["schemas"]["ProcedureEvent"][];
+        };
+        /** @description Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área. */
+        ProcedureReferral: {
+            area: components["schemas"]["NamedOption"];
+            /** @description Área de la que salió y a la que vuelve */
+            from: components["schemas"]["NamedOption"];
+            /** Format: int64 */
+            days_without_return: number;
+        };
+        ProcedureStep: {
+            id: string;
+            name: string;
+            /**
+             * @description Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
+             * @enum {string}
+             */
+            action: "enter_data" | "upload_document" | "confirm_external_fact" | "decide";
+            role: components["schemas"]["StepRole"];
+            /** @description Área del personal que hace el paso; ausente si lo hace el titular */
+            area?: components["schemas"]["NamedOption"];
+            /** @description Datos que pide el paso, en el orden en que los declara el tipo de trámite */
+            fields: components["schemas"]["FieldRequirement"][];
+            /** @description Documentos que pide el paso, en el orden en que los declara el tipo de trámite */
+            documents: components["schemas"]["DocumentRequirement"][];
+            /** @description Salidas entre las que se elige en un paso decide; vacío en los demás */
+            outcomes: components["schemas"]["StepOutcome"][];
+            /** @description Paso que sigue si no es un paso decide; ausente en el último */
+            next?: string;
+            /** @description Último valor cargado de cada dato del paso que ya tiene uno, en el mismo orden que fields. Un dato sin valor no aparece. */
+            values: components["schemas"]["ProcedureValue"][];
+            /** @description Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece. */
+            files: components["schemas"]["ProcedureDocument"][];
+        };
+        ProcedureValue: {
+            /** @description Identificador del dato del tipo de trámite */
+            field: string;
+            /** @description Paso en el que se cargó */
+            step: string;
+            /** @description El valor, como se cargó una vez validado: una opción por su id, un número con punto, una fecha AAAA-MM-DD. Ausente en subject_list */
+            text?: string;
+            /** @description Las asignaturas de un subject_list; ausente en los demás tipos */
+            items?: string[];
+            entered_by: components["schemas"]["Person"];
+            /** Format: date-time */
+            entered_at: string;
+        };
+        ProcedureDocument: {
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            /** @description Paso en el que se adjuntó */
+            step: string;
+            file_name: string;
+            /** @description Tipo que reconoció el servidor por el contenido */
+            media_type: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes
+             */
+            size: number;
+            /** @description Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución. */
+            uploaded_by?: components["schemas"]["Person"];
+            /** Format: date-time */
+            uploaded_at: string;
+            /** @description Si es el último que se adjuntó para ese documento; los anteriores quedan registrados */
+            current: boolean;
         };
     };
     responses: {
+        /** @description No existe, o la persona no lo puede ver: la respuesta es la misma, para no revelar si existe */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Pedido inválido */
         BadRequest: {
             headers: {
@@ -238,7 +1089,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description La sesión es válida, pero su rol no puede hacer esto */
+        /** @description La persona no tiene permiso para esta acción */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -247,9 +1098,30 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description El estado cambió o no admite la acción: por ejemplo, otra persona ya confirmó el paso, el borrador cambió desde que se leyó o se publicó otra versión */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description La definición no es válida */
+        InvalidDefinition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["InvalidDefinition"];
+            };
+        };
     };
     parameters: {
         SessionCookie: string;
+        ProcedureId: string;
+        StepId: string;
+        ProcedureTypeId: number;
     };
     requestBodies: never;
     headers: never;
@@ -356,6 +1228,29 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    listMyProcedures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trámites de la persona, vacío si no hay ninguno */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProcedure"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     listProcedureTypes: {
         parameters: {
             query?: never;
@@ -374,6 +1269,432 @@ export interface operations {
                     "application/json": components["schemas"]["CatalogEntry"][];
                 };
             };
+        };
+    };
+    createProcedureType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProcedureType"];
+            };
+        };
+        responses: {
+            /** @description Borrador creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listProcedureTypeDrafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borradores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El borrador */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    editProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftEdit"];
+            };
+        };
+        responses: {
+            /** @description Borrador editado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    openProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borrador abierto */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    discardProcedureTypeDraft: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Borrador descartado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    proposeProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRevision"];
+            };
+        };
+        responses: {
+            /** @description Borrador propuesto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidDefinition"];
+        };
+    };
+    rejectProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRejectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Propuesta rechazada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureTypeDraft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    approveProcedureTypeDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureTypeId: components["parameters"]["ProcedureTypeId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRevision"];
+            };
+        };
+        responses: {
+            /** @description Versión publicada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidDefinition"];
+        };
+    };
+    createArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewArea"];
+            };
+        };
+        responses: {
+            /** @description Área creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPermission"];
+            };
+        };
+        responses: {
+            /** @description Permiso creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Permission"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRole"];
+            };
+        };
+        responses: {
+            /** @description Rol creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: string;
+                roleId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissions"];
+            };
+        };
+        responses: {
+            /** @description Rol actualizado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description No existe el área o el rol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    grantMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMembership"];
+            };
+        };
+        responses: {
+            /** @description Membresía otorgada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listProcedures: {
@@ -406,6 +1727,313 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    submitProcedure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: int64
+                     * @description Va primero
+                     */
+                    procedure_type: number;
+                    /** @description JSON con un valor por campo: un texto, o una lista de textos para subject_list. Un campo que falta no se envía. Va después de procedure_type */
+                    values: string;
+                    /** @description Identificador del documento del archivo que le sigue. Se repite, una vez por archivo */
+                    document?: string;
+                    /**
+                     * Format: binary
+                     * @description Archivo del document anterior
+                     */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Trámite iniciado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedProcedure"];
+                };
+            };
+            /** @description El envío no cumple con lo que piden los pasos iniciales, o está mal formado */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionRejected"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getProcedure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El trámite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    confirmStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                stepId: components["parameters"]["StepId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Confirmación registrada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    requestCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                stepId: components["parameters"]["StepId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCorrectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subsanación pedida */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    enterProcedureValue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProcedureValue"];
+            };
+        };
+        responses: {
+            /** @description Dato cargado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureValue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    answerCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Respuesta enviada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listProcedureDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documentos del trámite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDocument"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachProcedureDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description Identificador del documento que pide el paso. Va antes que file */
+                    document: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Documento adjunto */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    downloadProcedureDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+                documentId: string;
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El archivo, con el tipo que reconoció el servidor */
+            200: {
+                headers: {
+                    /** @description Siempre attachment, con el nombre del archivo */
+                    "Content-Disposition": string;
+                    /** @description Siempre nosniff, para que el navegador use el tipo que reconoció el servidor en vez de deducirlo del contenido */
+                    "X-Content-Type-Options": string;
+                    /** @description Siempre sandbox, para que un archivo abierto en el navegador no ejecute código con la sesión */
+                    "Content-Security-Policy": string;
+                    /** @description Siempre no-store, para que el archivo no quede guardado en cachés compartidas ni del navegador */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

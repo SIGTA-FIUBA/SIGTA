@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"backend/src/procedure/domain/catalog"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/version"
 )
@@ -45,8 +44,14 @@ type CatalogEntry struct {
 	Description   string
 	Deadlines     []string
 	Admissibility []string
-	Fields        []catalog.FieldRequirement
-	Documents     []catalog.DocumentRequirement
+	Fields        []definition.FieldRequirement
+	Documents     []definition.DocumentRequirement
+	// SubmissionFields and SubmissionDocuments are what is sent to start the
+	// procedure: those of the steps of the applicant before the first step
+	// of the staff. Fields and Documents add those of later steps of the
+	// applicant.
+	SubmissionFields    []definition.FieldRequirement
+	SubmissionDocuments []definition.DocumentRequirement
 }
 
 type ProcedureTypes interface {
@@ -62,10 +67,14 @@ type ProcedureTypes interface {
 	// version.ErrUnknownFormat if the latest version cannot be trusted or read.
 	Publish(ctx context.Context, p Publication) (version.ProcedureTypeVersion, error)
 	// Version returns a published version after checking its digest, for the
-	// procedures that follow it. It fails with output.ErrNoVersion if the
+	// procedures that follow it. It fails with output.ErrVersionNotFound if the
 	// version does not exist, and with version.ErrAlteredContent or
 	// output.ErrWrongVersion if it cannot be trusted.
 	Version(ctx context.Context, procedureType int64, number int) (version.ProcedureTypeVersion, error)
+	// Pinned returns the version a procedure started with, like Version, and
+	// also fails with version.ErrNotPinnedVersion if the version with that
+	// number is not the one pinned, as when it was lost and published again.
+	Pinned(ctx context.Context, pin version.Pin) (version.ProcedureTypeVersion, error)
 	// Catalog returns the latest version of every procedure type, after checking
 	// their digests. It fails with version.ErrAlteredContent,
 	// output.ErrWrongVersion or version.ErrUnknownFormat if any of them cannot be

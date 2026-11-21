@@ -11,7 +11,7 @@ type Sizes = Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', string>
 const REFERENCE = /^\{([^}]+)\}$/
 
 // The value of a token, following references such as "{radius.default}".
-export function value(path: string): unknown {
+function value(path: string): unknown {
   let node: unknown = source
   for (const key of path.split('.')) {
     node = (node as Record<string, unknown> | undefined)?.[key]

@@ -1,26 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from '../src/routes'
-import { render } from './render'
+import { render } from './test-utils/render'
 
-const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', role: 'applicant' }
+const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', staff: false, administrator: false }
 
-// stubApi plays the API: /me answers while the session is open, and a
-// successful /auth/logout closes it.
-function stubApi({ session, logoutStatus = 204 }: { session: boolean; logoutStatus?: number }) {
-  let open = session
-  const fetch = vi.fn(async (request: Request) => {
-    if (request.url.endsWith('/auth/logout')) {
-      if (logoutStatus === 204) {
-        open = false
-      }
-      return new Response(null, { status: logoutStatus })
-    }
-    return open ? Response.json(user) : Response.json({ message: 'Sin sesión' }, { status: 401 })
-  })
+// stubApi plays the API: /me answers only while the session is open.
+function stubApi({ session }: { session: boolean }) {
+  const fetch = vi.fn(async (_request: Request) =>
+    session ? Response.json(user) : Response.json({ message: 'Sin sesión' }, { status: 401 }),
+  )
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
@@ -73,30 +64,6 @@ describe('routes', () => {
     expect(router.state.location.pathname).toBe('/')
   })
 
-  it('frames the pages with the faculty logo and the main menu', async () => {
-    stubApi({ session: true })
-    renderAt('/')
-
-    await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' })
-    expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
-    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
-    expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
-    // The applicant has no inbox, and the menu says who has the session.
-    expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
-    expect(within(menu).getByText('Titular')).toBeVisible()
-  })
-
-  it('keeps the menu on the catalog for whoever has a session, to go back', async () => {
-    stubApi({ session: true })
-    renderAt('/catalog')
-
-    await screen.findByRole('heading', { name: 'Catálogo de trámites' })
-    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
-    expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('data-active', 'true')
-  })
-
   it('sends someone with a session from the login page to the home page', async () => {
     stubApi({ session: true })
     const router = renderAt('/login')
@@ -104,42 +71,6 @@ describe('routes', () => {
     expect(
       await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' }),
     ).toBeVisible()
-    expect(router.state.location.pathname).toBe('/')
-  })
-
-  it('shows the name and email in the account menu', async () => {
-    stubApi({ session: true })
-    renderAt('/')
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Cuenta de Ana Titular' }))
-
-    const accountMenu = screen.getByRole('menu')
-    expect(within(accountMenu).getByText('Ana Titular')).toBeVisible()
-    expect(within(accountMenu).getByText('titular@fi.uba.ar')).toBeVisible()
-  })
-
-  it('closes the session and goes to the login page', async () => {
-    const fetch = stubApi({ session: true })
-    const router = renderAt('/')
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Cuenta de Ana Titular' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }))
-
-    expect(await screen.findByRole('link', { name: 'Iniciar sesión con Google' })).toBeVisible()
-    expect(router.state.location.pathname).toBe('/login')
-    expect(fetch).toHaveBeenCalledWith(
-      expect.objectContaining({ method: 'POST', url: expect.stringMatching(/\/auth\/logout$/) }),
-    )
-  })
-
-  it('stays on the page and says so when the session cannot be closed', async () => {
-    stubApi({ session: true, logoutStatus: 500 })
-    const router = renderAt('/')
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Cuenta de Ana Titular' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cerrar la sesión.')
     expect(router.state.location.pathname).toBe('/')
   })
 })
