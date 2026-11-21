@@ -18,9 +18,9 @@
 
 /* The titles of the sections of the landing page (Title variant="section"). */
 .section {
-  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.25rem);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
+  font-size: var(--sigta-section-size);
+  line-height: var(--sigta-section-line-height);
+  letter-spacing: var(--sigta-tracking-section);
   text-wrap: balance;
 }
 
@@ -28,17 +28,17 @@
 .overline {
   font-size: var(--mantine-font-size-xs);
   font-weight: var(--mantine-font-weight-bold);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--sigta-tracking-overline);
   text-transform: uppercase;
 }
 
 /* A figure of the landing page, such as the size of the catalog
    (Text variant="figure"). */
 .figure {
-  font-size: clamp(2.75rem, 2rem + 2.4vw, 4rem);
+  font-size: var(--sigta-figure-size);
   font-weight: var(--mantine-font-weight-bold);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  line-height: var(--sigta-figure-line-height);
+  letter-spacing: var(--sigta-tracking-display);
 }
 
 /* The words a headline highlights (Mark), on a tint of the cyan. */
