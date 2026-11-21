@@ -33,6 +33,6 @@ func withSecretariat(areas *authmem.AreaRepository, clock func() time.Time) (*au
 	memberships := authmem.NewMembershipRepository(members...)
 	administrators := authmem.NewAdministratorRepository()
 	return authapp.NewAreaService(areas, administrators, memberships, clock),
-		authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, clock),
+		authapp.NewMembershipService(areas, administrators, memberships, authmem.NewUserRepository(), func() string { return "id" }, clock),
 		nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,14 +30,15 @@ func newServer(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
+	users := memory.NewUserRepository(
+		domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"},
+		domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
+		domain.User{ID: "u3", Email: "admin@fi.uba.ar", Name: "Administración"},
+	)
 	auth := application.NewAuthenticatorService(
 		application.AuthConfig{IdleTimeout: time.Hour, AllowedDomain: "fi.uba.ar"},
 		dev.NewIdentityProvider(srv.URL+"/auth/callback"),
-		memory.NewUserRepository(
-			domain.User{ID: "u1", Email: "titular@fi.uba.ar", Name: "Titular"},
-			domain.User{ID: "u2", Email: "operativo@fi.uba.ar", Name: "Operativo"},
-			domain.User{ID: "u3", Email: "admin@fi.uba.ar", Name: "Administración"},
-		),
+		users,
 		memory.NewSessionRepository(),
 		time.Now,
 	)
@@ -47,9 +49,14 @@ func newServer(t *testing.T) *httptest.Server {
 	administrators := memory.NewAdministratorRepository("u3")
 	membershipRepository := memory.NewMembershipRepository(domain.Membership{ID: "m1", UserID: "u2", Area: "office", Permissions: []string{"review"}})
 	areas := application.NewAreaService(areaRepository, administrators, membershipRepository, time.Now)
-	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, func() string { return "m2" }, time.Now)
+	memberships := application.NewMembershipService(areaRepository, administrators, membershipRepository, users, func() string { return "m2" }, time.Now)
 	server := rest.NewAuthHandler(auth, memberships, srv.URL+"/me", srv.URL+"/login", false)
-	administration := rest.NewAdministrationHandler(auth, areas, memberships)
+	ids := 0
+	newID := func() string {
+		ids++
+		return fmt.Sprintf("a%d", ids)
+	}
+	administration := rest.NewAdministrationHandler(auth, areas, memberships, application.NewAdministratorService(administrators, users, newID, time.Now), application.NewPeopleService(users, administrators))
 	api.Mount(mux, api.NewServer(server, nil, administration, nil, nil, nil, nil), slog.Default())
 	return srv
 }

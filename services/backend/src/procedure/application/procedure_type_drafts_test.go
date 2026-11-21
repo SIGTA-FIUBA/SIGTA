@@ -34,7 +34,7 @@ func newDraftService(t *testing.T) *ProcedureTypeDraftService {
 		authdomain.Membership{ID: "m4", UserID: "eva", Area: authinput.SecretariatArea, Permissions: []string{edit, publish}},
 	)
 	administrators := authmem.NewAdministratorRepository()
-	staff := authapp.NewMembershipService(areas, administrators, memberships, func() string { return "id" }, time.Now)
+	staff := authapp.NewMembershipService(areas, administrators, memberships, authmem.NewUserRepository(), func() string { return "id" }, time.Now)
 	types := NewProcedureTypeService(memory.NewProcedureTypeVersionRepository(), authapp.NewAreaService(areas, administrators, memberships, time.Now), staff, func() time.Time { return publishedAt })
 	return NewProcedureTypeDraftService(memory.NewProcedureTypeDraftRepository(), types, staff, func() time.Time { return publishedAt })
 }

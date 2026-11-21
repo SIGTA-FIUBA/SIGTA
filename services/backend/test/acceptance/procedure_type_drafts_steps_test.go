@@ -94,7 +94,7 @@ func (w *draftWorld) givenPeople(proposer, approver, both string) error {
 	now := func() time.Time { return time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC) }
 	administrators := authmem.NewAdministratorRepository()
 	areas := authapp.NewAreaService(w.areas, administrators, w.memberships, now)
-	staff := authapp.NewMembershipService(w.areas, administrators, w.memberships, func() string { return "id" }, now)
+	staff := authapp.NewMembershipService(w.areas, administrators, w.memberships, authmem.NewUserRepository(), func() string { return "id" }, now)
 	w.types = application.NewProcedureTypeService(w.versions, areas, staff, now)
 	w.drafts = application.NewProcedureTypeDraftService(memory.NewProcedureTypeDraftRepository(), w.types, staff, now)
 	return nil

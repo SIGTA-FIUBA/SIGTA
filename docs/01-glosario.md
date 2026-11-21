@@ -82,7 +82,7 @@ Grupo de permisos de un área, que el administrador crea para asignarlos juntos.
 Pertenencia de una persona a un área, con algunos roles y permisos de esa área. Puede tener un **alcance**: una lista de tipos de trámite que restringe dónde actúa dentro del área, que referencia el tipo y no una versión. Tiene vigencia desde y, opcionalmente, hasta; una baja cierra la vigencia sin borrarla. La otorga el administrador (ADR-020).
 
 **Administrador**
-Marca sobre una persona que le permite crear áreas, permisos y roles, y otorgar y dar de baja membresías. No da acceso a los trámites: para actuar sobre ellos necesita una membresía.
+Marca sobre una persona que le permite crear y dar de baja áreas, permisos y roles, otorgar, cambiar y terminar membresías, y dar y quitar la administración a otras personas. No da acceso a los trámites: para actuar sobre ellos necesita una membresía.
 
 **Titular del trámite**
 Persona que inicia y a cuyo nombre corre el trámite (`applicant`). Es una relación con el trámite, no una condición de la persona: cualquiera que ingresa puede iniciar trámites, sea o no del personal (ADR-020). Se usa esta expresión y no "estudiante", porque no todos los trámites los inicia alguien con condición de estudiante activo.

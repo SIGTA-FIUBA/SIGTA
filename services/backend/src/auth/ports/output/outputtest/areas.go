@@ -20,16 +20,19 @@ func TestAreaRepository(t *testing.T, newRepository func(t *testing.T) output.Ar
 	t.Run("changes keep what was there", func(t *testing.T) { changeArea(t, newRepository(t)) })
 	t.Run("an area read before another save does not undo it", func(t *testing.T) { saveOlderCopy(t, newRepository(t)) })
 	t.Run("concurrent new areas", func(t *testing.T) { concurrentNewAreas(t, newRepository(t)) })
+	t.Run("who created an area or a permission does not change", func(t *testing.T) { keepCreation(t, newRepository(t)) })
 }
 
 // Area builds an area with a deleted permission and a deleted role, so that
 // every field has a value.
 func Area(id string) domain.Area {
 	return domain.Area{
-		ID:   id,
-		Name: "Área " + id,
+		ID:        id,
+		Name:      "Área " + id,
+		CreatedAt: at.Add(-time.Hour),
+		CreatedBy: "admin",
 		Permissions: []domain.Permission{
-			{ID: "review", Name: "Revisar"},
+			{ID: "review", Name: "Revisar", CreatedAt: at, CreatedBy: "admin"},
 			{ID: "approve", Name: "Aprobar", System: true},
 			{ID: "old", Name: "Viejo", DeletedAt: at.Add(time.Hour), DeletedBy: "admin"},
 		},
@@ -182,5 +185,17 @@ func concurrentNewAreas(t *testing.T, r output.AreaRepository) {
 	}
 	if list, err := r.List(t.Context()); err != nil || len(list) != areas {
 		t.Errorf("List() = %d areas, %v; want %d", len(list), err, areas)
+	}
+}
+
+func keepCreation(t *testing.T, r output.AreaRepository) {
+	want := Area("office")
+	saveAreas(t, r, want)
+	changed := getArea(t, r, "office")
+	changed.CreatedAt, changed.CreatedBy = at.Add(time.Hour), "otro"
+	changed.Permissions[0].CreatedAt, changed.Permissions[0].CreatedBy = at.Add(time.Hour), "otro"
+	saveAreas(t, r, changed)
+	if got := getArea(t, r, "office"); !reflect.DeepEqual(got, want) {
+		t.Errorf("Get() after changing who created it = %+v, want %+v", got, want)
 	}
 }
