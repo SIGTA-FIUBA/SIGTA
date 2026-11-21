@@ -83,7 +83,7 @@ export interface paths {
         };
         /**
          * Trámites de la persona con sesión abierta
-         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista con su resolución, para que su titular la descargue sin buscarla. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
          */
         get: operations["listMyProcedures"];
         put?: never;
@@ -1210,6 +1210,23 @@ export interface components {
              * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
+            /** @description Los documentos que resuelven el trámite, el último que se adjuntó de cada uno, para descargarlos sin abrir el detalle. Vacío mientras el trámite está en curso o si se cerró sin uno. */
+            resolutions: components["schemas"]["ResolutionFile"][];
+        };
+        /** @description Un documento que resuelve un trámite cerrado, tal como lo ve su titular. Se descarga como cualquier documento del trámite. No dice cuál fue el resultado, que no se modela (ADR-009). */
+        ResolutionFile: {
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            document_name: string;
+            file_name: string;
+            /** @description Tipo que reconoció el servidor por el contenido */
+            media_type: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes
+             */
+            size: number;
         };
         ProcedureDetail: {
             id: string;
