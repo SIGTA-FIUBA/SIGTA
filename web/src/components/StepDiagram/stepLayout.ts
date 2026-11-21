@@ -37,8 +37,8 @@ export type Layout = {
 }
 
 const nodeWidth = 220
-const nodeHeight = 76
-const pitch = 140
+const nodeHeight = 108
+const pitch = 170
 const firstTop = 70
 const centerX = 330
 const width = 640

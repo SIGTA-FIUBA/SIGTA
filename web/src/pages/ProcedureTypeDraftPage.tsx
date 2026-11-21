@@ -20,8 +20,9 @@ import {
   Textarea,
   TextInput,
   Title,
+  useMantineTheme,
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ForbiddenError } from '../api/procedures'
@@ -137,6 +138,9 @@ function DraftEditor({
   onSelect: (stepId: string) => void
 }) {
   const navigate = useNavigate()
+  const theme = useMantineTheme()
+  // On a phone the parts go one under the other: their names do not fit side by side.
+  const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`)
   const id = draft.procedure_type_id
   const [definition, setDefinition] = useState<Definition>(draft.definition)
   const [dirty, setDirty] = useState(false)
@@ -242,17 +246,27 @@ function DraftEditor({
           <Text size="sm" fw={600} c="red.8">
             {problems.length === 1 ? 'Hay un problema' : `Hay ${problems.length} problemas`} antes de proponer:
           </Text>
-          <Group gap="xs">
+          <Stack gap="xs" align="flex-start">
             {problems.map((problem, index) => (
-              <Button key={index} size="compact-sm" variant="light" color="red" onClick={() => goTo(problem)}>
-                {problemLabel(problem, names)}
-              </Button>
+              <Anchor
+                key={index}
+                component="button"
+                type="button"
+                size="sm"
+                c="red.8"
+                ta="left"
+                onClick={() => goTo(problem)}
+              >
+                {problemLabel(problem, definition, names)}
+              </Anchor>
             ))}
-          </Group>
+          </Stack>
         </Stack>
       )}
 
       <SegmentedControl
+        orientation={phone ? 'vertical' : 'horizontal'}
+        fullWidth={phone}
         value={section}
         onChange={(value) => onSection(value as ProblemSection)}
         data={[
@@ -361,11 +375,19 @@ function namesOf(definition: Definition, areas: StepArea[]): Names {
   return (id) => named.get(id) || id
 }
 
-// problemLabel says what a problem is about and what is wrong with it.
-function problemLabel(problem: DefinitionProblem, names: Names) {
+// problemLabel says what a problem is about and what is wrong with it. A
+// step, a field and a document can share an identifier, so the name is found
+// among the elements of the kind the problem is about.
+function problemLabel(problem: DefinitionProblem, definition: Definition, names: Names) {
   const about = problem.path.findLast((element) => element.id && ['step', 'field', 'document'].includes(element.kind))
   const text = problemText(problem, names)
-  return about?.id ? `«${names(about.id)}»: ${text}` : text
+  if (!about?.id) {
+    return text
+  }
+  const elements = { step: definition.steps, field: definition.fields ?? [], document: definition.documents ?? [] }[
+    about.kind as 'step' | 'field' | 'document'
+  ]
+  return `«${elements.find((element) => element.id === about.id)?.name || about.id}»: ${text}`
 }
 
 function diagramStep(step: DefinitionStep, names: Names, problems: DefinitionProblem[]): DiagramStep {
