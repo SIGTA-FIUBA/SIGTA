@@ -10,6 +10,7 @@ import { StartProcedurePage } from './pages/StartProcedurePage'
 import { ProcedurePreview } from './dev/ProcedurePreview'
 import { StartProcedurePreview } from './dev/StartProcedurePreview'
 import { AdministrationPreview } from './dev/AdministrationPreview'
+import { HomePreview } from './dev/HomePreview'
 import { optionalSession, requireSession, skipLoginWithSession } from './api/session'
 
 export const routes: RouteObject[] = [
@@ -23,6 +24,7 @@ export const routes: RouteObject[] = [
         { path: '/dev/start-procedure/:procedureTypeId', element: <StartProcedurePreview /> },
         { path: '/dev/procedures/:id', element: <ProcedurePreview /> },
         { path: '/dev/administration', element: <AdministrationPreview /> },
+        { path: '/dev/home', element: <HomePreview />, children: [{ index: true, element: <HomePage /> }] },
       ]
     : []),
   {
