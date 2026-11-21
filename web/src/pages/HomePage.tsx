@@ -97,7 +97,8 @@ function Pending({ list }: { list: ProcedureList }) {
   )
 }
 
-// Activity lists the latest moves of every visible procedure, one line each.
+// Activity lists the latest moves of every visible procedure, one entry each;
+// a long one wraps instead of running past the screen of a phone.
 function Activity({ list }: { list: ProcedureList }) {
   const items = [...list.items].sort(byLastMove).slice(0, latest)
   if (items.length === 0) {
@@ -107,8 +108,8 @@ function Activity({ list }: { list: ProcedureList }) {
     <List listStyleType="none" spacing="sm" aria-label="Movimientos recientes">
       {items.map((item) => (
         <List.Item key={item.id}>
-          <Group justify="space-between" wrap="nowrap" gap="md">
-            <Text size="sm" truncate>
+          <Group justify="space-between" wrap="nowrap" gap="md" align="flex-start">
+            <Text size="sm">
               <Anchor component={Link} to={procedureLink(item)} state={{ from: '/' }} inherit>
                 {item.procedure_type_name} de {item.applicant.name}
               </Anchor>{' '}

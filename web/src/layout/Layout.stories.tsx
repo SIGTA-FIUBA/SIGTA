@@ -12,9 +12,11 @@ import { UserMenu } from './UserMenu'
 
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
+type MyProcedure = components['schemas']['MyProcedure']
 
-// The frame of the pages runs inside a router, as in the app. The session
-// and the inbox count are invented, so the stories make no requests.
+// The frame of the pages runs inside a router, as in the app. The session,
+// the inbox and the procedures of the person are invented, so the stories
+// make no requests.
 const staff: User = {
   id: 'u1',
   email: 'operativo@ejemplo.edu.ar',
@@ -56,9 +58,34 @@ function procedures(actionable: number): ProcedureList {
   }
 }
 
+// The procedures the person started: one waiting for a correction and one
+// closed.
+const mine: MyProcedure[] = [
+  {
+    id: 'm1',
+    procedure_type: 2,
+    procedure_type_name: 'Reconocimiento de créditos',
+    step_name: 'Documentación',
+    state: 'with_applicant',
+    correction_pending: true,
+    started_at: '2026-11-02T12:00:00Z',
+    last_moved_at: '2026-11-12T15:00:00Z',
+  },
+  {
+    id: 'm2',
+    procedure_type: 3,
+    procedure_type_name: 'Pase de carrera',
+    state: 'closed',
+    correction_pending: false,
+    started_at: '2026-10-01T12:00:00Z',
+    last_moved_at: '2026-11-05T15:00:00Z',
+  },
+]
+
 function Page({ user, children }: { user: User | null; children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
   client.setQueryData(['procedures'], procedures(3))
+  client.setQueryData(['me', 'procedures'], mine)
   const router = createMemoryRouter(
     [{ path: '/', loader: () => user, element: <AppLayout />, children: [{ index: true, element: children }] }],
     { initialEntries: ['/'] },
