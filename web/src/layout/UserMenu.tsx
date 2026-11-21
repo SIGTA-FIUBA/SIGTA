@@ -11,10 +11,9 @@ type UserMenuProps = {
   compact?: boolean
 }
 
-const profileNames: Record<User['role'], string> = {
-  applicant: 'Titular',
-  staff_operative: 'Perfil operativo',
-  staff_approver: 'Perfil de aprobación',
+// The profile is what the person sees of their memberships: staff or not.
+function profileName(user: User) {
+  return user.staff ? 'Personal' : 'Titular'
 }
 
 // UserMenu closes the side navigation: the initials, the name and the
@@ -37,7 +36,7 @@ export function UserMenu({ user, onLogout, compact = false }: UserMenuProps) {
             aria-label={label}
             leftSection={avatar}
             label={user.name}
-            description={profileNames[user.role]}
+            description={profileName(user)}
             rightSection={<Icon name="selector" size={16} />}
           />
         )}

@@ -1,5 +1,4 @@
 import { Box, Flex, Group, Paper, Stack, Text } from '@mantine/core'
-import { Children, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../Icon/Icon'
 import { NewsDot } from '../NewsDot/NewsDot'
@@ -14,12 +13,16 @@ export type ProcedureRowProps = {
   // once the staff registered it.
   type: string
   fileNumber?: string
-  applicant: string
+  // applicant is left out in the lists of the person's own procedures.
+  applicant?: string
   program?: string
-  // step is the open step and where it sits among the steps of the type.
-  step: { number: number; count: number; name: string }
-  // area is who acts now.
-  area: string
+  // step is the open step, or what took its place once closed; number and
+  // count, where it sits among the steps of the type, when they are known.
+  step: { name: string; number?: number; count?: number }
+  // area is who acts now, when the list knows it.
+  area?: string
+  // note is something the person has to do, such as a correction.
+  note?: string
   status: { tone: StatusTone; label: string }
   // date is the last news, already written for people; due, a deadline if
   // there is one.
@@ -41,6 +44,7 @@ export function ProcedureRow({
   program,
   step,
   area,
+  note,
   status,
   date,
   due,
@@ -79,21 +83,30 @@ export function ProcedureRow({
                 {fileNumber}
               </Text>
             )}
-            <Text size="sm" c="gray.7">
-              {program ? `${applicant}, ${program}` : applicant}
-            </Text>
+            {applicant && (
+              <Text size="sm" c="gray.7">
+                {program ? `${applicant}, ${program}` : applicant}
+              </Text>
+            )}
+            {note && (
+              <Text size="sm" fw={600} c="orange.7">
+                {note}
+              </Text>
+            )}
           </Stack>
           <Stack gap="xs" miw={0} flex={{ md: 2 }}>
-            <StepBar step={step.number} count={step.count} />
+            {step.number !== undefined && step.count !== undefined && <StepBar step={step.number} count={step.count} />}
             <Text size="xs" c="gray.7">
               {step.name}
             </Text>
           </Stack>
           <Stack gap="xxs" align="flex-start" miw={0} flex={{ md: 2 }}>
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-            <Text size="xs" c="gray.7">
-              A cargo de {area}
-            </Text>
+            {area && (
+              <Text size="xs" c="gray.7">
+                A cargo de {area}
+              </Text>
+            )}
           </Stack>
           <Flex direction="column" gap="xxs" align={{ base: 'flex-start', md: 'flex-end' }} flex={{ md: 1 }}>
             <Text size="xs" c="gray.6">
@@ -110,18 +123,6 @@ export function ProcedureRow({
           <Icon name="chevron-right" size={16} />
         </Box>
       </Group>
-    </Paper>
-  )
-}
-
-// ProcedureRows holds the rows in a single container, with a divider between
-// them.
-export function ProcedureRows({ label, children }: { label: string; children: ReactNode[] }) {
-  return (
-    <Paper withBorder variant="rows" component="ul" aria-label={label} p={0} m={0}>
-      {Children.map(children, (row) => (
-        <Box component="li">{row}</Box>
-      ))}
     </Paper>
   )
 }

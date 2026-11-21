@@ -15,14 +15,14 @@ import {
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
-import { useProcedures } from '../api/procedures'
+import { useInboxProcedures } from '../api/procedures'
+import { logout, type optionalSession } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
-import { logout, type optionalSession } from '../session'
 import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
 import { UserMenu } from './UserMenu'
 
-type MenuLink = { to: string; label: string; icon: IconName; active: boolean; pending?: number }
+type MenuLink = { to: string; label: string; icon: IconName; active: boolean; actionableCount?: number }
 
 // Between breakpoint.sm and breakpoint.md the menu shows only its icons.
 const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
@@ -40,11 +40,11 @@ export function AppLayout() {
   const [menuOpen, { toggle: toggleMenu, close: closeMenu }] = useDisclosure(false)
   const [logoutFailed, setLogoutFailed] = useState(false)
   const compact = useMediaQuery(compactQuery) ?? false
-  const staff = user !== null && user.role !== 'applicant'
+  const staff = user?.staff === true
   // The menu shows how many procedures need action; the inbox shares the
   // request, so it costs nothing more.
-  const procedures = useProcedures(staff)
-  const pending = procedures.data?.items.filter((item) => item.actionable).length
+  const procedures = useInboxProcedures(staff)
+  const actionableCount = procedures.data?.items.filter((item) => item.actionable).length
 
   async function handleLogout() {
     if (await logout()) {
@@ -62,7 +62,7 @@ export function AppLayout() {
             to: '/inbox',
             label: 'Bandeja de trámites',
             icon: 'inbox' as const,
-            pending,
+            actionableCount,
             active: pathname.startsWith('/inbox') || pathname.startsWith('/procedures'),
           },
         ]
@@ -71,7 +71,7 @@ export function AppLayout() {
   ]
 
   function menuItem(link: MenuLink) {
-    const count = link.pending !== undefined && link.pending > 0 ? link.pending : undefined
+    const count = link.actionableCount !== undefined && link.actionableCount > 0 ? link.actionableCount : undefined
     const label = count === undefined ? link.label : `${link.label}, ${count} con acción requerida`
     const common = {
       component: Link,

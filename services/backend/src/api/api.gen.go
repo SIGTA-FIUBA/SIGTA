@@ -11,12 +11,65 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for DraftStatus.
+const (
+	Editing  DraftStatus = "editing"
+	Proposed DraftStatus = "proposed"
+)
+
+// Valid indicates whether the value is a known member of the DraftStatus enum.
+func (e DraftStatus) Valid() bool {
+	switch e {
+	case Editing:
+		return true
+	case Proposed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FieldType.
+const (
+	Date        FieldType = "date"
+	Degree      FieldType = "degree"
+	LongText    FieldType = "long_text"
+	Number      FieldType = "number"
+	Option      FieldType = "option"
+	SubjectList FieldType = "subject_list"
+	Text        FieldType = "text"
+)
+
+// Valid indicates whether the value is a known member of the FieldType enum.
+func (e FieldType) Valid() bool {
+	switch e {
+	case Date:
+		return true
+	case Degree:
+		return true
+	case LongText:
+		return true
+	case Number:
+		return true
+	case Option:
+		return true
+	case SubjectList:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for LoginError.
 const (
@@ -77,6 +130,7 @@ func (e ProcedureListView) Valid() bool {
 
 // Defines values for ProcedureState.
 const (
+	Closed        ProcedureState = "closed"
 	InOffice      ProcedureState = "in_office"
 	Referred      ProcedureState = "referred"
 	WithApplicant ProcedureState = "with_applicant"
@@ -85,6 +139,8 @@ const (
 // Valid indicates whether the value is a known member of the ProcedureState enum.
 func (e ProcedureState) Valid() bool {
 	switch e {
+	case Closed:
+		return true
 	case InOffice:
 		return true
 	case Referred:
@@ -96,25 +152,105 @@ func (e ProcedureState) Valid() bool {
 	}
 }
 
-// Defines values for Role.
+// Defines values for ProcedureStepAction.
 const (
-	Applicant      Role = "applicant"
-	StaffApprover  Role = "staff_approver"
-	StaffOperative Role = "staff_operative"
+	ConfirmExternalFact ProcedureStepAction = "confirm_external_fact"
+	Decide              ProcedureStepAction = "decide"
+	EnterData           ProcedureStepAction = "enter_data"
+	UploadDocument      ProcedureStepAction = "upload_document"
 )
 
-// Valid indicates whether the value is a known member of the Role enum.
-func (e Role) Valid() bool {
+// Valid indicates whether the value is a known member of the ProcedureStepAction enum.
+func (e ProcedureStepAction) Valid() bool {
 	switch e {
-	case Applicant:
+	case ConfirmExternalFact:
 		return true
-	case StaffApprover:
+	case Decide:
 		return true
-	case StaffOperative:
+	case EnterData:
+		return true
+	case UploadDocument:
 		return true
 	default:
 		return false
 	}
+}
+
+// Defines values for StepRole.
+const (
+	Applicant StepRole = "applicant"
+	Staff     StepRole = "staff"
+)
+
+// Valid indicates whether the value is a known member of the StepRole enum.
+func (e StepRole) Valid() bool {
+	switch e {
+	case Applicant:
+		return true
+	case Staff:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SubmissionProblemCode.
+const (
+	Empty           SubmissionProblemCode = "empty"
+	Invalid         SubmissionProblemCode = "invalid"
+	Missing         SubmissionProblemCode = "missing"
+	NotAsked        SubmissionProblemCode = "not_asked"
+	Repeated        SubmissionProblemCode = "repeated"
+	TooLarge        SubmissionProblemCode = "too_large"
+	TypeNotAccepted SubmissionProblemCode = "type_not_accepted"
+)
+
+// Valid indicates whether the value is a known member of the SubmissionProblemCode enum.
+func (e SubmissionProblemCode) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case Invalid:
+		return true
+	case Missing:
+		return true
+	case NotAsked:
+		return true
+	case Repeated:
+		return true
+	case TooLarge:
+		return true
+	case TypeNotAccepted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SubmissionProblemKind.
+const (
+	Document SubmissionProblemKind = "document"
+	Field    SubmissionProblemKind = "field"
+)
+
+// Valid indicates whether the value is a known member of the SubmissionProblemKind enum.
+func (e SubmissionProblemKind) Valid() bool {
+	switch e {
+	case Document:
+		return true
+	case Field:
+		return true
+	default:
+		return false
+	}
+}
+
+// Area defines model for Area.
+type Area struct {
+	Id          string       `json:"id"`
+	Name        string       `json:"name"`
+	Permissions []Permission `json:"permissions"`
+	Roles       []Role       `json:"roles"`
 }
 
 // CatalogEntry defines model for CatalogEntry.
@@ -127,7 +263,73 @@ type CatalogEntry struct {
 	Fields        []FieldRequirement    `json:"fields"`
 	Id            int64                 `json:"id"`
 	Name          string                `json:"name"`
-	Version       int                   `json:"version"`
+
+	// Submission Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación.
+	Submission SubmissionForm `json:"submission"`
+	Version    int64          `json:"version"`
+}
+
+// CorrectionRequest Subsanación pedida que el titular todavía no respondió
+type CorrectionRequest struct {
+	At time.Time `json:"at"`
+
+	// By Quién la pidió. Ausente para el titular: ve el área del paso, no la persona.
+	By        *Person  `json:"by,omitempty"`
+	Documents []string `json:"documents"`
+	Fields    []string `json:"fields"`
+	Reason    string   `json:"reason"`
+
+	// Step Paso abierto sobre el que se pidió
+	Step string `json:"step"`
+}
+
+// DefinitionDocument defines model for DefinitionDocument.
+type DefinitionDocument struct {
+	AcceptedTypes *[]string `json:"accepted_types,omitempty"`
+	Id            string    `json:"id"`
+	MaxSize       *int64    `json:"max_size,omitempty"`
+	Name          string    `json:"name"`
+
+	// Resolution Si es la resolución del trámite: el documento que su titular descarga cuando el trámite se cierra. Es una marca y no un resultado (ADR-009).
+	Resolution *bool `json:"resolution,omitempty"`
+}
+
+// DefinitionField defines model for DefinitionField.
+type DefinitionField struct {
+	Id      string         `json:"id"`
+	Name    string         `json:"name"`
+	Options *[]FieldOption `json:"options,omitempty"`
+
+	// Type text, long_text, number, date, option, degree o subject_list
+	Type string `json:"type"`
+}
+
+// DefinitionProblem Algo que falla en una definición. code es estable: la pantalla arma su propio texto con él y ubica el problema con path, del elemento más externo al más interno. text está en inglés, para registros.
+type DefinitionProblem struct {
+	Code  string           `json:"code"`
+	Other *string          `json:"other,omitempty"`
+	Path  []ProblemElement `json:"path"`
+	Text  string           `json:"text"`
+	Value *string          `json:"value,omitempty"`
+}
+
+// DefinitionStep defines model for DefinitionStep.
+type DefinitionStep struct {
+	// Action enter_data, upload_document, confirm_external_fact o decide
+	Action            string         `json:"action"`
+	Area              *string        `json:"area,omitempty"`
+	Documents         *[]string      `json:"documents,omitempty"`
+	Fields            *[]string      `json:"fields,omitempty"`
+	Id                string         `json:"id"`
+	Name              string         `json:"name"`
+	Next              *string        `json:"next,omitempty"`
+	OptionalDocuments *[]string      `json:"optional_documents,omitempty"`
+	OptionalFields    *[]string      `json:"optional_fields,omitempty"`
+	Outcomes          *[]StepOutcome `json:"outcomes,omitempty"`
+	Permissions       *[]string      `json:"permissions,omitempty"`
+
+	// Role applicant o staff
+	Role *string `json:"role,omitempty"`
 }
 
 // DocumentRequirement defines model for DocumentRequirement.
@@ -140,22 +342,127 @@ type DocumentRequirement struct {
 	MaxSize  int64  `json:"max_size"`
 	Name     string `json:"name"`
 	Required bool   `json:"required"`
+
+	// Resolution Si es el documento que resuelve el trámite, que su titular descarga cuando se cierra. No dice cuál fue el resultado, que no se modela (ADR-009).
+	Resolution bool `json:"resolution"`
 }
+
+// DraftEdit defines model for DraftEdit.
+type DraftEdit struct {
+	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
+	Definition ProcedureTypeDefinition `json:"definition"`
+	Revision   int                     `json:"revision"`
+}
+
+// DraftRejection defines model for DraftRejection.
+type DraftRejection struct {
+	At     time.Time `json:"at"`
+	By     string    `json:"by"`
+	Reason string    `json:"reason"`
+}
+
+// DraftRejectionRequest defines model for DraftRejectionRequest.
+type DraftRejectionRequest struct {
+	Reason   string `json:"reason"`
+	Revision int    `json:"revision"`
+}
+
+// DraftRevision defines model for DraftRevision.
+type DraftRevision struct {
+	Revision int `json:"revision"`
+}
+
+// DraftStatus editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+type DraftStatus string
 
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
 }
 
+// FieldOption defines model for FieldOption.
+type FieldOption struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // FieldRequirement defines model for FieldRequirement.
 type FieldRequirement struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	Required bool   `json:"required"`
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Options Opciones de un campo option, vacío en los demás tipos. Se envía el id
+	Options  []NamedOption `json:"options"`
+	Required bool          `json:"required"`
+
+	// Type Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+	Type FieldType `json:"type"`
+}
+
+// FieldType Tipo de un campo. text: texto corto. long_text: texto largo. number: número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus opciones, por su id. degree: carrera, como texto. subject_list: lista de asignaturas, como textos.
+type FieldType string
+
+// HistoryCorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
+type HistoryCorrectionRequest struct {
+	Documents []string `json:"documents"`
+	Fields    []string `json:"fields"`
+}
+
+// HistoryDocument Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+type HistoryDocument struct {
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document string `json:"document"`
+	FileName string `json:"file_name"`
+
+	// Id Identificador del archivo adjuntado, el mismo de ProcedureDocument
+	Id string `json:"id"`
+}
+
+// HistoryValue El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso.
+type HistoryValue struct {
+	Field string `json:"field"`
+}
+
+// InvalidDefinition defines model for InvalidDefinition.
+type InvalidDefinition struct {
+	Message  string              `json:"message"`
+	Problems []DefinitionProblem `json:"problems"`
 }
 
 // LoginError Por qué no se abrió la sesión al volver del proveedor. state_mismatch: el ingreso no es el que inició este navegador. rejected: el proveedor lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es del dominio institucional.
 type LoginError string
+
+// Membership defines model for Membership.
+type Membership struct {
+	Area        string     `json:"area"`
+	From        time.Time  `json:"from"`
+	GrantedBy   string     `json:"granted_by"`
+	Id          string     `json:"id"`
+	Permissions []string   `json:"permissions"`
+	Roles       []string   `json:"roles"`
+	Scope       []int64    `json:"scope"`
+	Until       *time.Time `json:"until,omitempty"`
+	UserId      string     `json:"user_id"`
+}
+
+// MyProcedure defines model for MyProcedure.
+type MyProcedure struct {
+	// CorrectionPending Si el titular tiene una subsanación pendiente
+	CorrectionPending bool   `json:"correction_pending"`
+	Id                string `json:"id"`
+
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
+	LastMovedAt       time.Time `json:"last_moved_at"`
+	ProcedureType     int64     `json:"procedure_type"`
+	ProcedureTypeName string    `json:"procedure_type_name"`
+	StartedAt         time.Time `json:"started_at"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
+	State ProcedureState `json:"state"`
+
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+	StepName *string `json:"step_name,omitempty"`
+}
 
 // NamedOption defines model for NamedOption.
 type NamedOption struct {
@@ -163,14 +470,213 @@ type NamedOption struct {
 	Name string `json:"name"`
 }
 
+// NewArea defines model for NewArea.
+type NewArea struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// NewCorrectionRequest defines model for NewCorrectionRequest.
+type NewCorrectionRequest struct {
+	// Documents Identificadores de los documentos que se piden, de los que piden los pasos del titular. Entre datos y documentos se pide al menos uno
+	Documents *[]string `json:"documents,omitempty"`
+
+	// Fields Identificadores de los datos que se piden, de los que piden los pasos del titular
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Reason Por qué se pide. No puede quedar vacío
+	Reason string `json:"reason"`
+}
+
+// NewMembership Necesita al menos un rol o un permiso del área
+type NewMembership struct {
+	// Area Identificador del área
+	Area string `json:"area"`
+
+	// From Desde cuándo vale. Ausente vale desde ahora
+	From *time.Time `json:"from,omitempty"`
+
+	// Permissions Identificadores de permisos del área, sueltos
+	Permissions *[]string `json:"permissions,omitempty"`
+
+	// Roles Identificadores de roles del área
+	Roles *[]string `json:"roles,omitempty"`
+
+	// Scope Tipos de trámite a los que se limita. Vacío o ausente vale para todos, incluidos los que se publiquen después
+	Scope *[]int64 `json:"scope,omitempty"`
+
+	// Until Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+	Until  *time.Time `json:"until,omitempty"`
+	UserId string     `json:"user_id"`
+}
+
+// NewPermission defines model for NewPermission.
+type NewPermission struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// NewProcedureType defines model for NewProcedureType.
+type NewProcedureType struct {
+	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
+	Definition ProcedureTypeDefinition `json:"definition"`
+}
+
+// NewProcedureValue defines model for NewProcedureValue.
+type NewProcedureValue struct {
+	// Field Identificador del dato
+	Field string    `json:"field"`
+	Items *[]string `json:"items,omitempty"`
+
+	// Text El valor; para subject_list va items
+	Text *string `json:"text,omitempty"`
+}
+
+// NewRole defines model for NewRole.
+type NewRole struct {
+	// Id Minúsculas, dígitos y guiones bajos, empezando con una letra
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Permissions Identificadores de permisos del área, al menos uno
+	Permissions []string `json:"permissions"`
+}
+
+// Permission defines model for Permission.
+type Permission struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Person defines model for Person.
+type Person struct {
+	Id string `json:"id"`
+
+	// Name Vacío si la persona no está registrada
+	Name string `json:"name"`
+}
+
+// ProblemElement defines model for ProblemElement.
+type ProblemElement struct {
+	Id *string `json:"id,omitempty"`
+
+	// Kind definition, area, permission, field, option, document, step, outcome, deadline o admissibility
+	Kind string `json:"kind"`
+
+	// Position Para plazos y condiciones, que no tienen id. Empieza en 1
+	Position *int `json:"position,omitempty"`
+}
+
+// ProcedureDetail defines model for ProcedureDetail.
+type ProcedureDetail struct {
+	Applicant Person `json:"applicant"`
+
+	// AsApplicant Si quien mira es el titular, que ve solo parte del trámite: lo que cargó y adjuntó, las fechas y las áreas de cada paso, sin las personas del personal, y la resolución cuando se cierra. Vale también si es del personal de un área por la que pasa.
+	AsApplicant bool `json:"as_applicant"`
+
+	// CanAct Si quien mira puede hacer el paso abierto: confirmarlo o pedir una subsanación sobre él
+	CanAct bool `json:"can_act"`
+
+	// CorrectionRequests Las subsanaciones pedidas que el titular todavía no respondió, en el orden en que se pidieron. Mientras haya alguna, el trámite está con el titular y el paso abierto no se confirma.
+	CorrectionRequests []CorrectionRequest `json:"correction_requests"`
+
+	// History Los pasos hechos, en el orden en que se registraron: los del titular al iniciar el trámite, cada confirmación, cada documento adjuntado después y cada subsanación pedida. No se puede cambiar ni borrar.
+	History []ProcedureEvent `json:"history"`
+	Id      string           `json:"id"`
+
+	// Name Nombre del tipo de trámite
+	Name string `json:"name"`
+
+	// OpenStep Identificador del paso que espera ahora; ausente si el trámite está cerrado
+	OpenStep      *string `json:"open_step,omitempty"`
+	ProcedureType int64   `json:"procedure_type"`
+
+	// Referral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+	Referral *ProcedureReferral `json:"referral,omitempty"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
+	State ProcedureState `json:"state"`
+
+	// Steps Los pasos en el orden en que los declara el tipo de trámite. No es necesariamente el recorrido, porque un paso puede volver a uno anterior: el recorrido lo dicen next y las salidas de cada paso.
+	Steps []ProcedureStep `json:"steps"`
+
+	// Version Versión del tipo de trámite con la que se inició
+	Version int64 `json:"version"`
+}
+
+// ProcedureDocument defines model for ProcedureDocument.
+type ProcedureDocument struct {
+	// Current Si es el último que se adjuntó para ese documento; los anteriores quedan registrados
+	Current bool `json:"current"`
+
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document string `json:"document"`
+	FileName string `json:"file_name"`
+	Id       string `json:"id"`
+
+	// MediaType Tipo que reconoció el servidor por el contenido
+	MediaType string `json:"media_type"`
+
+	// Size Tamaño en bytes
+	Size int64 `json:"size"`
+
+	// Step Paso en el que se adjuntó
+	Step       string    `json:"step"`
+	UploadedAt time.Time `json:"uploaded_at"`
+
+	// UploadedBy Quién lo adjuntó. Ausente para el titular en un documento del personal, como la resolución.
+	UploadedBy *Person `json:"uploaded_by,omitempty"`
+}
+
+// ProcedureEvent defines model for ProcedureEvent.
+type ProcedureEvent struct {
+	At time.Time `json:"at"`
+
+	// By Quién lo hizo. Ausente para el titular en los pasos del personal: ve el área del paso, no la persona.
+	By *Person `json:"by,omitempty"`
+
+	// CorrectionAnswer Lo que pedían las subsanaciones que respondió el titular; ausente en los demás eventos. Responderlas no avanza el trámite: vuelve al personal en el mismo paso.
+	CorrectionAnswer *HistoryCorrectionRequest `json:"correction_answer,omitempty"`
+
+	// CorrectionRequest Lo que pide una subsanación; ausente en los demás eventos. El motivo es la observación. Pedirla no avanza el trámite.
+	CorrectionRequest *HistoryCorrectionRequest `json:"correction_request,omitempty"`
+
+	// Declared Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo confirmó, no el hecho (ADR-004)
+	Declared bool `json:"declared"`
+
+	// Document Documento adjuntado después del inicio; ausente en los demás eventos. Adjuntarlo no avanza el trámite.
+	Document *HistoryDocument `json:"document,omitempty"`
+
+	// Next Paso que abre; ausente si cierra el trámite
+	Next        *string `json:"next,omitempty"`
+	Observation string  `json:"observation"`
+
+	// Outcome Salida elegida; ausente si el paso no es decide
+	Outcome *string `json:"outcome,omitempty"`
+
+	// Referral Paso del trámite a otra área (ADR-020)
+	Referral *Referral `json:"referral,omitempty"`
+
+	// Returned Si devuelve el trámite al área de la que se había derivado
+	Returned bool `json:"returned"`
+
+	// SendBack Si el evento devuelve el trámite a un paso anterior; la observación es entonces el motivo
+	SendBack bool `json:"send_back"`
+
+	// Step Paso hecho, o el paso abierto en el que se adjuntó el documento
+	Step string `json:"step"`
+
+	// Value El dato que cargó el titular para responder una subsanación; ausente en los demás eventos. El valor está en los datos del paso.
+	Value *HistoryValue `json:"value,omitempty"`
+}
+
 // ProcedureList defines model for ProcedureList.
 type ProcedureList struct {
 	// Areas Áreas responsables presentes en la vista, para filtrar
-	Areas []NamedOption `json:"areas"`
-
-	// ClosedThisMonth Trámites que quien mira puede ver y que se cerraron desde el primer día del mes en curso. Cerrar no dice el resultado, que no se modela.
-	ClosedThisMonth int                 `json:"closed_this_month"`
-	Items           []ProcedureListItem `json:"items"`
+	Areas []NamedOption       `json:"areas"`
+	Items []ProcedureListItem `json:"items"`
 
 	// ProcedureTypes Tipos de trámite presentes en la vista, para filtrar
 	ProcedureTypes []NamedOption `json:"procedure_types"`
@@ -178,74 +684,272 @@ type ProcedureList struct {
 
 // ProcedureListItem defines model for ProcedureListItem.
 type ProcedureListItem struct {
-	// Actionable Si el perfil de quien mira puede hacer el paso abierto
+	// Actionable Si quien mira tiene los permisos que exige el paso abierto
 	Actionable bool `json:"actionable"`
 
 	// AgeDays Días desde que empezó el trámite
-	AgeDays       int    `json:"age_days"`
-	ApplicantName string `json:"applicant_name"`
+	AgeDays   int    `json:"age_days"`
+	Applicant Person `json:"applicant"`
 
-	// ApplicantProgram Carrera del titular, si la declaró
-	ApplicantProgram *string `json:"applicant_program,omitempty"`
+	// Area Área del paso abierto; ausente si lo hace el titular
+	Area *NamedOption `json:"area,omitempty"`
+	Id   string       `json:"id"`
 
-	// Area Área responsable del paso abierto
-	Area     string `json:"area"`
-	AreaName string `json:"area_name"`
-
-	// DaysReferred Solo si está derivado: días que lleva en el evaluador externo sin retorno
-	DaysReferred *int `json:"days_referred,omitempty"`
-
-	// FileNumber Número del expediente electrónico, una vez que el personal lo registró. SIGTA no lo genera: se carga como hecho externo.
-	FileNumber *string `json:"file_number,omitempty"`
-
-	// HasNews Si el trámite se movió después de la última vez que quien mira lo vio, o si nunca lo vio
-	HasNews bool   `json:"has_news"`
-	Id      string `json:"id"`
-
-	// LastMovedAt Cuándo el trámite llegó al paso abierto
+	// LastMovedAt Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
 	StartedAt         time.Time `json:"started_at"`
 
-	// State Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
 
-	// StepCount Cantidad de pasos del tipo de trámite
-	StepCount int `json:"step_count"`
-
-	// StepName Paso abierto, el que se espera ahora
+	// StepName Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
 	StepName string `json:"step_name"`
-
-	// StepNumber Posición del paso abierto entre los pasos del tipo de trámite, en el orden de la versión publicada
-	StepNumber int `json:"step_number"`
 }
 
 // ProcedureListSort oldest: primero los que empezaron hace más tiempo. last_moved: primero los que se movieron más recientemente.
 type ProcedureListSort string
 
-// ProcedureListView mine: lo que el perfil de quien mira puede hacer ahora. all: todos los trámites en curso.
+// ProcedureListView mine: los trámites cuyo paso abierto puede hacer quien mira. all: todos los trámites en curso que puede ver.
 type ProcedureListView string
 
-// ProcedureState Se deriva del área del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: está derivado a un evaluador externo. No es el resultado del trámite, que no se modela.
+// ProcedureReferral Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los días sin retorno se cuentan por día de calendario desde que salió del área.
+type ProcedureReferral struct {
+	Area              NamedOption `json:"area"`
+	DaysWithoutReturn int64       `json:"days_without_return"`
+
+	// From Área de la que salió y a la que vuelve
+	From NamedOption `json:"from"`
+}
+
+// ProcedureState Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 type ProcedureState string
 
-// Role defines model for Role.
-type Role string
+// ProcedureStep defines model for ProcedureStep.
+type ProcedureStep struct {
+	// Action Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
+	Action ProcedureStepAction `json:"action"`
+
+	// Area Área del personal que hace el paso; ausente si lo hace el titular
+	Area *NamedOption `json:"area,omitempty"`
+
+	// Documents Documentos que pide el paso, en el orden en que los declara el tipo de trámite
+	Documents []DocumentRequirement `json:"documents"`
+
+	// Fields Datos que pide el paso, en el orden en que los declara el tipo de trámite
+	Fields []FieldRequirement `json:"fields"`
+
+	// Files Archivo vigente de cada documento del paso que ya tiene uno, en el mismo orden que documents. Un documento sin archivo no aparece.
+	Files []ProcedureDocument `json:"files"`
+	Id    string              `json:"id"`
+	Name  string              `json:"name"`
+
+	// Next Paso que sigue si no es un paso decide; ausente en el último
+	Next *string `json:"next,omitempty"`
+
+	// Outcomes Salidas entre las que se elige en un paso decide; vacío en los demás
+	Outcomes []StepOutcome `json:"outcomes"`
+
+	// Role Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
+	Role StepRole `json:"role"`
+
+	// Values Último valor cargado de cada dato del paso que ya tiene uno, en el mismo orden que fields. Un dato sin valor no aparece.
+	Values []ProcedureValue `json:"values"`
+}
+
+// ProcedureStepAction Qué se hace en el paso. enter_data: completar datos. upload_document: adjuntar documentos. confirm_external_fact: confirmar algo que pasó fuera de SIGTA. decide: elegir una de sus salidas.
+type ProcedureStepAction string
+
+// ProcedureTypeDefinition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
+type ProcedureTypeDefinition struct {
+	Admissibility *[]string             `json:"admissibility,omitempty"`
+	Deadlines     *[]string             `json:"deadlines,omitempty"`
+	Description   *string               `json:"description,omitempty"`
+	Documents     *[]DefinitionDocument `json:"documents,omitempty"`
+	Fields        *[]DefinitionField    `json:"fields,omitempty"`
+	Name          string                `json:"name"`
+	Steps         []DefinitionStep      `json:"steps"`
+}
+
+// ProcedureTypeDraft defines model for ProcedureTypeDraft.
+type ProcedureTypeDraft struct {
+	// Base La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna
+	Base int `json:"base"`
+
+	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
+	Definition ProcedureTypeDefinition `json:"definition"`
+	EditedAt   time.Time               `json:"edited_at"`
+	EditedBy   string                  `json:"edited_by"`
+
+	// Editors Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
+	Editors []string `json:"editors"`
+
+	// Problems Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
+	Problems        []DefinitionProblem `json:"problems"`
+	ProcedureTypeId int64               `json:"procedure_type_id"`
+	ProposedAt      *time.Time          `json:"proposed_at,omitempty"`
+	ProposedBy      *string             `json:"proposed_by,omitempty"`
+	Rejection       *DraftRejection     `json:"rejection,omitempty"`
+
+	// Revision Crece con cada cambio. Cada cambio dice sobre cuál se hizo
+	Revision int `json:"revision"`
+
+	// Status editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+	Status DraftStatus `json:"status"`
+}
+
+// ProcedureValue defines model for ProcedureValue.
+type ProcedureValue struct {
+	EnteredAt time.Time `json:"entered_at"`
+	EnteredBy Person    `json:"entered_by"`
+
+	// Field Identificador del dato del tipo de trámite
+	Field string `json:"field"`
+
+	// Items Las asignaturas de un subject_list; ausente en los demás tipos
+	Items *[]string `json:"items,omitempty"`
+
+	// Step Paso en el que se cargó
+	Step string `json:"step"`
+
+	// Text El valor, como se cargó una vez validado: una opción por su id, un número con punto, una fecha AAAA-MM-DD. Ausente en subject_list
+	Text *string `json:"text,omitempty"`
+}
+
+// PublishedVersion defines model for PublishedVersion.
+type PublishedVersion struct {
+	ApprovedBy      string    `json:"approved_by"`
+	Digest          string    `json:"digest"`
+	Number          int       `json:"number"`
+	ProcedureTypeId int64     `json:"procedure_type_id"`
+	ProposedBy      string    `json:"proposed_by"`
+	PublishedAt     time.Time `json:"published_at"`
+}
+
+// Referral Paso del trámite a otra área (ADR-020)
+type Referral struct {
+	ExternalFileNumber *string `json:"external_file_number,omitempty"`
+
+	// From Identificador del área de la que sale
+	From string `json:"from"`
+
+	// To Identificador del área a la que se deriva
+	To string `json:"to"`
+}
+
+// Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento
+type Role struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Permissions Identificadores de permisos del área
+	Permissions []string `json:"permissions"`
+}
+
+// RolePermissions defines model for RolePermissions.
+type RolePermissions struct {
+	// Permissions Identificadores de permisos del área, al menos uno
+	Permissions []string `json:"permissions"`
+}
+
+// StartedProcedure defines model for StartedProcedure.
+type StartedProcedure struct {
+	Id string `json:"id"`
+
+	// OpenStep Paso que espera el trámite; falta si quedó cerrado
+	OpenStep *string `json:"open_step,omitempty"`
+
+	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
+	State ProcedureState `json:"state"`
+}
+
+// StepConfirmation defines model for StepConfirmation.
+type StepConfirmation struct {
+	// ExternalFileNumber Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
+	ExternalFileNumber *string `json:"external_file_number,omitempty"`
+
+	// Observation Qué se hizo o se verificó. No puede quedar vacía
+	Observation string `json:"observation"`
+
+	// Outcome Identificador de la salida elegida; solo en un paso decide
+	Outcome *string `json:"outcome,omitempty"`
+}
+
+// StepOutcome defines model for StepOutcome.
+type StepOutcome struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Next Paso al que lleva esa salida
+	Next string `json:"next"`
+
+	// SendBack Si la salida devuelve el trámite a un paso anterior
+	SendBack bool `json:"send_back"`
+}
+
+// StepRole Quién hace el paso. applicant: el titular. staff: el personal del área del paso.
+type StepRole string
+
+// SubmissionForm Lo que se envía para iniciar el trámite: los datos y documentos de los pasos del titular antes del primer paso del personal. fields y documents del catálogo suman los de pasos del titular posteriores, como una subsanación.
+type SubmissionForm struct {
+	Documents []DocumentRequirement `json:"documents"`
+	Fields    []FieldRequirement    `json:"fields"`
+}
+
+// SubmissionProblem defines model for SubmissionProblem.
+type SubmissionProblem struct {
+	// Code missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+	Code SubmissionProblemCode `json:"code"`
+
+	// Id Identificador del campo o del documento
+	Id   string                `json:"id"`
+	Kind SubmissionProblemKind `json:"kind"`
+}
+
+// SubmissionProblemCode missing: falta un dato o documento obligatorio. invalid: el dato no es del tipo del campo. not_asked: los pasos iniciales no lo piden. repeated: el documento vino más de una vez. type_not_accepted, too_large, empty: el archivo no cumple con el documento.
+type SubmissionProblemCode string
+
+// SubmissionProblemKind defines model for SubmissionProblem.Kind.
+type SubmissionProblemKind string
+
+// SubmissionRejected defines model for SubmissionRejected.
+type SubmissionRejected struct {
+	Message string `json:"message"`
+
+	// Problems Vacío si el pedido está mal formado
+	Problems []SubmissionProblem `json:"problems"`
+}
 
 // User defines model for User.
 type User struct {
-	Email openapi_types.Email `json:"email"`
-	Id    string              `json:"id"`
-	Name  string              `json:"name"`
-	Role  Role                `json:"role"`
+	// Administrator Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+	Administrator bool                `json:"administrator"`
+	Email         openapi_types.Email `json:"email"`
+	Id            string              `json:"id"`
+	Name          string              `json:"name"`
+
+	// Staff Si tiene al menos una membresía vigente (ADR-020). Cualquiera puede iniciar trámites, sea o no del personal; el personal no actúa en los pasos del personal de sus propios trámites
+	Staff bool `json:"staff"`
 }
+
+// ProcedureId defines model for ProcedureId.
+type ProcedureId = string
+
+// ProcedureTypeId defines model for ProcedureTypeId.
+type ProcedureTypeId = int64
 
 // SessionCookie defines model for SessionCookie.
 type SessionCookie = string
 
+// StepId defines model for StepId.
+type StepId = string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// Conflict defines model for Conflict.
+type Conflict = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
@@ -255,6 +959,26 @@ type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// CreateAreaParams defines parameters for CreateArea.
+type CreateAreaParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreatePermissionParams defines parameters for CreatePermission.
+type CreatePermissionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreateRoleParams defines parameters for CreateRole.
+type CreateRoleParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// UpdateRolePermissionsParams defines parameters for UpdateRolePermissions.
+type UpdateRolePermissionsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
 
 // CompleteLoginParams defines parameters for CompleteLogin.
 type CompleteLoginParams struct {
@@ -283,6 +1007,62 @@ type GetCurrentUserParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// ListMyProceduresParams defines parameters for ListMyProcedures.
+type ListMyProceduresParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// GrantMembershipParams defines parameters for GrantMembership.
+type GrantMembershipParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ListProcedureTypeDraftsParams defines parameters for ListProcedureTypeDrafts.
+type ListProcedureTypeDraftsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreateProcedureTypeParams defines parameters for CreateProcedureType.
+type CreateProcedureTypeParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// DiscardProcedureTypeDraftParams defines parameters for DiscardProcedureTypeDraft.
+type DiscardProcedureTypeDraftParams struct {
+	Revision     int            `form:"revision" json:"revision"`
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// GetProcedureTypeDraftParams defines parameters for GetProcedureTypeDraft.
+type GetProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// OpenProcedureTypeDraftParams defines parameters for OpenProcedureTypeDraft.
+type OpenProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// EditProcedureTypeDraftParams defines parameters for EditProcedureTypeDraft.
+type EditProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ApproveProcedureTypeDraftParams defines parameters for ApproveProcedureTypeDraft.
+type ApproveProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ProposeProcedureTypeDraftParams defines parameters for ProposeProcedureTypeDraft.
+type ProposeProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// RejectProcedureTypeDraftParams defines parameters for RejectProcedureTypeDraft.
+type RejectProcedureTypeDraftParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // ListProceduresParams defines parameters for ListProcedures.
 type ListProceduresParams struct {
 	View          *ProcedureListView `form:"view,omitempty" json:"view,omitempty"`
@@ -295,13 +1075,132 @@ type ListProceduresParams struct {
 	SigtaSession *SessionCookie     `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
-// MarkProcedureSeenParams defines parameters for MarkProcedureSeen.
-type MarkProcedureSeenParams struct {
+// SubmitProcedureMultipartBody defines parameters for SubmitProcedure.
+type SubmitProcedureMultipartBody struct {
+	// Document Identificador del documento del archivo que le sigue. Se repite, una vez por archivo
+	Document *string `json:"document,omitempty"`
+
+	// File Archivo del document anterior
+	File *openapi_types.File `json:"file,omitempty"`
+
+	// ProcedureType Va primero
+	ProcedureType int64 `json:"procedure_type"`
+
+	// Values JSON con un valor por campo: un texto, o una lista de textos para subject_list. Un campo que falta no se envía. Va después de procedure_type
+	Values string `json:"values"`
+}
+
+// SubmitProcedureParams defines parameters for SubmitProcedure.
+type SubmitProcedureParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// GetProcedureParams defines parameters for GetProcedure.
+type GetProcedureParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// AnswerCorrectionParams defines parameters for AnswerCorrection.
+type AnswerCorrectionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ListProcedureDocumentsParams defines parameters for ListProcedureDocuments.
+type ListProcedureDocumentsParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// AttachProcedureDocumentMultipartBody defines parameters for AttachProcedureDocument.
+type AttachProcedureDocumentMultipartBody struct {
+	// Document Identificador del documento que pide el paso. Va antes que file
+	Document string             `json:"document"`
+	File     openapi_types.File `json:"file"`
+}
+
+// AttachProcedureDocumentParams defines parameters for AttachProcedureDocument.
+type AttachProcedureDocumentParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// DownloadProcedureDocumentParams defines parameters for DownloadProcedureDocument.
+type DownloadProcedureDocumentParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ConfirmStepParams defines parameters for ConfirmStep.
+type ConfirmStepParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// RequestCorrectionParams defines parameters for RequestCorrection.
+type RequestCorrectionParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// EnterProcedureValueParams defines parameters for EnterProcedureValue.
+type EnterProcedureValueParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// CreateAreaJSONRequestBody defines body for CreateArea for application/json ContentType.
+type CreateAreaJSONRequestBody = NewArea
+
+// CreatePermissionJSONRequestBody defines body for CreatePermission for application/json ContentType.
+type CreatePermissionJSONRequestBody = NewPermission
+
+// CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
+type CreateRoleJSONRequestBody = NewRole
+
+// UpdateRolePermissionsJSONRequestBody defines body for UpdateRolePermissions for application/json ContentType.
+type UpdateRolePermissionsJSONRequestBody = RolePermissions
+
+// GrantMembershipJSONRequestBody defines body for GrantMembership for application/json ContentType.
+type GrantMembershipJSONRequestBody = NewMembership
+
+// CreateProcedureTypeJSONRequestBody defines body for CreateProcedureType for application/json ContentType.
+type CreateProcedureTypeJSONRequestBody = NewProcedureType
+
+// EditProcedureTypeDraftJSONRequestBody defines body for EditProcedureTypeDraft for application/json ContentType.
+type EditProcedureTypeDraftJSONRequestBody = DraftEdit
+
+// ApproveProcedureTypeDraftJSONRequestBody defines body for ApproveProcedureTypeDraft for application/json ContentType.
+type ApproveProcedureTypeDraftJSONRequestBody = DraftRevision
+
+// ProposeProcedureTypeDraftJSONRequestBody defines body for ProposeProcedureTypeDraft for application/json ContentType.
+type ProposeProcedureTypeDraftJSONRequestBody = DraftRevision
+
+// RejectProcedureTypeDraftJSONRequestBody defines body for RejectProcedureTypeDraft for application/json ContentType.
+type RejectProcedureTypeDraftJSONRequestBody = DraftRejectionRequest
+
+// SubmitProcedureMultipartRequestBody defines body for SubmitProcedure for multipart/form-data ContentType.
+type SubmitProcedureMultipartRequestBody SubmitProcedureMultipartBody
+
+// AttachProcedureDocumentMultipartRequestBody defines body for AttachProcedureDocument for multipart/form-data ContentType.
+type AttachProcedureDocumentMultipartRequestBody AttachProcedureDocumentMultipartBody
+
+// ConfirmStepJSONRequestBody defines body for ConfirmStep for application/json ContentType.
+type ConfirmStepJSONRequestBody = StepConfirmation
+
+// RequestCorrectionJSONRequestBody defines body for RequestCorrection for application/json ContentType.
+type RequestCorrectionJSONRequestBody = NewCorrectionRequest
+
+// EnterProcedureValueJSONRequestBody defines body for EnterProcedureValue for application/json ContentType.
+type EnterProcedureValueJSONRequestBody = NewProcedureValue
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CreateArea Crea un área del personal
+	// (POST /areas)
+	CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams)
+	// CreatePermission Crea un permiso en un área del personal
+	// (POST /areas/{areaId}/permissions)
+	CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams)
+	// CreateRole Crea un rol en un área del personal
+	// (POST /areas/{areaId}/roles)
+	CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams)
+	// UpdateRolePermissions Reemplaza los permisos de un rol
+	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
+	UpdateRolePermissions(w http.ResponseWriter, r *http.Request, areaId string, roleId string, params UpdateRolePermissionsParams)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
@@ -314,15 +1213,72 @@ type ServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
+	// ListMyProcedures Trámites de la persona con sesión abierta
+	// (GET /me/procedures)
+	ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams)
+	// GrantMembership Otorga una membresía a una persona
+	// (POST /memberships)
+	GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams)
+	// ListProcedureTypeDrafts Borradores de tipos de trámite
+	// (GET /procedure-type-drafts)
+	ListProcedureTypeDrafts(w http.ResponseWriter, r *http.Request, params ListProcedureTypeDraftsParams)
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(w http.ResponseWriter, r *http.Request)
+	// CreateProcedureType Crea el borrador de un tipo de trámite nuevo
+	// (POST /procedure-types)
+	CreateProcedureType(w http.ResponseWriter, r *http.Request, params CreateProcedureTypeParams)
+	// DiscardProcedureTypeDraft Descarta el borrador
+	// (DELETE /procedure-types/{procedureTypeId}/draft)
+	DiscardProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params DiscardProcedureTypeDraftParams)
+	// GetProcedureTypeDraft Borrador de un tipo de trámite
+	// (GET /procedure-types/{procedureTypeId}/draft)
+	GetProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params GetProcedureTypeDraftParams)
+	// OpenProcedureTypeDraft Abre el borrador de una versión nueva
+	// (POST /procedure-types/{procedureTypeId}/draft)
+	OpenProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params OpenProcedureTypeDraftParams)
+	// EditProcedureTypeDraft Reemplaza la definición del borrador
+	// (PUT /procedure-types/{procedureTypeId}/draft)
+	EditProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params EditProcedureTypeDraftParams)
+	// ApproveProcedureTypeDraft Aprueba la propuesta y la publica como versión nueva
+	// (POST /procedure-types/{procedureTypeId}/draft/approval)
+	ApproveProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params ApproveProcedureTypeDraftParams)
+	// ProposeProcedureTypeDraft Propone el borrador para que otra persona lo apruebe
+	// (POST /procedure-types/{procedureTypeId}/draft/proposal)
+	ProposeProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params ProposeProcedureTypeDraftParams)
+	// RejectProcedureTypeDraft Rechaza la propuesta y la devuelve a edición
+	// (POST /procedure-types/{procedureTypeId}/draft/rejection)
+	RejectProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params RejectProcedureTypeDraftParams)
 	// ListProcedures Bandeja y listado de trámites del personal
 	// (GET /procedures)
 	ListProcedures(w http.ResponseWriter, r *http.Request, params ListProceduresParams)
-	// MarkProcedureSeen Registrar que quien mira vio el trámite
-	// (PUT /procedures/{id}/seen)
-	MarkProcedureSeen(w http.ResponseWriter, r *http.Request, id string, params MarkProcedureSeenParams)
+	// SubmitProcedure Inicia un trámite
+	// (POST /procedures)
+	SubmitProcedure(w http.ResponseWriter, r *http.Request, params SubmitProcedureParams)
+	// GetProcedure Detalle de un trámite
+	// (GET /procedures/{procedureId})
+	GetProcedure(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params GetProcedureParams)
+	// AnswerCorrection Envía la respuesta a las subsanaciones pendientes
+	// (POST /procedures/{procedureId}/correction-answer)
+	AnswerCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AnswerCorrectionParams)
+	// ListProcedureDocuments Documentos adjuntos a un trámite
+	// (GET /procedures/{procedureId}/documents)
+	ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams)
+	// AttachProcedureDocument Adjunta un documento a un trámite
+	// (POST /procedures/{procedureId}/documents)
+	AttachProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AttachProcedureDocumentParams)
+	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams)
+	// ConfirmStep Confirma el paso abierto de un trámite
+	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
+	ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams)
+	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
+	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
+	RequestCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params RequestCorrectionParams)
+	// EnterProcedureValue Carga un dato que pide una subsanación pendiente
+	// (POST /procedures/{procedureId}/values)
+	EnterProcedureValue(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params EnterProcedureValueParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -333,6 +1289,182 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CreateArea operation middleware
+func (siw *ServerInterfaceWrapper) CreateArea(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateAreaParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateArea(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePermission operation middleware
+func (siw *ServerInterfaceWrapper) CreatePermission(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePermissionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePermission(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRoleParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRole(w, r, areaId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRolePermissions operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRolePermissions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "areaId" -------------
+	var areaId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "areaId", r.PathValue("areaId"), &areaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "areaId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "roleId" -------------
+	var roleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roleId", r.PathValue("roleId"), &roleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateRolePermissionsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRolePermissions(w, r, areaId, roleId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CompleteLogin operation middleware
 func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.Request) {
@@ -511,11 +1643,472 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListMyProcedures operation middleware
+func (siw *ServerInterfaceWrapper) ListMyProcedures(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMyProceduresParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyProcedures(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GrantMembership operation middleware
+func (siw *ServerInterfaceWrapper) GrantMembership(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GrantMembershipParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantMembership(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProcedureTypeDrafts operation middleware
+func (siw *ServerInterfaceWrapper) ListProcedureTypeDrafts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProcedureTypeDraftsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProcedureTypeDrafts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProcedureTypes operation middleware
 func (siw *ServerInterfaceWrapper) ListProcedureTypes(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProcedureTypes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProcedureType operation middleware
+func (siw *ServerInterfaceWrapper) CreateProcedureType(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateProcedureTypeParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProcedureType(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) DiscardProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DiscardProcedureTypeDraftParams
+
+	// ------------- Required query parameter "revision" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "revision", r.URL.Query(), &params.Revision, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "revision"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "revision", Err: err})
+		}
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) GetProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) OpenProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OpenProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EditProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) EditProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EditProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EditProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) ApproveProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ProposeProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) ProposeProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ProposeProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ProposeProcedureTypeDraft(w, r, procedureTypeId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectProcedureTypeDraft operation middleware
+func (siw *ServerInterfaceWrapper) RejectProcedureTypeDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureTypeId" -------------
+	var procedureTypeId ProcedureTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureTypeId", r.PathValue("procedureTypeId"), &procedureTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureTypeId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RejectProcedureTypeDraftParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectProcedureTypeDraft(w, r, procedureTypeId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -625,23 +2218,14 @@ func (siw *ServerInterfaceWrapper) ListProcedures(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// MarkProcedureSeen operation middleware
-func (siw *ServerInterfaceWrapper) MarkProcedureSeen(w http.ResponseWriter, r *http.Request) {
+// SubmitProcedure operation middleware
+func (siw *ServerInterfaceWrapper) SubmitProcedure(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
 	// Parameter object where we will unmarshal all parameters from the context
-	var params MarkProcedureSeenParams
+	var params SubmitProcedureParams
 
 	{
 		var cookie *http.Cookie
@@ -659,7 +2243,386 @@ func (siw *ServerInterfaceWrapper) MarkProcedureSeen(w http.ResponseWriter, r *h
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.MarkProcedureSeen(w, r, id, params)
+		siw.Handler.SubmitProcedure(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProcedure operation middleware
+func (siw *ServerInterfaceWrapper) GetProcedure(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProcedureParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProcedure(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnswerCorrection operation middleware
+func (siw *ServerInterfaceWrapper) AnswerCorrection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AnswerCorrectionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerCorrection(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProcedureDocuments operation middleware
+func (siw *ServerInterfaceWrapper) ListProcedureDocuments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProcedureDocumentsParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProcedureDocuments(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttachProcedureDocument operation middleware
+func (siw *ServerInterfaceWrapper) AttachProcedureDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AttachProcedureDocumentParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttachProcedureDocument(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadProcedureDocument operation middleware
+func (siw *ServerInterfaceWrapper) DownloadProcedureDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadProcedureDocumentParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadProcedureDocument(w, r, procedureId, documentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmStep operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmStep(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "stepId" -------------
+	var stepId StepId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "stepId", r.PathValue("stepId"), &stepId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stepId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmStepParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmStep(w, r, procedureId, stepId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestCorrection operation middleware
+func (siw *ServerInterfaceWrapper) RequestCorrection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "stepId" -------------
+	var stepId StepId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "stepId", r.PathValue("stepId"), &stepId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stepId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestCorrectionParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestCorrection(w, r, procedureId, stepId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnterProcedureValue operation middleware
+func (siw *ServerInterfaceWrapper) EnterProcedureValue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EnterProcedureValueParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnterProcedureValue(w, r, procedureId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -793,20 +2756,325 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/callback", wrapper.CompleteLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me/procedures", wrapper.ListMyProcedures)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types", wrapper.CreateProcedureType)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-type-drafts", wrapper.ListProcedureTypeDrafts)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.DiscardProcedureTypeDraft)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.GetProcedureTypeDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.OpenProcedureTypeDraft)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.EditProcedureTypeDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/proposal", wrapper.ProposeProcedureTypeDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/rejection", wrapper.RejectProcedureTypeDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft/approval", wrapper.ApproveProcedureTypeDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas", wrapper.CreateArea)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/permissions", wrapper.CreatePermission)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/areas/{areaId}/roles", wrapper.CreateRole)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/areas/{areaId}/roles/{roleId}/permissions", wrapper.UpdateRolePermissions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/memberships", wrapper.GrantMembership)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures", wrapper.ListProcedures)
-	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/procedures/{id}/seen", wrapper.MarkProcedureSeen)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/confirmation", wrapper.ConfirmStep)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/correction-requests", wrapper.RequestCorrection)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/values", wrapper.EnterProcedureValue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/correction-answer", wrapper.AnswerCorrection)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.ListProcedureDocuments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/documents", wrapper.AttachProcedureDocument)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/documents/{documentId}/content", wrapper.DownloadProcedureDocument)
 
 	return m
 }
 
 type BadRequestJSONResponse Error
 
+type ConflictJSONResponse Error
+
 type ForbiddenJSONResponse Error
+
+type InvalidDefinitionJSONResponse InvalidDefinition
 
 type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type CreateAreaRequestObject struct {
+	Params CreateAreaParams
+	Body   *CreateAreaJSONRequestBody
+}
+
+type CreateAreaResponseObject interface {
+	VisitCreateAreaResponse(w http.ResponseWriter) error
+}
+
+type CreateArea201JSONResponse Area
+
+func (response CreateArea201JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateArea400JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateArea401JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateArea403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateArea403JSONResponse) VisitCreateAreaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermissionRequestObject struct {
+	AreaId string `json:"areaId"`
+	Params CreatePermissionParams
+	Body   *CreatePermissionJSONRequestBody
+}
+
+type CreatePermissionResponseObject interface {
+	VisitCreatePermissionResponse(w http.ResponseWriter) error
+}
+
+type CreatePermission201JSONResponse Permission
+
+func (response CreatePermission201JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreatePermission400JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreatePermission401JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePermission403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreatePermission403JSONResponse) VisitCreatePermissionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRoleRequestObject struct {
+	AreaId string `json:"areaId"`
+	Params CreateRoleParams
+	Body   *CreateRoleJSONRequestBody
+}
+
+type CreateRoleResponseObject interface {
+	VisitCreateRoleResponse(w http.ResponseWriter) error
+}
+
+type CreateRole201JSONResponse Role
+
+func (response CreateRole201JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateRole400JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRole401JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateRole403JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissionsRequestObject struct {
+	AreaId string `json:"areaId"`
+	RoleId string `json:"roleId"`
+	Params UpdateRolePermissionsParams
+	Body   *UpdateRolePermissionsJSONRequestBody
+}
+
+type UpdateRolePermissionsResponseObject interface {
+	VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error
+}
+
+type UpdateRolePermissions200JSONResponse Role
+
+func (response UpdateRolePermissions200JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateRolePermissions400JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateRolePermissions401JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateRolePermissions403JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRolePermissions404JSONResponse Error
+
+func (response UpdateRolePermissions404JSONResponse) VisitUpdateRolePermissionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type CompleteLoginRequestObject struct {
 	Params CompleteLoginParams
@@ -938,6 +3206,143 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
+type ListMyProceduresRequestObject struct {
+	Params ListMyProceduresParams
+}
+
+type ListMyProceduresResponseObject interface {
+	VisitListMyProceduresResponse(w http.ResponseWriter) error
+}
+
+type ListMyProcedures200JSONResponse []MyProcedure
+
+func (response ListMyProcedures200JSONResponse) VisitListMyProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyProcedures401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListMyProcedures401JSONResponse) VisitListMyProceduresResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembershipRequestObject struct {
+	Params GrantMembershipParams
+	Body   *GrantMembershipJSONRequestBody
+}
+
+type GrantMembershipResponseObject interface {
+	VisitGrantMembershipResponse(w http.ResponseWriter) error
+}
+
+type GrantMembership201JSONResponse Membership
+
+func (response GrantMembership201JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GrantMembership400JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GrantMembership401JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantMembership403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GrantMembership403JSONResponse) VisitGrantMembershipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureTypeDraftsRequestObject struct {
+	Params ListProcedureTypeDraftsParams
+}
+
+type ListProcedureTypeDraftsResponseObject interface {
+	VisitListProcedureTypeDraftsResponse(w http.ResponseWriter) error
+}
+
+type ListProcedureTypeDrafts200JSONResponse []ProcedureTypeDraft
+
+func (response ListProcedureTypeDrafts200JSONResponse) VisitListProcedureTypeDraftsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureTypeDrafts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListProcedureTypeDrafts401JSONResponse) VisitListProcedureTypeDraftsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListProcedureTypesRequestObject struct {
 }
 
@@ -955,6 +3360,636 @@ func (response ListProcedureTypes200JSONResponse) VisitListProcedureTypesRespons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProcedureTypeRequestObject struct {
+	Params CreateProcedureTypeParams
+	Body   *CreateProcedureTypeJSONRequestBody
+}
+
+type CreateProcedureTypeResponseObject interface {
+	VisitCreateProcedureTypeResponse(w http.ResponseWriter) error
+}
+
+type CreateProcedureType201JSONResponse ProcedureTypeDraft
+
+func (response CreateProcedureType201JSONResponse) VisitCreateProcedureTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProcedureType401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateProcedureType401JSONResponse) VisitCreateProcedureTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProcedureType403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateProcedureType403JSONResponse) VisitCreateProcedureTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          DiscardProcedureTypeDraftParams
+}
+
+type DiscardProcedureTypeDraftResponseObject interface {
+	VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type DiscardProcedureTypeDraft204Response struct {
+}
+
+func (response DiscardProcedureTypeDraft204Response) VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DiscardProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DiscardProcedureTypeDraft401JSONResponse) VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DiscardProcedureTypeDraft403JSONResponse) VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DiscardProcedureTypeDraft404JSONResponse) VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DiscardProcedureTypeDraft409JSONResponse) VisitDiscardProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          GetProcedureTypeDraftParams
+}
+
+type GetProcedureTypeDraftResponseObject interface {
+	VisitGetProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type GetProcedureTypeDraft200JSONResponse ProcedureTypeDraft
+
+func (response GetProcedureTypeDraft200JSONResponse) VisitGetProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetProcedureTypeDraft401JSONResponse) VisitGetProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetProcedureTypeDraft403JSONResponse) VisitGetProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetProcedureTypeDraft404JSONResponse) VisitGetProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          OpenProcedureTypeDraftParams
+}
+
+type OpenProcedureTypeDraftResponseObject interface {
+	VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type OpenProcedureTypeDraft201JSONResponse ProcedureTypeDraft
+
+func (response OpenProcedureTypeDraft201JSONResponse) VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response OpenProcedureTypeDraft401JSONResponse) VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response OpenProcedureTypeDraft403JSONResponse) VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response OpenProcedureTypeDraft404JSONResponse) VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response OpenProcedureTypeDraft409JSONResponse) VisitOpenProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          EditProcedureTypeDraftParams
+	Body            *EditProcedureTypeDraftJSONRequestBody
+}
+
+type EditProcedureTypeDraftResponseObject interface {
+	VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type EditProcedureTypeDraft200JSONResponse ProcedureTypeDraft
+
+func (response EditProcedureTypeDraft200JSONResponse) VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EditProcedureTypeDraft401JSONResponse) VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EditProcedureTypeDraft403JSONResponse) VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EditProcedureTypeDraft404JSONResponse) VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EditProcedureTypeDraft409JSONResponse) VisitEditProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          ApproveProcedureTypeDraftParams
+	Body            *ApproveProcedureTypeDraftJSONRequestBody
+}
+
+type ApproveProcedureTypeDraftResponseObject interface {
+	VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type ApproveProcedureTypeDraft200JSONResponse PublishedVersion
+
+func (response ApproveProcedureTypeDraft200JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ApproveProcedureTypeDraft401JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveProcedureTypeDraft403JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveProcedureTypeDraft404JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveProcedureTypeDraft409JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveProcedureTypeDraft422JSONResponse struct{ InvalidDefinitionJSONResponse }
+
+func (response ApproveProcedureTypeDraft422JSONResponse) VisitApproveProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          ProposeProcedureTypeDraftParams
+	Body            *ProposeProcedureTypeDraftJSONRequestBody
+}
+
+type ProposeProcedureTypeDraftResponseObject interface {
+	VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type ProposeProcedureTypeDraft200JSONResponse ProcedureTypeDraft
+
+func (response ProposeProcedureTypeDraft200JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ProposeProcedureTypeDraft401JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ProposeProcedureTypeDraft403JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ProposeProcedureTypeDraft404JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ProposeProcedureTypeDraft409JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeProcedureTypeDraft422JSONResponse struct{ InvalidDefinitionJSONResponse }
+
+func (response ProposeProcedureTypeDraft422JSONResponse) VisitProposeProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraftRequestObject struct {
+	ProcedureTypeId ProcedureTypeId `json:"procedureTypeId"`
+	Params          RejectProcedureTypeDraftParams
+	Body            *RejectProcedureTypeDraftJSONRequestBody
+}
+
+type RejectProcedureTypeDraftResponseObject interface {
+	VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error
+}
+
+type RejectProcedureTypeDraft200JSONResponse ProcedureTypeDraft
+
+func (response RejectProcedureTypeDraft200JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraft400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RejectProcedureTypeDraft400JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraft401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RejectProcedureTypeDraft401JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraft403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectProcedureTypeDraft403JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraft404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectProcedureTypeDraft404JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectProcedureTypeDraft409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectProcedureTypeDraft409JSONResponse) VisitRejectProcedureTypeDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1023,26 +4058,46 @@ func (response ListProcedures403JSONResponse) VisitListProceduresResponse(w http
 	return err
 }
 
-type MarkProcedureSeenRequestObject struct {
-	Id     string `json:"id"`
-	Params MarkProcedureSeenParams
+type SubmitProcedureRequestObject struct {
+	Params SubmitProcedureParams
+	Body   *multipart.Reader
 }
 
-type MarkProcedureSeenResponseObject interface {
-	VisitMarkProcedureSeenResponse(w http.ResponseWriter) error
+type SubmitProcedureResponseObject interface {
+	VisitSubmitProcedureResponse(w http.ResponseWriter) error
 }
 
-type MarkProcedureSeen204Response struct {
+type SubmitProcedure201JSONResponse StartedProcedure
+
+func (response SubmitProcedure201JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
-func (response MarkProcedureSeen204Response) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
+type SubmitProcedure400JSONResponse SubmissionRejected
+
+func (response SubmitProcedure400JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
-type MarkProcedureSeen401JSONResponse struct{ UnauthorizedJSONResponse }
+type SubmitProcedure401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response MarkProcedureSeen401JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+func (response SubmitProcedure401JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1054,23 +4109,9 @@ func (response MarkProcedureSeen401JSONResponse) VisitMarkProcedureSeenResponse(
 	return err
 }
 
-type MarkProcedureSeen403JSONResponse struct{ ForbiddenJSONResponse }
+type SubmitProcedure404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response MarkProcedureSeen403JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type MarkProcedureSeen404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response MarkProcedureSeen404JSONResponse) VisitMarkProcedureSeenResponse(w http.ResponseWriter) error {
+func (response SubmitProcedure404JSONResponse) VisitSubmitProcedureResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1082,8 +4123,664 @@ func (response MarkProcedureSeen404JSONResponse) VisitMarkProcedureSeenResponse(
 	return err
 }
 
+type GetProcedureRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      GetProcedureParams
+}
+
+type GetProcedureResponseObject interface {
+	VisitGetProcedureResponse(w http.ResponseWriter) error
+}
+
+type GetProcedure200JSONResponse ProcedureDetail
+
+func (response GetProcedure200JSONResponse) VisitGetProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedure401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetProcedure401JSONResponse) VisitGetProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProcedure404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetProcedure404JSONResponse) VisitGetProcedureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrectionRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      AnswerCorrectionParams
+}
+
+type AnswerCorrectionResponseObject interface {
+	VisitAnswerCorrectionResponse(w http.ResponseWriter) error
+}
+
+type AnswerCorrection201JSONResponse ProcedureEvent
+
+func (response AnswerCorrection201JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AnswerCorrection400JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AnswerCorrection401JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AnswerCorrection403JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AnswerCorrection404JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerCorrection409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AnswerCorrection409JSONResponse) VisitAnswerCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureDocumentsRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      ListProcedureDocumentsParams
+}
+
+type ListProcedureDocumentsResponseObject interface {
+	VisitListProcedureDocumentsResponse(w http.ResponseWriter) error
+}
+
+type ListProcedureDocuments200JSONResponse []ProcedureDocument
+
+func (response ListProcedureDocuments200JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureDocuments401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListProcedureDocuments401JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcedureDocuments404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListProcedureDocuments404JSONResponse) VisitListProcedureDocumentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocumentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      AttachProcedureDocumentParams
+	Body        *multipart.Reader
+}
+
+type AttachProcedureDocumentResponseObject interface {
+	VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error
+}
+
+type AttachProcedureDocument201JSONResponse ProcedureDocument
+
+func (response AttachProcedureDocument201JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AttachProcedureDocument400JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AttachProcedureDocument401JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AttachProcedureDocument403JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AttachProcedureDocument404JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachProcedureDocument409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AttachProcedureDocument409JSONResponse) VisitAttachProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadProcedureDocumentRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	DocumentId  string      `json:"documentId"`
+	Params      DownloadProcedureDocumentParams
+}
+
+type DownloadProcedureDocumentResponseObject interface {
+	VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error
+}
+
+type DownloadProcedureDocument200ResponseHeaders struct {
+	CacheControl          string
+	ContentDisposition    string
+	ContentSecurityPolicy string
+	XContentTypeOptions   string
+}
+
+type DownloadProcedureDocument200AsteriskResponse struct {
+	Body          io.Reader
+	Headers       DownloadProcedureDocument200ResponseHeaders
+	ContentType   string
+	ContentLength int64
+}
+
+func (response DownloadProcedureDocument200AsteriskResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", response.ContentType)
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.Header().Set("Content-Security-Policy", fmt.Sprint(response.Headers.ContentSecurityPolicy))
+	w.Header().Set("X-Content-Type-Options", fmt.Sprint(response.Headers.XContentTypeOptions))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadProcedureDocument401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DownloadProcedureDocument401JSONResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadProcedureDocument404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DownloadProcedureDocument404JSONResponse) VisitDownloadProcedureDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStepRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	StepId      StepId      `json:"stepId"`
+	Params      ConfirmStepParams
+	Body        *ConfirmStepJSONRequestBody
+}
+
+type ConfirmStepResponseObject interface {
+	VisitConfirmStepResponse(w http.ResponseWriter) error
+}
+
+type ConfirmStep201JSONResponse ProcedureEvent
+
+func (response ConfirmStep201JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConfirmStep400JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConfirmStep401JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConfirmStep403JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConfirmStep404JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmStep409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ConfirmStep409JSONResponse) VisitConfirmStepResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrectionRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	StepId      StepId      `json:"stepId"`
+	Params      RequestCorrectionParams
+	Body        *RequestCorrectionJSONRequestBody
+}
+
+type RequestCorrectionResponseObject interface {
+	VisitRequestCorrectionResponse(w http.ResponseWriter) error
+}
+
+type RequestCorrection201JSONResponse ProcedureEvent
+
+func (response RequestCorrection201JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RequestCorrection400JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RequestCorrection401JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestCorrection403JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RequestCorrection404JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestCorrection409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RequestCorrection409JSONResponse) VisitRequestCorrectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValueRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      EnterProcedureValueParams
+	Body        *EnterProcedureValueJSONRequestBody
+}
+
+type EnterProcedureValueResponseObject interface {
+	VisitEnterProcedureValueResponse(w http.ResponseWriter) error
+}
+
+type EnterProcedureValue201JSONResponse ProcedureValue
+
+func (response EnterProcedureValue201JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response EnterProcedureValue400JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EnterProcedureValue401JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EnterProcedureValue403JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EnterProcedureValue404JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnterProcedureValue409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EnterProcedureValue409JSONResponse) VisitEnterProcedureValueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// CreateArea Crea un área del personal
+	// (POST /areas)
+	CreateArea(ctx context.Context, request CreateAreaRequestObject) (CreateAreaResponseObject, error)
+	// CreatePermission Crea un permiso en un área del personal
+	// (POST /areas/{areaId}/permissions)
+	CreatePermission(ctx context.Context, request CreatePermissionRequestObject) (CreatePermissionResponseObject, error)
+	// CreateRole Crea un rol en un área del personal
+	// (POST /areas/{areaId}/roles)
+	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
+	// UpdateRolePermissions Reemplaza los permisos de un rol
+	// (PUT /areas/{areaId}/roles/{roleId}/permissions)
+	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
 	// CompleteLogin Recibe la respuesta del proveedor de identidad y abre la sesión
 	// (GET /auth/callback)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
@@ -1096,15 +4793,72 @@ type StrictServerInterface interface {
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// ListMyProcedures Trámites de la persona con sesión abierta
+	// (GET /me/procedures)
+	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
+	// GrantMembership Otorga una membresía a una persona
+	// (POST /memberships)
+	GrantMembership(ctx context.Context, request GrantMembershipRequestObject) (GrantMembershipResponseObject, error)
+	// ListProcedureTypeDrafts Borradores de tipos de trámite
+	// (GET /procedure-type-drafts)
+	ListProcedureTypeDrafts(ctx context.Context, request ListProcedureTypeDraftsRequestObject) (ListProcedureTypeDraftsResponseObject, error)
 	// ListProcedureTypes Catálogo de los tipos de trámite publicados
 	// (GET /procedure-types)
 	ListProcedureTypes(ctx context.Context, request ListProcedureTypesRequestObject) (ListProcedureTypesResponseObject, error)
+	// CreateProcedureType Crea el borrador de un tipo de trámite nuevo
+	// (POST /procedure-types)
+	CreateProcedureType(ctx context.Context, request CreateProcedureTypeRequestObject) (CreateProcedureTypeResponseObject, error)
+	// DiscardProcedureTypeDraft Descarta el borrador
+	// (DELETE /procedure-types/{procedureTypeId}/draft)
+	DiscardProcedureTypeDraft(ctx context.Context, request DiscardProcedureTypeDraftRequestObject) (DiscardProcedureTypeDraftResponseObject, error)
+	// GetProcedureTypeDraft Borrador de un tipo de trámite
+	// (GET /procedure-types/{procedureTypeId}/draft)
+	GetProcedureTypeDraft(ctx context.Context, request GetProcedureTypeDraftRequestObject) (GetProcedureTypeDraftResponseObject, error)
+	// OpenProcedureTypeDraft Abre el borrador de una versión nueva
+	// (POST /procedure-types/{procedureTypeId}/draft)
+	OpenProcedureTypeDraft(ctx context.Context, request OpenProcedureTypeDraftRequestObject) (OpenProcedureTypeDraftResponseObject, error)
+	// EditProcedureTypeDraft Reemplaza la definición del borrador
+	// (PUT /procedure-types/{procedureTypeId}/draft)
+	EditProcedureTypeDraft(ctx context.Context, request EditProcedureTypeDraftRequestObject) (EditProcedureTypeDraftResponseObject, error)
+	// ApproveProcedureTypeDraft Aprueba la propuesta y la publica como versión nueva
+	// (POST /procedure-types/{procedureTypeId}/draft/approval)
+	ApproveProcedureTypeDraft(ctx context.Context, request ApproveProcedureTypeDraftRequestObject) (ApproveProcedureTypeDraftResponseObject, error)
+	// ProposeProcedureTypeDraft Propone el borrador para que otra persona lo apruebe
+	// (POST /procedure-types/{procedureTypeId}/draft/proposal)
+	ProposeProcedureTypeDraft(ctx context.Context, request ProposeProcedureTypeDraftRequestObject) (ProposeProcedureTypeDraftResponseObject, error)
+	// RejectProcedureTypeDraft Rechaza la propuesta y la devuelve a edición
+	// (POST /procedure-types/{procedureTypeId}/draft/rejection)
+	RejectProcedureTypeDraft(ctx context.Context, request RejectProcedureTypeDraftRequestObject) (RejectProcedureTypeDraftResponseObject, error)
 	// ListProcedures Bandeja y listado de trámites del personal
 	// (GET /procedures)
 	ListProcedures(ctx context.Context, request ListProceduresRequestObject) (ListProceduresResponseObject, error)
-	// MarkProcedureSeen Registrar que quien mira vio el trámite
-	// (PUT /procedures/{id}/seen)
-	MarkProcedureSeen(ctx context.Context, request MarkProcedureSeenRequestObject) (MarkProcedureSeenResponseObject, error)
+	// SubmitProcedure Inicia un trámite
+	// (POST /procedures)
+	SubmitProcedure(ctx context.Context, request SubmitProcedureRequestObject) (SubmitProcedureResponseObject, error)
+	// GetProcedure Detalle de un trámite
+	// (GET /procedures/{procedureId})
+	GetProcedure(ctx context.Context, request GetProcedureRequestObject) (GetProcedureResponseObject, error)
+	// AnswerCorrection Envía la respuesta a las subsanaciones pendientes
+	// (POST /procedures/{procedureId}/correction-answer)
+	AnswerCorrection(ctx context.Context, request AnswerCorrectionRequestObject) (AnswerCorrectionResponseObject, error)
+	// ListProcedureDocuments Documentos adjuntos a un trámite
+	// (GET /procedures/{procedureId}/documents)
+	ListProcedureDocuments(ctx context.Context, request ListProcedureDocumentsRequestObject) (ListProcedureDocumentsResponseObject, error)
+	// AttachProcedureDocument Adjunta un documento a un trámite
+	// (POST /procedures/{procedureId}/documents)
+	AttachProcedureDocument(ctx context.Context, request AttachProcedureDocumentRequestObject) (AttachProcedureDocumentResponseObject, error)
+	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
+	// (GET /procedures/{procedureId}/documents/{documentId}/content)
+	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
+	// ConfirmStep Confirma el paso abierto de un trámite
+	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
+	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
+	// RequestCorrection Pide una subsanación al titular sobre el paso abierto
+	// (POST /procedures/{procedureId}/steps/{stepId}/correction-requests)
+	RequestCorrection(ctx context.Context, request RequestCorrectionRequestObject) (RequestCorrectionResponseObject, error)
+	// EnterProcedureValue Carga un dato que pide una subsanación pendiente
+	// (POST /procedures/{procedureId}/values)
+	EnterProcedureValue(ctx context.Context, request EnterProcedureValueRequestObject) (EnterProcedureValueResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1144,6 +4898,142 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// CreateArea operation middleware
+func (sh *strictHandler) CreateArea(w http.ResponseWriter, r *http.Request, params CreateAreaParams) {
+	var request CreateAreaRequestObject
+
+	request.Params = params
+
+	var body CreateAreaJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateArea(ctx, request.(CreateAreaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateArea")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAreaResponseObject); ok {
+		if err := validResponse.VisitCreateAreaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePermission operation middleware
+func (sh *strictHandler) CreatePermission(w http.ResponseWriter, r *http.Request, areaId string, params CreatePermissionParams) {
+	var request CreatePermissionRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	var body CreatePermissionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePermission(ctx, request.(CreatePermissionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePermission")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePermissionResponseObject); ok {
+		if err := validResponse.VisitCreatePermissionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRole operation middleware
+func (sh *strictHandler) CreateRole(w http.ResponseWriter, r *http.Request, areaId string, params CreateRoleParams) {
+	var request CreateRoleRequestObject
+
+	request.AreaId = areaId
+	request.Params = params
+
+	var body CreateRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRole(ctx, request.(CreateRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRoleResponseObject); ok {
+		if err := validResponse.VisitCreateRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateRolePermissions operation middleware
+func (sh *strictHandler) UpdateRolePermissions(w http.ResponseWriter, r *http.Request, areaId string, roleId string, params UpdateRolePermissionsParams) {
+	var request UpdateRolePermissionsRequestObject
+
+	request.AreaId = areaId
+	request.RoleId = roleId
+	request.Params = params
+
+	var body UpdateRolePermissionsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRolePermissions(ctx, request.(UpdateRolePermissionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRolePermissions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateRolePermissionsResponseObject); ok {
+		if err := validResponse.VisitUpdateRolePermissionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // CompleteLogin operation middleware
@@ -1250,6 +5140,91 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// ListMyProcedures operation middleware
+func (sh *strictHandler) ListMyProcedures(w http.ResponseWriter, r *http.Request, params ListMyProceduresParams) {
+	var request ListMyProceduresRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyProcedures(ctx, request.(ListMyProceduresRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyProcedures")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyProceduresResponseObject); ok {
+		if err := validResponse.VisitListMyProceduresResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantMembership operation middleware
+func (sh *strictHandler) GrantMembership(w http.ResponseWriter, r *http.Request, params GrantMembershipParams) {
+	var request GrantMembershipRequestObject
+
+	request.Params = params
+
+	var body GrantMembershipJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantMembership(ctx, request.(GrantMembershipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantMembership")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantMembershipResponseObject); ok {
+		if err := validResponse.VisitGrantMembershipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProcedureTypeDrafts operation middleware
+func (sh *strictHandler) ListProcedureTypeDrafts(w http.ResponseWriter, r *http.Request, params ListProcedureTypeDraftsParams) {
+	var request ListProcedureTypeDraftsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProcedureTypeDrafts(ctx, request.(ListProcedureTypeDraftsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProcedureTypeDrafts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProcedureTypeDraftsResponseObject); ok {
+		if err := validResponse.VisitListProcedureTypeDraftsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListProcedureTypes operation middleware
 func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Request) {
 	var request ListProcedureTypesRequestObject
@@ -1267,6 +5242,256 @@ func (sh *strictHandler) ListProcedureTypes(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProcedureTypesResponseObject); ok {
 		if err := validResponse.VisitListProcedureTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateProcedureType operation middleware
+func (sh *strictHandler) CreateProcedureType(w http.ResponseWriter, r *http.Request, params CreateProcedureTypeParams) {
+	var request CreateProcedureTypeRequestObject
+
+	request.Params = params
+
+	var body CreateProcedureTypeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProcedureType(ctx, request.(CreateProcedureTypeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProcedureType")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateProcedureTypeResponseObject); ok {
+		if err := validResponse.VisitCreateProcedureTypeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DiscardProcedureTypeDraft operation middleware
+func (sh *strictHandler) DiscardProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params DiscardProcedureTypeDraftParams) {
+	var request DiscardProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DiscardProcedureTypeDraft(ctx, request.(DiscardProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DiscardProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DiscardProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitDiscardProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetProcedureTypeDraft operation middleware
+func (sh *strictHandler) GetProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params GetProcedureTypeDraftParams) {
+	var request GetProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProcedureTypeDraft(ctx, request.(GetProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitGetProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// OpenProcedureTypeDraft operation middleware
+func (sh *strictHandler) OpenProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params OpenProcedureTypeDraftParams) {
+	var request OpenProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenProcedureTypeDraft(ctx, request.(OpenProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitOpenProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EditProcedureTypeDraft operation middleware
+func (sh *strictHandler) EditProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params EditProcedureTypeDraftParams) {
+	var request EditProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	var body EditProcedureTypeDraftJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EditProcedureTypeDraft(ctx, request.(EditProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EditProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EditProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitEditProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveProcedureTypeDraft operation middleware
+func (sh *strictHandler) ApproveProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params ApproveProcedureTypeDraftParams) {
+	var request ApproveProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	var body ApproveProcedureTypeDraftJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveProcedureTypeDraft(ctx, request.(ApproveProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitApproveProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ProposeProcedureTypeDraft operation middleware
+func (sh *strictHandler) ProposeProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params ProposeProcedureTypeDraftParams) {
+	var request ProposeProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	var body ProposeProcedureTypeDraftJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ProposeProcedureTypeDraft(ctx, request.(ProposeProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ProposeProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ProposeProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitProposeProcedureTypeDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectProcedureTypeDraft operation middleware
+func (sh *strictHandler) RejectProcedureTypeDraft(w http.ResponseWriter, r *http.Request, procedureTypeId ProcedureTypeId, params RejectProcedureTypeDraftParams) {
+	var request RejectProcedureTypeDraftRequestObject
+
+	request.ProcedureTypeId = procedureTypeId
+	request.Params = params
+
+	var body RejectProcedureTypeDraftJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectProcedureTypeDraft(ctx, request.(RejectProcedureTypeDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectProcedureTypeDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectProcedureTypeDraftResponseObject); ok {
+		if err := validResponse.VisitRejectProcedureTypeDraftResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1300,26 +5525,279 @@ func (sh *strictHandler) ListProcedures(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-// MarkProcedureSeen operation middleware
-func (sh *strictHandler) MarkProcedureSeen(w http.ResponseWriter, r *http.Request, id string, params MarkProcedureSeenParams) {
-	var request MarkProcedureSeenRequestObject
+// SubmitProcedure operation middleware
+func (sh *strictHandler) SubmitProcedure(w http.ResponseWriter, r *http.Request, params SubmitProcedureParams) {
+	var request SubmitProcedureRequestObject
 
-	request.Id = id
 	request.Params = params
 
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.MarkProcedureSeen(ctx, request.(MarkProcedureSeenRequestObject))
+		return sh.ssi.SubmitProcedure(ctx, request.(SubmitProcedureRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "MarkProcedureSeen")
+		handler = middleware(handler, "SubmitProcedure")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(MarkProcedureSeenResponseObject); ok {
-		if err := validResponse.VisitMarkProcedureSeenResponse(w); err != nil {
+	} else if validResponse, ok := response.(SubmitProcedureResponseObject); ok {
+		if err := validResponse.VisitSubmitProcedureResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetProcedure operation middleware
+func (sh *strictHandler) GetProcedure(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params GetProcedureParams) {
+	var request GetProcedureRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProcedure(ctx, request.(GetProcedureRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProcedure")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetProcedureResponseObject); ok {
+		if err := validResponse.VisitGetProcedureResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AnswerCorrection operation middleware
+func (sh *strictHandler) AnswerCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AnswerCorrectionParams) {
+	var request AnswerCorrectionRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnswerCorrection(ctx, request.(AnswerCorrectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnswerCorrection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnswerCorrectionResponseObject); ok {
+		if err := validResponse.VisitAnswerCorrectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProcedureDocuments operation middleware
+func (sh *strictHandler) ListProcedureDocuments(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params ListProcedureDocumentsParams) {
+	var request ListProcedureDocumentsRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProcedureDocuments(ctx, request.(ListProcedureDocumentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProcedureDocuments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProcedureDocumentsResponseObject); ok {
+		if err := validResponse.VisitListProcedureDocumentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttachProcedureDocument operation middleware
+func (sh *strictHandler) AttachProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params AttachProcedureDocumentParams) {
+	var request AttachProcedureDocumentRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttachProcedureDocument(ctx, request.(AttachProcedureDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttachProcedureDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttachProcedureDocumentResponseObject); ok {
+		if err := validResponse.VisitAttachProcedureDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadProcedureDocument operation middleware
+func (sh *strictHandler) DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams) {
+	var request DownloadProcedureDocumentRequestObject
+
+	request.ProcedureId = procedureId
+	request.DocumentId = documentId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadProcedureDocument(ctx, request.(DownloadProcedureDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadProcedureDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadProcedureDocumentResponseObject); ok {
+		if err := validResponse.VisitDownloadProcedureDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmStep operation middleware
+func (sh *strictHandler) ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams) {
+	var request ConfirmStepRequestObject
+
+	request.ProcedureId = procedureId
+	request.StepId = stepId
+	request.Params = params
+
+	var body ConfirmStepJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmStep(ctx, request.(ConfirmStepRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmStep")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmStepResponseObject); ok {
+		if err := validResponse.VisitConfirmStepResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestCorrection operation middleware
+func (sh *strictHandler) RequestCorrection(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params RequestCorrectionParams) {
+	var request RequestCorrectionRequestObject
+
+	request.ProcedureId = procedureId
+	request.StepId = stepId
+	request.Params = params
+
+	var body RequestCorrectionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestCorrection(ctx, request.(RequestCorrectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestCorrection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestCorrectionResponseObject); ok {
+		if err := validResponse.VisitRequestCorrectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnterProcedureValue operation middleware
+func (sh *strictHandler) EnterProcedureValue(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params EnterProcedureValueParams) {
+	var request EnterProcedureValueRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	var body EnterProcedureValueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnterProcedureValue(ctx, request.(EnterProcedureValueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnterProcedureValue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnterProcedureValueResponseObject); ok {
+		if err := validResponse.VisitEnterProcedureValueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

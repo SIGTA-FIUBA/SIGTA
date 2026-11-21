@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 import { LoginPage } from '../../src/pages/LoginPage'
 
 function renderAt(path: string) {

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { applicantSteps } from '../../content/platform'
+import { applicantHowTo } from '../../content/platform'
 import { StepList } from './StepList'
 
 const meta: Meta<typeof StepList> = {
@@ -19,5 +19,5 @@ export default meta
 
 export const Steps: StoryObj<typeof StepList> = {
   name: 'StepList',
-  args: { steps: applicantSteps },
+  args: { steps: applicantHowTo },
 }

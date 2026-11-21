@@ -1,60 +1,50 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InboxPage } from '../../src/pages/InboxPage'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 
 const day = 86_400_000
 const daysAgo = (days: number) => new Date(Date.now() - days * day - 3_600_000).toISOString()
 
-// pending: an office step this profile can do. referred: with an external
-// evaluator. waiting: on the applicant. Each of a different type and area.
+// pending: a step of an area this account can do. evaluating: in another
+// area, which this account does not act on. waiting: on the applicant, so
+// with no area. Each of a different type or area.
 const pending = {
   id: 'p-1',
   procedure_type: 2,
   procedure_type_name: 'Equivalencia',
-  applicant_name: 'Titular Uno',
+  applicant: { id: 'a-1', name: 'Titular Uno' },
   step_name: 'Registrar expediente',
-  area: 'office',
-  area_name: 'Dirección de Alumnos',
+  area: { id: 'office', name: 'Dirección de Alumnos' },
   state: 'in_office',
   actionable: true,
   started_at: daysAgo(3),
   last_moved_at: daysAgo(3),
   age_days: 3,
-  step_number: 2,
-  step_count: 5,
-  has_news: true,
-  file_number: 'EX-2026-00000001',
 }
-const referred = {
+const evaluating = {
   ...pending,
   id: 'p-2',
-  applicant_name: 'Titular Dos',
+  applicant: { id: 'a-2', name: 'Titular Dos' },
   step_name: 'Dictamen',
-  area: 'committee',
-  area_name: 'Comisión Curricular',
-  state: 'referred',
+  area: { id: 'committee', name: 'Comisión Curricular' },
   actionable: false,
   started_at: daysAgo(30),
   last_moved_at: daysAgo(12),
   age_days: 30,
-  days_referred: 12,
-  has_news: false,
-  file_number: undefined,
 }
 const waiting = {
   ...pending,
   id: 'p-3',
   procedure_type: 3,
   procedure_type_name: 'Créditos',
-  applicant_name: 'Titular Tres',
+  applicant: { id: 'a-3', name: 'Titular Tres' },
   step_name: 'Documentación pedida',
-  area: 'applicant',
-  area_name: 'Titular',
+  area: undefined,
   state: 'with_applicant',
   actionable: false,
   started_at: daysAgo(8),
@@ -70,7 +60,6 @@ const options = {
   areas: [
     { id: 'committee', name: 'Comisión Curricular' },
     { id: 'office', name: 'Dirección de Alumnos' },
-    { id: 'applicant', name: 'Titular' },
   ],
 }
 
@@ -80,17 +69,11 @@ function stubApi(status: number, body: unknown) {
   return fetch
 }
 
-function renderInbox(path = '/inbox', role = 'staff_operative') {
-  const user = { id: 'u1', email: 'operativo@fi.uba.ar', name: 'Operativo', role }
+function renderAt(path = '/inbox') {
   const router = createMemoryRouter(
     [
-      {
-        element: <Outlet context={user} />,
-        children: [
-          { path: '/inbox', element: <InboxPage /> },
-          { path: '/procedures/:id', element: <ProcedurePage /> },
-        ],
-      },
+      { path: '/inbox', element: <InboxPage /> },
+      { path: '/procedures/:id', element: <ProcedurePage /> },
     ],
     { initialEntries: [path] },
   )
@@ -127,7 +110,7 @@ describe('InboxPage', () => {
 
   it('asks once for everything the person can see', async () => {
     const fetch = stubApi(200, { items: [pending], ...options })
-    renderInbox()
+    renderAt()
 
     await tableRows()
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -136,22 +119,30 @@ describe('InboxPage', () => {
 
   it('shows the procedure type, pending step, who has it, state and age', async () => {
     stubApi(200, { items: [pending], ...options })
-    renderInbox()
+    renderAt()
 
     const [row] = await tableRows()
     expect(within(row!).getByRole('link', { name: 'Titular Uno' })).toBeVisible()
     expect(within(row!).getByText('Equivalencia')).toBeVisible()
     expect(within(row!).getByText('Registrar expediente')).toBeVisible()
     expect(within(row!).getByText('Dirección de Alumnos')).toBeVisible()
-    expect(within(row!).getByText('En la Secretaría')).toBeVisible()
+    expect(within(row!).getByText('En un área')).toBeVisible()
     expect(within(row!).getByText('3 días')).toBeVisible()
     expect(within(row!).getByText('Hace 3 días')).toBeVisible()
-    expect(screen.getByText('Perfil operativo')).toBeVisible()
+  })
+
+  it('shows the applicant in charge of a step of their own, and a name the API does not know', async () => {
+    stubApi(200, { items: [{ ...waiting, applicant: { id: 'a-3', name: '' } }], ...options })
+    renderAt('/inbox?view=all')
+
+    const [row] = await tableRows()
+    expect(within(row!).getByRole('link', { name: 'Titular sin nombre registrado' })).toBeVisible()
+    expect(within(row!).getByText('Titular')).toBeVisible()
   })
 
   it('shows only what needs action by default', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    renderInbox()
+    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    renderAt()
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Uno'])
@@ -160,34 +151,32 @@ describe('InboxPage', () => {
   })
 
   it('counts each state over everything visible, whatever the filters', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    renderInbox('/inbox?view=all&type=3')
+    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    renderAt('/inbox?view=all&type=3')
 
     await tableRows()
     expect(screen.getByRole('button', { name: /Acción requerida\s*1/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /En la Secretaría\s*1/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /En evaluación externa\s*1/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /En un área\s*2/ })).toBeVisible()
     expect(screen.getByRole('button', { name: /Pendiente del titular\s*1/ })).toBeVisible()
   })
 
   it('lists everything in progress, marking what needs action, oldest first', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    renderInbox('/inbox?view=all')
+    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    renderAt('/inbox?view=all')
 
     const rows = await tableRows()
     expect(listedNames()).toEqual(['Titular Dos', 'Titular Tres', 'Titular Uno'])
     expect(within(rows[2]!).getByText('Acción requerida')).toBeVisible()
     expect(within(rows[0]!).queryByText('Acción requerida')).not.toBeInTheDocument()
-    expect(within(rows[0]!).getByText('12 días sin retorno')).toBeVisible()
   })
 
   it('filters by state from a summary and by the selects, combined', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    const router = renderInbox()
+    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    const router = renderAt()
     await tableRows()
 
-    await userEvent.click(screen.getByRole('button', { name: /En evaluación externa/ }))
-    expect(listedNames()).toEqual(['Titular Dos'])
+    await userEvent.click(screen.getByRole('button', { name: /En un área/ }))
+    expect(listedNames()).toEqual(['Titular Dos', 'Titular Uno'])
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Tipo de trámite' }))
     await userEvent.click(screen.getByRole('option', { name: 'Créditos' }))
@@ -195,22 +184,29 @@ describe('InboxPage', () => {
     expect(screen.getByText('No hay trámites que coincidan con los filtros.')).toBeVisible()
     expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
       view: 'all',
-      state: 'referred',
+      state: 'in_office',
       type: '3',
     })
   })
 
   it('sorts by the last movement', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    renderInbox('/inbox?view=all&sort=last_moved')
+    stubApi(200, { items: [pending, evaluating, waiting], ...options })
+    renderAt('/inbox?view=all&sort=last_moved')
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Tres', 'Titular Uno', 'Titular Dos'])
   })
 
   it('keeps the filters when coming back from a procedure', async () => {
-    stubApi(200, { items: [pending, referred, waiting], ...options })
-    const router = renderInbox('/inbox?view=all&area=office')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (request: Request) =>
+        new URL(request.url).pathname.endsWith('/procedures/p-1')
+          ? Response.json({ message: 'No existe el trámite.' }, { status: 404 })
+          : Response.json({ items: [pending, evaluating, waiting], ...options }),
+      ),
+    )
+    const router = renderAt('/inbox?view=all&area=office')
 
     const [row] = await tableRows()
     await userEvent.click(within(row!).getByRole('link', { name: 'Titular Uno' }))
@@ -222,54 +218,37 @@ describe('InboxPage', () => {
     expect(listedNames()).toEqual(['Titular Uno'])
   })
 
-  it('marks what moved since the last view and records the view when a procedure opens', async () => {
-    const fetch = stubApi(200, { items: [pending, referred], ...options })
-    renderInbox('/inbox?view=all')
-
-    // Oldest first: the referred one, then the pending one.
-    const [second, first] = await tableRows()
-    expect(within(first!).getByText('Con novedades')).toBeInTheDocument()
-    expect(within(first!).getByText('EX-2026-00000001')).toBeVisible()
-    expect(within(second!).queryByText('Con novedades')).not.toBeInTheDocument()
-
-    await userEvent.click(within(first!).getByRole('link', { name: 'Titular Uno' }))
-    await vi.waitFor(() => {
-      const seen = fetch.mock.calls.map(([request]) => request).find((request) => request.method === 'PUT')
-      expect(seen?.url).toMatch(/\/api\/procedures\/p-1\/seen$/)
-    })
-  })
-
   it('says when nothing needs action', async () => {
-    stubApi(200, { items: [referred], ...options })
-    renderInbox()
+    stubApi(200, { items: [evaluating], ...options })
+    renderAt()
 
-    expect(await screen.findByText('No hay trámites que requieran acción de este perfil.')).toBeVisible()
+    expect(await screen.findByText('No hay trámites que requieran acción de esta cuenta.')).toBeVisible()
   })
 
   it('says when there is nothing in progress', async () => {
     stubApi(200, { items: [], procedure_types: [], areas: [] })
-    renderInbox('/inbox?view=all')
+    renderAt('/inbox?view=all')
 
     expect(await screen.findByText('No hay trámites en curso.')).toBeVisible()
   })
 
   it('tells who is not staff that the inbox is not theirs', async () => {
-    stubApi(403, { message: 'La bandeja es solo para el personal de la Secretaría.' })
-    renderInbox('/inbox', 'applicant')
+    stubApi(403, { message: 'La bandeja es solo para el personal.' })
+    renderAt()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('disponible solo para el personal de la Secretaría')
+    expect(await screen.findByRole('alert')).toHaveTextContent('disponible solo para el personal')
   })
 
   it('says when the inbox fails', async () => {
     stubApi(500, { message: 'Ocurrió un error inesperado.' })
-    renderInbox()
+    renderAt()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la bandeja de trámites.')
   })
 
   it('ignores filters in the URL that it does not know', async () => {
-    stubApi(200, { items: [pending, referred], ...options })
-    renderInbox('/inbox?view=everything&state=approved&type=abc&sort=name')
+    stubApi(200, { items: [pending, evaluating], ...options })
+    renderAt('/inbox?view=everything&state=approved&type=abc&sort=name')
 
     await tableRows()
     expect(listedNames()).toEqual(['Titular Uno'])

@@ -1,17 +1,19 @@
-import { Anchor, Box, Group, List, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Alert, Anchor, Box, Group, List, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
-import { useProcedures } from '../api/procedures'
+import { useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { EmptyState } from '../components/EmptyState/EmptyState'
-import { ProcedureRow, ProcedureRows } from '../components/ProcedureRow/ProcedureRow'
+import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
+import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { StepList } from '../components/StepList/StepList'
-import { applicantSteps } from '../content/platform'
+import { applicantHowTo } from '../content/platform'
 import { movedText, procedureStates } from '../content/procedures'
 
 type User = components['schemas']['User']
 type Item = components['schemas']['ProcedureListItem']
 type ProcedureList = components['schemas']['ProcedureList']
+type MyProcedure = components['schemas']['MyProcedure']
 
 // The home page shows the latest procedures that need action and the latest
 // news, no more: the rest is in the inbox.
@@ -62,7 +64,6 @@ function Summary({ list }: { list: ProcedureList }) {
     <Paper withBorder variant="figures" p={0} aria-label="Resumen">
       <Figure value={actionable} label="Requieren acción" to="/inbox" />
       <Figure value={list.items.length} label="En curso" to="/inbox?view=all" />
-      <Figure value={list.closed_this_month} label="Cerrados este mes" />
     </Paper>
   )
 }
@@ -73,7 +74,7 @@ function Pending({ list }: { list: ProcedureList }) {
     return (
       <EmptyState
         title="No hay trámites pendientes"
-        text="Cuando un trámite requiera acción del perfil, aparece acá."
+        text="Cuando un trámite requiera acción de la cuenta, aparece acá."
       />
     )
   }
@@ -85,14 +86,11 @@ function Pending({ list }: { list: ProcedureList }) {
           to={procedureLink(item)}
           state={{ from: '/' }}
           type={item.procedure_type_name}
-          fileNumber={item.file_number}
-          applicant={item.applicant_name}
-          program={item.applicant_program}
-          step={{ number: item.step_number, count: item.step_count, name: item.step_name }}
-          area={item.area_name}
+          applicant={item.applicant.name}
+          step={{ name: item.step_name }}
+          area={item.area?.name}
           status={procedureStates[item.state]}
           date={movedText(item.last_moved_at)}
-          news={item.has_news}
         />
       ))}
     </ProcedureRows>
@@ -112,7 +110,7 @@ function Activity({ list }: { list: ProcedureList }) {
           <Group justify="space-between" wrap="nowrap" gap="md">
             <Text size="sm" truncate>
               <Anchor component={Link} to={procedureLink(item)} state={{ from: '/' }} inherit>
-                {item.procedure_type_name} de {item.applicant_name}
+                {item.procedure_type_name} de {item.applicant.name}
               </Anchor>{' '}
               pasó a {item.step_name}
             </Text>
@@ -153,7 +151,7 @@ function Section({
 // StaffHome is the home of the staff: the summary, what needs action and the
 // latest moves. While the list loads, each part shows its shape.
 function StaffHome() {
-  const procedures = useProcedures()
+  const procedures = useInboxProcedures()
   if (procedures.isError) {
     return <EmptyState title="No se pudieron cargar los trámites" text="Volvé a intentarlo en unos minutos." />
   }
@@ -187,14 +185,78 @@ function StaffHome() {
   )
 }
 
+const closeFormat = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'America/Argentina/Buenos_Aires',
+})
+
+function MyProcedureRows({ label, procedures }: { label: string; procedures: MyProcedure[] }) {
+  return (
+    <ProcedureRows label={label}>
+      {procedures.map((procedure) => (
+        <ProcedureRow
+          key={procedure.id}
+          to={`/procedures/${encodeURIComponent(procedure.id)}`}
+          state={{ from: '/' }}
+          type={procedure.procedure_type_name}
+          note={procedure.correction_pending ? 'Subsanación pendiente del titular' : undefined}
+          step={{ name: procedure.step_name ?? 'Trámite cerrado' }}
+          status={procedureStates[procedure.state]}
+          date={
+            procedure.state === 'closed'
+              ? `Cierre: ${closeFormat.format(new Date(procedure.last_moved_at))}`
+              : movedText(procedure.last_moved_at)
+          }
+        />
+      ))}
+    </ProcedureRows>
+  )
+}
+
+// MyProcedures lists what the person started, staff or not, so that signing
+// in answers where each procedure is. The closed ones go apart, for their
+// applicant to reach the resolution.
+function MyProcedures() {
+  const myProcedures = useMyProcedures()
+  const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []
+  const closed = myProcedures.data?.filter((procedure) => procedure.state === 'closed') ?? []
+  return (
+    <>
+      <Section id="my-procedures" title="Mis trámites en curso">
+        {myProcedures.isPending && (
+          <Stack gap="xs" aria-label="Cargando los trámites">
+            <Skeleton h="var(--sigta-row-height)" />
+          </Stack>
+        )}
+        {myProcedures.isError && (
+          <Alert color="red" role="alert">
+            No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+          </Alert>
+        )}
+        {myProcedures.isSuccess && inProgress.length === 0 && (
+          <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
+        )}
+        {inProgress.length > 0 && <MyProcedureRows label="Mis trámites en curso" procedures={inProgress} />}
+      </Section>
+      {closed.length > 0 && (
+        <Section id="my-closed-procedures" title="Mis trámites cerrados">
+          <MyProcedureRows label="Mis trámites cerrados" procedures={closed} />
+        </Section>
+      )}
+    </>
+  )
+}
+
 // HomePage greets the person and shows what to do next. The staff gets the
-// summary, the procedures that need action and the latest moves; the
-// applicant, how a procedure is done. The destinations live in the menu, so
+// summary, the procedures that need action and the latest moves; everyone,
+// the procedures they started; the applicant, how a procedure is done. The destinations live in the menu, so
 // no button here repeats them.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
-  const staff = user != null && user.role !== 'applicant'
+  const staff = user?.staff === true
   const firstName = user?.name.split(' ')[0]
 
   return (
@@ -206,9 +268,10 @@ export function HomePage() {
         </Text>
       </Stack>
       {staff && <StaffHome />}
+      <MyProcedures />
       {!staff && (
         <Section id="how" title="Cómo se realiza un trámite">
-          <StepList steps={applicantSteps} />
+          <StepList steps={applicantHowTo} />
         </Section>
       )}
     </Stack>

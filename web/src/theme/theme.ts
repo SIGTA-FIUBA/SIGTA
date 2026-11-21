@@ -10,12 +10,15 @@ import {
   Input,
   List,
   Menu,
+  Modal,
   NavLink,
   Paper,
   Popover,
   rem,
   SegmentedControl,
   Skeleton,
+  Spoiler,
+  Text,
   Title,
   Tooltip,
   type VariantColorsResolver,
@@ -58,6 +61,11 @@ const variantColorResolver: VariantColorsResolver = (input) => {
 const controlHeight = (size: unknown, height: string, variable: string) =>
   size === undefined || size === 'sm' ? { [variable]: height } : {}
 
+// A word with no place to break, such as a file name or a pasted link, breaks
+// where it has to instead of running past its box. break-word, unlike
+// anywhere, does not narrow the box to fit the word broken up.
+const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
+
 export const theme = createTheme({
   colors: tokens.color.scales,
   primaryColor: tokens.primaryColor,
@@ -81,6 +89,11 @@ export const theme = createTheme({
   fontFamilyMonospace: tokens.font.mono,
   headings: { fontFamily: tokens.font.sans, fontWeight: tokens.font.weights.bold, sizes: tokens.headings },
   variantColorResolver,
+  other: {
+    // The height of a document opened in the page, below the header of its
+    // full screen modal.
+    documentHeight: 'calc(100dvh - 9rem)',
+  },
   components: {
     // An item of the side navigation (variant="menu"), on white: ink.600 at
     // rest, surface.hover under the pointer and the current page in brand.50
@@ -128,6 +141,7 @@ export const theme = createTheme({
     List: List.extend({
       classNames: (_theme, props) =>
         props.variant === 'steps' ? { root: classes.steps, item: classes.stepsItem } : {},
+      styles: { item: breakLongWords.root },
     }),
     Input: Input.extend({
       defaultProps: { radius: tokens.component.input.radius },
@@ -184,11 +198,18 @@ export const theme = createTheme({
     Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
     // Titles of 20px or more are tighter; the headline of the landing page
     // grows with the screen.
+    Text: Text.extend({ styles: breakLongWords }),
     Title: Title.extend({
+      styles: breakLongWords,
       classNames: (_theme, props) => ({
         root: props.variant === 'display' ? `${typography.title} ${typography.display}` : typography.title,
       }),
     }),
+    // A long title, such as the name of a file, breaks instead of pushing the
+    // close button out of the screen.
+    Modal: Modal.extend({ styles: { title: { ...breakLongWords.root, minWidth: 0 } } }),
+    // A long text shows its first lines and opens the rest on request.
+    Spoiler: Spoiler.extend({ defaultProps: { maxHeight: 120 } }),
   },
 })
 

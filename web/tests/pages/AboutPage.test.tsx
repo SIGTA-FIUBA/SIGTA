@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { render } from '../render'
+import { render } from '../test-utils/render'
 import { AboutPage } from '../../src/pages/AboutPage'
 
 describe('AboutPage', () => {

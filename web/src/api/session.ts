@@ -1,0 +1,40 @@
+import { redirect } from 'react-router'
+import { api } from './client'
+
+// requireSession guards the pages that need a session: without one, the
+// browser goes to the login page. It returns the person with the session.
+export async function requireSession() {
+  const user = await optionalSession()
+  if (user === null) {
+    throw redirect('/login')
+  }
+  return user
+}
+
+// optionalSession is for the pages anyone can read, such as the catalog: it
+// returns the person with the session, or null for a visitor.
+export async function optionalSession() {
+  const { data, response } = await api.GET('/me')
+  if (response.status === 401) {
+    return null
+  }
+  if (!data) {
+    throw new Error(`GET /me answered ${response.status}`)
+  }
+  return data
+}
+
+// skipLoginWithSession sends whoever already has a session to the home page.
+export async function skipLoginWithSession() {
+  const { response } = await api.GET('/me')
+  if (response.ok) {
+    throw redirect('/')
+  }
+  return null
+}
+
+// logout closes the session and reports whether the API did.
+export async function logout(): Promise<boolean> {
+  const { response } = await api.POST('/auth/logout')
+  return response.ok
+}

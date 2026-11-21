@@ -1,13 +1,14 @@
 package definition
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
 
 // ProcedureTypeDefinition describes a procedure type. A procedure starts at
-// the first step, and a step without next or outcomes closes it. Areas are
-// shared by every procedure type, while fields and documents belong to the one
+// the first step, and a step without next or outcomes closes it. Staff areas
+// are shared by every procedure type, while fields and documents belong to the one
 // that declares them.
 type ProcedureTypeDefinition struct {
 	Name        string `json:"name"`
@@ -77,6 +78,7 @@ func (d ProcedureTypeDefinition) problems(areas []Area) []ValidationProblem {
 		problems = append(problems, within(Element{Kind: KindStep, ID: s.ID}, validator.validate(s))...)
 	}
 	problems = append(problems, unused(d)...)
+	problems = append(problems, resolutionsFromApplicant(d)...)
 	if len(problems) > 0 {
 		return problems
 	}
@@ -110,6 +112,24 @@ func unused(d ProcedureTypeDefinition) []ValidationProblem {
 	return problems
 }
 
+// resolutionsFromApplicant reports a resolution that a step of the applicant
+// asks for: the resolution is what staff attaches for the applicant to
+// download once the procedure closes.
+func resolutionsFromApplicant(d ProcedureTypeDefinition) []ValidationProblem {
+	var problems []ValidationProblem
+	for _, s := range d.Steps {
+		if s.Role != RoleApplicant {
+			continue
+		}
+		for _, id := range slices.Concat(s.Documents, s.OptionalDocuments) {
+			if slices.ContainsFunc(d.Documents, func(doc Document) bool { return doc.ID == id && doc.Resolution }) {
+				problems = append(problems, ValidationProblem{Code: CodeResolutionFromApplicant, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindDocument, ID: id}}})
+			}
+		}
+	}
+	return problems
+}
+
 func validateFlow(steps []Step) []ValidationProblem {
 	next := map[string][]string{}
 	previous := map[string][]string{}
@@ -135,8 +155,30 @@ func validateFlow(steps []Step) []ValidationProblem {
 		if !closes[s.ID] {
 			problems = append(problems, ValidationProblem{Code: CodeStepNeverCloses, Path: []Element{{Kind: KindStep, ID: s.ID}}})
 		}
+		if backwards := backwardsFrom(s, steps[0].ID, next); backwards != nil {
+			for _, o := range s.Outcomes {
+				if o.SendBack && !backwards(o.Next) {
+					problems = append(problems, ValidationProblem{Code: CodeSendBackForward, Path: []Element{{Kind: KindStep, ID: s.ID}, {Kind: KindOutcome, ID: o.ID}}})
+				}
+			}
+		}
 	}
 	return problems
+}
+
+// backwardsFrom tells whether a step is earlier than s: reached from the first
+// step without going through s, and leading back to s. It is nil if s has no
+// send backs.
+func backwardsFrom(s Step, first string, next map[string][]string) func(id string) bool {
+	if !slices.ContainsFunc(s.Outcomes, func(o Outcome) bool { return o.SendBack }) {
+		return nil
+	}
+	around := maps.Clone(next)
+	around[s.ID] = nil
+	before := walk([]string{first}, around)
+	return func(id string) bool {
+		return id != s.ID && before[id] && walk([]string{id}, next)[s.ID]
+	}
 }
 
 func walk(from []string, edges map[string][]string) map[string]bool {

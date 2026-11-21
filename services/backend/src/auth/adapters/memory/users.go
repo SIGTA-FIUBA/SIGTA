@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"backend/src/auth/domain"
@@ -36,11 +37,14 @@ func (r *UserRepository) Register(_ context.Context, user domain.User) (domain.U
 			return u, nil
 		}
 	}
+	if _, taken := r.users[user.ID]; taken {
+		return domain.User{}, fmt.Errorf("register user %s: id %s is taken", user.Email, user.ID)
+	}
 	r.users[user.ID] = user
 	return user, nil
 }
 
-func (r *UserRepository) FindByEmail(_ context.Context, email string) (domain.User, error) {
+func (r *UserRepository) GetByEmail(_ context.Context, email string) (domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, u := range r.users {
@@ -48,15 +52,15 @@ func (r *UserRepository) FindByEmail(_ context.Context, email string) (domain.Us
 			return u, nil
 		}
 	}
-	return domain.User{}, domain.ErrUnknownUser
+	return domain.User{}, domain.ErrUserNotFound
 }
 
-func (r *UserRepository) FindByID(_ context.Context, id string) (domain.User, error) {
+func (r *UserRepository) Get(_ context.Context, id string) (domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	u, ok := r.users[id]
 	if !ok {
-		return domain.User{}, domain.ErrUnknownUser
+		return domain.User{}, domain.ErrUserNotFound
 	}
 	return u, nil
 }

@@ -18,12 +18,14 @@ La autoría del PR es humana: se abre desde la cuenta de quien pidió el cambio 
    - el instructivo de configuración, si cambia el modelo de trámites;
    - `features/` y su matriz, si cambia el comportamiento esperado.
 4. **Contrato:** si cambió `contracts/openapi.yaml`, correr `make contracts` y commitear el código generado.
-5. **Verificar localmente** lo que toca el cambio:
+5. **Revisar las convenciones** con la rutina `review-conventions` y arreglar lo que encuentre.
+6. **Verificar localmente** lo que toca el cambio:
    - backend: `cd services/backend && go test -race ./...` y `golangci-lint run`;
-   - frontend: `cd web && npm run lint && npm run format:check && npm run typecheck && npm test`;
+   - frontend: `cd web && npm run lint && npm run format:check && npm run unused && npm run typecheck && npm test`;
+   - los dos: `scripts/check-test-layout.sh`;
    - si cambia la integración entre servicios: `docker compose up --build`.
-6. **Commits:** Conventional Commits, en inglés, una sola línea de hasta 72 caracteres.
-7. **PR contra `develop`.** El título sigue Conventional Commits, porque con el squash merge es el commit que queda.
+7. **Commits:** Conventional Commits, en inglés, una sola línea de hasta 72 caracteres.
+8. **PR contra `develop`.** El título sigue Conventional Commits, porque con el squash merge es el commit que queda.
 
 ## Descripción del PR
 

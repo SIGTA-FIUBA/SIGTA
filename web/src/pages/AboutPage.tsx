@@ -1,9 +1,9 @@
 import { List, Paper, Stack, Text, Title } from '@mantine/core'
 import { BrandSignature } from '../components/BrandSignature/BrandSignature'
 import { PageHeader } from '../components/PageHeader/PageHeader'
-import { type Entry, pillars, principles } from '../content/platform'
+import { type ContentItem, pillars, principles } from '../content/platform'
 
-function Entries({ id, title, entries }: { id: string; title: string; entries: Entry[] }) {
+function Entries({ id, title, entries }: { id: string; title: string; entries: ContentItem[] }) {
   return (
     <Stack component="section" aria-labelledby={id} gap="md">
       <Title order={2} id={id}>

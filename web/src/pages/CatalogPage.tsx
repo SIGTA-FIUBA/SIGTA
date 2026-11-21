@@ -1,28 +1,12 @@
-import { Alert, List, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Alert, Button, Group, List, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../api/client'
+import { Link } from 'react-router'
+import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
+import { documentDescription } from '../content/documentFormats'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
-
-const typeNames: Record<string, string> = {
-  'application/pdf': 'PDF',
-  'image/jpeg': 'JPG',
-  'image/png': 'PNG',
-}
-
-function typeName(mediaType: string) {
-  return typeNames[mediaType] ?? mediaType.split('/').pop()!.toUpperCase()
-}
-
-function sizeText(bytes: number) {
-  const megabytes = bytes / (1024 * 1024)
-  if (megabytes >= 1) {
-    return `${Number(megabytes.toFixed(1))} MB`
-  }
-  return `${Math.ceil(bytes / 1024)} KB`
-}
 
 function requiredText(required: boolean) {
   return required ? 'Obligatorio' : 'Opcional'
@@ -31,14 +15,9 @@ function requiredText(required: boolean) {
 // A version of an older format has no accepted types or size, so each part is
 // shown only when it is known.
 function documentText(document: DocumentRequirement) {
-  const parts = [`${document.name} (${requiredText(document.required)}).`]
-  if (document.accepted_types.length > 0) {
-    parts.push(`Formatos: ${document.accepted_types.map(typeName).join(', ')}.`)
-  }
-  if (document.max_size > 0) {
-    parts.push(`Tamaño máximo: ${sizeText(document.max_size)}.`)
-  }
-  return parts.join(' ')
+  return [`${document.name} (${requiredText(document.required)}).`, documentDescription(document)]
+    .filter(Boolean)
+    .join(' ')
 }
 
 function Section({ title, items }: { title: string; items: string[] }) {
@@ -57,7 +36,7 @@ function Section({ title, items }: { title: string; items: string[] }) {
   )
 }
 
-function Entry({ entry }: { entry: CatalogEntry }) {
+function CatalogItem({ entry }: { entry: CatalogEntry }) {
   return (
     <Stack component="article" gap="sm">
       <Title order={2}>{entry.name}</Title>
@@ -66,21 +45,17 @@ function Entry({ entry }: { entry: CatalogEntry }) {
       <Section title="Documentos" items={entry.documents.map(documentText)} />
       <Section title="Plazos" items={entry.deadlines} />
       <Section title="Condiciones de admisibilidad" items={entry.admissibility} />
+      <Group>
+        <Button component={Link} to={`/catalog/${entry.id}/start`} variant="light" aria-label={`Iniciar ${entry.name}`}>
+          Iniciar trámite
+        </Button>
+      </Group>
     </Stack>
   )
 }
 
 export function CatalogPage() {
-  const catalog = useQuery({
-    queryKey: ['procedure-types'],
-    queryFn: async () => {
-      const { data, error } = await api.GET('/procedure-types')
-      if (error !== undefined || data === undefined) {
-        throw new Error('The catalog could not be loaded')
-      }
-      return data
-    },
-  })
+  const catalog = useQuery(catalogQuery)
 
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
@@ -102,7 +77,7 @@ export function CatalogPage() {
       )}
       {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
       {entries.map((entry) => (
-        <Entry key={entry.id} entry={entry} />
+        <CatalogItem key={entry.id} entry={entry} />
       ))}
     </Stack>
   )

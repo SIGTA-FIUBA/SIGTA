@@ -107,6 +107,28 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /me/procedures:
+    get:
+      operationId: listMyProcedures
+      summary: Trámites de la persona con sesión abierta
+      description: >
+        Los trámites que inició quien tiene la sesión, sea o no del personal,
+        en curso y cerrados: un trámite cerrado se lista para que su titular
+        llegue a la resolución. Primero los que se movieron más
+        recientemente. Cada uno se abre con su detalle.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Trámites de la persona, vacío si no hay ninguno
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MyProcedure"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /procedure-types:
     get:
       operationId: listProcedureTypes
@@ -124,16 +146,453 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogEntry"
+    post:
+      operationId: createProcedureType
+      summary: Crea el borrador de un tipo de trámite nuevo
+      description: >
+        Para quien tiene el permiso de proponer en el área de diseño de
+        trámites, sin alcance limitado a algunos tipos (ADR-013). El tipo de
+        trámite recibe un número que no tiene otro tipo ni otro borrador, y no
+        aparece en el catálogo hasta que se aprueba su primera versión. El
+        borrador puede estar incompleto: problems dice qué le falta.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProcedureType"
+      responses:
+        "201":
+          description: Borrador creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /procedure-type-drafts:
+    get:
+      operationId: listProcedureTypeDrafts
+      summary: Borradores de tipos de trámite
+      description: >
+        Los que la persona puede proponer o aprobar, por número de tipo de
+        trámite.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Borradores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /procedure-types/{procedureTypeId}/draft:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    get:
+      operationId: getProcedureTypeDraft
+      summary: Borrador de un tipo de trámite
+      description: Para quien puede proponerlo o aprobarlo.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: El borrador
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: openProcedureTypeDraft
+      summary: Abre el borrador de una versión nueva
+      description: >
+        Para quien puede proponer en ese tipo de trámite. Empieza con la
+        definición de la última versión publicada. Un tipo de trámite tiene a
+        lo sumo un borrador.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "201":
+          description: Borrador abierto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    put:
+      operationId: editProcedureTypeDraft
+      summary: Reemplaza la definición del borrador
+      description: >
+        Para quien puede proponer en ese tipo de trámite, mientras el borrador
+        no está propuesto. revision es la del borrador que se editó: si cambió
+        desde entonces, no se guarda.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftEdit"
+      responses:
+        "200":
+          description: Borrador editado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: discardProcedureTypeDraft
+      summary: Descarta el borrador
+      description: >
+        Para quien puede proponer en ese tipo de trámite, mientras el borrador
+        no está propuesto.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: revision
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Borrador descartado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedure-types/{procedureTypeId}/draft/proposal:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: proposeProcedureTypeDraft
+      summary: Propone el borrador para que otra persona lo apruebe
+      description: >
+        Para quien puede proponer en ese tipo de trámite. La definición tiene
+        que ser válida con las áreas actuales: si no, responde 422 con los
+        problemas. Mientras está propuesto, el borrador no se edita.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRevision"
+      responses:
+        "200":
+          description: Borrador propuesto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/InvalidDefinition"
+  /procedure-types/{procedureTypeId}/draft/rejection:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: rejectProcedureTypeDraft
+      summary: Rechaza la propuesta y la devuelve a edición
+      description: >
+        Para quien puede aprobar en ese tipo de trámite y no la propuso. El
+        motivo queda en el borrador hasta que se vuelve a proponer.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRejectionRequest"
+      responses:
+        "200":
+          description: Propuesta rechazada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureTypeDraft"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedure-types/{procedureTypeId}/draft/approval:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureTypeId"
+    post:
+      operationId: approveProcedureTypeDraft
+      summary: Aprueba la propuesta y la publica como versión nueva
+      description: >
+        Para quien puede aprobar en ese tipo de trámite y no la propuso. Valida
+        la definición con las áreas actuales y la publica con quién la
+        propuso, quién la aprobó y la fecha; el borrador se borra. Una versión
+        publicada no cambia, y los trámites en curso siguen con la suya. Si
+        otra versión se publicó desde que se abrió el borrador, responde 409.
+        Si la definición es igual a la última versión, no publica nada y
+        devuelve esa versión.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRevision"
+      responses:
+        "200":
+          description: Versión publicada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishedVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/InvalidDefinition"
+  /areas:
+    post:
+      operationId: createArea
+      summary: Crea un área del personal
+      description: >
+        Solo para administradores (ADR-020). El identificador queda fijo: va en
+        minúsculas, empieza con una letra y no puede ser el de un área
+        existente o dada de baja, ni el de la Secretaría (secretariat), que
+        trae SIGTA. El nombre no puede repetir el de otra área. El área empieza
+        sin permisos ni roles.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewArea"
+      responses:
+        "201":
+          description: Área creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Area"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/permissions:
+    post:
+      operationId: createPermission
+      summary: Crea un permiso en un área del personal
+      description: >
+        Solo para administradores (ADR-020). Los permisos son de un área y los
+        exigen los pasos del personal de esa área. El identificador queda fijo
+        y no puede repetir el de otro permiso del área, aunque esté dado de
+        baja. El nombre no puede repetir el de otro permiso del área. En la
+        Secretaría están reservados edit_procedure_types y
+        publish_procedure_types, que trae SIGTA.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPermission"
+      responses:
+        "201":
+          description: Permiso creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Permission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/roles:
+    post:
+      operationId: createRole
+      summary: Crea un rol en un área del personal
+      description: >
+        Solo para administradores (ADR-020). Un rol agrupa permisos del área
+        para otorgarlos juntos. El identificador queda fijo y no puede repetir
+        el de otro rol del área, aunque esté dado de baja. El nombre no puede
+        repetir el de otro rol del área.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRole"
+      responses:
+        "201":
+          description: Rol creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /areas/{areaId}/roles/{roleId}/permissions:
+    put:
+      operationId: updateRolePermissions
+      summary: Reemplaza los permisos de un rol
+      description: >
+        Solo para administradores (ADR-020). Cambia al instante lo que puede
+        hacer cada persona con una membresía que tiene el rol. El cambio queda
+        registrado con quién y cuándo.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: areaId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolePermissions"
+      responses:
+        "200":
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No existe el área o el rol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /memberships:
+    post:
+      operationId: grantMembership
+      summary: Otorga una membresía a una persona
+      description: >
+        Solo para administradores (ADR-020). La membresía pone a la persona en
+        un área con algunos de sus roles y permisos, opcionalmente solo para
+        algunos tipos de trámite (scope), y con una vigencia. No puede repetir el área y el alcance de
+        otra membresía vigente de la misma persona.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMembership"
+      responses:
+        "201":
+          description: Membresía otorgada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /procedures:
     get:
       operationId: listProcedures
       summary: Bandeja y listado de trámites del personal
       description: >
-        Solo para el personal. Con view=mine devuelve lo que el perfil de quien
-        mira puede hacer ahora; con view=all, todos los trámites en curso. Los
-        filtros se combinan. Las opciones de filtro salen de todos los trámites
-        de la vista, sin filtrar, para que elegir un filtro no haga desaparecer
-        los demás.
+        Solo para el personal, quien tiene al menos una membresía vigente
+        (ADR-020). Con view=mine devuelve los trámites cuyo paso abierto puede
+        hacer quien mira; con view=all, todos los trámites en curso que puede
+        ver: los de los tipos de trámite que cubren sus membresías y que pasan
+        por sus áreas. Los trámites cerrados no aparecen. Los filtros se
+        combinan. Las opciones de filtro salen de todos los trámites de la
+        vista, sin filtrar, para que elegir un filtro no haga desaparecer los
+        demás.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
         - name: view
@@ -176,28 +635,360 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-  /procedures/{id}/seen:
-    put:
-      operationId: markProcedureSeen
-      summary: Registrar que quien mira vio el trámite
+    post:
+      operationId: submitProcedure
+      summary: Inicia un trámite
       description: >
-        Solo para el personal. Guarda cuándo la persona vio el trámite por
-        última vez, para que el listado deje de marcarlo con novedades hasta
-        que vuelva a moverse.
+        Inicia un trámite a nombre de quien tiene la sesión, sea o no del
+        personal, con la última versión del tipo de trámite. Lleva los datos y
+        documentos que piden los pasos del titular antes del primer paso del
+        personal (submission en el catálogo), y deja el trámite en el paso
+        siguiente. Se crea todo o nada. El servidor reconoce el tipo de cada
+        archivo por su contenido y lo compara con los tipos y el tamaño máximo
+        del documento.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [procedure_type, values]
+              properties:
+                procedure_type:
+                  type: integer
+                  format: int64
+                  description: Va primero
+                values:
+                  type: string
+                  description: >
+                    JSON con un valor por campo: un texto, o una lista de textos
+                    para subject_list. Un campo que falta no se envía. Va
+                    después de procedure_type
+                document:
+                  type: string
+                  description: Identificador del documento del archivo que le sigue. Se repite, una vez por archivo
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo del document anterior
       responses:
-        "204":
-          description: Quedó registrado
+        "201":
+          description: Trámite iniciado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedProcedure"
+        "400":
+          description: El envío no cumple con lo que piden los pasos iniciales, o está mal formado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionRejected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}:
+    get:
+      operationId: getProcedure
+      summary: Detalle de un trámite
+      description: >
+        Para quien puede ver el trámite: su titular y el personal de las áreas
+        por las que pasa. Muestra su estado, su titular, el paso abierto y los
+        pasos de la versión con la que se inició, con quién hace cada uno, los
+        datos y documentos que pide y sus salidas, y el historial de los pasos
+        hechos. Al titular no le muestra lo que el personal escribe en cada
+        área: ni quién hizo cada paso del personal (ve el área), ni las
+        observaciones, ni el número de expediente externo, ni los datos y
+        documentos de los pasos del personal, salvo la resolución cuando el
+        trámite se cierra (as_applicant). Para quien no lo ve, el
+        trámite no existe.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "200":
+          description: El trámite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}/steps/{stepId}/confirmation:
+    post:
+      operationId: confirmStep
+      summary: Confirma el paso abierto de un trámite
+      description: >
+        Lo confirma quien tiene, en el área del paso, los permisos que el paso
+        exige, con una observación. Quién confirma y cuándo los pone el
+        servidor. El trámite pasa al paso siguiente: el configurado o, en una
+        decisión, el de la salida elegida. Pasar a un paso de otra área lo
+        deriva, y volver al área de la que salió es el retorno (ADR-020). Un
+        paso que ocurrió fuera de SIGTA queda registrado como declarado por
+        quien lo confirma (ADR-004). Los pasos del titular no se confirman: los
+        completa el titular. Mientras haya una subsanación pendiente, el paso
+        no se confirma.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepConfirmation"
+      responses:
+        "201":
+          description: Confirmación registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/steps/{stepId}/correction-requests:
+    post:
+      operationId: requestCorrection
+      summary: Pide una subsanación al titular sobre el paso abierto
+      description: >
+        La pide quien puede confirmar el paso abierto, que tiene que ser del
+        personal. Dice qué falta, con datos y documentos que piden los pasos
+        del titular, y por qué. El trámite no cambia de paso: queda con el titular, y el paso
+        no se confirma, hasta que el titular responda. Se puede pedir más de una
+        sobre el mismo trámite. También canaliza lo que pide ampliar un
+        evaluador externo. Quién la pide y cuándo los pone el servidor.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCorrectionRequest"
+      responses:
+        "201":
+          description: Subsanación pedida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/values:
+    post:
+      operationId: enterProcedureValue
+      summary: Carga un dato que pide una subsanación pendiente
+      description: >
+        Solo el titular, y solo un dato que pide una subsanación pendiente. El
+        valor se valida como al iniciar el trámite y queda en el paso del
+        titular que pide ese dato, junto con los anteriores, y en el historial.
+        Cargarlo no responde la subsanación: eso es enviar la respuesta.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewProcedureValue"
+      responses:
+        "201":
+          description: Dato cargado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureValue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/correction-answer:
+    post:
+      operationId: answerCorrection
+      summary: Envía la respuesta a las subsanaciones pendientes
+      description: >
+        Solo el titular. Responde todas las subsanaciones pendientes, y exige
+        que cada dato y documento que piden se haya cargado de nuevo después
+        del último pedido que lo nombra; si falta alguno, responde 400 con un
+        mensaje que los nombra. El trámite vuelve al personal en el mismo paso
+        abierto, y la respuesta queda en el historial.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "201":
+          description: Respuesta enviada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureId"
+    get:
+      operationId: listProcedureDocuments
+      summary: Documentos adjuntos a un trámite
+      description: >
+        Para quien puede ver el trámite: su titular y el personal de las áreas
+        por las que pasa. Están en el orden en que se adjuntaron, incluidos los
+        que otro documento reemplazó. Al titular le muestra solo los que ve en
+        el detalle: los de sus pasos y la resolución cuando el trámite se
+        cierra.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Documentos del trámite
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcedureDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: attachProcedureDocument
+      summary: Adjunta un documento a un trámite
+      description: >
+        Adjunta un archivo para un documento que pide el paso abierto, y solo
+        quien puede hacer ese paso. Mientras tiene una subsanación pendiente,
+        el titular adjunta además lo que ella pide, que queda en el paso suyo
+        que pide ese documento. El servidor reconoce el tipo por el
+        contenido del archivo, no por su nombre, y lo compara con los tipos y
+        el tamaño máximo del documento. Adjuntar otro archivo para el mismo
+        documento reemplaza al anterior, que queda registrado. Un trámite
+        guarda hasta 20 archivos por documento; para responder una
+        subsanación, cuentan solo los adjuntados desde el último pedido que
+        nombra ese documento. Cada archivo adjuntado queda en el historial,
+        sin avanzar el trámite. Si el paso ya no está abierto (otro lo
+        confirmó o el trámite está cerrado), o la subsanación que pedía el
+        documento ya se respondió, responde 409.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [document, file]
+              properties:
+                document:
+                  type: string
+                  description: Identificador del documento que pide el paso. Va antes que file
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Documento adjunto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcedureDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /procedures/{procedureId}/documents/{documentId}/content:
+    parameters:
+      - $ref: "#/components/parameters/ProcedureId"
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadProcedureDocument
+      summary: Descarga el archivo de un documento adjunto
+      description: >
+        Para quien puede ver el trámite. Al titular, un documento que no ve
+        en el detalle le responde como uno que no existe. Las cabeceras piden
+        al navegador que guarde el archivo en vez de mostrarlo, y que no lo
+        interprete si igual lo abre.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: El archivo, con el tipo que reconoció el servidor
+          headers:
+            Content-Disposition:
+              required: true
+              description: Siempre attachment, con el nombre del archivo
+              schema:
+                type: string
+            X-Content-Type-Options:
+              required: true
+              description: Siempre nosniff, para que el navegador use el tipo que reconoció el servidor en vez de deducirlo del contenido
+              schema:
+                type: string
+            Content-Security-Policy:
+              required: true
+              description: Siempre sandbox, para que un archivo abierto en el navegador no ejecute código con la sesión
+              schema:
+                type: string
+            Cache-Control:
+              required: true
+              description: Siempre no-store, para que el archivo no quede guardado en cachés compartidas ni del navegador
+              schema:
+                type: string
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 components:
@@ -208,7 +999,34 @@ components:
       required: false
       schema:
         type: string
+    ProcedureId:
+      name: procedureId
+      in: path
+      required: true
+      schema:
+        type: string
+    StepId:
+      name: stepId
+      in: path
+      required: true
+      schema:
+        type: string
+    ProcedureTypeId:
+      name: procedureTypeId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   responses:
+    NotFound:
+      description: >
+        No existe, o la persona no lo puede ver: la respuesta es la misma, para
+        no revelar si existe
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     BadRequest:
       description: Pedido inválido
       content:
@@ -222,17 +1040,26 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     Forbidden:
-      description: La sesión es válida, pero su rol no puede hacer esto
+      description: La persona no tiene permiso para esta acción
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-    NotFound:
-      description: No existe o quien mira no lo puede ver
+    Conflict:
+      description: >
+        El estado cambió o no admite la acción: por ejemplo, otra persona ya
+        confirmó el paso, el borrador cambió desde que se leyó o se publicó otra
+        versión
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    InvalidDefinition:
+      description: La definición no es válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvalidDefinition"
   schemas:
     Error:
       type: object
@@ -248,12 +1075,55 @@ components:
         lo rechazó o la persona lo canceló. domain_not_allowed: la cuenta no es
         del dominio institucional.
       enum: [state_mismatch, rejected, domain_not_allowed]
-    Role:
+    ProcedureState:
       type: string
-      enum: [applicant, staff_operative, staff_approver]
+      description: >
+        Se deriva del paso abierto. with_applicant: espera al titular.
+        in_office: lo tiene el personal. referred: lo tiene el personal de
+        otra área, a la que se derivó, y todavía no volvió al área de la que
+        salió (ADR-020). closed: no tiene paso abierto. No es el resultado del
+        trámite, que no se modela.
+      enum: [with_applicant, in_office, referred, closed]
+    NamedOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Person:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Vacío si la persona no está registrada
+    StepOutcome:
+      type: object
+      required: [id, name, next, send_back]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        next:
+          type: string
+          description: Paso al que lleva esa salida
+        send_back:
+          type: boolean
+          description: Si la salida devuelve el trámite a un paso anterior
+    StepRole:
+      type: string
+      description: >
+        Quién hace el paso. applicant: el titular. staff: el personal del
+        área del paso.
+      enum: [applicant, staff]
     FieldRequirement:
       type: object
-      required: [id, name, required]
+      required: [id, name, required, type, options]
       properties:
         id:
           type: string
@@ -261,9 +1131,24 @@ components:
           type: string
         required:
           type: boolean
+        type:
+          $ref: "#/components/schemas/FieldType"
+        options:
+          type: array
+          description: Opciones de un campo option, vacío en los demás tipos. Se envía el id
+          items:
+            $ref: "#/components/schemas/NamedOption"
+    FieldType:
+      type: string
+      description: >
+        Tipo de un campo. text: texto corto. long_text: texto largo. number:
+        número decimal, con punto. date: fecha AAAA-MM-DD. option: una de sus
+        opciones, por su id. degree: carrera, como texto. subject_list: lista
+        de asignaturas, como textos.
+      enum: [text, long_text, number, date, option, degree, subject_list]
     DocumentRequirement:
       type: object
-      required: [id, name, required, accepted_types, max_size]
+      required: [id, name, required, accepted_types, max_size, resolution]
       properties:
         id:
           type: string
@@ -280,16 +1165,23 @@ components:
           type: integer
           format: int64
           description: Tamaño máximo en bytes
+        resolution:
+          type: boolean
+          description: >
+            Si es el documento que resuelve el trámite, que su titular descarga
+            cuando se cierra. No dice cuál fue el resultado, que no se modela
+            (ADR-009).
     CatalogEntry:
       type: object
       required:
-        [id, version, name, description, deadlines, admissibility, fields, documents]
+        [id, version, name, description, deadlines, admissibility, fields, documents, submission]
       properties:
         id:
           type: integer
           format: int64
         version:
           type: integer
+          format: int64
         name:
           type: string
         description:
@@ -311,11 +1203,70 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentRequirement"
+        submission:
+          $ref: "#/components/schemas/SubmissionForm"
+    SubmissionForm:
+      type: object
+      description: >
+        Lo que se envía para iniciar el trámite: los datos y documentos de los
+        pasos del titular antes del primer paso del personal. fields y
+        documents del catálogo suman los de pasos del titular posteriores,
+        como una subsanación.
+      required: [fields, documents]
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
+    StartedProcedure:
+      type: object
+      required: [id, state]
+      properties:
+        id:
+          type: string
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        open_step:
+          type: string
+          description: Paso que espera el trámite; falta si quedó cerrado
+    SubmissionProblem:
+      type: object
+      required: [code, kind, id]
+      properties:
+        code:
+          type: string
+          description: >
+            missing: falta un dato o documento obligatorio. invalid: el dato no
+            es del tipo del campo. not_asked: los pasos iniciales no lo piden.
+            repeated: el documento vino más de una vez. type_not_accepted,
+            too_large, empty: el archivo no cumple con el documento.
+          enum: [missing, invalid, not_asked, repeated, type_not_accepted, too_large, empty]
+        kind:
+          type: string
+          enum: [field, document]
+        id:
+          type: string
+          description: Identificador del campo o del documento
+    SubmissionRejected:
+      type: object
+      required: [message, problems]
+      properties:
+        message:
+          type: string
+        problems:
+          type: array
+          description: Vacío si el pedido está mal formado
+          items:
+            $ref: "#/components/schemas/SubmissionProblem"
     ProcedureListView:
       type: string
       description: >
-        mine: lo que el perfil de quien mira puede hacer ahora. all: todos los
-        trámites en curso.
+        mine: los trámites cuyo paso abierto puede hacer quien mira. all: todos
+        los trámites en curso que puede ver.
       enum: [mine, all]
       default: mine
     ProcedureListSort:
@@ -325,39 +1276,19 @@ components:
         los que se movieron más recientemente.
       enum: [oldest, last_moved]
       default: oldest
-    ProcedureState:
-      type: string
-      description: >
-        Se deriva del área del paso abierto. with_applicant: espera al titular.
-        in_office: lo tiene el personal. referred: está derivado a un evaluador
-        externo. No es el resultado del trámite, que no se modela.
-      enum: [with_applicant, in_office, referred]
-    NamedOption:
-      type: object
-      required: [id, name]
-      properties:
-        id:
-          type: string
-        name:
-          type: string
     ProcedureListItem:
       type: object
       required:
         - id
         - procedure_type
         - procedure_type_name
-        - applicant_name
+        - applicant
         - step_name
-        - step_number
-        - step_count
-        - area
-        - area_name
         - state
         - actionable
         - started_at
         - last_moved_at
         - age_days
-        - has_news
       properties:
         id:
           type: string
@@ -366,68 +1297,34 @@ components:
           format: int64
         procedure_type_name:
           type: string
-        applicant_name:
-          type: string
-        applicant_program:
-          type: string
-          description: Carrera del titular, si la declaró
-        file_number:
-          type: string
-          description: >
-            Número del expediente electrónico, una vez que el personal lo
-            registró. SIGTA no lo genera: se carga como hecho externo.
+        applicant:
+          $ref: "#/components/schemas/Person"
         step_name:
           type: string
-          description: Paso abierto, el que se espera ahora
-        step_number:
-          type: integer
-          minimum: 1
-          description: >
-            Posición del paso abierto entre los pasos del tipo de trámite, en el
-            orden de la versión publicada
-        step_count:
-          type: integer
-          minimum: 1
-          description: Cantidad de pasos del tipo de trámite
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
         area:
-          type: string
-          description: Área responsable del paso abierto
-        area_name:
-          type: string
+          description: Área del paso abierto; ausente si lo hace el titular
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
         state:
           $ref: "#/components/schemas/ProcedureState"
         actionable:
           type: boolean
-          description: Si el perfil de quien mira puede hacer el paso abierto
+          description: Si quien mira tiene los permisos que exige el paso abierto
         started_at:
           type: string
           format: date-time
         last_moved_at:
           type: string
           format: date-time
-          description: Cuándo el trámite llegó al paso abierto
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
         age_days:
           type: integer
           description: Días desde que empezó el trámite
-        days_referred:
-          type: integer
-          description: >
-            Solo si está derivado: días que lleva en el evaluador externo sin
-            retorno
-        has_news:
-          type: boolean
-          description: >
-            Si el trámite se movió después de la última vez que quien mira lo
-            vio, o si nunca lo vio
     ProcedureList:
       type: object
-      required: [items, procedure_types, areas, closed_this_month]
+      required: [items, procedure_types, areas]
       properties:
-        closed_this_month:
-          type: integer
-          description: >
-            Trámites que quien mira puede ver y que se cerraron desde el primer
-            día del mes en curso. Cerrar no dice el resultado, que no se modela.
         items:
           type: array
           items:
@@ -442,9 +1339,268 @@ components:
           description: Áreas responsables presentes en la vista, para filtrar
           items:
             $ref: "#/components/schemas/NamedOption"
+    ProcedureTypeDefinition:
+      type: object
+      description: >
+        Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer
+        paso, y un paso sin next ni outcomes lo cierra.
+      required: [name, steps]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        deadlines:
+          type: array
+          items:
+            type: string
+        admissibility:
+          type: array
+          items:
+            type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionField"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionDocument"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionStep"
+    DefinitionField:
+      type: object
+      required: [id, name, type]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: text, long_text, number, date, option, degree o subject_list
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldOption"
+    FieldOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    DefinitionDocument:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        accepted_types:
+          type: array
+          items:
+            type: string
+        max_size:
+          type: integer
+          format: int64
+        resolution:
+          type: boolean
+          description: >
+            Si es la resolución del trámite: el documento que su titular
+            descarga cuando el trámite se cierra. Es una marca y no un
+            resultado (ADR-009).
+    DefinitionStep:
+      type: object
+      required: [id, name, action]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          description: applicant o staff
+        area:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        action:
+          type: string
+          description: enter_data, upload_document, confirm_external_fact o decide
+        fields:
+          type: array
+          items:
+            type: string
+        optional_fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
+        optional_documents:
+          type: array
+          items:
+            type: string
+        outcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepOutcome"
+        next:
+          type: string
+    DefinitionProblem:
+      type: object
+      description: >
+        Algo que falla en una definición. code es estable: la pantalla arma su
+        propio texto con él y ubica el problema con path, del elemento más
+        externo al más interno. text está en inglés, para registros.
+      required: [code, path, text]
+      properties:
+        code:
+          type: string
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemElement"
+        value:
+          type: string
+        other:
+          type: string
+        text:
+          type: string
+    ProblemElement:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          description: definition, area, permission, field, option, document, step, outcome, deadline o admissibility
+        id:
+          type: string
+        position:
+          type: integer
+          description: Para plazos y condiciones, que no tienen id. Empieza en 1
+    InvalidDefinition:
+      type: object
+      required: [message, problems]
+      properties:
+        message:
+          type: string
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinitionProblem"
+    DraftStatus:
+      type: string
+      description: editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
+      enum: [editing, proposed]
+    DraftRejection:
+      type: object
+      required: [by, at, reason]
+      properties:
+        by:
+          type: string
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+    ProcedureTypeDraft:
+      type: object
+      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        base:
+          type: integer
+          description: La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna
+        revision:
+          type: integer
+          description: Crece con cada cambio. Cada cambio dice sobre cuál se hizo
+        status:
+          $ref: "#/components/schemas/DraftStatus"
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+        edited_by:
+          type: string
+        edited_at:
+          type: string
+          format: date-time
+        editors:
+          type: array
+          description: Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
+          items:
+            type: string
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        rejection:
+          $ref: "#/components/schemas/DraftRejection"
+        problems:
+          type: array
+          description: Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
+          items:
+            $ref: "#/components/schemas/DefinitionProblem"
+    NewProcedureType:
+      type: object
+      required: [definition]
+      properties:
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+    DraftEdit:
+      type: object
+      required: [revision, definition]
+      properties:
+        revision:
+          type: integer
+        definition:
+          $ref: "#/components/schemas/ProcedureTypeDefinition"
+    DraftRevision:
+      type: object
+      required: [revision]
+      properties:
+        revision:
+          type: integer
+    DraftRejectionRequest:
+      type: object
+      required: [revision, reason]
+      properties:
+        revision:
+          type: integer
+        reason:
+          type: string
+    PublishedVersion:
+      type: object
+      required: [procedure_type_id, number, digest, proposed_by, approved_by, published_at]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        digest:
+          type: string
+        proposed_by:
+          type: string
+        approved_by:
+          type: string
+        published_at:
+          type: string
+          format: date-time
     User:
       type: object
-      required: [id, email, name, role]
+      required: [id, email, name, staff, administrator]
       properties:
         id:
           type: string
@@ -453,5 +1609,555 @@ components:
           format: email
         name:
           type: string
+        staff:
+          type: boolean
+          description: >
+            Si tiene al menos una membresía vigente (ADR-020). Cualquiera puede
+            iniciar trámites, sea o no del personal; el personal no actúa en los
+            pasos del personal de sus propios trámites
+        administrator:
+          type: boolean
+          description: Si puede otorgar y dar de baja membresías. No da acceso a los trámites
+    Area:
+      type: object
+      required: [id, name, permissions, roles]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+    Role:
+      type: object
+      required: [id, name, permissions]
+      description: >
+        Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene
+        los permisos que el rol tenga en cada momento
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área
+          items:
+            type: string
+    NewRole:
+      type: object
+      required: [id, name, permissions]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, al menos uno
+          items:
+            type: string
+    RolePermissions:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, al menos uno
+          items:
+            type: string
+    NewArea:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+    Permission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    NewPermission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Minúsculas, dígitos y guiones bajos, empezando con una letra
+        name:
+          type: string
+    NewMembership:
+      type: object
+      required: [user_id, area]
+      description: Necesita al menos un rol o un permiso del área
+      properties:
+        user_id:
+          type: string
+        area:
+          type: string
+          description: Identificador del área
+        roles:
+          type: array
+          description: Identificadores de roles del área
+          items:
+            type: string
+        permissions:
+          type: array
+          description: Identificadores de permisos del área, sueltos
+          items:
+            type: string
+        scope:
+          type: array
+          description: >
+            Tipos de trámite a los que se limita. Vacío o ausente vale para
+            todos, incluidos los que se publiquen después
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+          description: Desde cuándo vale. Ausente vale desde ahora
+        until:
+          type: string
+          format: date-time
+          description: Hasta cuándo vale. Ausente vale hasta que se la dé de baja
+    Membership:
+      type: object
+      required: [id, user_id, area, roles, permissions, scope, from, granted_by]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        area:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        scope:
+          type: array
+          items:
+            type: integer
+            format: int64
+        from:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        granted_by:
+          type: string
+    StepConfirmation:
+      type: object
+      required: [observation]
+      properties:
+        observation:
+          type: string
+          description: Qué se hizo o se verificó. No puede quedar vacía
+        outcome:
+          type: string
+          description: Identificador de la salida elegida; solo en un paso decide
+        external_file_number:
+          type: string
+          description: Número del expediente fuera de SIGTA, si lo hay; solo cuando la confirmación deriva el trámite
+    NewCorrectionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: Por qué se pide. No puede quedar vacío
+        fields:
+          type: array
+          description: Identificadores de los datos que se piden, de los que piden los pasos del titular
+          items:
+            type: string
+        documents:
+          type: array
+          description: >
+            Identificadores de los documentos que se piden, de los que piden los
+            pasos del titular. Entre datos y documentos se pide al menos uno
+          items:
+            type: string
+    CorrectionRequest:
+      type: object
+      description: Subsanación pedida que el titular todavía no respondió
+      required: [step, at, reason, fields, documents]
+      properties:
+        step:
+          type: string
+          description: Paso abierto sobre el que se pidió
+        by:
+          description: >
+            Quién la pidió. Ausente para el titular: ve el área del paso, no la
+            persona.
+          allOf:
+            - $ref: "#/components/schemas/Person"
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
+    HistoryCorrectionRequest:
+      type: object
+      description: >
+        Lo que pide una subsanación; ausente en los demás eventos. El motivo es
+        la observación. Pedirla no avanza el trámite.
+      required: [fields, documents]
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        documents:
+          type: array
+          items:
+            type: string
+    ProcedureEvent:
+      type: object
+      required: [step, at, observation, declared, send_back, returned]
+      properties:
+        step:
+          type: string
+          description: Paso hecho, o el paso abierto en el que se adjuntó el documento
+        by:
+          description: >
+            Quién lo hizo. Ausente para el titular en los pasos del personal:
+            ve el área del paso, no la persona.
+          allOf:
+            - $ref: "#/components/schemas/Person"
+        at:
+          type: string
+          format: date-time
+        observation:
+          type: string
+        outcome:
+          type: string
+          description: Salida elegida; ausente si el paso no es decide
+        declared:
+          type: boolean
+          description: >
+            Si el paso ocurrió fuera de SIGTA: queda la declaración de quien lo
+            confirmó, no el hecho (ADR-004)
+        send_back:
+          type: boolean
+          description: >
+            Si el evento devuelve el trámite a un paso anterior; la observación
+            es entonces el motivo
+        next:
+          type: string
+          description: Paso que abre; ausente si cierra el trámite
+        referral:
+          $ref: "#/components/schemas/Referral"
+        returned:
+          type: boolean
+          description: Si devuelve el trámite al área de la que se había derivado
+        document:
+          $ref: "#/components/schemas/HistoryDocument"
+        correction_request:
+          $ref: "#/components/schemas/HistoryCorrectionRequest"
+        value:
+          $ref: "#/components/schemas/HistoryValue"
+        correction_answer:
+          description: >
+            Lo que pedían las subsanaciones que respondió el titular; ausente en
+            los demás eventos. Responderlas no avanza el trámite: vuelve al
+            personal en el mismo paso.
+          allOf:
+            - $ref: "#/components/schemas/HistoryCorrectionRequest"
+    HistoryValue:
+      type: object
+      description: >
+        El dato que cargó el titular para responder una subsanación; ausente en
+        los demás eventos. El valor está en los datos del paso.
+      required: [field]
+      properties:
+        field:
+          type: string
+    NewProcedureValue:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+          description: Identificador del dato
+        text:
+          type: string
+          description: El valor; para subject_list va items
+        items:
+          type: array
+          items:
+            type: string
+    HistoryDocument:
+      type: object
+      description: >
+        Documento adjuntado después del inicio; ausente en los demás eventos.
+        Adjuntarlo no avanza el trámite.
+      required: [id, document, file_name]
+      properties:
+        id:
+          type: string
+          description: Identificador del archivo adjuntado, el mismo de ProcedureDocument
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        file_name:
+          type: string
+    Referral:
+      type: object
+      description: Paso del trámite a otra área (ADR-020)
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          description: Identificador del área de la que sale
+        to:
+          type: string
+          description: Identificador del área a la que se deriva
+        external_file_number:
+          type: string
+    MyProcedure:
+      type: object
+      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at]
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        procedure_type_name:
+          type: string
+        step_name:
+          type: string
+          description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        correction_pending:
+          type: boolean
+          description: Si el titular tiene una subsanación pendiente
+        started_at:
+          type: string
+          format: date-time
+        last_moved_at:
+          type: string
+          format: date-time
+          description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
+    ProcedureDetail:
+      type: object
+      required:
+        [id, procedure_type, version, name, state, applicant, can_act, as_applicant, correction_requests, steps, history]
+      properties:
+        id:
+          type: string
+        procedure_type:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+          description: Versión del tipo de trámite con la que se inició
+        name:
+          type: string
+          description: Nombre del tipo de trámite
+        state:
+          $ref: "#/components/schemas/ProcedureState"
+        applicant:
+          $ref: "#/components/schemas/Person"
+        open_step:
+          type: string
+          description: Identificador del paso que espera ahora; ausente si el trámite está cerrado
+        can_act:
+          type: boolean
+          description: >
+            Si quien mira puede hacer el paso abierto: confirmarlo o pedir una
+            subsanación sobre él
+        as_applicant:
+          type: boolean
+          description: >
+            Si quien mira es el titular, que ve solo parte del trámite: lo que
+            cargó y adjuntó, las fechas y las áreas de cada paso, sin las
+            personas del personal, y la resolución cuando se cierra. Vale también si es del personal de
+            un área por la que pasa.
+        referral:
+          $ref: "#/components/schemas/ProcedureReferral"
+        correction_requests:
+          type: array
+          description: >
+            Las subsanaciones pedidas que el titular todavía no respondió, en el
+            orden en que se pidieron. Mientras haya alguna, el trámite está con
+            el titular y el paso abierto no se confirma.
+          items:
+            $ref: "#/components/schemas/CorrectionRequest"
+        steps:
+          type: array
+          description: >
+            Los pasos en el orden en que los declara el tipo de trámite. No es
+            necesariamente el recorrido, porque un paso puede volver a uno
+            anterior: el recorrido lo dicen next y las salidas de cada paso.
+          items:
+            $ref: "#/components/schemas/ProcedureStep"
+        history:
+          type: array
+          description: >
+            Los pasos hechos, en el orden en que se registraron: los del
+            titular al iniciar el trámite, cada confirmación, cada documento
+            adjuntado después y cada subsanación pedida. No se puede cambiar ni
+            borrar.
+          items:
+            $ref: "#/components/schemas/ProcedureEvent"
+    ProcedureReferral:
+      type: object
+      description: >
+        Dónde está un trámite derivado; ausente si no lo está (ADR-020). Los
+        días sin retorno se cuentan por día de calendario desde que salió del
+        área.
+      required: [area, from, days_without_return]
+      properties:
+        area:
+          $ref: "#/components/schemas/NamedOption"
+        from:
+          description: Área de la que salió y a la que vuelve
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        days_without_return:
+          type: integer
+          format: int64
+    ProcedureStep:
+      type: object
+      required: [id, name, action, role, fields, documents, outcomes, values, files]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        action:
+          type: string
+          description: >
+            Qué se hace en el paso. enter_data: completar datos.
+            upload_document: adjuntar documentos. confirm_external_fact:
+            confirmar algo que pasó fuera de SIGTA. decide: elegir una de
+            sus salidas.
+          enum: [enter_data, upload_document, confirm_external_fact, decide]
         role:
-          $ref: "#/components/schemas/Role"
+          $ref: "#/components/schemas/StepRole"
+        area:
+          description: Área del personal que hace el paso; ausente si lo hace el titular
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
+        fields:
+          type: array
+          description: Datos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/FieldRequirement"
+        documents:
+          type: array
+          description: Documentos que pide el paso, en el orden en que los declara el tipo de trámite
+          items:
+            $ref: "#/components/schemas/DocumentRequirement"
+        outcomes:
+          type: array
+          description: Salidas entre las que se elige en un paso decide; vacío en los demás
+          items:
+            $ref: "#/components/schemas/StepOutcome"
+        next:
+          type: string
+          description: Paso que sigue si no es un paso decide; ausente en el último
+        values:
+          type: array
+          description: >
+            Último valor cargado de cada dato del paso que ya tiene uno, en el
+            mismo orden que fields. Un dato sin valor no aparece.
+          items:
+            $ref: "#/components/schemas/ProcedureValue"
+        files:
+          type: array
+          description: >
+            Archivo vigente de cada documento del paso que ya tiene uno, en el
+            mismo orden que documents. Un documento sin archivo no aparece.
+          items:
+            $ref: "#/components/schemas/ProcedureDocument"
+    ProcedureValue:
+      type: object
+      required: [field, step, entered_by, entered_at]
+      properties:
+        field:
+          type: string
+          description: Identificador del dato del tipo de trámite
+        step:
+          type: string
+          description: Paso en el que se cargó
+        text:
+          type: string
+          description: >
+            El valor, como se cargó una vez validado: una opción por su id, un
+            número con punto, una fecha AAAA-MM-DD. Ausente en subject_list
+        items:
+          type: array
+          description: Las asignaturas de un subject_list; ausente en los demás tipos
+          items:
+            type: string
+        entered_by:
+          $ref: "#/components/schemas/Person"
+        entered_at:
+          type: string
+          format: date-time
+    ProcedureDocument:
+      type: object
+      required: [id, document, step, file_name, media_type, size, uploaded_at, current]
+      properties:
+        id:
+          type: string
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        step:
+          type: string
+          description: Paso en el que se adjuntó
+        file_name:
+          type: string
+        media_type:
+          type: string
+          description: Tipo que reconoció el servidor por el contenido
+        size:
+          type: integer
+          format: int64
+          description: Tamaño en bytes
+        uploaded_by:
+          description: >
+            Quién lo adjuntó. Ausente para el titular en un documento del
+            personal, como la resolución.
+          allOf:
+            - $ref: "#/components/schemas/Person"
+        uploaded_at:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+          description: Si es el último que se adjuntó para ese documento; los anteriores quedan registrados

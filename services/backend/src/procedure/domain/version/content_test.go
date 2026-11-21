@@ -20,14 +20,14 @@ func encode(t *testing.T, d definition.ProcedureTypeDefinition, areas []definiti
 
 func TestContentCarriesOnlyUsedAreas(t *testing.T) {
 	content := version.NewContent(definitiontest.Definition(), definitiontest.Areas())
-	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"applicant", "office"}) {
-		t.Errorf("Areas = %v, want applicant and office", ids)
+	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"office"}) {
+		t.Errorf("Areas = %v, want only office: the applicant has no area", ids)
 	}
 
 	d := definitiontest.Definition()
 	d.Steps[3].Area = "commission"
 	content = version.NewContent(d, definitiontest.Areas())
-	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"applicant", "commission", "office"}) {
+	if ids := areaIDs(content.Areas); !slices.Equal(ids, []string{"commission", "office"}) {
 		t.Errorf("Areas = %v, want the office of the decision too", ids)
 	}
 }
@@ -43,7 +43,7 @@ func areaIDs(areas []definition.Area) []string {
 func TestDigest(t *testing.T) {
 	base := version.Digest(encode(t, definitiontest.Definition(), definitiontest.Areas()))
 
-	unused := append(definitiontest.Areas(), definition.Area{ID: "front_desk", Name: "Mesa de Entradas", Kind: definition.AreaOffice})
+	unused := append(definitiontest.Areas(), definition.Area{ID: "front_desk", Name: "Mesa de Entradas"})
 	if got := version.Digest(encode(t, definitiontest.Definition(), unused)); got != base {
 		t.Errorf("an unused area changed the digest")
 	}
@@ -55,9 +55,21 @@ func TestDigest(t *testing.T) {
 	}
 
 	renamed := definitiontest.Areas()
-	renamed[1].Name = "Dirección General de Alumnos"
+	renamed[0].Name = "Dirección General de Alumnos"
 	if got := version.Digest(encode(t, definitiontest.Definition(), renamed)); got == base {
 		t.Errorf("renaming a used area kept the digest")
+	}
+
+	morePermissions := definitiontest.Areas()
+	morePermissions[0].Permissions = append(morePermissions[0].Permissions, definition.Permission{ID: "sign", Name: "Firmar"})
+	if got := version.Digest(encode(t, definitiontest.Definition(), morePermissions)); got != base {
+		t.Errorf("a permission no step asks for changed the digest")
+	}
+
+	renamedPermission := definitiontest.Areas()
+	renamedPermission[0].Permissions[0].Name = "Revisar documentación"
+	if got := version.Digest(encode(t, definitiontest.Definition(), renamedPermission)); got == base {
+		t.Errorf("renaming a permission a step asks for kept the digest")
 	}
 
 	d := definitiontest.Definition()

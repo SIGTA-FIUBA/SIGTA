@@ -9,5 +9,6 @@ COPY web ./
 RUN npm run build && npm run catalog:build
 
 FROM nginx:1.30-alpine
-COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/nginx/nginx.conf /etc/nginx/templates/default.conf.template
+ENV SIGTA_BACKEND=backend:8080
 COPY --from=web /app/dist /usr/share/nginx/html

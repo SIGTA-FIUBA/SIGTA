@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router'
-import { ProcedureRow, ProcedureRows } from './ProcedureRow'
+import { ProcedureRow } from './ProcedureRow'
+import { ProcedureRows } from '../ProcedureRows/ProcedureRows'
 
 const meta: Meta = {
   title: 'SIGTA/ProcedureRow',

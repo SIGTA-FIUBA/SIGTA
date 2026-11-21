@@ -1,14 +1,16 @@
 import type { components } from '../api/schema'
 import type { StatusTone } from '../components/StatusBadge/StatusBadge'
+import { stateNames } from './procedureStates'
 
 type State = components['schemas']['ProcedureState']
 
-// The states of a procedure as the Secretaría names them, with the tone of
-// their badge.
+// The states of a procedure with the tone of their badge. The names are the
+// same as everywhere else.
 export const procedureStates: Record<State, { tone: StatusTone; label: string }> = {
-  in_office: { tone: 'office', label: 'En la Secretaría' },
-  referred: { tone: 'external', label: 'En evaluación externa' },
-  with_applicant: { tone: 'applicant', label: 'Pendiente del titular' },
+  in_office: { tone: 'office', label: stateNames.in_office },
+  referred: { tone: 'external', label: stateNames.referred },
+  with_applicant: { tone: 'applicant', label: stateNames.with_applicant },
+  closed: { tone: 'closed', label: stateNames.closed },
 }
 
 // movedText says when something happened, counted in days.

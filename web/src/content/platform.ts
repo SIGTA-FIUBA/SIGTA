@@ -1,10 +1,10 @@
 // Texts that say what SIGTA is and how it is used. The landing page and the
 // home page share them, so both say the same thing.
 
-export type Entry = { title: string; text: string }
+export type ContentItem = { title: string; text: string }
 
 // What each kind of person does in SIGTA, in the order they do it.
-export const applicantSteps: Entry[] = [
+export const applicantHowTo: ContentItem[] = [
   {
     title: 'Consulta del catálogo',
     text: 'Cada trámite detalla sus requisitos, plazos, condiciones de admisibilidad y la documentación necesaria.',
@@ -19,7 +19,7 @@ export const applicantSteps: Entry[] = [
   },
 ]
 
-export const principles: Entry[] = [
+export const principles: ContentItem[] = [
   {
     title: 'Las decisiones son de una persona',
     text: 'Las herramientas de asistencia sugieren y señalan. La resolución de cada trámite corresponde al área competente.',
@@ -29,13 +29,13 @@ export const principles: Entry[] = [
     text: 'Cada acción queda registrada con su autor y su fecha, y puede consultarse en el historial del trámite.',
   },
   {
-    title: 'Integración con los sistemas institucionales',
-    text: 'SIGTA registra lo actuado en el SIU Guaraní y en el expediente electrónico. No los reemplaza.',
+    title: 'Registro de lo actuado en otros sistemas',
+    text: 'El personal confirma en SIGTA lo que hizo en el SIU Guaraní y en el expediente electrónico. SIGTA no se conecta con ellos ni los reemplaza.',
   },
 ]
 
 // The core of SIGTA, whatever procedures it holds.
-export const pillars: Entry[] = [
+export const pillars: ContentItem[] = [
   {
     title: 'Un solo lugar para cada trámite',
     text: 'Cada trámite se inicia en línea, con sus requisitos a la vista y la documentación en formato digital, sin correos ni planillas.',
