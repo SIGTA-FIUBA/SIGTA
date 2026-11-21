@@ -21,8 +21,8 @@ export const Tones: StoryObj<typeof StatusBadge> = {
   name: 'StatusBadge',
   render: () => (
     <Group gap="sm">
-      <StatusBadge tone="office">En la Secretaría</StatusBadge>
-      <StatusBadge tone="external">En evaluación externa</StatusBadge>
+      <StatusBadge tone="office">En un área</StatusBadge>
+      <StatusBadge tone="external">Derivado</StatusBadge>
       <StatusBadge tone="applicant">Pendiente del titular</StatusBadge>
       <StatusBadge tone="done">Resuelto</StatusBadge>
       <StatusBadge tone="error">Rechazado</StatusBadge>

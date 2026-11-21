@@ -103,10 +103,10 @@ export const ToolbarStory: StoryObj<typeof Toolbar> = {
             Todos
           </Toolbar.ToggleItem>
           <Toolbar.ToggleItem value="in_office" autoWidth>
-            En la Secretaría
+            En un área
           </Toolbar.ToggleItem>
           <Toolbar.ToggleItem value="referred" autoWidth>
-            En evaluación externa
+            Derivado
           </Toolbar.ToggleItem>
         </Toolbar.ToggleGroup>
         <Toolbar.Divider />

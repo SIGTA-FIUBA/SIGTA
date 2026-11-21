@@ -36,7 +36,7 @@ export const Rows: StoryObj = {
         program="Ingeniería en Informática"
         step={{ number: 3, count: 9, name: 'Revisión de la Secretaría' }}
         area="Secretaría Académica"
-        status={{ tone: 'office', label: 'En la Secretaría' }}
+        status={{ tone: 'office', label: 'En un área' }}
         date="Hoy"
         news
       />
@@ -46,7 +46,7 @@ export const Rows: StoryObj = {
         applicant="Ana Ruiz"
         step={{ number: 6, count: 9, name: 'Dictamen del departamento' }}
         area="Departamento de Computación"
-        status={{ tone: 'external', label: 'En evaluación externa' }}
+        status={{ tone: 'external', label: 'Derivado' }}
         date="Hace 4 días"
         due="el 20/11"
       />
