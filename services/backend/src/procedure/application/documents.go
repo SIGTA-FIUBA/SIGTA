@@ -97,14 +97,31 @@ func (s *DocumentService) Attach(ctx context.Context, userID string, u input.Upl
 	}
 	err = s.procedures.procedures.Attach(ctx, d, attachedEvent(d))
 	if errors.Is(err, engine.ErrStepNotOpen) && step != p.OpenStep {
-		// An answer to the corrections came first: the applicant is where
-		// whereToAttach leaves them with nothing pending, and is told the same.
-		err = denied(userID, actionAttach+" on "+step)
+		// An answer to the corrections came first, and maybe more after it.
+		return domain.Document{}, s.refusalNow(ctx, userID, u)
 	}
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("record document: %w", err)
 	}
 	return d, nil
+}
+
+// refusalNow answers an attachment in answer that lost the race against what
+// changed the procedure meanwhile as an attachment sent now would be answered:
+// the same to the same person, whenever it comes.
+func (s *DocumentService) refusalNow(ctx context.Context, userID string, u input.Upload) error {
+	p, content, err := s.procedures.visible(ctx, userID, u.ProcedureID)
+	if err != nil {
+		return err
+	}
+	if p.Closed() {
+		return fmt.Errorf("procedure %s: %w", p.ID, engine.ErrStepNotOpen)
+	}
+	if _, _, err := s.whereToAttach(ctx, userID, p, content, u.Requirement); err != nil {
+		return err
+	}
+	// Sent now, it would be recorded: another request asks for it again.
+	return fmt.Errorf("procedure %s changed meanwhile: %w", p.ID, engine.ErrStepNotOpen)
 }
 
 func attachedEvent(d domain.Document) domain.Event {
