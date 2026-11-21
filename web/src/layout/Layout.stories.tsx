@@ -8,6 +8,7 @@ import { AppHeader } from './AppHeader'
 import { fixtures } from '../dev/administrationFixtures'
 import { AdministrationPage } from '../pages/AdministrationPage'
 import { HomePage } from '../pages/HomePage'
+import { LoginPage } from '../pages/LoginPage'
 import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
 import { UserMenu } from './UserMenu'
@@ -15,6 +16,7 @@ import { UserMenu } from './UserMenu'
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
 type MyProcedure = components['schemas']['MyProcedure']
+type CatalogEntry = components['schemas']['CatalogEntry']
 
 // The frame of the pages runs inside a router, as in the app. The session,
 // the inbox and the procedures of the person are invented, so the stories
@@ -112,6 +114,32 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
   )
 }
 
+// The landing page counts the catalog; three invented types are enough.
+const catalog: CatalogEntry[] = ['Equivalencia entre asignaturas', 'Reconocimiento de créditos', 'Pase de carrera'].map(
+  (name, index) => ({
+    id: index + 1,
+    version: 1,
+    name,
+    description: '',
+    deadlines: [],
+    admissibility: [],
+    fields: [],
+    documents: [],
+    submission: { fields: [], documents: [] },
+  }),
+)
+
+function Landing() {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  client.setQueryData(['procedure-types'], catalog)
+  const router = createMemoryRouter([{ path: '*', element: <LoginPage /> }], { initialEntries: ['/login'] })
+  return (
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+}
+
 const meta: Meta = {
   title: 'SIGTA/Marco',
   parameters: {
@@ -149,6 +177,19 @@ export const AppLayoutVisitor: StoryObj = {
   render: () => <Page user={null}>{null}</Page>,
   parameters: {
     docs: { description: { story: 'Sin sesión (el catálogo público): sin menú, con el ingreso en el encabezado.' } },
+  },
+}
+
+export const LandingStory: StoryObj = {
+  name: 'Portada',
+  render: () => <Landing />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'La portada pública (`/login`), antes del ingreso: el titular con el botón de Google y la nota de la cuenta de la UBA, un collage de piezas de la plataforma (se oculta en el celular), cómo funciona, cuántos trámites hay en el catálogo y los criterios. Es la única pantalla con píldoras y títulos que crecen con el ancho.',
+      },
+    },
   },
 }
 
