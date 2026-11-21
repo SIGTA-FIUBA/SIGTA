@@ -15,3 +15,7 @@ export const stateColors: Record<State, string> = {
   with_applicant: 'gray',
   closed: 'gray',
 }
+
+// The home page and the detail say the same when a procedure closed without
+// a document that resolves it.
+export const closedWithoutResolution = 'El trámite se cerró sin un documento resolutivo adjunto.'

@@ -1,9 +1,10 @@
-import { Alert, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import { Alert, Anchor, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
 import { Link, useOutletContext } from 'react-router'
 import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { DocumentFile } from '../components/DocumentFile/DocumentFile'
 import { applicantHowTo, principles, staffHowTo } from '../content/platform'
-import { stateColors, stateNames } from '../content/procedureStates'
+import { closedWithoutResolution, stateColors, stateNames } from '../content/procedureStates'
 
 type User = components['schemas']['User']
 type MyProcedure = components['schemas']['MyProcedure']
@@ -35,22 +36,51 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
             {stateNames[procedure.state]}
           </Badge>
         </Group>
-        {procedure.state === 'closed' ? (
+        {procedure.correction_pending && (
+          <Text size="sm" fw={600} c="fiuba.7">
+            Subsanación pendiente del titular
+          </Text>
+        )}
+        <Text size="sm">Paso actual: {procedure.step_name}</Text>
+        <Text size="sm" c="dimmed">
+          Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
+        </Text>
+      </Stack>
+    </Paper>
+  )
+}
+
+// ClosedProcedureCard is not a link as a whole, as MyProcedureCard is, because
+// it holds the buttons to see and download the resolution: its name leads to
+// the detail.
+function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
+  return (
+    <Paper withBorder p="md">
+      <Stack gap="xs">
+        <Group justify="space-between" gap="xs" align="flex-start">
+          <Anchor component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`} fw={600}>
+            {procedure.procedure_type_name}
+          </Anchor>
+          <Badge variant="light" color={stateColors[procedure.state]}>
+            {stateNames[procedure.state]}
+          </Badge>
+        </Group>
+        <Text size="sm" c="dimmed">
+          Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
+        </Text>
+        {procedure.resolutions.length === 0 ? (
           <Text size="sm" c="dimmed">
-            Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
+            {closedWithoutResolution}
           </Text>
         ) : (
-          <>
-            {procedure.correction_pending && (
-              <Text size="sm" fw={600} c="fiuba.7">
-                Subsanación pendiente del titular
+          procedure.resolutions.map((resolution) => (
+            <Stack key={resolution.id} gap={0}>
+              <Text size="sm" fw={500}>
+                {resolution.document_name}
               </Text>
-            )}
-            <Text size="sm">Paso actual: {procedure.step_name}</Text>
-            <Text size="sm" c="dimmed">
-              Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
-            </Text>
-          </>
+              <DocumentFile procedureId={procedure.id} file={resolution} />
+            </Stack>
+          ))
         )}
       </Stack>
     </Paper>
@@ -60,16 +90,20 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
 function MyProcedureGrid({ procedures }: { procedures: MyProcedure[] }) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-      {procedures.map((procedure) => (
-        <MyProcedureCard key={procedure.id} procedure={procedure} />
-      ))}
+      {procedures.map((procedure) =>
+        procedure.state === 'closed' ? (
+          <ClosedProcedureCard key={procedure.id} procedure={procedure} />
+        ) : (
+          <MyProcedureCard key={procedure.id} procedure={procedure} />
+        ),
+      )}
     </SimpleGrid>
   )
 }
 
 // MyProceduresSection lists what the person started, so that signing in
-// answers where each procedure is. The closed ones go apart, for their
-// applicant to reach the resolution.
+// answers where each procedure is. The closed ones go apart, with their
+// resolution.
 function MyProceduresSection() {
   const myProcedures = useMyProcedures()
   const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []

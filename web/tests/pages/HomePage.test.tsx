@@ -21,6 +21,16 @@ const closed = {
   state: 'closed',
   started_at: '2026-10-01T12:00:00Z',
   last_moved_at: '2026-11-05T15:00:00Z',
+  resolutions: [
+    {
+      id: 'D-9',
+      document: 'dean_resolution',
+      document_name: 'Resolución de Decano',
+      file_name: 'resolucion.pdf',
+      media_type: 'application/pdf',
+      size: 2048,
+    },
+  ],
 }
 const withApplicant = {
   ...inOffice,
@@ -81,17 +91,38 @@ describe('HomePage', () => {
     expect(new URL(fetch.mock.calls[0]![0].url).pathname).toBe('/api/me/procedures')
   })
 
-  it('lists the closed procedures apart, leading to their detail', async () => {
+  it('lists the closed procedures apart, with the date they closed and leading to their detail', async () => {
     stubApi(200, [inOffice, closed])
     renderAs(false)
 
     const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
-    const card = within(closedOnes).getByRole('link', { name: /Pase de carrera/ })
-    expect(card).toHaveAttribute('href', '/procedures/P-3')
-    expect(within(card).getByText('Cierre: 05/11/2026')).toBeVisible()
-    expect(within(card).queryByText(/Paso actual/)).not.toBeInTheDocument()
+    expect(within(closedOnes).getByRole('link', { name: 'Pase de carrera' })).toHaveAttribute('href', '/procedures/P-3')
+    expect(within(closedOnes).getByText('Cierre: 05/11/2026')).toBeVisible()
+    expect(within(closedOnes).queryByText(/Paso actual/)).not.toBeInTheDocument()
     const inProgress = screen.getByRole('region', { name: 'Mis trámites en curso' })
     expect(within(inProgress).queryByRole('link', { name: /Pase de carrera/ })).not.toBeInTheDocument()
+  })
+
+  it('offers the resolution of a closed procedure to download without opening its detail', async () => {
+    stubApi(200, [closed])
+    renderAs(false)
+
+    const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
+    expect(within(closedOnes).getByText('Resolución de Decano')).toBeVisible()
+    expect(within(closedOnes).getByRole('link', { name: 'Descargar resolucion.pdf' })).toHaveAttribute(
+      'href',
+      '/api/procedures/P-3/documents/D-9/content',
+    )
+    expect(within(closedOnes).getByRole('button', { name: 'Ver resolucion.pdf' })).toBeVisible()
+  })
+
+  it('says when a closed procedure has no resolution', async () => {
+    stubApi(200, [{ ...closed, resolutions: [] }])
+    renderAs(false)
+
+    const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
+    expect(within(closedOnes).getByText('El trámite se cerró sin un documento resolutivo adjunto.')).toBeVisible()
+    expect(within(closedOnes).queryByRole('link', { name: /Descargar/ })).not.toBeInTheDocument()
   })
 
   it('says there is no procedure in progress when all of them are closed', async () => {
