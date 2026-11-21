@@ -194,8 +194,8 @@ export const ChipStory: StoryObj = {
   render: () => (
     <Chip.Group multiple defaultValue={['in_office']}>
       <Group gap="xs">
-        <Chip value="in_office">En la Secretaría</Chip>
-        <Chip value="referred">En evaluación externa</Chip>
+        <Chip value="in_office">En un área</Chip>
+        <Chip value="referred">Derivado</Chip>
         <Chip value="with_applicant">Pendiente del titular</Chip>
       </Group>
     </Chip.Group>

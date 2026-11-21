@@ -98,7 +98,7 @@ export const SimpleGridStory: StoryObj = {
   render: () => (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
       <Item>Con acción requerida</Item>
-      <Item>En evaluación externa</Item>
+      <Item>Derivado</Item>
       <Item>Pendientes del titular</Item>
     </SimpleGrid>
   ),
@@ -207,7 +207,7 @@ export const DividerStory: StoryObj = {
       <Group gap="md">
         <Text size="sm">EQ-2026-00042</Text>
         <Divider orientation="vertical" />
-        <Text size="sm">En la Secretaría</Text>
+        <Text size="sm">En un área</Text>
       </Group>
     </Stack>
   ),

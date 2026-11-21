@@ -517,8 +517,8 @@ export const SegmentedControlStory: StoryObj = {
       aria-label="Filtrar trámites por estado"
       data={[
         { value: 'all', label: 'Todos' },
-        { value: 'in_office', label: 'En la Secretaría' },
-        { value: 'referred', label: 'En evaluación externa' },
+        { value: 'in_office', label: 'En un área' },
+        { value: 'referred', label: 'Derivado' },
         { value: 'with_applicant', label: 'Pendiente del titular' },
       ]}
     />

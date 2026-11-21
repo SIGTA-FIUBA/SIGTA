@@ -128,10 +128,10 @@ export const ProgressStory: StoryObj = {
       <Progress value={60} aria-label="Documentación adjunta" />
       <Progress.Root size="xl">
         <Progress.Section value={50} color="fiuba">
-          <Progress.Label>En la Secretaría</Progress.Label>
+          <Progress.Label>En un área</Progress.Label>
         </Progress.Section>
         <Progress.Section value={30} color="orange">
-          <Progress.Label>En evaluación externa</Progress.Label>
+          <Progress.Label>Derivado</Progress.Label>
         </Progress.Section>
         <Progress.Section value={20} color="gray">
           <Progress.Label>Pendiente del titular</Progress.Label>
@@ -153,8 +153,8 @@ export const RingProgressStory: StoryObj = {
   render: () => (
     <RingProgress
       sections={[
-        { value: 50, color: 'fiuba', tooltip: 'En la Secretaría' },
-        { value: 30, color: 'orange', tooltip: 'En evaluación externa' },
+        { value: 50, color: 'fiuba', tooltip: 'En un área' },
+        { value: 30, color: 'orange', tooltip: 'Derivado' },
         { value: 20, color: 'gray', tooltip: 'Pendiente del titular' },
       ]}
       label={

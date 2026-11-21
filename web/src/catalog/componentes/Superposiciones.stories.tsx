@@ -91,7 +91,7 @@ function DrawerDemo() {
       </Button>
       <Drawer opened={opened} onClose={close} position="right" title="Trámite EQ-2026-00042">
         <Stack gap="sm">
-          <Badge variant="light">En la Secretaría</Badge>
+          <Badge variant="light">En un área</Badge>
           <Text size="sm">Equivalencia entre asignaturas</Text>
           <Text size="sm" c="dimmed">
             Titular: Martina Ferreyra

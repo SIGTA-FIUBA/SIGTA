@@ -38,7 +38,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'Los datos se muestran en paneles `Paper withBorder` y tablas con `highlightOnHover`. Los estados de un trámite tienen color fijo: "En la Secretaría" en el primario, "En evaluación externa" en naranja y "Pendiente del titular" en gris.',
+          'Los datos se muestran en paneles `Paper withBorder` y tablas con `highlightOnHover`. Los estados de un trámite tienen color fijo: "En un área" en el primario, "Derivado" en naranja y "Pendiente del titular" en gris.',
       },
     },
   },
@@ -53,7 +53,7 @@ const procedures = [
     type: 'Equivalencia entre asignaturas',
     step: 'Revisión de la documentación',
     area: 'Departamento de Matemática',
-    state: 'En la Secretaría',
+    state: 'En un área',
     color: 'fiuba',
     age: '12 días',
   },
@@ -63,7 +63,7 @@ const procedures = [
     type: 'Reconocimiento de créditos',
     step: 'Dictamen del evaluador',
     area: 'Comisión curricular',
-    state: 'En evaluación externa',
+    state: 'Derivado',
     color: 'orange',
     age: '30 días',
   },
@@ -157,10 +157,10 @@ export const BadgeStates: StoryObj = {
   render: () => (
     <Group gap="xs">
       <Badge variant="light" color="fiuba">
-        En la Secretaría
+        En un área
       </Badge>
       <Badge variant="light" color="orange">
-        En evaluación externa
+        Derivado
       </Badge>
       <Badge variant="light" color="gray">
         Pendiente del titular
@@ -272,7 +272,7 @@ export const TimelineStory: StoryObj = {
       </Timeline.Item>
       <Timeline.Item title="Revisión de la documentación">
         <Text size="sm" c="dimmed">
-          En la Secretaría, Departamento de Matemática.
+          En el Departamento de Matemática.
         </Text>
       </Timeline.Item>
       <Timeline.Item title="Evaluación externa" lineVariant="dashed">
@@ -328,7 +328,7 @@ export const DataListStory: StoryObj = {
         <DataList.ItemLabel>Estado</DataList.ItemLabel>
         <DataList.ItemValue>
           <Badge variant="light" color="fiuba">
-            En la Secretaría
+            En un área
           </Badge>
         </DataList.ItemValue>
       </DataList.Item>
@@ -413,8 +413,8 @@ export const ColorSwatchStory: StoryObj = {
   render: () => (
     <Group gap="lg">
       {[
-        { color: 'var(--mantine-color-fiuba-7)', label: 'En la Secretaría' },
-        { color: 'var(--mantine-color-orange-6)', label: 'En evaluación externa' },
+        { color: 'var(--mantine-color-fiuba-7)', label: 'En un área' },
+        { color: 'var(--mantine-color-orange-6)', label: 'Derivado' },
         { color: 'var(--mantine-color-gray-6)', label: 'Pendiente del titular' },
       ].map((swatch) => (
         <Group key={swatch.label} gap="xs">
