@@ -16,6 +16,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { useInboxProcedures } from '../api/procedures'
+import { useEditableProcedureTypes } from '../api/procedureTypes'
 import { logout, type optionalSession } from '../api/session'
 import { AppHeader } from './AppHeader'
 import { MenuIcon, type MenuIconName } from './MenuIcon'
@@ -38,6 +39,10 @@ export function AppLayout() {
   // request, so it costs nothing more.
   const procedures = useInboxProcedures(staff)
   const actionableCount = procedures.data?.items.filter((item) => item.actionable).length
+  // The procedure types are offered to whoever can edit or approve one; the
+  // page shares the request.
+  const editable = useEditableProcedureTypes(staff)
+  const designs = editable.data !== undefined && (editable.data.can_create || editable.data.procedure_types.length > 0)
 
   async function handleLogout() {
     if (await logout()) {
@@ -61,6 +66,16 @@ export function AppLayout() {
         ]
       : []),
     { to: '/catalog', label: 'Catálogo de trámites', icon: 'catalog', active: pathname.startsWith('/catalog') },
+    ...(designs
+      ? [
+          {
+            to: '/procedure-types',
+            label: 'Tipos de trámite',
+            icon: 'procedureTypes' as const,
+            active: pathname.startsWith('/procedure-types'),
+          },
+        ]
+      : []),
     ...(user?.administrator === true
       ? [
           {

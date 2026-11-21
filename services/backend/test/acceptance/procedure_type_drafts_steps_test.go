@@ -34,6 +34,7 @@ type draftWorld struct {
 	view     input.DraftView
 	first    version.ProcedureTypeVersion
 	approved version.ProcedureTypeVersion
+	editable input.EditableProcedureTypes
 	err      error
 	// before is the latest version of pt when the draft was approved.
 	before int
@@ -56,6 +57,8 @@ func registerProcedureTypeDraftSteps(sc *godog.ScenarioContext) {
 	sc.When(`^"([^"]*)" rejects the draft because "([^"]*)"$`, w.reject)
 	sc.When(`^"([^"]*)" opens a draft of "([^"]*)"$`, w.open)
 	sc.When(`^"([^"]*)" edits the draft$`, w.edit)
+	sc.When(`^"([^"]*)" looks at the draft$`, w.lookAtDraft)
+	sc.When(`^"([^"]*)" looks at the procedure types they can edit$`, w.lookAtEditable)
 
 	sc.Then(`^version 1 of the new procedure type is published, proposed by "([^"]*)" and approved by "([^"]*)"$`, w.thenNewTypePublished)
 	sc.Then(`^the procedure type has no draft left$`, w.thenNoDraft)
@@ -69,6 +72,8 @@ func registerProcedureTypeDraftSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^the problem points at the step in the unknown area$`, w.thenProblemAtStep)
 	sc.Then(`^no version is published from the draft$`, w.thenNoVersionFromDraft)
 	sc.Then(`^the approval is refused because another version was published since$`, w.thenOutdated)
+	sc.Then(`^they are offered to edit it: (yes|no), and to approve or reject it: (yes|no)$`, w.thenOffered)
+	sc.Then(`^they (can|cannot) create a procedure type and (?:can|cannot) open a draft of "([^"]*)"$`, w.thenEditableOffers)
 }
 
 // givenAreas adds the Secretariat, whose permissions the drafts ask for
@@ -364,4 +369,47 @@ func (w *draftWorld) thenOutdated() error {
 		return fmt.Errorf("approve = %w, want ErrOutdatedBase", w.err)
 	}
 	return nil
+}
+
+func (w *draftWorld) lookAtDraft(person string) error {
+	view, err := w.drafts.Get(context.Background(), person, w.pt)
+	if err != nil {
+		return err
+	}
+	w.view = view
+	return nil
+}
+
+func (w *draftWorld) lookAtEditable(person string) error {
+	editable, err := w.drafts.Editable(context.Background(), person)
+	if err != nil {
+		return err
+	}
+	w.editable = editable
+	return nil
+}
+
+func (w *draftWorld) thenOffered(edit, review string) error {
+	if got := [2]bool{w.view.CanEdit, w.view.CanReview}; got != [2]bool{edit == "yes", review == "yes"} {
+		return fmt.Errorf("can edit, can review = %v, want %s and %s", got, edit, review)
+	}
+	return nil
+}
+
+// thenEditableOffers checks both offers with the same answer: the scenario
+// writes it twice so that it reads as a sentence.
+func (w *draftWorld) thenEditableOffers(offer, name string) error {
+	want := offer == "can"
+	if w.editable.CanCreate != want {
+		return fmt.Errorf("can create = %t, want %t", w.editable.CanCreate, want)
+	}
+	for _, t := range w.editable.ProcedureTypes {
+		if t.Name == name {
+			if t.CanOpenDraft != want {
+				return fmt.Errorf("can open a draft of %q = %t, want %t", name, t.CanOpenDraft, want)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("%q is not among %+v", name, w.editable.ProcedureTypes)
 }

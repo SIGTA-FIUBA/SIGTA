@@ -406,6 +406,32 @@ type DraftRevision struct {
 // DraftStatus editing, mientras se edita. proposed, mientras espera que otra persona lo apruebe o lo rechace.
 type DraftStatus string
 
+// EditableProcedureType defines model for EditableProcedureType.
+type EditableProcedureType struct {
+	// CanOpenDraft Si puede abrir el borrador de una versión nueva, porque tiene el permiso de editar, hay una versión publicada y no hay borrador
+	CanOpenDraft bool                `json:"can_open_draft"`
+	Draft        *ProcedureTypeDraft `json:"draft,omitempty"`
+
+	// Name El de la última versión o, si no tiene ninguna, el de su borrador
+	Name            string `json:"name"`
+	ProcedureTypeId int64  `json:"procedure_type_id"`
+
+	// PublishedAt Cuándo se publicó la última versión; ausente si no tiene ninguna
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+
+	// Version La última versión publicada, o 0 si no tiene ninguna
+	Version int `json:"version"`
+}
+
+// EditableProcedureTypes defines model for EditableProcedureTypes.
+type EditableProcedureTypes struct {
+	Areas []StepArea `json:"areas"`
+
+	// CanCreate Si puede crear un tipo de trámite nuevo, para lo que hace falta el permiso de editar sin alcance limitado
+	CanCreate      bool                    `json:"can_create"`
+	ProcedureTypes []EditableProcedureType `json:"procedure_types"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
@@ -835,6 +861,12 @@ type ProcedureTypeDraft struct {
 	// Base La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna
 	Base int `json:"base"`
 
+	// CanEdit Si quien pregunta puede editarlo, proponerlo y descartarlo
+	CanEdit bool `json:"can_edit"`
+
+	// CanReview Si quien pregunta puede aprobarlo o rechazarlo cuando está propuesto: tiene el permiso de publicar y no lo editó ni lo propuso
+	CanReview bool `json:"can_review"`
+
 	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
 	Definition ProcedureTypeDefinition `json:"definition"`
 	EditedAt   time.Time               `json:"edited_at"`
@@ -927,6 +959,19 @@ type StartedProcedure struct {
 
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
+}
+
+// StepArea Un área del personal que puede hacer un paso, con los permisos que el paso puede exigir
+type StepArea struct {
+	Id          string               `json:"id"`
+	Name        string               `json:"name"`
+	Permissions []StepAreaPermission `json:"permissions"`
+}
+
+// StepAreaPermission defines model for StepAreaPermission.
+type StepAreaPermission struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // StepConfirmation defines model for StepConfirmation.
@@ -1113,6 +1158,11 @@ type BeginLoginParams struct {
 
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
+// ListEditableProcedureTypesParams defines parameters for ListEditableProcedureTypes.
+type ListEditableProcedureTypesParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
@@ -1370,6 +1420,9 @@ type ServerInterface interface {
 
 	// (POST /auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
+	// ListEditableProcedureTypes Tipos de trámite que la persona puede editar o aprobar
+	// (GET /editable-procedure-types)
+	ListEditableProcedureTypes(w http.ResponseWriter, r *http.Request, params ListEditableProcedureTypesParams)
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
@@ -2111,6 +2164,41 @@ func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Logout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEditableProcedureTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListEditableProcedureTypes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEditableProcedureTypesParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEditableProcedureTypes(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3407,6 +3495,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me/procedures", wrapper.ListMyProcedures)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types", wrapper.ListProcedureTypes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedure-types", wrapper.CreateProcedureType)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/editable-procedure-types", wrapper.ListEditableProcedureTypes)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-type-drafts", wrapper.ListProcedureTypeDrafts)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.DiscardProcedureTypeDraft)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedure-types/{procedureTypeId}/draft", wrapper.GetProcedureTypeDraft)
@@ -4367,6 +4456,42 @@ func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) err
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+type ListEditableProcedureTypesRequestObject struct {
+	Params ListEditableProcedureTypesParams
+}
+
+type ListEditableProcedureTypesResponseObject interface {
+	VisitListEditableProcedureTypesResponse(w http.ResponseWriter) error
+}
+
+type ListEditableProcedureTypes200JSONResponse EditableProcedureTypes
+
+func (response ListEditableProcedureTypes200JSONResponse) VisitListEditableProcedureTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEditableProcedureTypes401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListEditableProcedureTypes401JSONResponse) VisitListEditableProcedureTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type GetCurrentUserRequestObject struct {
@@ -6230,6 +6355,9 @@ type StrictServerInterface interface {
 
 	// (POST /auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// ListEditableProcedureTypes Tipos de trámite que la persona puede editar o aprobar
+	// (GET /editable-procedure-types)
+	ListEditableProcedureTypes(ctx context.Context, request ListEditableProcedureTypesRequestObject) (ListEditableProcedureTypesResponseObject, error)
 	// GetCurrentUser Perfil de la persona con sesión abierta
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
@@ -6778,6 +6906,32 @@ func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request, params L
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LogoutResponseObject); ok {
 		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEditableProcedureTypes operation middleware
+func (sh *strictHandler) ListEditableProcedureTypes(w http.ResponseWriter, r *http.Request, params ListEditableProcedureTypesParams) {
+	var request ListEditableProcedureTypesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEditableProcedureTypes(ctx, request.(ListEditableProcedureTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEditableProcedureTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEditableProcedureTypesResponseObject); ok {
+		if err := validResponse.VisitListEditableProcedureTypesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

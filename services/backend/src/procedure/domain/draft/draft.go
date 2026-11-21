@@ -122,10 +122,16 @@ func (d Draft) reviewableBy(reviewer string) error {
 	switch {
 	case d.Status != StatusProposed:
 		return ErrDraftNotProposed
-	case strings.EqualFold(d.ProposedBy, reviewer), d.editedBy(reviewer):
+	case d.Involves(reviewer):
 		return ErrSelfApproval
 	}
 	return nil
+}
+
+// Involves tells whether person edited or proposed the draft, which keeps
+// them from approving or rejecting it.
+func (d Draft) Involves(person string) bool {
+	return strings.EqualFold(d.ProposedBy, person) || d.editedBy(person)
 }
 
 func (d Draft) editedBy(person string) bool {
