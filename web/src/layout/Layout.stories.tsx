@@ -163,7 +163,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: el saludo con la fecha, el resumen en tres cifras (cada una lleva a la bandeja filtrada, salvo los cerrados), hasta cinco trámites que requieren acción y la actividad reciente, un renglón por movimiento.',
+          'El Inicio del personal: el saludo con la fecha, el resumen en dos cifras (cada una lleva a la bandeja filtrada), hasta cinco trámites que requieren acción y la actividad reciente, un renglón por movimiento.',
       },
     },
   },

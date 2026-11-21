@@ -115,8 +115,10 @@ export function AppLayout() {
         leftSection={<Icon name={link.icon} />}
         rightSection={
           count !== undefined && (
+            // A long count would widen the badge past the menu; the label
+            // keeps the exact number.
             <Badge variant="counter" aria-hidden>
-              {count}
+              {count > 99 ? '99+' : count}
             </Badge>
           )
         }
@@ -128,18 +130,13 @@ export function AppLayout() {
 
   if (user === null) {
     return (
-      <AppShell header={{ height: tokens.layout.topBar }} padding={{ base: 'md', sm: 'xl' }}>
+      <AppShell header={{ height: tokens.layout.topBar }} padding={{ base: 'md', sm: tokens.layout.pagePadding }}>
         <AppShell.Header>
           <AppHeader
             end={
-              <>
-                <Button component={Link} to="/login" variant="subtle">
-                  Volver al inicio
-                </Button>
-                <Button component={Link} to="/login">
-                  Iniciar sesión
-                </Button>
-              </>
+              <Button component="a" href="/api/auth/login" variant="outline">
+                Ingresar
+              </Button>
             }
           />
         </AppShell.Header>
@@ -160,7 +157,7 @@ export function AppLayout() {
         breakpoint: 'sm',
         collapsed: { mobile: !menuOpen },
       }}
-      padding={{ base: 'md', sm: 'xl' }}
+      padding={{ base: 'md', sm: tokens.layout.pagePadding }}
     >
       <AppShell.Header hiddenFrom="sm">
         <AppHeader

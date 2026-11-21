@@ -10,8 +10,8 @@
 
 /* The headline of the landing page (Title variant="display"). */
 .display {
-  font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  font-size: var(--sigta-display-size);
+  line-height: var(--sigta-display-line-height);
+  letter-spacing: var(--sigta-tracking-display);
   text-wrap: balance;
 }

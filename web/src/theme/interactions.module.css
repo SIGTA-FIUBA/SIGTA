@@ -64,7 +64,7 @@
 }
 
 .rows > li + li {
-  border-top: 1px solid var(--mantine-color-gray-3);
+  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
 }
 
 /* The steps of a procedure (List variant="steps"): an ordered list in three
@@ -88,7 +88,7 @@
 .stepsItem {
   list-style: none;
   padding-top: var(--mantine-spacing-md);
-  border-top: 1px solid var(--mantine-color-gray-3);
+  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
 }
 
 /* The page (AppShell main) is gray, so the lists and cards on it read
@@ -101,7 +101,7 @@
  * white, with a border on the right. The panel opens in motion.base. */
 .sideNav {
   background-color: var(--sigta-nav-background);
-  border-inline-end: 1px solid var(--sigta-nav-border);
+  border-inline-end: var(--sigta-border-width) solid var(--sigta-nav-border);
   color: var(--sigta-nav-text);
 }
 
@@ -205,7 +205,7 @@
 }
 
 .figures > * + * {
-  border-inline-start: 1px solid var(--mantine-color-gray-3);
+  border-inline-start: var(--sigta-border-width) solid var(--mantine-color-gray-3);
 }
 
 .figures [data-figure] {
