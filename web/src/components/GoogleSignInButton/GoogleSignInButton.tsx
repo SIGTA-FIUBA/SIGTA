@@ -1,12 +1,14 @@
 import classes from './GoogleSignInButton.module.css'
 
 // GoogleSignInButton leaves for the identity provider with a full navigation,
-// since the provider sends the browser back to the API's callback.
+// since the provider sends the browser back to the API's callback. Google
+// allows "Continuar con Google" but not a text that names another account, so
+// the UBA account is said next to the button, not on it.
 export function GoogleSignInButton() {
   return (
     <a className={classes.button} href="/api/auth/login">
       <GoogleLogo />
-      <span>Iniciar sesión con Google</span>
+      <span>Continuar con Google</span>
     </a>
   )
 }

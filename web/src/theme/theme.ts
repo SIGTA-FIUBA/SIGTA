@@ -9,6 +9,7 @@ import {
   defaultVariantColorsResolver,
   Input,
   List,
+  Mark,
   Menu,
   Modal,
   NavLink,
@@ -197,12 +198,25 @@ export const theme = createTheme({
     // Loading shows the shape of what comes, never a spinner.
     Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
     // Titles of 20px or more are tighter; the headline of the landing page
-    // grows with the screen.
-    Text: Text.extend({ styles: breakLongWords }),
+    // grows with the screen, and so do the titles of its sections
+    // (variant="section"). The landing page also has the label over a title
+    // (Text variant="overline") and large figures (variant="figure").
+    Text: Text.extend({
+      styles: breakLongWords,
+      classNames: (_theme, props) => ({
+        root: props.variant === 'overline' ? typography.overline : props.variant === 'figure' ? typography.figure : '',
+      }),
+    }),
+    Mark: Mark.extend({ defaultProps: { color: 'fiuba.1' }, classNames: { root: typography.mark } }),
     Title: Title.extend({
       styles: breakLongWords,
       classNames: (_theme, props) => ({
-        root: props.variant === 'display' ? `${typography.title} ${typography.display}` : typography.title,
+        root:
+          props.variant === 'display'
+            ? `${typography.title} ${typography.display}`
+            : props.variant === 'section'
+              ? `${typography.title} ${typography.section}`
+              : typography.title,
       }),
     }),
     // A long title, such as the name of a file, breaks instead of pushing the

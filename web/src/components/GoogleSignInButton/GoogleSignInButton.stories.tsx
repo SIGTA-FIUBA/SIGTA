@@ -7,7 +7,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El ingreso con la cuenta de la UBA. Es la única excepción a las reglas del tema: Google exige sus colores y su tipografía, así que tiene su propio CSS.',
+          'El ingreso con la cuenta de la UBA, en forma de píldora y con el texto "Continuar con Google", que las guías de Google permiten. Es la única excepción a las reglas del tema: Google exige sus colores y su tipografía, así que tiene su propio CSS.',
       },
     },
   },

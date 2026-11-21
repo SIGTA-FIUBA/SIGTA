@@ -309,7 +309,7 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - El aspecto (colores, tipografía, radios, valores por defecto de cada componente) se define solo en `web/src/theme/theme.ts`.
 - Las pantallas usan valores del tema, nunca colores ni medidas escritos a mano. Lo controla el lint con `react/forbid-component-props`, `react/forbid-dom-props`, `no-restricted-imports` y una regla propia en `web/lint/design-rules.js`.
 - Las reglas de diseño, con su motivo, están en `web/DESIGN.md`.
-- La única excepción es el botón "Iniciar sesión con Google", que Google exige con colores y tipografía propios.
+- La única excepción es el botón de ingreso con Google, que Google exige con colores y tipografía propios.
 
 **Consecuencias.**
 - Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en un solo archivo.

@@ -1,14 +1,15 @@
 /* Google's standard sign-in button, light theme, which Google requires with these exact
    colors and type: https://developers.google.com/identity/branding-guidelines
-   It is the only component styled outside the theme. */
+   The guidelines allow the pill shape, which goes with the buttons of the
+   landing page. It is the only component styled outside the theme. */
 .button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 16px 0 12px;
   border: 1px solid #747775;
-  border-radius: 4px;
+  border-radius: 20px;
   background: #fff;
   color: #1f1f1f;
   font:
