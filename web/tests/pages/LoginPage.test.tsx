@@ -54,7 +54,7 @@ describe('LoginPage', () => {
     renderAt('/login')
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Tus trámites académicos, en línea y con seguimiento',
+      'Los trámites académicos, en línea y con seguimiento',
     )
     expect(screen.getByRole('heading', { name: 'Un solo lugar, del inicio a la resolución' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Seguimiento' })).toBeVisible()
@@ -62,15 +62,14 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: 'Ver el catálogo' })).toHaveAttribute('href', '/catalog')
   })
 
-  it('counts the catalog and shows its first procedures in order', async () => {
+  it('counts the catalog without listing it', async () => {
     const names = ['Pase', 'Equivalencia', 'Reconocimiento', 'Intercambio', 'Baja']
     renderAt('/login', { status: 200, body: names.map((name, index) => catalogEntry(index + 1, name)) })
 
     expect(await screen.findByText('5')).toBeVisible()
     expect(screen.getByText('trámites disponibles, con sus requisitos publicados')).toBeVisible()
-    expect(screen.getByRole('link', { name: /Baja/ })).toHaveAttribute('href', '/catalog')
-    expect(screen.getByRole('link', { name: /Pase/ })).toBeVisible()
-    expect(screen.queryByRole('link', { name: /Reconocimiento/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
+    expect(screen.queryByText('Pase')).not.toBeInTheDocument()
   })
 
   it('says it when the catalog has a single procedure', async () => {
@@ -88,7 +87,7 @@ describe('LoginPage', () => {
   it('says it when the catalog does not load', async () => {
     renderAt('/login', { status: 500, body: {} })
 
-    expect(await screen.findByText('No pudimos cargar los trámites. Volvé a intentarlo más tarde.')).toBeVisible()
+    expect(await screen.findByText('No se pudieron cargar los trámites. Volvé a intentarlo más tarde.')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
   })
 
