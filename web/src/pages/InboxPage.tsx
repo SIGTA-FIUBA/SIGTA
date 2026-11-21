@@ -16,7 +16,8 @@ import {
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { stateColors, stateNames } from '../content/procedureStates'
+import { StatusBadge } from '../components/StatusBadge/StatusBadge'
+import { procedurePath, procedureStates, stateNames } from '../content/procedures'
 
 type ProcedureListItem = components['schemas']['ProcedureListItem']
 type ProcedureState = components['schemas']['ProcedureState']
@@ -128,11 +129,7 @@ function SummaryTile({ tile }: { tile: Tile }) {
 }
 
 function StateBadge({ item }: { item: ProcedureListItem }) {
-  return (
-    <Badge variant="light" color={stateColors[item.state]}>
-      {stateNames[item.state]}
-    </Badge>
-  )
+  return <StatusBadge tone={procedureStates[item.state].tone}>{procedureStates[item.state].label}</StatusBadge>
 }
 
 // A step of the applicant has no area: the applicant is shown as the one in
@@ -143,7 +140,7 @@ function responsibleText(item: ProcedureListItem) {
 
 function ProcedureLink({ item, from }: { item: ProcedureListItem; from: string }) {
   return (
-    <Anchor component={Link} to={`/procedures/${encodeURIComponent(item.id)}`} state={{ from }} fw={600}>
+    <Anchor component={Link} to={procedurePath(item.id)} state={{ from }} fw={600}>
       {item.applicant.name || 'Titular sin nombre registrado'}
     </Anchor>
   )

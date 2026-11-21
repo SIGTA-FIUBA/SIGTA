@@ -19,6 +19,21 @@ export const applicantHowTo: ContentItem[] = [
   },
 ]
 
+export const staffHowTo: ContentItem[] = [
+  {
+    title: 'Bandeja de trámites',
+    text: 'Reúne los trámites en curso y señala los que requieren acción de la cuenta. Se puede filtrar por tipo, estado y área responsable.',
+  },
+  {
+    title: 'Registro de lo actuado',
+    text: 'Lo que se resuelve fuera de la plataforma, como la carga en el SIU Guaraní o la firma de una resolución, se confirma en SIGTA para que el trámite avance.',
+  },
+  {
+    title: 'Seguimiento de derivaciones',
+    text: 'Cada trámite derivado a un evaluador externo indica los días que lleva sin retorno, para gestionar el reclamo a tiempo.',
+  },
+]
+
 export const principles: ContentItem[] = [
   {
     title: 'Las decisiones son de una persona',

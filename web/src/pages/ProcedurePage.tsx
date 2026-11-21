@@ -28,8 +28,9 @@ import type { components } from '../api/schema'
 import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
+import { StatusBadge } from '../components/StatusBadge/StatusBadge'
 import { documentDescription } from '../content/documentFormats'
-import { stateColors, stateNames } from '../content/procedureStates'
+import { procedureStates } from '../content/procedures'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -983,9 +984,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <Fact label="Estado">
             <Group>
-              <Badge variant="light" color={stateColors[detail.state]}>
-                {stateNames[detail.state]}
-              </Badge>
+              <StatusBadge tone={procedureStates[detail.state].tone}>{procedureStates[detail.state].label}</StatusBadge>
             </Group>
           </Fact>
           <Fact label="Titular">
