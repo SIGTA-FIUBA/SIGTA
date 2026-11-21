@@ -109,11 +109,10 @@ describe('HomePage', () => {
 
     const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
     expect(within(closedOnes).getByText('Resolución de Decano')).toBeVisible()
-    expect(within(closedOnes).getByRole('link', { name: 'Descargar resolucion.pdf' })).toHaveAttribute(
-      'href',
-      '/api/procedures/P-3/documents/D-9/content',
-    )
-    expect(within(closedOnes).getByRole('button', { name: 'Ver resolucion.pdf' })).toBeVisible()
+    expect(
+      within(closedOnes).getByRole('link', { name: 'Descargar resolucion.pdf de Pase de carrera' }),
+    ).toHaveAttribute('href', '/api/procedures/P-3/documents/D-9/content')
+    expect(within(closedOnes).getByRole('button', { name: 'Ver resolucion.pdf de Pase de carrera' })).toBeVisible()
   })
 
   it('says when a closed procedure has no resolution', async () => {

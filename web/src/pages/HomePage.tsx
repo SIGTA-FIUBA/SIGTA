@@ -24,6 +24,7 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
       variant="interactive"
       withBorder
       p="md"
+      h="fit-content"
       td="none"
       c="inherit"
     >
@@ -55,7 +56,7 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
 // the detail.
 function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
   return (
-    <Paper withBorder p="md">
+    <Paper withBorder p="md" h="fit-content">
       <Stack gap="xs">
         <Group justify="space-between" gap="xs" align="flex-start">
           <Anchor component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`} fw={600}>
@@ -78,7 +79,11 @@ function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
               <Text size="sm" fw={500}>
                 {resolution.document_name}
               </Text>
-              <DocumentFile procedureId={procedure.id} file={resolution} />
+              <DocumentFile
+                procedureId={procedure.id}
+                file={resolution}
+                procedureName={procedure.procedure_type_name}
+              />
             </Stack>
           ))
         )}
@@ -87,6 +92,9 @@ function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
   )
 }
 
+// MyProcedureGrid keeps each card as tall as its content (h="fit-content" on
+// the cards), so that a short card does not stretch to the tallest one of its
+// row.
 function MyProcedureGrid({ procedures }: { procedures: MyProcedure[] }) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
