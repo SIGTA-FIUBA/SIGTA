@@ -1,44 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import { ForbiddenError } from './procedures'
+import { forbiddenOr, run } from './requests'
 import type { components } from './schema'
 
 type NewMembership = components['schemas']['NewMembership']
 type NewRole = components['schemas']['NewRole']
-
-// ActionError carries the API's message, which says why a change was refused
-// and what to do.
-class ActionError extends Error {}
-
-const connectionFailure = 'No pudimos guardar el cambio. Revisá tu conexión y volvé a intentarlo.'
-const unknownFailure = 'No pudimos guardar el cambio. Volvé a intentarlo.'
-
-async function run(call: Promise<{ error?: unknown; response: Response }>) {
-  let outcome: { error?: unknown; response: Response }
-  try {
-    outcome = await call
-  } catch {
-    throw new ActionError(connectionFailure)
-  }
-  if (!outcome.response.ok) {
-    const { error } = outcome
-    const message =
-      typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
-        ? error.message
-        : unknownFailure
-    throw new ActionError(message)
-  }
-}
-
-function forbiddenOr<T>(path: string, data: T | undefined, response: Response): T {
-  if (response.status === 403) {
-    throw new ForbiddenError()
-  }
-  if (data === undefined) {
-    throw new Error(`GET ${path} answered ${response.status}`)
-  }
-  return data
-}
 
 // Each key follows the route of the API. A change refreshes every query of the
 // administration, since ending a membership can free an area to be deleted:

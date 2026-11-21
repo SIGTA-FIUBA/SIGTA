@@ -6,6 +6,8 @@ import { HomePage } from './pages/HomePage'
 import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProcedurePage } from './pages/ProcedurePage'
+import { ProcedureTypeDraftPage } from './pages/ProcedureTypeDraftPage'
+import { ProcedureTypesPage } from './pages/ProcedureTypesPage'
 import { StartProcedurePage } from './pages/StartProcedurePage'
 import { ProcedurePreview } from './dev/ProcedurePreview'
 import { StartProcedurePreview } from './dev/StartProcedurePreview'
@@ -34,6 +36,8 @@ export const routes: RouteObject[] = [
       { path: '/inbox', element: <InboxPage /> },
       { path: '/procedures/:id', element: <ProcedurePage /> },
       { path: '/administration', element: <AdministrationPage /> },
+      { path: '/procedure-types', element: <ProcedureTypesPage /> },
+      { path: '/procedure-types/:procedureTypeId/draft', element: <ProcedureTypeDraftPage /> },
     ],
   },
 ]
