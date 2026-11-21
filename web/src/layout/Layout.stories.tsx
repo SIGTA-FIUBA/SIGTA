@@ -5,6 +5,8 @@ import type { ReactNode } from 'react'
 import { createMemoryRouter, Link, RouterProvider } from 'react-router'
 import type { components } from '../api/schema'
 import { AppHeader } from './AppHeader'
+import { fixtures } from '../dev/administrationFixtures'
+import { AdministrationPage } from '../pages/AdministrationPage'
 import { HomePage } from '../pages/HomePage'
 import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
@@ -82,13 +84,26 @@ const mine: MyProcedure[] = [
   },
 ]
 
-function Page({ user, children }: { user: User | null; children: ReactNode }) {
+// seedAdministration puts the demo areas, memberships and administrators of
+// the development preview where the administration reads them.
+function seedAdministration(client: QueryClient) {
+  const data = fixtures.demo
+  client.setQueryData(['areas'], data.areas)
+  for (const [area, memberships] of Object.entries(data.memberships)) {
+    client.setQueryData(['areas', area, 'memberships'], memberships)
+  }
+  client.setQueryData(['administrators'], data.administrators)
+  client.setQueryData(['procedure-types'], data.procedureTypes)
+}
+
+function Page({ user, path = '/', children }: { user: User | null; path?: string; children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
   client.setQueryData(['procedures'], procedures(3))
   client.setQueryData(['me', 'procedures'], mine)
+  seedAdministration(client)
   const router = createMemoryRouter(
-    [{ path: '/', loader: () => user, element: <AppLayout />, children: [{ index: true, element: children }] }],
-    { initialEntries: ['/'] },
+    [{ path: '/*', loader: () => user, element: <AppLayout />, children: [{ path: '*', element: children }] }],
+    { initialEntries: [path] },
   )
   return (
     <QueryClientProvider client={client}>
@@ -148,7 +163,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: el saludo con la fecha, el resumen en tres cifras (cada una lleva a la bandeja filtrada, salvo los cerrados), hasta cinco trámites que requieren acción y la actividad reciente, una línea por movimiento.',
+          'El Inicio del personal: el saludo con la fecha, el resumen en tres cifras (cada una lleva a la bandeja filtrada, salvo los cerrados), hasta cinco trámites que requieren acción y la actividad reciente, un renglón por movimiento.',
       },
     },
   },
@@ -165,7 +180,24 @@ export const HomeApplicant: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del titular: el saludo y los pasos de un trámite. El catálogo está en el menú, así que ningún botón lo repite. Falta "Mis trámites": todavía no hay forma de listar los trámites de la persona.',
+          'El Inicio del titular: el saludo, sus trámites en curso y cerrados, y los pasos de un trámite. El catálogo está en el menú, así que ningún botón lo repite.',
+      },
+    },
+  },
+}
+
+export const AdministrationStory: StoryObj = {
+  name: 'Administración',
+  render: () => (
+    <Page user={{ ...staff, administrator: true }} path="/administration">
+      <AdministrationPage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'La administración, con los datos de ejemplo de la vista de desarrollo: áreas con sus permisos, roles y membresías, y las personas administradoras en otra pestaña. El menú suma Administración solo para quien administra.',
       },
     },
   },

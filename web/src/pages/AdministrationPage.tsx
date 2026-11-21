@@ -8,11 +8,13 @@ import {
   MultiSelect,
   Paper,
   Select,
+  Skeleton,
   Stack,
   Tabs,
   Text,
   TextInput,
   Title,
+  VisuallyHidden,
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -30,12 +32,26 @@ import {
 import { catalogQuery } from '../api/catalog'
 import { ForbiddenError } from '../api/procedures'
 import type { components } from '../api/schema'
+import { EmptyState } from '../components/EmptyState/EmptyState'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type Area = components['schemas']['Area']
 type AreaMembership = components['schemas']['AreaMembership']
 type Administrator = components['schemas']['Administrator']
 type Role = components['schemas']['Role']
 type RegisteredPerson = components['schemas']['RegisteredPerson']
+
+// Loading holds the place of what is coming, with the shape of its rows.
+function Loading({ label, rows }: { label: string; rows: number }) {
+  return (
+    <Stack gap="sm" aria-busy>
+      <VisuallyHidden>{label}</VisuallyHidden>
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} h="var(--sigta-row-height)" />
+      ))}
+    </Stack>
+  )
+}
 
 // focusOnMount moves the focus to what appears in place of what was clicked,
 // so the keyboard does not lose its place. It is stable, so it runs only when
@@ -409,14 +425,14 @@ function MembershipsSection({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Membresías</Title>
-      {memberships.isPending && <Loader aria-label={`Cargando las membresías de ${area.name}…`} />}
+      {memberships.isPending && <Loading label={`Cargando las membresías de ${area.name}…`} rows={1} />}
       {memberships.isError && (
         <Alert color="red" role="alert">
           No pudimos cargar las membresías. Volvé a intentarlo más tarde.
         </Alert>
       )}
       {memberships.isSuccess && memberships.data.length === 0 && (
-        <Text c="dimmed">Nadie tiene una membresía en esta área.</Text>
+        <EmptyState title="Sin membresías" text="Nadie tiene una membresía en esta área." />
       )}
       {memberships.data?.map((membership) => (
         <MembershipCard key={membership.id} area={area} membership={membership} />
@@ -568,7 +584,7 @@ function Permissions({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Permisos</Title>
-      {area.permissions.length === 0 && <Text c="dimmed">El área todavía no tiene permisos.</Text>}
+      {area.permissions.length === 0 && <EmptyState title="Sin permisos" text="El área todavía no tiene permisos." />}
       {area.permissions.map((permission) => (
         <EntryRow
           key={permission.id}
@@ -721,7 +737,7 @@ function Roles({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Roles</Title>
-      {area.roles.length === 0 && <Text c="dimmed">El área todavía no tiene roles.</Text>}
+      {area.roles.length === 0 && <EmptyState title="Sin roles" text="El área todavía no tiene roles." />}
       {area.roles.map((role) => (
         <RoleRow
           key={role.id}
@@ -819,7 +835,7 @@ function Areas() {
   const areas = useAreas()
   const create = useAdministrationChange(actions.createArea)
   if (areas.isPending) {
-    return <Loader aria-label="Cargando las áreas…" />
+    return <Loading label="Cargando las áreas…" rows={3} />
   }
   if (areas.isError) {
     return (
@@ -910,7 +926,7 @@ function Administrators() {
   const [person, setPerson] = useState<RegisteredPerson | null>(null)
   const grant = useAdministrationChange(actions.grantAdministrator)
   if (administrators.isPending) {
-    return <Loader aria-label="Cargando las personas administradoras…" />
+    return <Loading label="Cargando las personas administradoras…" rows={2} />
   }
   if (administrators.isError) {
     return (
@@ -966,10 +982,10 @@ export function AdministrationPage() {
   const tab = params.get('tab') === 'administrators' ? 'administrators' : 'areas'
   return (
     <Stack gap="lg">
-      <Stack gap={0}>
-        <Title order={1}>Administración</Title>
-        <Text c="dimmed">Áreas del personal, sus permisos, roles y membresías, y quiénes administran SIGTA.</Text>
-      </Stack>
+      <PageHeader
+        title="Administración"
+        description="Áreas del personal, sus permisos, roles y membresías, y quiénes administran SIGTA."
+      />
       <Tabs
         value={tab}
         keepMounted={false}
