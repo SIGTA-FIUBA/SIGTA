@@ -44,8 +44,15 @@ type Document struct {
 	y      float64
 }
 
-func New(title, footer string) *Document {
-	d := &Document{title: title, footer: footer}
+// Info is what the document says about itself: the title readers show for it
+// and the footer of its pages.
+type Info struct {
+	Title  string
+	Footer string
+}
+
+func New(info Info) *Document {
+	d := &Document{title: info.Title, footer: info.Footer}
 	d.newPage()
 	return d
 }

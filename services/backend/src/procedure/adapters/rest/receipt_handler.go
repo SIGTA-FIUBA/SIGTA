@@ -67,7 +67,7 @@ func (h *ProcedureHandler) DownloadProcedureReceipt(ctx context.Context, req api
 // its applicant, in the same words.
 func receiptPDF(r input.Receipt, names map[string]string) []byte {
 	p := r.Procedure
-	doc := pdf.New("Comprobante del trámite "+p.ID, "SIGTA · Comprobante del trámite "+p.ID)
+	doc := pdf.New(pdf.Info{Title: "Comprobante del trámite " + p.ID, Footer: "SIGTA · Comprobante del trámite " + p.ID})
 	doc.Title("Comprobante de trámite")
 	doc.Note("SIGTA · Secretaría de Gestión Académica · Facultad de Ingeniería, Universidad de Buenos Aires")
 	doc.Space()

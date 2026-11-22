@@ -13,7 +13,7 @@ import (
 )
 
 func TestBytesIsAPDFWhoseTableFindsEveryObject(t *testing.T) {
-	d := New("Comprobante", "SIGTA")
+	d := New(Info{Title: "Comprobante", Footer: "SIGTA"})
 	d.Text("hola")
 	out := d.Bytes()
 
@@ -47,7 +47,7 @@ func TestBytesIsAPDFWhoseTableFindsEveryObject(t *testing.T) {
 }
 
 func TestTextKeepsSpanishAndMarksWhatWinAnsiLacks(t *testing.T) {
-	d := New("Comprobante", "SIGTA")
+	d := New(Info{Title: "Comprobante", Footer: "SIGTA"})
 	d.Text("Análisis (II) \\ Ñandú ¿sí? 日本")
 
 	if got := pdftest.Lines(t, d.Bytes())[0][0]; got != "Análisis (II) \\ Ñandú ¿sí? ??" {
@@ -56,7 +56,7 @@ func TestTextKeepsSpanishAndMarksWhatWinAnsiLacks(t *testing.T) {
 }
 
 func TestTextWrapsBetweenWordsAndInsideOnesTooLong(t *testing.T) {
-	d := New("Comprobante", "SIGTA")
+	d := New(Info{Title: "Comprobante", Footer: "SIGTA"})
 	d.Text(strings.Repeat("palabra ", 30) + strings.Repeat("x", 200) + "\nfin")
 
 	lines := pdftest.Lines(t, d.Bytes())[0]
@@ -75,7 +75,7 @@ func TestTextWrapsBetweenWordsAndInsideOnesTooLong(t *testing.T) {
 }
 
 func TestDocumentGoesOnToANewPageAndNumbersThem(t *testing.T) {
-	d := New("Comprobante", "SIGTA · Trámite P-1")
+	d := New(Info{Title: "Comprobante", Footer: "SIGTA · Trámite P-1"})
 	for i := range 80 {
 		d.Field("Paso", fmt.Sprintf("línea %d", i))
 	}
@@ -97,7 +97,7 @@ func TestDocumentGoesOnToANewPageAndNumbersThem(t *testing.T) {
 // A backslash at the end must not escape the parenthesis that closes the
 // string, or the reader loses the rest of the page.
 func TestTextEndingInABackslashKeepsTheNextLines(t *testing.T) {
-	d := New("Comprobante", "SIGTA")
+	d := New(Info{Title: "Comprobante", Footer: "SIGTA"})
 	d.Text(`C:\`)
 	d.Text(`a \(b\) c\\`)
 	d.Text("sigue")
