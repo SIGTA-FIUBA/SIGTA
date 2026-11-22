@@ -185,7 +185,9 @@ export const theme = createTheme({
           ? { root: classes.steps, item: classes.stepsItem }
           : props.variant === 'timeline'
             ? { root: classes.timeline, item: classes.timelineItem }
-            : {},
+            : props.variant === 'numbered'
+              ? { root: classes.numbered }
+              : {},
       styles: { item: breakLongWords.root },
     }),
     Input: Input.extend({
