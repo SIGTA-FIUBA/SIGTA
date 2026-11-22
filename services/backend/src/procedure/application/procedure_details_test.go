@@ -166,6 +166,33 @@ func TestDetailFailsIfTheOpenStepIsNotInTheVersion(t *testing.T) {
 	}
 }
 
+func TestReceiptIsTheDetailOfTheApplicantWhenItIsIssued(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "review")
+	before := time.Now()
+	receipt, err := f.details.Receipt(t.Context(), applicant, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := f.details.Detail(t.Context(), applicant, "P-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(receipt.ProcedureDetail, detail) || receipt.IssuedAt.Before(before) || receipt.IssuedAt.After(time.Now()) {
+		t.Errorf("receipt = %+v, want the detail of the applicant issued now", receipt)
+	}
+}
+
+func TestReceiptIsNotFoundForStaffOfTheProcedure(t *testing.T) {
+	f := newDocumentsFixture(t)
+	f.on(t, "P-2", "review")
+	for _, user := range []string{reviewer, "nadie@fi.uba.ar"} {
+		if _, err := f.details.Receipt(t.Context(), user, "P-2"); !errors.Is(err, domain.ErrProcedureNotFound) {
+			t.Errorf("%s: err = %v, want ErrProcedureNotFound", user, err)
+		}
+	}
+}
+
 func TestMineListsTheProceduresOfTheApplicantMostRecentlyMovedFirst(t *testing.T) {
 	f := newDocumentsFixture(t)
 	day := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)

@@ -3,6 +3,7 @@ package input
 import (
 	"context"
 	"slices"
+	"time"
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
@@ -46,6 +47,16 @@ type ProcedureDetails interface {
 	// Mine returns the procedures that the person started, in progress and
 	// closed, the most recently moved first.
 	Mine(ctx context.Context, userID string) ([]MyProcedure, error)
+	// Receipt is for the applicant alone: to staff of the areas the
+	// procedure passes through it is not found either.
+	Receipt(ctx context.Context, userID, procedureID string) (Receipt, error)
+}
+
+// Receipt is the proof the applicant takes away of their procedure: its
+// detail as they see it and when it was issued.
+type Receipt struct {
+	ProcedureDetail
+	IssuedAt time.Time
 }
 
 // MyProcedure is a procedure as its applicant sees it in their list: where it

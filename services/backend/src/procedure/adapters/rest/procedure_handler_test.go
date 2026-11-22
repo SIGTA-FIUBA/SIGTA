@@ -34,6 +34,10 @@ func (f fakeProcedures) Mine(context.Context, string) ([]input.MyProcedure, erro
 	return f.mine, f.err
 }
 
+func (f fakeProcedures) Receipt(context.Context, string, string) (input.Receipt, error) {
+	return input.Receipt{ProcedureDetail: f.detail}, f.err
+}
+
 // fakePeople knows the names of ana and of the staff member staff-1.
 type fakePeople struct{ authinput.People }
 
