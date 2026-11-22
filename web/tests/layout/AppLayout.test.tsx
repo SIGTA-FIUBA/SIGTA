@@ -97,6 +97,22 @@ describe('AppLayout', () => {
     )
   })
 
+  it('reads again what the person can edit when the list of procedure types opens', async () => {
+    const fetch = stubApi({
+      session: true,
+      account: { ...user, staff: true },
+      editable: { ...nothingToEdit, can_create: true },
+    })
+    const router = renderAt('/')
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
+    await within(menu).findByRole('link', { name: 'Tipos de trámite' })
+
+    await router.navigate('/procedure-types')
+
+    const reads = () => fetch.mock.calls.filter(([request]) => request.url.endsWith('/editable-procedure-types'))
+    await vi.waitFor(() => expect(reads()).toHaveLength(2))
+  })
+
   it('does not offer the procedure types to the staff who can edit none', async () => {
     stubApi({ session: true, account: { ...user, staff: true } })
     renderAt('/')

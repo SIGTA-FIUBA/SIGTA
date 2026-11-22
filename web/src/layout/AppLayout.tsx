@@ -41,7 +41,7 @@ export function AppLayout() {
   const actionableCount = procedures.data?.items.filter((item) => item.actionable).length
   // The procedure types are offered to whoever can edit or approve one; the
   // page shares the request.
-  const editable = useEditableProcedureTypes(staff)
+  const editable = useEditableProcedureTypes({ enabled: staff, staleTime: 60_000 })
   const designs = editable.data !== undefined && (editable.data.can_create || editable.data.procedure_types.length > 0)
 
   async function handleLogout() {

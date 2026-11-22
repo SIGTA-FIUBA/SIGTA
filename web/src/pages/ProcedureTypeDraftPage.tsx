@@ -147,30 +147,35 @@ function DraftEditor({
   // On a phone the parts go one under the other: their names do not fit side by side.
   const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`)
   const id = draft.procedure_type_id
-  const [definition, setDefinition] = useState<Definition>(draft.definition)
-  const [dirty, setDirty] = useState(false)
-  // editedRevision is the revision the changes were made on, which saving
-  // names: if the draft moved on, the server refuses them.
-  const [editedRevision, setEditedRevision] = useState(draft.revision)
+  // edit holds the definition being edited, whether it has changes to save,
+  // and the revision they were made on, which saving names: if the draft
+  // moved on, the server refuses them.
+  const [edit, setEdit] = useState({ definition: draft.definition, dirty: false, revision: draft.revision })
+  const { definition, dirty } = edit
   const proposed = draft.status === 'proposed'
   const readOnly = !draft.can_edit
-  const change = (next: Definition) => {
-    setDefinition(next)
-    setDirty(true)
-  }
-  const takeLatest = (latest: ProcedureTypeDraft) => {
-    setDefinition(latest.definition)
-    setEditedRevision(latest.revision)
-    setDirty(false)
-  }
+  const change = (next: Definition) => setEdit((current) => ({ ...current, definition: next, dirty: true }))
+  const takeLatest = (latest: ProcedureTypeDraft) =>
+    setEdit({ definition: latest.definition, dirty: false, revision: latest.revision })
   // A draft read again without changes pending is shown as it came; with
   // changes, it is kept for the conflict below.
-  if (!dirty && draft.revision !== editedRevision) {
+  if (!dirty && draft.revision !== edit.revision) {
     takeLatest(draft)
   }
-  const conflict = dirty && draft.revision !== editedRevision
+  const conflict = dirty && draft.revision !== edit.revision
 
-  const save = useDraftChange(() => draftActions.edit(id, editedRevision, definition))
+  // What was saved takes the place of what was sent before the draft is read
+  // again, so the new revision is not taken for someone else's. What changed
+  // while saving stays, to be saved on the new revision.
+  const save = useDraftChange((sent: Definition) => draftActions.edit(id, edit.revision, sent), {
+    onSuccess: (saved, sent) =>
+      saved &&
+      setEdit((current) =>
+        current.definition === sent
+          ? { definition: saved.definition, dirty: false, revision: saved.revision }
+          : { ...current, revision: saved.revision },
+      ),
+  })
   const propose = useDraftChange(() => draftActions.propose(id, draft.revision))
   const discard = useDraftChange(() => draftActions.discard(id, draft.revision))
   const approve = useDraftChange(() => draftActions.approve(id, draft.revision))
@@ -223,7 +228,7 @@ function DraftEditor({
               variant="default"
               disabled={!dirty || conflict}
               loading={save.isPending}
-              onClick={() => save.mutate(undefined, { onSuccess: (saved) => saved && takeLatest(saved) })}
+              onClick={() => save.mutate(definition)}
             >
               Guardar
             </Button>

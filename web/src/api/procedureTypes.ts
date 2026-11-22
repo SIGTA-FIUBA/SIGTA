@@ -11,14 +11,15 @@ const editableKey = ['editable-procedure-types']
 const draftKey = (procedureTypeId: number) => ['procedure-types', procedureTypeId, 'draft']
 
 // useEditableProcedureTypes asks what the person can edit or approve. The
-// menu shares it to know whether to offer the page, so it costs no request.
-export function useEditableProcedureTypes(enabled = true) {
+// pages of procedure types read it again each time they open. The menu shares
+// it to know whether to offer them and, since it asks on every page, takes
+// what was read in the last minute (staleTime): what a person can edit
+// changes rarely.
+export function useEditableProcedureTypes({ enabled = true, staleTime = 0 } = {}) {
   return useQuery({
     queryKey: editableKey,
     enabled,
-    // The menu asks on every page; what a person can edit changes rarely,
-    // and every change to a draft refreshes it.
-    staleTime: 60_000,
+    staleTime,
     queryFn: async () => {
       const { data, response } = await api.GET('/editable-procedure-types')
       return forbiddenOr('/editable-procedure-types', data, response)
@@ -80,11 +81,16 @@ export const draftActions = {
 }
 
 // useDraftChange runs one of the actions and then refreshes what the pages of
-// procedure types show.
-export function useDraftChange<T, R>(action: (input: T) => Promise<R>) {
+// procedure types show. onSuccess runs before the refresh, so what the page
+// keeps of the change is in place when the draft is read again.
+export function useDraftChange<T, R>(
+  action: (input: T) => Promise<R>,
+  { onSuccess }: { onSuccess?: (result: R, input: T) => void } = {},
+) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: action,
+    onSuccess,
     onSettled: () =>
       queryClient
         .invalidateQueries({ queryKey: ['procedure-types'] })

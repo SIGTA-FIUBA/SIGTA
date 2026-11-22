@@ -289,6 +289,50 @@ describe('ProcedureTypeDraftPage', () => {
     expect(panel().getByRole('textbox', { name: 'Nombre' })).toHaveValue('Resolución')
   })
 
+  it('takes the revision it saved as its own and keeps what changes while saving', async () => {
+    const fetch = stubApi(draft())
+    renderPage()
+    await userEvent.click(await step(/^Paso 3: Resolución/))
+    const name = panel().getByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Fin')
+    // The save and, after it, what the person can edit wait to answer: the
+    // draft is read again at the saved revision in between.
+    let latest = draft()
+    let answerSave = () => {}
+    let answerEditable = () => {}
+    const waiting = (set: (answer: () => void) => void) => new Promise<void>((resolve) => set(resolve))
+    fetch.mockImplementation(async (request: Request) => {
+      const path = new URL(request.url).pathname.replace(/^\/api/, '')
+      if (request.method === 'PUT') {
+        const body = await request.clone().json()
+        await waiting((answer) => (answerSave = answer))
+        latest = draft({ revision: body.revision + 1, definition: body.definition })
+        return Response.json(latest)
+      }
+      if (path === '/editable-procedure-types') {
+        await waiting((answer) => (answerEditable = answer))
+        return Response.json(editable)
+      }
+      return Response.json(latest)
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await userEvent.type(name, 'al')
+    answerSave()
+
+    const reads = () => fetch.mock.calls.filter(([request]) => request.url.endsWith('/procedure-types/1/draft'))
+    await vi.waitFor(() => expect(reads().length).toBeGreaterThan(2))
+    expect(screen.queryByText('Otra persona guardó este borrador mientras lo editabas')).not.toBeInTheDocument()
+    answerEditable()
+    expect(name).toHaveValue('Final')
+    expect(await screen.findByText(/Hay cambios sin guardar/)).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    const [, again] = await sent(fetch)
+    expect(again.body.revision).toBe(8)
+    expect(again.body.definition.steps[2].name).toBe('Final')
+  })
+
   it('shows the reviewer the problems a proposal has with the areas of today', async () => {
     stubApi(draft({ status: 'proposed', proposed_by: ana, can_edit: false, can_review: true }))
     renderPage()
