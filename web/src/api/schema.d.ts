@@ -118,6 +118,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/editable-procedure-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tipos de trámite que la persona puede editar o aprobar
+         * @description Para la pantalla de edición de tipos de trámite (ADR-013). Lista, por número, los tipos de trámite con una versión publicada y los borradores de tipos nuevos en los que la persona tiene el permiso de editar o el de publicar, cada uno con su borrador si lo tiene, y dice si puede crear uno nuevo. A quien puede editar o aprobar algo le trae además las áreas del personal con los permisos que un paso puede exigir, para elegir el área de cada paso. Sin ninguno de los dos permisos, todo viene vacío.
+         */
+        get: operations["listEditableProcedureTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedure-type-drafts": {
         parameters: {
             query?: never;
@@ -939,7 +959,7 @@ export interface components {
          */
         DraftStatus: "editing" | "proposed";
         DraftRejection: {
-            by: string;
+            by: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             reason: string;
@@ -953,17 +973,53 @@ export interface components {
             revision: number;
             status: components["schemas"]["DraftStatus"];
             definition: components["schemas"]["ProcedureTypeDefinition"];
-            edited_by: string;
+            edited_by: components["schemas"]["Person"];
             /** Format: date-time */
             edited_at: string;
             /** @description Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza */
-            editors: string[];
-            proposed_by?: string;
+            editors: components["schemas"]["Person"][];
+            proposed_by?: components["schemas"]["Person"];
             /** Format: date-time */
             proposed_at?: string;
             rejection?: components["schemas"]["DraftRejection"];
             /** @description Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer */
             problems: components["schemas"]["DefinitionProblem"][];
+            /** @description Si quien pregunta puede editarlo, proponerlo y descartarlo ahora, es decir, mientras no está propuesto */
+            can_edit: boolean;
+            /** @description Si quien pregunta puede aprobarlo o rechazarlo ahora: está propuesto, tiene el permiso de publicar y no lo editó ni lo propuso */
+            can_review: boolean;
+        };
+        EditableProcedureTypes: {
+            /** @description Si puede crear un tipo de trámite nuevo, para lo que hace falta el permiso de editar sin alcance limitado */
+            can_create: boolean;
+            procedure_types: components["schemas"]["EditableProcedureType"][];
+            areas: components["schemas"]["StepArea"][];
+        };
+        EditableProcedureType: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            /** @description El de la última versión o, si no tiene ninguna, el de su borrador */
+            name: string;
+            /** @description La última versión publicada, o 0 si no tiene ninguna */
+            version: number;
+            /**
+             * Format: date-time
+             * @description Cuándo se publicó la última versión; ausente si no tiene ninguna
+             */
+            published_at?: string;
+            /** @description Si puede abrir el borrador de una versión nueva, porque tiene el permiso de editar, hay una versión publicada y no hay borrador */
+            can_open_draft: boolean;
+            draft?: components["schemas"]["ProcedureTypeDraft"];
+        };
+        /** @description Un área del personal que puede hacer un paso, con los permisos que el paso puede exigir */
+        StepArea: {
+            id: string;
+            name: string;
+            permissions: components["schemas"]["StepAreaPermission"][];
+        };
+        StepAreaPermission: {
+            id: string;
+            name: string;
         };
         NewProcedureType: {
             definition: components["schemas"]["ProcedureTypeDefinition"];
@@ -1589,6 +1645,29 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listEditableProcedureTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lo que la persona puede editar o aprobar */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditableProcedureTypes"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listProcedureTypeDrafts: {

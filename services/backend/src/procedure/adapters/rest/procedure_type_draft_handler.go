@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"backend/src/api"
 	authinput "backend/src/auth/ports/input"
@@ -23,11 +24,12 @@ var _ api.ProcedureTypeDraftServer = (*ProcedureTypeDraftHandler)(nil)
 // this handler only finds who is behind the session and translates errors.
 type ProcedureTypeDraftHandler struct {
 	auth   authinput.Authenticator
+	people authinput.People
 	drafts input.ProcedureTypeDrafts
 }
 
-func NewProcedureTypeDraftHandler(auth authinput.Authenticator, drafts input.ProcedureTypeDrafts) *ProcedureTypeDraftHandler {
-	return &ProcedureTypeDraftHandler{auth: auth, drafts: drafts}
+func NewProcedureTypeDraftHandler(auth authinput.Authenticator, people authinput.People, drafts input.ProcedureTypeDrafts) *ProcedureTypeDraftHandler {
+	return &ProcedureTypeDraftHandler{auth: auth, people: people, drafts: drafts}
 }
 
 const (
@@ -103,7 +105,11 @@ func (h *ProcedureTypeDraftHandler) CreateProcedureType(ctx context.Context, req
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -122,13 +128,68 @@ func (h *ProcedureTypeDraftHandler) ListProcedureTypeDrafts(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	names, err := h.names(ctx, views...)
+	if err != nil {
+		return nil, err
+	}
 	response := make(api.ListProcedureTypeDrafts200JSONResponse, 0, len(views))
 	for _, view := range views {
-		d, err := draftResponse(view)
+		d, err := draftResponse(view, names)
 		if err != nil {
 			return nil, err
 		}
 		response = append(response, d)
+	}
+	return response, nil
+}
+
+func (h *ProcedureTypeDraftHandler) ListEditableProcedureTypes(ctx context.Context, req api.ListEditableProcedureTypesRequestObject) (api.ListEditableProcedureTypesResponseObject, error) {
+	user, err := h.auth.Authenticate(ctx, valueOf(req.Params.SigtaSession))
+	if authinput.Unauthenticated(err) {
+		return api.ListEditableProcedureTypes401JSONResponse{UnauthorizedJSONResponse: api.UnauthorizedJSONResponse{Message: messageSignIn}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	editable, err := h.drafts.Editable(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	var views []input.DraftView
+	for _, t := range editable.ProcedureTypes {
+		if t.Draft != nil {
+			views = append(views, *t.Draft)
+		}
+	}
+	names, err := h.names(ctx, views...)
+	if err != nil {
+		return nil, err
+	}
+	response := api.ListEditableProcedureTypes200JSONResponse{
+		CanCreate:      editable.CanCreate,
+		ProcedureTypes: make([]api.EditableProcedureType, 0, len(editable.ProcedureTypes)),
+		Areas:          make([]api.StepArea, 0, len(editable.Areas)),
+	}
+	for _, t := range editable.ProcedureTypes {
+		item := api.EditableProcedureType{ProcedureTypeId: t.ProcedureTypeID, Name: t.Name, Version: t.Latest, CanOpenDraft: t.CanOpenDraft}
+		if t.Latest > 0 {
+			item.PublishedAt = &t.PublishedAt
+		}
+		if t.Draft != nil {
+			d, err := draftResponse(*t.Draft, names)
+			if err != nil {
+				return nil, err
+			}
+			item.Draft = &d
+		}
+		response.ProcedureTypes = append(response.ProcedureTypes, item)
+	}
+	for _, a := range editable.Areas {
+		area := api.StepArea{Id: a.ID, Name: a.Name, Permissions: make([]api.StepAreaPermission, 0, len(a.Permissions))}
+		for _, p := range a.Permissions {
+			area.Permissions = append(area.Permissions, api.StepAreaPermission{Id: p.ID, Name: p.Name})
+		}
+		response.Areas = append(response.Areas, area)
 	}
 	return response, nil
 }
@@ -152,7 +213,11 @@ func (h *ProcedureTypeDraftHandler) GetProcedureTypeDraft(ctx context.Context, r
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +245,11 @@ func (h *ProcedureTypeDraftHandler) OpenProcedureTypeDraft(ctx context.Context, 
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +281,11 @@ func (h *ProcedureTypeDraftHandler) EditProcedureTypeDraft(ctx context.Context, 
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +339,11 @@ func (h *ProcedureTypeDraftHandler) ProposeProcedureTypeDraft(ctx context.Contex
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +373,11 @@ func (h *ProcedureTypeDraftHandler) RejectProcedureTypeDraft(ctx context.Context
 		}
 		return nil, err
 	}
-	d, err := draftResponse(view)
+	names, err := h.names(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	d, err := draftResponse(view, names)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +410,19 @@ func (h *ProcedureTypeDraftHandler) ApproveProcedureTypeDraft(ctx context.Contex
 	return api.ApproveProcedureTypeDraft200JSONResponse(publishedVersion(v)), nil
 }
 
-func draftResponse(view input.DraftView) (api.ProcedureTypeDraft, error) {
+// names finds the name of whoever edited, proposed or rejected the drafts, so
+// that a screen shows people and not their identifiers.
+func (h *ProcedureTypeDraftHandler) names(ctx context.Context, views ...input.DraftView) (map[string]string, error) {
+	var ids []string
+	for _, view := range views {
+		d := view.Draft
+		ids = append(ids, d.EditedBy, d.ProposedBy, d.Rejection.By)
+		ids = append(ids, d.Editors...)
+	}
+	return h.people.Names(ctx, slices.DeleteFunc(ids, func(id string) bool { return id == "" }))
+}
+
+func draftResponse(view input.DraftView, names map[string]string) (api.ProcedureTypeDraft, error) {
 	d := view.Draft
 	def, err := toContract(d.Definition)
 	if err != nil {
@@ -341,17 +434,20 @@ func draftResponse(view input.DraftView) (api.ProcedureTypeDraft, error) {
 		Revision:        d.Revision,
 		Status:          api.DraftStatus(d.Status),
 		Definition:      def,
-		EditedBy:        d.EditedBy,
+		EditedBy:        person(d.EditedBy, names),
 		EditedAt:        d.EditedAt,
-		Editors:         d.Editors,
+		Editors:         people(d.Editors, names),
 		Problems:        problems(view.Problems),
+		CanEdit:         view.CanEdit,
+		CanReview:       view.CanReview,
 	}
 	if d.ProposedBy != "" {
-		response.ProposedBy = &d.ProposedBy
+		proposer := person(d.ProposedBy, names)
+		response.ProposedBy = &proposer
 		response.ProposedAt = &d.ProposedAt
 	}
 	if d.Rejection.By != "" {
-		response.Rejection = &api.DraftRejection{By: d.Rejection.By, At: d.Rejection.At, Reason: d.Rejection.Reason}
+		response.Rejection = &api.DraftRejection{By: person(d.Rejection.By, names), At: d.Rejection.At, Reason: d.Rejection.Reason}
 	}
 	return response, nil
 }
@@ -419,4 +515,12 @@ func convert(from, to any) error {
 		return fmt.Errorf("decode definition: %w", err)
 	}
 	return nil
+}
+
+func people(ids []string, names map[string]string) []api.Person {
+	list := make([]api.Person, 0, len(ids))
+	for _, id := range ids {
+		list = append(list, person(id, names))
+	}
+	return list
 }

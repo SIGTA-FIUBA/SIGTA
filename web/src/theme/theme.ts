@@ -77,9 +77,14 @@ export const theme = createTheme({
       }),
     }),
     // A panel that is itself a control, such as a summary that filters the
-    // list, uses variant="interactive" and answers the pointer.
+    // list, uses variant="interactive" and answers the pointer. The diagram of
+    // a route draws on variant="canvas", a dotted surface, and each step is a
+    // variant="step" box, marked with data-selected or data-problem.
     Paper: Paper.extend({
-      classNames: (_theme, props) => ({ root: props.variant === 'interactive' ? classes.interactive : '' }),
+      classNames: (_theme, props) => ({
+        root:
+          { interactive: classes.interactive, canvas: classes.canvas, step: classes.step }[props.variant ?? ''] ?? '',
+      }),
     }),
     Input: Input.extend({ classNames: { input: classes.touch } }),
     Button: Button.extend({ classNames: { root: classes.touch } }),

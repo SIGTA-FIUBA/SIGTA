@@ -19,8 +19,11 @@ import (
 var _ output.ProcedureTypeDraftRepository = (*ProcedureTypeDraftRepository)(nil)
 
 // ProcedureTypeDraftRepository changes a draft with a single statement that checks its
-// revision, so it needs no transaction and behaves the same at READ COMMITTED
-// and at SERIALIZABLE.
+// revision, so it needs no transaction. Two changes of the same revision at
+// the same time end the same at READ COMMITTED and at SERIALIZABLE: one is
+// kept and the other fails with output.ErrDraftChanged. At READ COMMITTED the
+// second one finds no row at that revision; at SERIALIZABLE PostgreSQL may
+// refuse it instead with a serialization failure, which means the same.
 type ProcedureTypeDraftRepository struct {
 	pool *pgxpool.Pool
 }
@@ -82,6 +85,9 @@ func (s *ProcedureTypeDraftRepository) Update(ctx context.Context, d draft.Draft
 		SET definition = $3, status = $4, revision = $5, edited_by = $6, edited_at = $7, editors = $8,
 			proposed_by = $9, proposed_at = $10, rejected_by = $11, rejected_at = $12, rejection_reason = $13
 		WHERE procedure_type_id = $1 AND base = $2 AND revision = $5 - 1`, args...)
+	if hasCode(err, serializationFailure) {
+		return fmt.Errorf("%w: procedure type %d was changed at the same time", output.ErrDraftChanged, d.ProcedureTypeID)
+	}
 	if err != nil {
 		return fmt.Errorf("update the draft of procedure type %d: %w", d.ProcedureTypeID, err)
 	}
@@ -90,6 +96,9 @@ func (s *ProcedureTypeDraftRepository) Update(ctx context.Context, d draft.Draft
 
 func (s *ProcedureTypeDraftRepository) Remove(ctx context.Context, procedureType int64, revision int) error {
 	tag, err := s.pool.Exec(ctx, "DELETE FROM procedure_type_drafts WHERE procedure_type_id = $1 AND revision = $2", procedureType, revision)
+	if hasCode(err, serializationFailure) {
+		return fmt.Errorf("%w: procedure type %d was changed at the same time", output.ErrDraftChanged, procedureType)
+	}
 	if err != nil {
 		return fmt.Errorf("remove the draft of procedure type %d: %w", procedureType, err)
 	}

@@ -70,6 +70,7 @@ type InboxServer interface {
 type ProcedureTypeDraftServer interface {
 	CreateProcedureType(ctx context.Context, request CreateProcedureTypeRequestObject) (CreateProcedureTypeResponseObject, error)
 	ListProcedureTypeDrafts(ctx context.Context, request ListProcedureTypeDraftsRequestObject) (ListProcedureTypeDraftsResponseObject, error)
+	ListEditableProcedureTypes(ctx context.Context, request ListEditableProcedureTypesRequestObject) (ListEditableProcedureTypesResponseObject, error)
 	GetProcedureTypeDraft(ctx context.Context, request GetProcedureTypeDraftRequestObject) (GetProcedureTypeDraftResponseObject, error)
 	OpenProcedureTypeDraft(ctx context.Context, request OpenProcedureTypeDraftRequestObject) (OpenProcedureTypeDraftResponseObject, error)
 	EditProcedureTypeDraft(ctx context.Context, request EditProcedureTypeDraftRequestObject) (EditProcedureTypeDraftResponseObject, error)

@@ -8,16 +8,21 @@ import { render } from '../test-utils/render'
 
 const user = { id: 'u1', email: 'titular@fi.uba.ar', name: 'Ana Titular', staff: false, administrator: false }
 
+const nothingToEdit = { can_create: false, procedure_types: [], areas: [] }
+
 // stubApi plays the API: /me answers while the session is open, with no
-// procedures of its own, and a successful /auth/logout closes it.
+// procedures of its own nor in the inbox, editable says what procedure types
+// the person can edit, and a successful /auth/logout closes it.
 function stubApi({
   session,
   logoutStatus = 204,
   account = user,
+  editable = nothingToEdit,
 }: {
   session: boolean
   logoutStatus?: number
   account?: typeof user
+  editable?: unknown
 }) {
   let open = session
   const fetch = vi.fn(async (request: Request) => {
@@ -29,6 +34,12 @@ function stubApi({
     }
     if (!open) {
       return Response.json({ message: 'Sin sesión' }, { status: 401 })
+    }
+    if (request.url.endsWith('/editable-procedure-types')) {
+      return Response.json(editable)
+    }
+    if (new URL(request.url).pathname === '/api/procedures') {
+      return Response.json({ items: [] })
     }
     return Response.json(request.url.endsWith('/me/procedures') ? [] : account)
   })
@@ -73,6 +84,42 @@ describe('AppLayout', () => {
 
     const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'Administración' })).toHaveAttribute('href', '/administration')
+  })
+
+  it('offers the procedure types to the staff who can edit or approve one', async () => {
+    stubApi({ session: true, account: { ...user, staff: true }, editable: { ...nothingToEdit, can_create: true } })
+    renderAt('/')
+
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
+    expect(await within(menu).findByRole('link', { name: 'Tipos de trámite' })).toHaveAttribute(
+      'href',
+      '/procedure-types',
+    )
+  })
+
+  it('reads again what the person can edit when the list of procedure types opens', async () => {
+    const fetch = stubApi({
+      session: true,
+      account: { ...user, staff: true },
+      editable: { ...nothingToEdit, can_create: true },
+    })
+    const router = renderAt('/')
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
+    await within(menu).findByRole('link', { name: 'Tipos de trámite' })
+
+    await router.navigate('/procedure-types')
+
+    const reads = () => fetch.mock.calls.filter(([request]) => request.url.endsWith('/editable-procedure-types'))
+    await vi.waitFor(() => expect(reads()).toHaveLength(2))
+  })
+
+  it('does not offer the procedure types to the staff who can edit none', async () => {
+    stubApi({ session: true, account: { ...user, staff: true } })
+    renderAt('/')
+
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' })
+    expect(await within(menu).findByRole('link', { name: /Bandeja de trámites/ })).toBeVisible()
+    expect(within(menu).queryByRole('link', { name: 'Tipos de trámite' })).not.toBeInTheDocument()
   })
 
   it('keeps the menu on the catalog for whoever has a session, to go back', async () => {
