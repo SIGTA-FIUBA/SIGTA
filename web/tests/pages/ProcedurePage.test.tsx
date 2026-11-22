@@ -251,6 +251,26 @@ describe('ProcedurePage', () => {
     expect(screen.getByText('Sin paso abierto')).toBeDefined()
   })
 
+  it.each([
+    ['in progress', {}],
+    ['closed', { state: 'closed', open_step: undefined }],
+  ])('offers the applicant the receipt of their procedure %s', async (_, changes) => {
+    stubApi(200, { ...detail, ...changes, as_applicant: true, can_act: false })
+    renderPage()
+
+    const link = await screen.findByRole('link', { name: 'Descargar comprobante' })
+    expect(link.getAttribute('href')).toBe(`/api/procedures/${detail.id}/receipt`)
+    expect(link.getAttribute('download')).toBe(`comprobante-${detail.id}.pdf`)
+  })
+
+  it('does not offer the receipt to staff, since it is the proof of the applicant', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: detail.name })).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Descargar comprobante' })).toBeNull()
+  })
+
   it('tells the applicant what the procedure waits for now', async () => {
     stubApi(200, { ...detail, as_applicant: true, can_act: false })
     renderPage()

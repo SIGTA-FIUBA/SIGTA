@@ -15,6 +15,7 @@ const fixtureOptions: { value: FixtureName; label: string }[] = [
   { value: 'sentBackWorst', label: 'Sent back, worst case' },
   { value: 'correctionRequested', label: 'Correction requested' },
   { value: 'correctionRequestedWorst', label: 'Correction requested, worst case' },
+  { value: 'applicantWorst', label: 'Applicant, worst case' },
 ]
 
 function isFixture(value: string | null): value is FixtureName {

@@ -294,6 +294,15 @@ const correctionRequestedWorst: Detail = {
   history: [...worst.history, ...worstRequests.map(requested)],
 }
 
+// applicantWorst is the worst case as its applicant sees it, with the receipt
+// next to a long name.
+const applicantWorst: Detail = {
+  ...worst,
+  name: 'Reconocimiento de créditos por actividades de investigación, extensión y transferencia tecnológica realizadas en otras unidades académicas',
+  as_applicant: true,
+  can_act: false,
+}
+
 export const fixtures = {
   demo,
   worst,
@@ -304,6 +313,7 @@ export const fixtures = {
   sentBackWorst,
   correctionRequested,
   correctionRequestedWorst,
+  applicantWorst,
 }
 
 export type FixtureName = keyof typeof fixtures
