@@ -74,6 +74,7 @@ Los cinco terminan igual: la DA confirma la carga en el SIU, la Directora Genera
 - La completitud la revisa SIGTA con reglas en código: no deja enviar si falta un dato, si el PDF no tiene texto, si no tiene el legajo del estudiante o si no tiene filas de materias. Por eso no hay un paso de revisión de la DA antes de abrir el expediente. Si la DA ve un problema después, le pide una subsanación al estudiante. El contenido de los documentos lo revisa después la validación asistida, que propone hallazgos y no decide.
 - Dictamina una sola CC, la de la carrera de destino. Equivalencias para dos carreras son dos trámites.
 - Las equivalencias automáticas quedan fuera por ahora.
+- Desde el 20/11 los pasos siguen un expediente electrónico de equivalencias de 2024 que compartió la Secretaría el 08/10, donde difiere de este relevamiento: caratula Mesa de Entradas; la Dirección de Alumnos arma una Resolución de Decano ad referéndum del Consejo Directivo, que firman el Secretario de Gestión Académica y el Decano; el Consejo Directivo la ratifica después, y el Despacho no arma una resolución definitiva; y el expediente queda en guarda temporal en Mesa de Entradas. Así lo configura el trámite ancla (`features/subject_equivalence.feature`, SIG-15).
 
 ### 3.2 Reconocimiento de créditos
 
