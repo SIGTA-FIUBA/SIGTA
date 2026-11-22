@@ -168,31 +168,42 @@ func TestARequestBetweenTheReadsOfAnAnswerStaysPending(t *testing.T) {
 	}
 }
 
-// answeringOnRecord is the memory repository that, right before an attachment
-// in answer is recorded, lets the applicant send their answer.
-type answeringOnRecord struct {
+// interruptedAttach is the memory repository that, right before an attachment
+// is recorded, lets meanwhile change the procedure, once.
+type interruptedAttach struct {
 	*memory.ProcedureRepository
-	answer func()
+	meanwhile func()
 }
 
-func (r *answeringOnRecord) Attach(ctx context.Context, d proceduredomain.Document, e proceduredomain.Event) error {
-	if r.answer != nil {
-		answer := r.answer
-		r.answer = nil
-		answer()
+func (r *interruptedAttach) Attach(ctx context.Context, d proceduredomain.Document, e proceduredomain.Event) error {
+	if r.meanwhile != nil {
+		meanwhile := r.meanwhile
+		r.meanwhile = nil
+		meanwhile()
 	}
 	return r.ProcedureRepository.Attach(ctx, d, e)
+}
+
+// attachingOn is an attachment service over a procedure on openStep whose
+// attachments can be interrupted.
+func attachingOn(t *testing.T, openStep string) (*ProcedureService, *DocumentService, *interruptedAttach, *memory.DocumentRepository) {
+	t.Helper()
+	procedures := &interruptedAttach{ProcedureRepository: memory.NewProcedureRepository()}
+	service := confirmationFixtureOver(t, procedures, procedures.ProcedureRepository, openStep)
+	documents := memory.NewDocumentRepository(procedures.ProcedureRepository)
+	files := &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: confirmedAt}
+	return service, NewDocumentService(service, documents, files, func() string { return "D-1" }, func() time.Time { return confirmedAt }), procedures, documents
+}
+
+func proofUpload(name string, size int) input.Upload {
+	return input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: name, Content: bytes.NewReader(pdf(size))}
 }
 
 // An answer sent while a document is being attached for it leaves the
 // document out: it is refused, and not recorded after the answer.
 func TestAnAttachmentAfterTheAnswerIsRefused(t *testing.T) {
 	ctx := context.Background()
-	procedures := &answeringOnRecord{ProcedureRepository: memory.NewProcedureRepository()}
-	service := confirmationFixtureOver(t, procedures, procedures.ProcedureRepository, "file")
-	documents := memory.NewDocumentRepository(procedures.ProcedureRepository)
-	files := &memoryFiles{files: map[string][]byte{}, stored: map[string]time.Time{}, at: confirmedAt}
-	attach := NewDocumentService(service, documents, files, func() string { return "D-1" }, func() time.Time { return confirmedAt })
+	service, attach, procedures, documents := attachingOn(t, "file")
 	proof := input.CorrectionRequest{Step: "file", Reason: "falta la constancia", Fields: []string{"subjects"}, Documents: []string{"proof"}}
 	if _, err := service.RequestCorrection(ctx, "operative@fi.uba.ar", "P-1", proof); err != nil {
 		t.Fatal(err)
@@ -200,22 +211,81 @@ func TestAnAttachmentAfterTheAnswerIsRefused(t *testing.T) {
 	if _, err := service.EnterValue(ctx, titular, "P-1", "subjects", submission.Value{Text: "61.03"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "uno.pdf", Content: bytes.NewReader(pdf(100))}); err != nil {
+	if _, err := attach.Attach(ctx, titular, proofUpload("uno.pdf", 100)); err != nil {
 		t.Fatal(err)
 	}
-	procedures.answer = func() {
+	procedures.meanwhile = func() {
 		if _, err := service.AnswerCorrection(ctx, titular, "P-1"); err != nil {
 			t.Error(err)
 		}
 	}
 
-	_, err := attach.Attach(ctx, titular, input.Upload{ProcedureID: "P-1", Requirement: "proof", FileName: "dos.pdf", Content: bytes.NewReader(pdf(120))})
+	_, err := attach.Attach(ctx, titular, proofUpload("dos.pdf", 120))
 
-	if !errors.Is(err, engine.ErrNoCorrectionPending) {
-		t.Errorf("err = %v, want ErrNoCorrectionPending", err)
+	if !errors.Is(err, proceduredomain.ErrAccessDenied) {
+		t.Errorf("err = %v, want ErrAccessDenied", err)
+	}
+	// Losing the race is refused as an attachment after the answer is.
+	if _, after := attach.Attach(ctx, titular, proofUpload("tres.pdf", 140)); !errors.Is(after, proceduredomain.ErrAccessDenied) || after.Error() != err.Error() {
+		t.Errorf("after the answer: err = %v, want %v", after, err)
 	}
 	if recorded, _ := documents.List(ctx, "P-1"); len(recorded) != 1 || recorded[0].FileName != "uno.pdf" {
 		t.Errorf("documents = %+v, want only the one attached before the answer", recorded)
+	}
+}
+
+// A procedure closed after the answer, while the document was being attached
+// for it, refuses it as a closed procedure refuses any attachment.
+func TestAnAttachmentAfterTheAnswerAndTheCloseIsRefusedAsOnAClosedProcedure(t *testing.T) {
+	ctx := context.Background()
+	service, attach, procedures, _ := attachingOn(t, "evaluate")
+	proof := input.CorrectionRequest{Step: "evaluate", Reason: "falta la constancia", Documents: []string{"proof"}}
+	if _, err := service.RequestCorrection(ctx, "commission@fi.uba.ar", "P-1", proof); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := attach.Attach(ctx, titular, proofUpload("uno.pdf", 100)); err != nil {
+		t.Fatal(err)
+	}
+	procedures.meanwhile = func() {
+		if _, err := service.AnswerCorrection(ctx, titular, "P-1"); err != nil {
+			t.Error(err)
+		}
+		if _, err := service.Confirm(ctx, "commission@fi.uba.ar", "P-1", input.StepConfirmation{Step: "evaluate", Observation: "evaluated"}); err != nil {
+			t.Error(err)
+		}
+	}
+
+	_, err := attach.Attach(ctx, titular, proofUpload("dos.pdf", 120))
+
+	if !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Errorf("err = %v, want ErrStepNotOpen", err)
+	}
+	if _, after := attach.Attach(ctx, titular, proofUpload("tres.pdf", 140)); !errors.Is(after, engine.ErrStepNotOpen) {
+		t.Errorf("after the close: err = %v, want ErrStepNotOpen", after)
+	}
+}
+
+// An attachment to the open step that loses the race against its
+// confirmation is refused because the step is not open any more, as
+// before: only an attachment in answer is answered again.
+func TestAnAttachmentToTheOpenStepAfterItsConfirmationFindsItClosed(t *testing.T) {
+	ctx := context.Background()
+	_, attach, procedures, documents := attachingOn(t, "proofs")
+	procedures.meanwhile = func() {
+		// The applicant sends the step from another tab.
+		moved := proceduredomain.Procedure{ID: "P-1", ProcedureType: 1, Version: 1, Applicant: titular, OpenStep: "file"}
+		if err := procedures.Advance(ctx, moved, proceduredomain.Event{ProcedureID: "P-1", Step: "proofs", By: titular, At: confirmedAt}); err != nil {
+			t.Error(err)
+		}
+	}
+
+	_, err := attach.Attach(ctx, titular, proofUpload("uno.pdf", 100))
+
+	if !errors.Is(err, engine.ErrStepNotOpen) {
+		t.Errorf("err = %v, want ErrStepNotOpen", err)
+	}
+	if recorded, _ := documents.List(ctx, "P-1"); len(recorded) != 0 {
+		t.Errorf("documents = %+v, want none", recorded)
 	}
 }
 
