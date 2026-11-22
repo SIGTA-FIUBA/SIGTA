@@ -15,3 +15,13 @@
   letter-spacing: var(--sigta-tracking-display);
   text-wrap: balance;
 }
+
+/* A large figure (Text variant="figure"), such as those of the home header:
+ * tabular, tight and without line height of its own. */
+.figure {
+  font-size: var(--sigta-figure-size);
+  line-height: var(--sigta-figure-line-height);
+  letter-spacing: var(--sigta-tracking-figure);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}

@@ -6,8 +6,11 @@ import { createMemoryRouter, Link, RouterProvider } from 'react-router'
 import type { components } from '../api/schema'
 import { AppHeader } from './AppHeader'
 import { fixtures } from '../dev/administrationFixtures'
+import { fixtures as procedureFixtures } from '../dev/procedureFixtures'
 import { AdministrationPage } from '../pages/AdministrationPage'
 import { HomePage } from '../pages/HomePage'
+import { InboxPage } from '../pages/InboxPage'
+import { ProcedurePage } from '../pages/ProcedurePage'
 import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
 import { UserMenu } from './UserMenu'
@@ -34,30 +37,47 @@ const applicant: User = {
   administrator: false,
 }
 
-const states = ['in_office', 'referred', 'with_applicant'] as const
+// The inbox: procedures of several types, areas and states, some of them
+// waiting on the account. Every one opens the same example detail, with the
+// name of its type.
+const types = [
+  { id: 1, name: 'Equivalencia entre asignaturas' },
+  { id: 2, name: 'Reconocimiento de créditos' },
+  { id: 3, name: 'Pase de carrera' },
+  { id: 4, name: 'Pase desde una universidad extranjera' },
+]
+const areas = [
+  { id: 'secretaria', name: 'Secretaría Académica' },
+  { id: 'alumnos', name: 'Dirección de Alumnos' },
+  { id: 'computacion', name: 'Departamento de Computación' },
+]
+const rows = [
+  ['Martín Sosa', 0, 'Revisión de la Secretaría', 0, 'in_office', true, 12, 1],
+  ['Valeria Ríos', 1, 'Dictamen del departamento', 2, 'referred', false, 20, 3],
+  ['Tomás Aguirre', 2, 'Registrar expediente', 1, 'in_office', true, 4, 0],
+  ['Julieta Paz', 0, 'Documentación', 0, 'with_applicant', false, 9, 2],
+  ['Nicolás Ferreyra', 3, 'Revisión de la Secretaría', 0, 'in_office', true, 31, 5],
+  ['Camila Ortiz', 1, 'Comunicación del dictamen', 1, 'in_office', true, 15, 4],
+  ['Bruno Medina', 2, 'Dictamen del departamento', 2, 'referred', false, 7, 6],
+] as const
 
-function procedures(actionable: number): ProcedureList {
-  const item = {
-    procedure_type: 1,
-    procedure_type_name: 'Equivalencia entre asignaturas',
-    applicant: { id: 'u2', name: 'Martín Sosa' },
-    step_name: 'Revisión de la Secretaría',
-    area: { id: 'secretaria', name: 'Secretaría Académica' },
-    state: 'in_office' as const,
-    started_at: '2026-11-02T10:00:00Z',
-    age_days: 12,
-  }
-  return {
-    items: Array.from({ length: actionable }, (_, index) => ({
-      ...item,
-      id: `p${index}`,
-      state: states[index % states.length]!,
-      last_moved_at: `2026-11-${String(10 - index).padStart(2, '0')}T10:00:00Z`,
-      actionable: true,
-    })),
-    procedure_types: [],
-    areas: [],
-  }
+const day = 86_400_000
+const inbox: ProcedureList = {
+  items: rows.map(([name, type, step, area, state, actionable, age, moved], index) => ({
+    id: `p${index + 1}`,
+    procedure_type: types[type]!.id,
+    procedure_type_name: types[type]!.name,
+    applicant: { id: `a${index + 1}`, name },
+    step_name: step,
+    area: state === 'with_applicant' ? undefined : areas[area],
+    state,
+    actionable,
+    started_at: new Date(Date.now() - age * day).toISOString(),
+    last_moved_at: new Date(Date.now() - moved * day).toISOString(),
+    age_days: age,
+  })),
+  procedure_types: types.map((type) => ({ id: String(type.id), name: type.name })),
+  areas,
 }
 
 // The procedures the person started: one waiting for a correction and one
@@ -98,11 +118,28 @@ function seedAdministration(client: QueryClient) {
 
 function Page({ user, path = '/', children }: { user: User | null; path?: string; children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-  client.setQueryData(['procedures'], procedures(3))
+  client.setQueryData(['procedures'], inbox)
+  for (const item of inbox.items) {
+    client.setQueryData(['procedure', item.id], {
+      ...procedureFixtures.demo,
+      id: item.id,
+      name: item.procedure_type_name,
+    })
+  }
   client.setQueryData(['me', 'procedures'], mine)
   seedAdministration(client)
   const router = createMemoryRouter(
-    [{ path: '/*', loader: () => user, element: <AppLayout />, children: [{ path: '*', element: children }] }],
+    [
+      {
+        path: '/*',
+        loader: () => user,
+        element: <AppLayout />,
+        children: [
+          { path: 'procedures/:id', element: <ProcedurePage /> },
+          { path: '*', element: children },
+        ],
+      },
+    ],
     { initialEntries: [path] },
   )
   return (
@@ -181,6 +218,23 @@ export const HomeApplicant: StoryObj = {
       description: {
         story:
           'El Inicio del titular: el saludo, sus trámites en curso y cerrados, y los pasos de un trámite. El catálogo está en el menú, así que ningún botón lo repite.',
+      },
+    },
+  },
+}
+
+export const InboxStaff: StoryObj = {
+  name: 'Bandeja, personal',
+  render: () => (
+    <Page user={staff} path="/inbox">
+      <InboxPage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'La bandeja: las cifras por estado, que filtran la lista (la marca de la seleccionada se desliza a la elegida), y los trámites, que entran uno tras otro y viajan a su lugar cuando cambia el orden. Al abrir uno, el tipo de trámite pasa a ser el título de su página.',
       },
     },
   },

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
@@ -81,11 +81,13 @@ describe('HomePage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('greets an applicant and shows how a procedure is done, with no button that repeats the menu', () => {
+  it('greets an applicant and shows how a procedure is done, with no button that repeats the menu', async () => {
     stubApi({})
     renderAs(false)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Hola, Persona' })).toBeVisible()
+    // The greeting fades in with the page.
+    const greeting = screen.getByRole('heading', { level: 1, name: 'Hola, Persona' })
+    await waitFor(() => expect(greeting).toBeVisible())
     expect(screen.queryByRole('link', { name: 'Iniciar un trámite' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Requieren acción' })).not.toBeInTheDocument()

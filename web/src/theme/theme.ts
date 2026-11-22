@@ -24,6 +24,7 @@ import {
   type VariantColorsResolver,
 } from '@mantine/core'
 import classes from './interactions.module.css'
+import texture from './texture.module.css'
 import { tokens } from './tokens'
 import typography from './typography.module.css'
 
@@ -117,13 +118,15 @@ export const theme = createTheme({
       defaultProps: { transitionDuration: tokens.motion.base, transitionTimingFunction: tokens.motion.easing },
       classNames: (_theme, props) => ({
         navbar: classes.sideNav,
-        main: props.variant === 'landing' ? '' : classes.page,
+        main: props.variant === 'landing' ? '' : texture.paper,
       }),
     }),
     // A panel with a border and a background of its own is a control: the
     // action card and the rows use variant="interactive", which answers the
-    // pointer; the container of rows uses variant="rows" and the summary of
-    // figures variant="figures".
+    // pointer; the container of rows uses variant="rows". variant="blueprint"
+    // is the navy panel with the technical grid (BlueprintPanel),
+    // variant="on-blueprint" a control on it, and variant="selection" the
+    // mark of the selected tile, which moves from one tile to the other.
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
       classNames: (_theme, props) => ({
@@ -132,15 +135,25 @@ export const theme = createTheme({
             ? classes.interactive
             : props.variant === 'rows'
               ? classes.rows
-              : props.variant === 'figures'
-                ? classes.figures
-                : '',
+              : props.variant === 'blueprint'
+                ? texture.blueprint
+                : props.variant === 'on-blueprint'
+                  ? texture.onBlueprint
+                  : props.variant === 'selection'
+                    ? classes.selection
+                    : '',
       }),
     }),
-    // The steps of a procedure: an ordered list in columns (StepList).
+    // The steps of a procedure: an ordered list in columns (StepList). The
+    // latest moves: a list on a vertical line, one mark per move
+    // (variant="timeline").
     List: List.extend({
       classNames: (_theme, props) =>
-        props.variant === 'steps' ? { root: classes.steps, item: classes.stepsItem } : {},
+        props.variant === 'steps'
+          ? { root: classes.steps, item: classes.stepsItem }
+          : props.variant === 'timeline'
+            ? { root: classes.timeline, item: classes.timelineItem }
+            : {},
       styles: { item: breakLongWords.root },
     }),
     Input: Input.extend({
@@ -198,7 +211,11 @@ export const theme = createTheme({
     Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
     // Titles of 20px or more are tighter; the headline of the landing page
     // grows with the screen.
-    Text: Text.extend({ styles: breakLongWords }),
+    // variant="figure" is a large figure, such as those of the home header.
+    Text: Text.extend({
+      styles: breakLongWords,
+      classNames: (_theme, props) => ({ root: props.variant === 'figure' ? typography.figure : '' }),
+    }),
     Title: Title.extend({
       styles: breakLongWords,
       classNames: (_theme, props) => ({
@@ -241,9 +258,27 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-tracking-display': tokens.font.trackingDisplay,
     '--sigta-display-size': tokens.font.display.size,
     '--sigta-display-line-height': tokens.font.display.lineHeight,
+    '--sigta-figure-size': tokens.font.figure.size,
+    '--sigta-figure-line-height': String(tokens.font.figure.lineHeight),
+    '--sigta-tracking-figure': tokens.font.trackingFigure,
     '--sigta-border-width': tokens.borderWidth,
     '--sigta-duration-fast': `${tokens.motion.fast}ms`,
     '--sigta-duration-base': `${tokens.motion.base}ms`,
+    '--sigta-duration-slow': `${tokens.motion.slow}ms`,
+    '--sigta-duration-route': `${tokens.motion.route}ms`,
+    '--sigta-ease-out': `cubic-bezier(${tokens.motion.easingOut.join(', ')})`,
+    '--sigta-blueprint-background': tokens.color.blueprint.background,
+    '--sigta-blueprint-text': tokens.color.blueprint.text,
+    '--sigta-blueprint-muted': tokens.color.blueprint.muted,
+    '--sigta-blueprint-line': tokens.color.blueprint.line,
+    '--sigta-blueprint-line-major': tokens.color.blueprint.lineMajor,
+    '--sigta-blueprint-glow': tokens.color.blueprint.glow,
+    '--sigta-blueprint-paper': tokens.color.blueprint.paper,
+    '--sigta-texture-grid': tokens.texture.grid,
+    '--sigta-texture-grid-major': tokens.texture.gridMajor,
+    '--sigta-texture-glow': tokens.texture.glow,
+    '--sigta-texture-grain': String(tokens.texture.grain),
+    '--sigta-texture-fade': tokens.texture.fade,
     '--sigta-ease': tokens.motion.easing,
     '--sigta-nudge': tokens.motion.nudge,
     '--sigta-press': String(tokens.motion.press),

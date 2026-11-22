@@ -975,7 +975,11 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
   return (
     <Stack gap="lg">
       <Stack gap="xs">
-        <Title order={1}>{detail.name}</Title>
+        {/* The type of the procedure in the row that opened it becomes this
+            title (a view transition, global.css). */}
+        <Title order={1} data-transition-title>
+          {detail.name}
+        </Title>
         <Text c="dimmed">
           Trámite <Code translate="no">{detail.id}</Code>
         </Text>
