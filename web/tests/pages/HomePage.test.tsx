@@ -170,8 +170,8 @@ describe('HomePage', () => {
     expect(within(links[0]!).getByText('Equivalencia')).toBeVisible()
     expect(within(links[0]!).getByText('Titular Dos')).toBeVisible()
     expect(within(links[0]!).getByText('Registrar expediente')).toBeVisible()
-    expect(within(links[0]!).getByText('En un área')).toBeVisible()
-    expect(within(links[0]!).getByText('A cargo de Dirección de Alumnos')).toBeVisible()
+    expect(within(links[0]!).getByText('Dirección de Alumnos')).toBeVisible()
+    expect(links[0]).toHaveTextContent('A cargo de Dirección de Alumnos')
     expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/inbox')
   })
 
@@ -195,6 +195,14 @@ describe('HomePage', () => {
     const summary = await screen.findByLabelText('Resumen')
     expect(within(summary).getByRole('link', { name: '1 Requieren acción' })).toHaveAttribute('href', '/inbox')
     expect(within(summary).getByRole('link', { name: '2 En curso' })).toHaveAttribute('href', '/inbox?view=all')
+  })
+
+  it('keeps the condensed bar out of reach while the figures are on the screen', async () => {
+    stubApi({ inbox: [{ ...item, id: 'a' }] })
+    renderAs(true)
+
+    await screen.findByLabelText('Resumen')
+    expect(screen.getAllByRole('link', { name: /requieren acción/i })).toHaveLength(1)
   })
 
   it('lists the latest moves, one line each', async () => {

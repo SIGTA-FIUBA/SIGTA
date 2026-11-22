@@ -113,22 +113,6 @@
   }
 }
 
-/* The page of the work screens (AppShell main) keeps its gray, with the same
- * grid in the brand color, very faint, that fades into the gray before the
- * content gets dense: it frames the header and is gone by the lists. */
-.paper {
-  background-color: var(--mantine-color-gray-0);
-  background-image:
-    linear-gradient(transparent, var(--mantine-color-gray-0) var(--sigta-texture-fade)),
-    linear-gradient(var(--sigta-blueprint-paper) 1px, transparent 1px),
-    linear-gradient(90deg, var(--sigta-blueprint-paper) 1px, transparent 1px);
-  background-size:
-    100% 100%,
-    var(--sigta-texture-grid-major) var(--sigta-texture-grid-major),
-    var(--sigta-texture-grid-major) var(--sigta-texture-grid-major);
-  background-position: -1px -1px;
-}
-
 /* A control on the blueprint (Paper variant="on-blueprint"), such as a figure
  * of the home header that leads to the inbox: transparent, it lights up a
  * little under the pointer and its arrow ([data-chevron]) moves forward. */

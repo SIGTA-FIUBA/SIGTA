@@ -16,8 +16,10 @@ import {
   Popover,
   rem,
   SegmentedControl,
+  SimpleGrid,
   Skeleton,
   Spoiler,
+  Stack,
   Text,
   Title,
   Tooltip,
@@ -67,6 +69,27 @@ const controlHeight = (size: unknown, height: string, variable: string) =>
 // anywhere, does not narrow the box to fit the word broken up.
 const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
 
+const paperVariants: Record<string, string> = {
+  interactive: classes.interactive,
+  rows: classes.rows,
+  row: classes.row,
+  hover: classes.hover,
+  figure: classes.figure,
+  condensed: classes.condensed,
+  'nav-current': classes.navCurrent,
+  selection: classes.selection,
+  blueprint: texture.blueprint,
+  'on-blueprint': texture.onBlueprint,
+}
+
+const textVariants: Record<string, string> = {
+  figure: typography.figure,
+  prefix: typography.prefix,
+  column: typography.column,
+}
+
+const stackVariants: Record<string, string> = { masthead: classes.masthead }
+
 export const theme = createTheme({
   colors: tokens.color.scales,
   primaryColor: tokens.primaryColor,
@@ -113,13 +136,11 @@ export const theme = createTheme({
       }),
     }),
     // The side navigation is white with a border on its right; the page is
-    // gray, except on the landing page (variant="landing").
+    // white too, so what is on it is ordered by type, space and rules, not by
+    // boxes.
     AppShell: AppShell.extend({
       defaultProps: { transitionDuration: tokens.motion.base, transitionTimingFunction: tokens.motion.easing },
-      classNames: (_theme, props) => ({
-        navbar: classes.sideNav,
-        main: props.variant === 'landing' ? '' : texture.paper,
-      }),
+      classNames: { navbar: classes.sideNav },
     }),
     // A panel with a border and a background of its own is a control: the
     // action card and the rows use variant="interactive", which answers the
@@ -127,22 +148,22 @@ export const theme = createTheme({
     // is the navy panel with the technical grid (BlueprintPanel),
     // variant="on-blueprint" a control on it, and variant="selection" the
     // mark of the selected tile, which moves from one tile to the other.
+    // Without boxes: variant="row" is a row of a list and variant="hover" the
+    // mark that glides under the rows; variant="figure" a figure of the home
+    // page; variant="condensed" the bar that takes the place of its greeting;
+    // variant="nav-current" the mark of the current page in the menu.
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
-      classNames: (_theme, props) => ({
-        root:
-          props.variant === 'interactive'
-            ? classes.interactive
-            : props.variant === 'rows'
-              ? classes.rows
-              : props.variant === 'blueprint'
-                ? texture.blueprint
-                : props.variant === 'on-blueprint'
-                  ? texture.onBlueprint
-                  : props.variant === 'selection'
-                    ? classes.selection
-                    : '',
-      }),
+      classNames: (_theme, props) => ({ root: paperVariants[props.variant ?? ''] ?? '' }),
+    }),
+    // The greeting of the home page, which recedes on scroll
+    // (variant="masthead").
+    Stack: Stack.extend({
+      classNames: (_theme, props) => ({ root: stackVariants[props.variant ?? ''] ?? '' }),
+    }),
+    // The figures of the home page, between rules (variant="figures").
+    SimpleGrid: SimpleGrid.extend({
+      classNames: (_theme, props) => ({ root: props.variant === 'figures' ? classes.figures : '' }),
     }),
     // The steps of a procedure: an ordered list in columns (StepList). The
     // latest moves: a list on a vertical line, one mark per move
@@ -214,7 +235,7 @@ export const theme = createTheme({
     // variant="figure" is a large figure, such as those of the home header.
     Text: Text.extend({
       styles: breakLongWords,
-      classNames: (_theme, props) => ({ root: props.variant === 'figure' ? typography.figure : '' }),
+      classNames: (_theme, props) => ({ root: textVariants[props.variant ?? ''] ?? '' }),
     }),
     Title: Title.extend({
       styles: breakLongWords,

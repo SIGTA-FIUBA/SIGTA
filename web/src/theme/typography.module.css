@@ -25,3 +25,24 @@
   font-weight: var(--mantine-font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
+
+/* A label that a row of a list says on a phone, where its columns stack, and
+ * that the column heading says from md on (Text variant="prefix"): there it
+ * stays only for screen readers. */
+@media (min-width: 64em) {
+  .prefix {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* A column heading of a list without a box (Text variant="column"). */
+.column {
+  white-space: nowrap;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-7);
+}

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import type { ReactNode } from 'react'
+import type { FocusEventHandler, PointerEventHandler, ReactNode } from 'react'
 import { enter } from '../../theme/motion'
 
 const elements = { div: motion.div, li: motion.li, section: motion.section }
@@ -11,15 +11,25 @@ type RevealProps = {
   // as is the element that holds the content, li inside a list.
   as?: keyof typeof elements
   children: ReactNode
+  // A list can follow the pointer and the focus over its items.
+  onPointerEnter?: PointerEventHandler
+  onFocus?: FocusEventHandler
 }
 
 // Reveal brings its content in when the page arrives: it rises a little and
 // fades in, once. It orients: the page builds up from the top, in the order
 // in which it is read. With reduced motion the content only fades in.
-export function Reveal({ index = 0, as = 'div', children }: RevealProps) {
+export function Reveal({ index = 0, as = 'div', children, onPointerEnter, onFocus }: RevealProps) {
   const Element = elements[as]
   return (
-    <Element variants={enter} initial="hidden" animate="shown" custom={index}>
+    <Element
+      variants={enter}
+      initial="hidden"
+      animate="shown"
+      custom={index}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
+    >
       {children}
     </Element>
   )

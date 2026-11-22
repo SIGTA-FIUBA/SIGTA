@@ -200,7 +200,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: el saludo con la fecha, el resumen en dos cifras (cada una lleva a la bandeja filtrada), hasta cinco trámites que requieren acción y la actividad reciente, un renglón por movimiento.',
+          'El Inicio del personal, en una página blanca sin cajas: la fecha y el saludo en display `fiuba-9`, y debajo las dos cifras entre filetes (cada una lleva a la bandeja filtrada). Cuando las cifras salen de la pantalla, una barra fina las mantiene a la vista arriba. Cada sección pone su título en el primer cuarto de la grilla y el contenido en el resto: hasta cinco trámites que requieren acción, en una tabla sin caja con una marca que sigue al puntero, y la actividad reciente, un renglón por movimiento.',
       },
     },
   },
