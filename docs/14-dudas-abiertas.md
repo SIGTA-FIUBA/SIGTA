@@ -121,6 +121,14 @@ Salen de "Iniciar una solicitud" (SIG-17).
 | DU-36 | ¿Cuánto puede ocupar un dato de texto? | 200 caracteres para un texto corto y 5000 para uno largo; hasta 100 asignaturas | Decidido por el equipo |
 | DU-37 | ¿Un número admite decimales y negativos, como un promedio o un ajuste? | Sí: un decimal con signo. La web acepta coma o punto y envía punto. Un tipo de trámite todavía no puede pedir solo enteros ni un rango | Supuesto; a confirmar con la Secretaría |
 
+## 6. Del seguimiento del titular
+
+Salen del historial de trámites cerrados (SIG-35) y del detalle del trámite (SIG-31).
+
+| ID | Duda | Por ahora | Cómo |
+| --- | --- | --- | --- |
+| DU-47 | Lo que el personal adjunta como resolución, ¿es siempre el documento firmado? Podría subir un borrador sin firmar, y el titular lo ve en cuanto el trámite se cierra. Si después lo reemplaza, el historial del detalle sigue mostrando el archivo anterior y deja descargarlo | SIGTA no lo distingue: el titular ve la última versión de cada documento resolutivo y, en el historial, las que fue reemplazando. Que lo adjuntado sea el documento final queda a cargo de quien lo sube | Se espera, con la Secretaría: si el titular debe ver solo la versión final y si las reemplazadas tienen que quedar a su alcance |
+
 ---
 
 ## Cerradas
