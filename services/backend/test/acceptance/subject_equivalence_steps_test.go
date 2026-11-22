@@ -165,7 +165,7 @@ func (w *subjectEquivalenceWorld) setUp() error {
 		procedurerest.NewDocumentHandler(auth, people, procedureapp.NewDocumentService(procedures, documentRepository, stored, w.newID, now)),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, documentRepository), procedureapp.NewSubmissionService(procedures, stored, w.newID, now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
-		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
+		procedurerest.NewProcedureTypeDraftHandler(auth, people, drafts),
 	)
 	w.handler = api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	return w.readDefinition()
