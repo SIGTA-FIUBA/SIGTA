@@ -1,4 +1,4 @@
-import { Anchor, Group, Image } from '@mantine/core'
+import { Anchor, Container, Group, Image } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { BrandSignature } from '../components/BrandSignature/BrandSignature'
@@ -11,14 +11,17 @@ type AppHeaderProps = {
   // signature shows the joint signature with FIUBA instead of the SIGTA logo,
   // where SIGTA presents itself.
   signature?: boolean
+  // contained keeps the bar on the width of the content, so the logo and the
+  // actions line up with the page below, as on the landing page.
+  contained?: boolean
 }
 
 // AppHeader is the white top bar of the screens without the side navigation:
 // the SIGTA logo (or the joint signature) on the left, as a link to the start page, and the actions on
 // the right. With a session it only shows on a phone, to open the menu.
-export function AppHeader({ start, end, signature = false }: AppHeaderProps) {
-  return (
-    <Group h="100%" px={{ base: 'md', sm: 'lg' }} justify="space-between" wrap="nowrap">
+export function AppHeader({ start, end, signature = false, contained = false }: AppHeaderProps) {
+  const bar = (
+    <Group h="100%" px={contained ? undefined : { base: 'md', sm: 'lg' }} justify="space-between" wrap="nowrap">
       <Group h="100%" gap="sm" wrap="nowrap">
         {start}
         <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
@@ -36,4 +39,5 @@ export function AppHeader({ start, end, signature = false }: AppHeaderProps) {
       )}
     </Group>
   )
+  return contained ? <Container h="100%">{bar}</Container> : bar
 }

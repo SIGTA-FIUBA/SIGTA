@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
@@ -43,7 +43,7 @@ describe('LoginPage', () => {
   it('leaves for the identity provider through the API', async () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Continuar con Google' })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.getByRole('link', { name: 'Ingresar a SIGTA' })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.getByRole('link', { name: 'Ingresar' })).toHaveAttribute('href', '/api/auth/login')
     // The first screen arrives with the page, in a frame.
     await waitFor(() => expect(screen.getByText('Con tu cuenta institucional de la UBA.')).toBeVisible())
@@ -51,50 +51,42 @@ describe('LoginPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('presents the platform and how a procedure is done', async () => {
+  it('opens with what a visitor can do and leads to the requirements', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Los trámites académicos, en línea y con seguimiento',
-    )
-    // The sections arrive as they are scrolled to; in jsdom, every one is.
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Un solo lugar, del inicio a la resolución' })).toBeVisible()
-      expect(screen.getByRole('heading', { name: 'Seguimiento' })).toBeVisible()
-      expect(screen.getByRole('heading', { name: 'Las decisiones son de una persona' })).toBeVisible()
-    })
-    expect(screen.getByRole('link', { name: 'Ver el catálogo' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Tus trámites académicos')
+    expect(screen.getByRole('link', { name: 'Consultar requisitos' })).toHaveAttribute('href', '/catalog')
+    expect(
+      screen.getByRole('img', { name: 'Dos estudiantes repasan un apunte en un pasillo de la facultad.' }),
+    ).toBeInTheDocument()
+    // What SIGTA is and its criteria are in "Acerca de SIGTA", not here.
+    expect(screen.queryByRole('heading', { name: 'Cómo trabaja la plataforma' })).not.toBeInTheDocument()
   })
 
-  it('counts the catalog without listing it', async () => {
-    const names = ['Pase', 'Equivalencia', 'Reconocimiento', 'Intercambio', 'Baja']
+  it('lists the available procedures by name, in alphabetical order', async () => {
+    const names = ['Readmisión', 'Equivalencia de asignaturas', 'Constancia de alumno regular']
     renderAt('/login', { status: 200, body: names.map((name, index) => catalogEntry(index + 1, name)) })
 
-    // The figure counts up to 5, and a screen reader reads the 5 alone.
-    expect(await screen.findByText('trámites disponibles, con sus requisitos publicados')).toBeVisible()
-    await waitFor(() => expect(screen.getAllByText('5')).toHaveLength(2))
-    expect(screen.getByText('trámites disponibles, con sus requisitos publicados')).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
-    expect(screen.queryByText('Pase')).not.toBeInTheDocument()
+    const list = await screen.findByRole('list')
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.firstChild?.textContent),
+    ).toEqual(['Constancia de alumno regular', 'Equivalencia de asignaturas', 'Readmisión'])
+    expect(screen.getByText('Descripción de Readmisión')).toBeVisible()
   })
 
-  it('says it when the catalog has a single procedure', async () => {
-    renderAt('/login', { status: 200, body: [catalogEntry(1, 'Equivalencia')] })
-
-    expect(await screen.findByText('trámite disponible, con sus requisitos publicados')).toBeVisible()
-  })
-
-  it('says it when the catalog is still empty', async () => {
+  it('says it once when the catalog is still empty', async () => {
     renderAt('/login')
 
     expect(await screen.findByText('Todavía no hay trámites publicados.')).toBeVisible()
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
   it('says it when the catalog does not load', async () => {
     renderAt('/login', { status: 500, body: {} })
 
     expect(await screen.findByText('No se pudieron cargar los trámites. Volvé a intentarlo más tarde.')).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
   })
 
   it.each([

@@ -8,7 +8,7 @@ import {
   Divider,
   Grid,
   Group,
-  SimpleGrid,
+  Image,
   Skeleton,
   Stack,
   Text,
@@ -19,13 +19,8 @@ import { Link, useSearchParams } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
 import { BrandSignature } from '../components/BrandSignature/BrandSignature'
-import { CountUp } from '../components/CountUp/CountUp'
-import { GoogleSignInButton } from '../components/GoogleSignInButton/GoogleSignInButton'
 import { PageSection } from '../components/PageSection/PageSection'
-import { ProcedureFlow } from '../components/ProcedureFlow/ProcedureFlow'
 import { Reveal } from '../components/Reveal/Reveal'
-import { StepList } from '../components/StepList/StepList'
-import { applicantHowTo, principles } from '../content/platform'
 import { AppHeader } from '../layout/AppHeader'
 import { tokens } from '../theme/tokens'
 
@@ -46,71 +41,43 @@ function loginErrorText(error: string | null): string | undefined {
   return Object.hasOwn(loginErrorTexts, error) ? loginErrorTexts[error as LoginError] : loginErrorTexts.rejected
 }
 
-// CatalogSummary says how many procedures are already done in SIGTA, read
-// from the catalog, and leads to it. It does not list them: the platform will
-// hold more, and the catalog already lists them. The figure counts up when it
-// is scrolled to.
-function CatalogSummary() {
+// AvailableProcedures lists the procedures already in SIGTA by name, read
+// from the catalog, right after the opening: it is what a visitor came to
+// find. Their requirements are in the catalog, which the opening leads to.
+function AvailableProcedures() {
   const catalog = useQuery(catalogQuery)
-  const entries = catalog.data ?? []
+  const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
   return (
-    <PageSection
-      id="catalog"
-      title="Trámites disponibles"
-      lead="Cada uno con sus requisitos, sus plazos y los documentos que pide."
-      action={
-        <Anchor component={Link} to="/catalog" fw={600}>
-          Ver el catálogo completo
-        </Anchor>
-      }
-    >
+    <PageSection id="catalog" title="Trámites disponibles">
       {catalog.isPending && <Skeleton h="var(--sigta-figures-height)" aria-label="Cargando los trámites" />}
       {catalog.isError && <Text c="gray.7">No se pudieron cargar los trámites. Volvé a intentarlo más tarde.</Text>}
       {catalog.isSuccess && entries.length === 0 && <Text c="gray.7">Todavía no hay trámites publicados.</Text>}
       {catalog.isSuccess && entries.length > 0 && (
-        <Stack gap="xxs">
-          <Text component="div" variant="figure" c="fiuba.9">
-            <CountUp value={entries.length} />
-          </Text>
-          <Text c="gray.7">
-            {entries.length === 1
-              ? 'trámite disponible, con sus requisitos publicados'
-              : 'trámites disponibles, con sus requisitos publicados'}
-          </Text>
+        <Stack component="ul" gap="md" p={0} m={0}>
+          {entries.map((entry) => (
+            <Stack key={entry.id} component="li" variant="part" gap="xxs">
+              <Text fw={600}>{entry.name}</Text>
+              {entry.description !== '' && (
+                <Text size="sm" c="gray.7" maw="var(--sigta-measure)" lineClamp={2}>
+                  {entry.description}
+                </Text>
+              )}
+            </Stack>
+          ))}
         </Stack>
       )}
     </PageSection>
   )
 }
 
-// Principles are the criteria of the platform, in three columns, each under a
-// hairline, with no box; there are three, so the row closes.
-function Principles() {
-  return (
-    <PageSection id="principles" title="Cómo trabaja la plataforma">
-      <SimpleGrid component="ul" cols={{ base: 1, sm: 3 }} spacing="xl" verticalSpacing="lg" p={0} m={0}>
-        {principles.map((principle) => (
-          <Stack key={principle.title} component="li" variant="part" gap="xs">
-            <Title order={3} size="h4">
-              {principle.title}
-            </Title>
-            <Text size="sm" c="gray.7">
-              {principle.text}
-            </Text>
-          </Stack>
-        ))}
-      </SimpleGrid>
-    </PageSection>
-  )
-}
-
-// LoginPage is the public landing page: it says what SIGTA is, how a
-// procedure is done and how many procedures it holds, and leads to the login.
-// It is white and without boxes, on the grid of the home page: the headline
-// and the login on the left, the route of a procedure that draws itself on
-// the right, and below, the sections with their title in the first quarter,
-// which arrive as they are scrolled to.
+// LoginPage is the public landing page. It answers the two questions a
+// visitor arrives with: what is needed to start a procedure, and what
+// happened to the one already presented. It is white and without boxes, on
+// the width of the content from the top bar to the footer: the headline and
+// the login on the left, a photograph of the faculty on the right, and below,
+// the procedures available by name. What SIGTA is and the criteria it follows
+// are in "Acerca de SIGTA".
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = loginErrorText(params.get('error'))
@@ -120,6 +87,7 @@ export function LoginPage() {
       <AppShell.Header>
         <AppHeader
           signature
+          contained
           end={
             <>
               <Button component={Link} to="/catalog" variant="subtle" visibleFrom="sm">
@@ -137,30 +105,32 @@ export function LoginPage() {
       </AppShell.Header>
 
       <AppShell.Main>
-        <Container size="lg" py={{ base: 'xl', md: 'xxl' }}>
+        <Container py={{ base: 'xl', md: 'xxl' }}>
           <Stack gap="xxxl">
             <Grid component="section" aria-labelledby="hero" gap={{ base: 'xl', lg: 'xxl' }} align="center">
               <Grid.Col span={{ base: 12, md: 7 }}>
                 <Stack gap="lg">
                   <Reveal>
                     <Title order={1} id="hero" variant="display" c="fiuba.9">
-                      Los trámites académicos, en línea y con seguimiento
+                      Tus trámites académicos
                     </Title>
                   </Reveal>
                   <Reveal index={1}>
                     <Text size="lg" c="gray.7" maw="var(--sigta-measure)">
-                      Iniciá tu trámite con los requisitos a la vista, seguí en qué instancia está y respondé lo que te
-                      pidan. Lo resuelve la Secretaría de Gestión Académica de la FIUBA.
+                      Consultá qué necesitás para iniciar una solicitud. Si ya la presentaste, podés ver qué área la
+                      está revisando y si tenés que completar algo.
                     </Text>
                   </Reveal>
                   {message && <Alert color="red">{message}</Alert>}
                   <Reveal index={2}>
                     <Stack gap="xs">
-                      <Group gap="sm">
-                        <GoogleSignInButton />
-                        <Button component={Link} to="/catalog" variant="default">
-                          Ver el catálogo
+                      <Group gap="lg">
+                        <Button component="a" href="/api/auth/login" size="lg">
+                          Ingresar a SIGTA
                         </Button>
+                        <Anchor component={Link} to="/catalog" fw={600}>
+                          Consultar requisitos
+                        </Anchor>
                       </Group>
                       <Text size="sm" c="gray.7">
                         Con tu cuenta institucional de la UBA.
@@ -169,28 +139,25 @@ export function LoginPage() {
                   </Reveal>
                 </Stack>
               </Grid.Col>
-              <Grid.Col span={{ base: 12, md: 5 }} visibleFrom="md">
-                <ProcedureFlow />
+              <Grid.Col span={{ base: 12, md: 5 }}>
+                <Reveal index={3}>
+                  <Image
+                    src="/photos/portada-pasillo.jpg"
+                    alt="Dos estudiantes repasan un apunte en un pasillo de la facultad."
+                  />
+                </Reveal>
               </Grid.Col>
             </Grid>
 
             <Reveal inView>
-              <PageSection id="how" title="Un solo lugar, del inicio a la resolución">
-                <StepList steps={applicantHowTo} />
-              </PageSection>
-            </Reveal>
-            <Reveal inView>
-              <CatalogSummary />
-            </Reveal>
-            <Reveal inView>
-              <Principles />
+              <AvailableProcedures />
             </Reveal>
           </Stack>
         </Container>
 
         <Box component="footer" mt="xxl">
           <Divider />
-          <Container size="lg" py="lg">
+          <Container py="lg">
             <Group justify="space-between" gap="md">
               <BrandSignature />
               <Text size="sm" c="gray.7">
