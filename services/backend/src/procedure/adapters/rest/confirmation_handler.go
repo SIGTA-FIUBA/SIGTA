@@ -148,7 +148,8 @@ func quotedList(names []string) string {
 	return strings.Join(quoted[:len(quoted)-1], ", ") + " y " + quoted[len(quoted)-1]
 }
 
-// nameOrID is the name of a field or document, or its id if it has none.
+// nameOrID is the name of a field, a document or a person, or its id if it has
+// none.
 func nameOrID(name, id string) string {
 	if name == "" {
 		return id

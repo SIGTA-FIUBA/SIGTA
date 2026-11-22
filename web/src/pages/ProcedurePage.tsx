@@ -967,18 +967,31 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
   )
 }
 
+// receiptUrl is the receipt that the applicant keeps of their procedure, in
+// progress or closed, with what they see of it here.
+function receiptUrl(procedureId: string) {
+  return `/api/procedures/${encodeURIComponent(procedureId)}/receipt`
+}
+
 function ProcedureDetail({ detail }: { detail: Detail }) {
   const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
   const awaiting = detail.correction_requests.length > 0
   return (
     <Stack gap="lg">
-      <Stack gap="xs">
-        <Title order={1}>{detail.name}</Title>
-        <Text c="dimmed">
-          Trámite <Code translate="no">{detail.id}</Code>
-        </Text>
-      </Stack>
+      <Group justify="space-between" align="flex-start" gap="sm">
+        <Stack gap="xs" miw={0}>
+          <Title order={1}>{detail.name}</Title>
+          <Text c="dimmed">
+            Trámite <Code translate="no">{detail.id}</Code>
+          </Text>
+        </Stack>
+        {detail.as_applicant && (
+          <Button component="a" href={receiptUrl(detail.id)} download={`comprobante-${detail.id}.pdf`} variant="light">
+            Descargar comprobante
+          </Button>
+        )}
+      </Group>
       <Paper withBorder p="md">
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <Fact label="Estado">

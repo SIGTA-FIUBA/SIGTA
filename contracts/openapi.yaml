@@ -1015,6 +1015,53 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}/receipt:
+    get:
+      operationId: downloadProcedureReceipt
+      summary: Descarga el comprobante de un trámite
+      description: >
+        Solo para el titular, en curso o cerrado: un PDF con el identificador,
+        el tipo de trámite, el estado, las fechas de inicio, del último
+        movimiento y de emisión, el paso abierto y el recorrido de los pasos
+        con sus fechas, con lo mismo que el titular ve en el detalle. Para el
+        personal de las áreas por las que pasa, como para quien no lo ve, el
+        trámite no existe. No dice el resultado del trámite, que no se modela.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "200":
+          description: El comprobante
+          headers:
+            Content-Disposition:
+              required: true
+              description: Siempre attachment, con un nombre que lleva el identificador del trámite
+              schema:
+                type: string
+            X-Content-Type-Options:
+              required: true
+              description: Siempre nosniff, como en la descarga de un documento
+              schema:
+                type: string
+            Content-Security-Policy:
+              required: true
+              description: Siempre sandbox, como en la descarga de un documento
+              schema:
+                type: string
+            Cache-Control:
+              required: true
+              description: Siempre no-store, porque tiene datos del titular
+              schema:
+                type: string
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /procedures/{procedureId}/steps/{stepId}/confirmation:
     post:
       operationId: confirmStep
