@@ -121,6 +121,15 @@ Salen de "Iniciar una solicitud" (SIG-17).
 | DU-36 | ¿Cuánto puede ocupar un dato de texto? | 200 caracteres para un texto corto y 5000 para uno largo; hasta 100 asignaturas | Decidido por el equipo |
 | DU-37 | ¿Un número admite decimales y negativos, como un promedio o un ajuste? | Sí: un decimal con signo. La web acepta coma o punto y envía punto. Un tipo de trámite todavía no puede pedir solo enteros ni un rango | Supuesto; a confirmar con la Secretaría |
 
+## 6. Del comprobante del trámite
+
+Salen de "Descarga de comprobante del trámite" (SIG-53).
+
+| ID | Duda | Por ahora | Cómo |
+| --- | --- | --- | --- |
+| DU-47 | ¿Qué valor le da la Secretaría al comprobante? No lleva firma digital ni un código para verificarlo, y se puede editar (no hay firma digital con validez legal) | Deja constancia del estado y del historial del trámite en SIGTA cuando se emitió, y aclara que no es una resolución. Lo que vale es lo que está en SIGTA | Se espera, con la Secretaría |
+| DU-48 | ¿Cómo sale en el comprobante un nombre con caracteres fuera del español, como los de un titular extranjero? | El PDF usa las fuentes Helvetica que trae todo lector, sin embeber ninguna, en WinAnsiEncoding: cubre el español y las lenguas de Europa occidental, y lo demás sale como `?` ("Zoë Chen 陈伟" sale "Zoë Chen ??"). En la página del trámite el nombre sale completo | Decidido por el equipo; si la Secretaría lo necesita, se embebe una fuente con esos caracteres |
+
 ## 7. Del seguimiento del titular
 
 Salen del historial de trámites cerrados (SIG-35) y del detalle del trámite (SIG-31).
