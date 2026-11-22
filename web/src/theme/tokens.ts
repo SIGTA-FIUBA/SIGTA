@@ -136,6 +136,9 @@ export const tokens = {
     rise: Number.parseFloat(text('motion.rise')),
     easingOut: value('motion.easingOut') as [number, number, number, number],
     staggerLimit: value('motion.staggerLimit') as number,
+    draw: ms('motion.draw'),
+    flow: ms('motion.flow'),
+    rest: ms('motion.rest'),
   },
   texture: {
     grid: scaled('texture.grid'),

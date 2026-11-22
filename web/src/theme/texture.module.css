@@ -169,6 +169,73 @@
   transform: translateX(calc(var(--sigta-nudge) * 2));
 }
 
+/* The route of a procedure on the landing page (ProcedureFlow, [data-flow]):
+ * a dim line under the drawn one, the stops as rings of the navy, the last one
+ * filled, and the dot in the brand color that travels the route. The labels
+ * are white and the notes fiuba.1, as the rest of the text on the
+ * blueprint. */
+.blueprint [data-flow] {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.blueprint [data-flow] [data-line] {
+  fill: none;
+  stroke-width: var(--sigta-border-width);
+  stroke-linejoin: round;
+}
+
+.blueprint [data-flow] [data-line='base'] {
+  stroke: var(--line-major);
+  stroke-dasharray: 4 4;
+}
+
+.blueprint [data-flow] [data-line='drawn'] {
+  stroke: var(--sigta-blueprint-muted);
+}
+
+.blueprint [data-flow] [data-node] {
+  fill: var(--sigta-blueprint-background);
+  stroke: var(--sigta-blueprint-text);
+  stroke-width: var(--sigta-border-width);
+}
+
+.blueprint [data-flow] [data-node='end'] {
+  fill: var(--sigta-blueprint-text);
+}
+
+.blueprint [data-flow] [data-ring] {
+  fill: none;
+  stroke: var(--sigta-blueprint-glow);
+  stroke-width: var(--sigta-border-width);
+}
+
+.blueprint [data-flow] [data-dot] {
+  fill: var(--sigta-blueprint-glow);
+  filter: drop-shadow(0 0 var(--mantine-spacing-xs) var(--sigta-blueprint-glow));
+}
+
+.blueprint [data-flow] [data-label] {
+  fill: var(--sigta-blueprint-text);
+  font-size: var(--mantine-font-size-md);
+  font-weight: 600;
+}
+
+.blueprint [data-flow] [data-caption] {
+  fill: var(--sigta-blueprint-muted);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--sigta-tracking-overline);
+  text-transform: uppercase;
+}
+
+.blueprint [data-flow] [data-note] {
+  fill: var(--sigta-blueprint-muted);
+  font-size: var(--mantine-font-size-sm);
+}
+
 /* With reduced motion nothing drifts and the grid does not follow the
  * pointer. */
 @media (prefers-reduced-motion: reduce) {

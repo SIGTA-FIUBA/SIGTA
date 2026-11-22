@@ -30,3 +30,7 @@ export const move: Transition = { duration: seconds(tokens.motion.slow), ease: t
 
 // count is how a figure counts up to its value.
 export const count: Transition = { duration: seconds(tokens.motion.count), ease: tokens.motion.easingOut }
+
+// viewport is when something below the first screen counts as arrived: once,
+// when a fifth of it is in view, so it is never seen waiting.
+export const viewport = { once: true, amount: 0.2 } as const

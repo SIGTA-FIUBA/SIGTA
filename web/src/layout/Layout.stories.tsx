@@ -224,7 +224,7 @@ export const LandingStory: StoryObj = {
     docs: {
       description: {
         story:
-          'La portada pública (`/login`), antes del ingreso: el titular con el botón de Google y la nota de la cuenta de la UBA, un collage de piezas de la plataforma (se oculta en el celular), cómo funciona, cuántos trámites hay en el catálogo y los criterios. Es la única pantalla con píldoras y títulos que crecen con el ancho.',
+          'La portada pública (`/login`), antes del ingreso: en el plano, el título con el botón de Google y la nota de la cuenta de la UBA, y el recorrido de un trámite que se traza y un punto recorre (se oculta en el celular). Debajo, cómo funciona, cuántos trámites hay en el catálogo y los criterios, que entran al llegar a ellos. Es la única pantalla con píldoras y títulos que crecen con el ancho.',
       },
     },
   },

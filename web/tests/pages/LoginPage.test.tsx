@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
@@ -40,25 +40,29 @@ afterEach(() => {
 })
 
 describe('LoginPage', () => {
-  it('leaves for the identity provider through the API', () => {
+  it('leaves for the identity provider through the API', async () => {
     renderAt('/login')
 
     expect(screen.getByRole('link', { name: 'Continuar con Google' })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.getByRole('link', { name: 'Ingresar' })).toHaveAttribute('href', '/api/auth/login')
-    expect(screen.getByText('Con tu cuenta institucional de la UBA.')).toBeVisible()
+    // The first screen arrives with the page, in a frame.
+    await waitFor(() => expect(screen.getByText('Con tu cuenta institucional de la UBA.')).toBeVisible())
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('presents the platform and how a procedure is done', () => {
+  it('presents the platform and how a procedure is done', async () => {
     renderAt('/login')
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       'Los trámites académicos, en línea y con seguimiento',
     )
-    expect(screen.getByRole('heading', { name: 'Un solo lugar, del inicio a la resolución' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Seguimiento' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Las decisiones son de una persona' })).toBeVisible()
+    // The sections arrive as they are scrolled to; in jsdom, every one is.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Un solo lugar, del inicio a la resolución' })).toBeVisible()
+      expect(screen.getByRole('heading', { name: 'Seguimiento' })).toBeVisible()
+      expect(screen.getByRole('heading', { name: 'Las decisiones son de una persona' })).toBeVisible()
+    })
     expect(screen.getByRole('link', { name: 'Ver el catálogo' })).toHaveAttribute('href', '/catalog')
   })
 
@@ -66,7 +70,9 @@ describe('LoginPage', () => {
     const names = ['Pase', 'Equivalencia', 'Reconocimiento', 'Intercambio', 'Baja']
     renderAt('/login', { status: 200, body: names.map((name, index) => catalogEntry(index + 1, name)) })
 
-    expect(await screen.findByText('5')).toBeVisible()
+    // The figure counts up to 5, and a screen reader reads the 5 alone.
+    expect(await screen.findByText('trámites disponibles, con sus requisitos publicados')).toBeVisible()
+    await waitFor(() => expect(screen.getAllByText('5')).toHaveLength(2))
     expect(screen.getByText('trámites disponibles, con sus requisitos publicados')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
     expect(screen.queryByText('Pase')).not.toBeInTheDocument()

@@ -6,25 +6,25 @@ import {
   Container,
   Divider,
   Group,
-  Image,
+  List,
   Mark,
-  Paper,
   SimpleGrid,
   Skeleton,
   Stack,
   Text,
-  Timeline,
   Title,
 } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
+import { BlueprintPanel } from '../components/BlueprintPanel/BlueprintPanel'
 import { BrandSignature } from '../components/BrandSignature/BrandSignature'
+import { CountUp } from '../components/CountUp/CountUp'
 import { GoogleSignInButton } from '../components/GoogleSignInButton/GoogleSignInButton'
-import { StatusBadge } from '../components/StatusBadge/StatusBadge'
+import { ProcedureFlow } from '../components/ProcedureFlow/ProcedureFlow'
+import { Reveal } from '../components/Reveal/Reveal'
 import { applicantHowTo, principles } from '../content/platform'
-import { stateNames } from '../content/procedures'
 import { AppHeader } from '../layout/AppHeader'
 import { tokens } from '../theme/tokens'
 
@@ -45,97 +45,41 @@ function loginErrorText(error: string | null): string | undefined {
   return Object.hasOwn(loginErrorTexts, error) ? loginErrorTexts[error as LoginError] : loginErrorTexts.rejected
 }
 
-// ProcedureCollage takes the place of a photo: pieces of the platform itself,
-// with an invented procedure, on tiles of the tints of the cyan. It only
-// illustrates what the text says, so screen readers skip it.
-function ProcedureCollage() {
-  return (
-    <SimpleGrid cols={2} spacing="md" visibleFrom="md" aria-hidden>
-      <Paper bg="fiuba.0" radius="lg" p="lg">
-        <Stack gap="sm">
-          <Text variant="overline" c="fiuba.9">
-            Trámite
-          </Text>
-          <Text fw={600} size="lg">
-            Equivalencia entre asignaturas
-          </Text>
-          <Box>
-            <StatusBadge tone="office">{stateNames.in_office}</StatusBadge>
-          </Box>
-          <Timeline active={1} bulletSize={16} lineWidth={2}>
-            <Timeline.Item title="Solicitud presentada" />
-            <Timeline.Item title="Revisión de la Secretaría" />
-            <Timeline.Item title="Evaluación del departamento" />
-          </Timeline>
-        </Stack>
-      </Paper>
-      <Paper bg="fiuba.9" radius="lg" p="xl" display="flex">
-        <Image src="/brand/sigta-isotipo-white.svg" alt="" w="60%" h="auto" m="auto" />
-      </Paper>
-      <Paper bg="fiuba.1" radius="lg" p="lg">
-        <Stack gap="sm" align="flex-start">
-          <Text variant="overline" c="fiuba.9">
-            Acción requerida
-          </Text>
-          <Text fw={600}>Falta el programa de la asignatura</Text>
-        </Stack>
-      </Paper>
-      <Paper withBorder radius="lg" p="lg">
-        <Stack gap="sm" align="flex-start">
-          <Text variant="overline" c="dimmed">
-            Cierre
-          </Text>
-          <StatusBadge tone="closed">Cerrado</StatusBadge>
-          <Text size="sm" c="dimmed">
-            Resolución comunicada al titular
-          </Text>
-        </Stack>
-      </Paper>
-    </SimpleGrid>
-  )
-}
-
-// The three steps of a procedure go on white, on the tint and on the navy,
-// from the first to the last.
-const stepTiles = [
-  { bg: 'white', c: undefined, dimmed: 'dimmed', withBorder: true },
-  { bg: 'fiuba.1', c: undefined, dimmed: undefined, withBorder: false },
-  { bg: 'fiuba.9', c: 'white', dimmed: 'fiuba.1', withBorder: false },
-]
-
+// HowItWorks is how a procedure is done, in three steps on a line that draws
+// itself in the action color as they are scrolled to; each step arrives after
+// the one before.
 function HowItWorks() {
   return (
     <Box component="section" bg="gray.0" aria-labelledby="how">
       <Container size="lg" py="xxxl">
-        <Stack gap="xl">
-          <Stack gap="xs">
-            <Text variant="overline" c="fiuba.7">
-              Cómo funciona
-            </Text>
-            <Title order={2} id="how" variant="section">
-              Un solo lugar, del inicio a la resolución
-            </Title>
-          </Stack>
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            {applicantHowTo.map((step, index) => {
-              const tile = stepTiles[index % stepTiles.length]
-              return (
-                <Paper key={step.title} bg={tile.bg} c={tile.c} withBorder={tile.withBorder} radius="lg" p="xl">
+        <Stack gap="xxl">
+          <Reveal inView>
+            <Stack gap="xs">
+              <Text variant="overline" c="fiuba.7">
+                Cómo funciona
+              </Text>
+              <Title order={2} id="how" variant="section">
+                Un solo lugar, del inicio a la resolución
+              </Title>
+            </Stack>
+          </Reveal>
+          <List type="ordered" variant="steps">
+            {applicantHowTo.map((step, index) => (
+              <List.Item key={step.title}>
+                <Reveal index={index} inView>
                   <Stack gap="sm">
-                    <Text variant="figure" component="span" aria-hidden>
+                    <Text variant="figure" component="span" c="fiuba.7" aria-hidden>
                       {String(index + 1).padStart(2, '0')}
                     </Text>
-                    <Title order={3} c={tile.c}>
-                      {step.title}
-                    </Title>
-                    <Text size="sm" c={tile.dimmed}>
+                    <Title order={3}>{step.title}</Title>
+                    <Text size="sm" c="dimmed">
                       {step.text}
                     </Text>
                   </Stack>
-                </Paper>
-              )
-            })}
-          </SimpleGrid>
+                </Reveal>
+              </List.Item>
+            ))}
+          </List>
         </Stack>
       </Container>
     </Box>
@@ -144,7 +88,8 @@ function HowItWorks() {
 
 // CatalogSummary says how many procedures are already done in SIGTA, read
 // from the catalog, and leads to it. It does not list them: the platform will
-// hold more, and the catalog already lists them.
+// hold more, and the catalog already lists them. The figure counts up when it
+// is scrolled to.
 function CatalogSummary() {
   const catalog = useQuery(catalogQuery)
   const entries = catalog.data ?? []
@@ -152,44 +97,46 @@ function CatalogSummary() {
   return (
     <Box component="section" aria-labelledby="catalog">
       <Container size="lg" py="xxxl">
-        <Paper bg="fiuba.9" c="white" radius="lg" p="xl">
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-            <Stack gap="lg" align="flex-start">
-              <Stack gap="xs">
-                <Text variant="overline" c="fiuba.1">
-                  Catálogo
-                </Text>
-                <Title order={2} id="catalog" c="white" variant="section">
-                  Trámites disponibles
-                </Title>
-              </Stack>
-              <Button component={Link} to="/catalog" variant="white" radius="xl">
-                Ver el catálogo completo
-              </Button>
-            </Stack>
-            <Stack justify="center">
-              {catalog.isPending && <Skeleton h="var(--sigta-figures-height)" aria-label="Cargando los trámites" />}
-              {catalog.isError && (
-                <Text c="fiuba.1">No se pudieron cargar los trámites. Volvé a intentarlo más tarde.</Text>
-              )}
-              {catalog.isSuccess && entries.length === 0 && (
-                <Text c="fiuba.1">Todavía no hay trámites publicados.</Text>
-              )}
-              {catalog.isSuccess && entries.length > 0 && (
-                <Stack gap="xxs">
-                  <Text variant="figure" c="fiuba.1">
-                    {entries.length}
+        <Reveal inView>
+          <BlueprintPanel radius="lg" p={{ base: 'lg', md: 'xxl' }}>
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+              <Stack gap="lg" align="flex-start">
+                <Stack gap="xs">
+                  <Text variant="overline" c="fiuba.1">
+                    Catálogo
                   </Text>
-                  <Text size="sm">
-                    {entries.length === 1
-                      ? 'trámite disponible, con sus requisitos publicados'
-                      : 'trámites disponibles, con sus requisitos publicados'}
-                  </Text>
+                  <Title order={2} id="catalog" c="white" variant="section">
+                    Trámites disponibles
+                  </Title>
                 </Stack>
-              )}
-            </Stack>
-          </SimpleGrid>
-        </Paper>
+                <Button component={Link} to="/catalog" variant="white" radius="xl">
+                  Ver el catálogo completo
+                </Button>
+              </Stack>
+              <Stack justify="center">
+                {catalog.isPending && <Skeleton h="var(--sigta-figures-height)" aria-label="Cargando los trámites" />}
+                {catalog.isError && (
+                  <Text c="fiuba.1">No se pudieron cargar los trámites. Volvé a intentarlo más tarde.</Text>
+                )}
+                {catalog.isSuccess && entries.length === 0 && (
+                  <Text c="fiuba.1">Todavía no hay trámites publicados.</Text>
+                )}
+                {catalog.isSuccess && entries.length > 0 && (
+                  <Stack gap="xxs">
+                    <Text component="div" variant="figure" c="white">
+                      <CountUp value={entries.length} />
+                    </Text>
+                    <Text size="sm" c="fiuba.1">
+                      {entries.length === 1
+                        ? 'trámite disponible, con sus requisitos publicados'
+                        : 'trámites disponibles, con sus requisitos publicados'}
+                    </Text>
+                  </Stack>
+                )}
+              </Stack>
+            </SimpleGrid>
+          </BlueprintPanel>
+        </Reveal>
       </Container>
     </Box>
   )
@@ -199,24 +146,28 @@ function Principles() {
   return (
     <Box component="section" bg="gray.0" aria-labelledby="principles">
       <Container size="lg" py="xxxl">
-        <Stack gap="xl">
-          <Stack gap="xs">
-            <Text variant="overline" c="fiuba.7">
-              Criterios
-            </Text>
-            <Title order={2} id="principles" variant="section">
-              Cómo trabaja la plataforma
-            </Title>
-          </Stack>
+        <Stack gap="xxl">
+          <Reveal inView>
+            <Stack gap="xs">
+              <Text variant="overline" c="fiuba.7">
+                Criterios
+              </Text>
+              <Title order={2} id="principles" variant="section">
+                Cómo trabaja la plataforma
+              </Title>
+            </Stack>
+          </Reveal>
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl">
-            {principles.map((principle) => (
-              <Stack key={principle.title} gap="xs">
-                <Divider size="sm" color="fiuba.7" />
-                <Title order={3}>{principle.title}</Title>
-                <Text size="sm" c="dimmed">
-                  {principle.text}
-                </Text>
-              </Stack>
+            {principles.map((principle, index) => (
+              <Reveal key={principle.title} index={index} inView>
+                <Stack gap="xs">
+                  <Divider size="sm" color="fiuba.7" />
+                  <Title order={3}>{principle.title}</Title>
+                  <Text size="sm" c="dimmed">
+                    {principle.text}
+                  </Text>
+                </Stack>
+              </Reveal>
             ))}
           </SimpleGrid>
         </Stack>
@@ -227,6 +178,8 @@ function Principles() {
 
 // LoginPage is the public landing page: it says what SIGTA is, how a
 // procedure is done and how many procedures it holds, and leads to the login.
+// The first screen is the blueprint, with the route of a procedure that draws
+// itself; the rest arrives as it is scrolled to.
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = loginErrorText(params.get('error'))
@@ -253,37 +206,51 @@ export function LoginPage() {
       </AppShell.Header>
 
       <AppShell.Main>
-        <Box component="section" aria-labelledby="hero">
-          <Container size="lg" py="xxxl">
+        <BlueprintPanel component="section" radius={0} aria-labelledby="hero">
+          <Container size="lg" py={{ base: 'xxl', md: 'xxxl' }}>
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xxl">
               <Stack gap="lg" justify="center">
-                <Text variant="overline" c="dimmed">
-                  Secretaría de Gestión Académica, FIUBA
-                </Text>
-                <Title order={1} id="hero" variant="display">
-                  Los trámites académicos, <Mark>en línea</Mark> y con seguimiento
-                </Title>
-                <Text size="lg" c="dimmed" maw="var(--sigta-measure)">
-                  Iniciá tu trámite con los requisitos a la vista, seguí en qué instancia está y respondé lo que te
-                  pidan.
-                </Text>
-                {message && <Alert color="red">{message}</Alert>}
-                <Stack gap="xs">
-                  <Group gap="sm">
-                    <GoogleSignInButton />
-                    <Button component={Link} to="/catalog" variant="outline" radius="xl">
-                      Ver el catálogo
-                    </Button>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    Con tu cuenta institucional de la UBA.
+                <Reveal>
+                  <Text variant="overline" c="fiuba.1">
+                    Secretaría de Gestión Académica, FIUBA
                   </Text>
-                </Stack>
+                </Reveal>
+                <Reveal index={1}>
+                  <Title order={1} id="hero" variant="display" c="white">
+                    Los trámites académicos,{' '}
+                    <Mark color="fiuba.6" data-sweep>
+                      en línea
+                    </Mark>{' '}
+                    y con seguimiento
+                  </Title>
+                </Reveal>
+                <Reveal index={2}>
+                  <Text size="lg" c="fiuba.1" maw="var(--sigta-measure)">
+                    Iniciá tu trámite con los requisitos a la vista, seguí en qué instancia está y respondé lo que te
+                    pidan.
+                  </Text>
+                </Reveal>
+                {message && <Alert color="red">{message}</Alert>}
+                <Reveal index={3}>
+                  <Stack gap="xs">
+                    <Group gap="sm">
+                      <GoogleSignInButton />
+                      <Button component={Link} to="/catalog" variant="outline" color="white" radius="xl">
+                        Ver el catálogo
+                      </Button>
+                    </Group>
+                    <Text size="sm" c="fiuba.1">
+                      Con tu cuenta institucional de la UBA.
+                    </Text>
+                  </Stack>
+                </Reveal>
               </Stack>
-              <ProcedureCollage />
+              <Box visibleFrom="md">
+                <ProcedureFlow />
+              </Box>
             </SimpleGrid>
           </Container>
-        </Box>
+        </BlueprintPanel>
 
         <HowItWorks />
         <CatalogSummary />

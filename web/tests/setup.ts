@@ -37,6 +37,29 @@ window.ResizeObserver = class {
   disconnect() {}
 }
 
+// jsdom has no layout, so every element counts as in view: what enters when
+// it is scrolled to (Reveal inView, CountUp) shows at once.
+window.IntersectionObserver = class {
+  readonly root = null
+  readonly rootMargin = ''
+  readonly scrollMargin = ''
+  readonly thresholds = []
+  readonly callback: IntersectionObserverCallback
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback
+  }
+  observe(target: Element) {
+    queueMicrotask(() =>
+      this.callback([{ target, isIntersecting: true, intersectionRatio: 1 } as IntersectionObserverEntry], this),
+    )
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return []
+  }
+}
+
 // Textarea with autosize measures again once the fonts load.
 Object.defineProperty(document, 'fonts', {
   value: { addEventListener: vi.fn(), removeEventListener: vi.fn(), ready: Promise.resolve() },

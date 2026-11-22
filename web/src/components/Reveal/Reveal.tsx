@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
-import { enter } from '../../theme/motion'
+import { enter, viewport } from '../../theme/motion'
 
 const elements = { div: motion.div, li: motion.li, section: motion.section }
 
@@ -10,16 +10,21 @@ type RevealProps = {
   index?: number
   // as is the element that holds the content, li inside a list.
   as?: keyof typeof elements
+  // inView waits until the content is scrolled to, for what is below the
+  // first screen of a long page.
+  inView?: boolean
   children: ReactNode
 }
 
 // Reveal brings its content in when the page arrives: it rises a little and
 // fades in, once. It orients: the page builds up from the top, in the order
-// in which it is read. With reduced motion the content only fades in.
-export function Reveal({ index = 0, as = 'div', children }: RevealProps) {
+// in which it is read; with inView, when it is scrolled to. With reduced
+// motion the content only fades in.
+export function Reveal({ index = 0, as = 'div', inView = false, children }: RevealProps) {
   const Element = elements[as]
+  const arrival = inView ? { whileInView: 'shown', viewport: viewport } : { animate: 'shown' }
   return (
-    <Element variants={enter} initial="hidden" animate="shown" custom={index}>
+    <Element variants={enter} initial="hidden" custom={index} {...arrival}>
       {children}
     </Element>
   )
