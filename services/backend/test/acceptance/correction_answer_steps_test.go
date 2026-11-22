@@ -30,6 +30,7 @@ func registerCorrectionAnswerSteps(sc *godog.ScenarioContext, details *myProcedu
 	w := &correctionAnswerWorld{myProcedureDetailWorld: details}
 
 	sc.Given(`^"([^"]*)" entered "([^"]*)" as the "([^"]*)"$`, w.givenEntered)
+	sc.Given(`^"([^"]*)" sent the answer to the correction$`, w.givenAnswered)
 
 	sc.When(`^"([^"]*)" enters "([^"]*)" as the "([^"]*)"$`, w.givenEntered)
 	sc.When(`^"([^"]*)" attaches "([^"]*)" as the "([^"]*)"$`, w.givenAttachedFile)
@@ -63,6 +64,11 @@ func (w *correctionAnswerWorld) tryAttach(user, fileName, requirement string) er
 		Content:     bytes.NewReader([]byte("%PDF-1.7\n" + fileName)),
 	})
 	return nil
+}
+
+func (w *correctionAnswerWorld) givenAnswered(user string) error {
+	_, err := w.service.AnswerCorrection(context.Background(), user, w.current)
+	return err
 }
 
 func (w *correctionAnswerWorld) answer(user string) {

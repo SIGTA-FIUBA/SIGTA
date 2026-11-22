@@ -29,7 +29,7 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US33 | SIG-49 | [correction_request.feature](correction_request.feature) | 9 |
 | US34 | SIG-50 | [correction_answer.feature](correction_answer.feature) | 11 |
 | US37 | SIG-25 | [procedure_list_filters.feature](procedure_list_filters.feature) | 7 |
-| US38 | SIG-53 | [procedure_receipt.feature](procedure_receipt.feature) | 4 |
+| US38 | SIG-53 | [procedure_receipt.feature](procedure_receipt.feature) | 5 |
 | — | SIG-82 | [step_documents.feature](step_documents.feature) | 7 |
 | US72 | SIG-74 | [procedure_type_drafts.feature](procedure_type_drafts.feature) | 14 |
 | US74 | SIG-76 | [staff_administration.feature](staff_administration.feature) | 25 |

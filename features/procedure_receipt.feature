@@ -9,12 +9,12 @@ Feature: Receipt of my procedure
     And the area "student affairs" has the permissions "verify" and "approve"
     And the area "curricular commission" has the permission "evaluate"
     And a published "subject equivalence" procedure type with this flow:
-      | step     | done by               | permissions | action                | asks for                     | next                                 |
-      | request  | applicant             |             | enter_data            | reason                       | check                                |
-      | check    | student affairs       | verify      | decide                |                              | accept: evaluate, send back: request |
-      | evaluate | curricular commission | evaluate    | upload_document       | minutes                      | resolve                              |
-      | resolve  | student affairs       | verify      | upload_document       | dean resolution (resolution) | record                               |
-      | record   | student affairs       | approve     | confirm_external_fact |                              |                                      |
+      | step     | done by               | permissions | action                | asks for                     | next                                         |
+      | request  | applicant             |             | enter_data            | reason                       | check                                        |
+      | check    | student affairs       | verify      | decide                |                              | accept: evaluate, send back: back to request |
+      | evaluate | curricular commission | evaluate    | upload_document       | minutes                      | resolve                                      |
+      | resolve  | student affairs       | verify      | upload_document       | dean resolution (resolution) | record                                       |
+      | record   | student affairs       | approve     | confirm_external_fact |                              |                                              |
     And SIGTA has these memberships:
       | staff                | area                  | permissions     | scope |
       | operative@fi.uba.ar  | student affairs       | verify          |       |
@@ -58,6 +58,23 @@ Feature: Receipt of my procedure
       | check    | student affairs       | 2026-11-17 |
       | evaluate | curricular commission | 2026-11-20 |
     And the receipt does not show "falta el programa", "EX-2026-001", "acta.pdf" nor "operative@fi.uba.ar"
+
+  Scenario: the route keeps what a correction request asked for and why, and the reason of a send back
+    Given it is "2026-11-17"
+    And "operative@fi.uba.ar" requested a correction of "reason" because "el motivo no es claro"
+    And "applicant@fi.uba.ar" entered "Cursé la materia en otra facultad" as the "reason"
+    And "applicant@fi.uba.ar" sent the answer to the correction
+    And it is "2026-11-18"
+    And "operative@fi.uba.ar" confirmed the "check" step choosing "send back" with the observation "falta el programa"
+    When "applicant@fi.uba.ar" downloads the receipt of the procedure
+    Then the receipt shows the route, in this order:
+      | step    | done by             | on         | observation           | correction |
+      | request | applicant@fi.uba.ar | 2026-11-16 |                       |            |
+      | check   | student affairs     | 2026-11-17 | el motivo no es claro | reason     |
+      | request | applicant@fi.uba.ar | 2026-11-17 |                       |            |
+      | check   | applicant@fi.uba.ar | 2026-11-17 |                       |            |
+      | check   | student affairs     | 2026-11-18 | falta el programa     |            |
+    And the receipt does not show "operative@fi.uba.ar"
 
   Scenario Outline: only the applicant downloads the receipt of their procedure
     Given "operative@fi.uba.ar" confirmed the "check" step choosing "accept"

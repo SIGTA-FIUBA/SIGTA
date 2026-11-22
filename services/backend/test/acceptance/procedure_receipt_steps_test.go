@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -98,28 +99,41 @@ func (w *receiptWorld) areaOf(step string) string {
 }
 
 // thenRoute expects, as done by, the person on the steps of the applicant and
-// the area on those of staff.
+// the area on those of staff; and, if the table asks for them, the observation
+// and what a correction request asks for.
 func (w *receiptWorld) thenRoute(table *godog.Table) error {
 	if w.readErr != nil {
 		return w.readErr
 	}
-	var got, want []string
-	for _, e := range w.receipt.History {
+	rows := tableRows(table)
+	if len(w.receipt.History) != len(rows) {
+		return fmt.Errorf("the route has %d steps, want %d: %+v", len(w.receipt.History), len(rows), w.receipt.History)
+	}
+	for i, row := range rows {
+		e := w.receipt.History[i]
 		by := e.By
 		if by == "" {
 			by = w.areaOf(e.Step)
 		}
-		got = append(got, fmt.Sprintf("%s %s %s", e.Step, by, e.At.Format(time.DateOnly)))
-	}
-	for _, row := range tableRows(table) {
-		by := row["done by"]
-		if !strings.Contains(by, "@") {
-			by = idOf(by)
+		var correction string
+		if e.CorrectionRequest != nil {
+			correction = strings.Join(slices.Concat(e.CorrectionRequest.Fields, e.CorrectionRequest.Documents), ", ")
 		}
-		want = append(want, fmt.Sprintf("%s %s %s", row["step"], by, row["on"]))
-	}
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		return fmt.Errorf("route = %v, want %v", got, want)
+		got := map[string]string{
+			"step":        e.Step,
+			"done by":     by,
+			"on":          e.At.Format(time.DateOnly),
+			"observation": e.Observation,
+			"correction":  correction,
+		}
+		for column, want := range row {
+			if column == "done by" && !strings.Contains(want, "@") {
+				want = idOf(want)
+			}
+			if got[column] != want {
+				return fmt.Errorf("step %d: %s = %q, want %q", i+1, column, got[column], want)
+			}
+		}
 	}
 	return nil
 }
