@@ -46,3 +46,11 @@
   font-size: var(--mantine-font-size-xs);
   color: var(--mantine-color-gray-7);
 }
+
+/* The number of an item that writes its own (Text variant="ordinal"):
+ * tabular, so the numbers line up. */
+.ordinal {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}

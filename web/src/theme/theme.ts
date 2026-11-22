@@ -1,4 +1,5 @@
 import {
+  Alert,
   AppShell,
   Avatar,
   Badge,
@@ -19,6 +20,7 @@ import {
   SimpleGrid,
   Skeleton,
   Spoiler,
+  Stepper,
   Stack,
   Text,
   Title,
@@ -86,9 +88,15 @@ const textVariants: Record<string, string> = {
   figure: typography.figure,
   prefix: typography.prefix,
   column: typography.column,
+  ordinal: typography.ordinal,
 }
 
-const stackVariants: Record<string, string> = { masthead: classes.masthead }
+const stackVariants: Record<string, string> = {
+  masthead: classes.masthead,
+  facts: classes.facts,
+  part: classes.part,
+  sticky: classes.sticky,
+}
 
 export const theme = createTheme({
   colors: tokens.color.scales,
@@ -157,7 +165,9 @@ export const theme = createTheme({
       classNames: (_theme, props) => ({ root: paperVariants[props.variant ?? ''] ?? '' }),
     }),
     // The greeting of the home page, which recedes on scroll
-    // (variant="masthead").
+    // (variant="masthead"); a list of facts between rules (variant="facts");
+    // a part of a page under a rule (variant="part"); a column that stays in
+    // sight (variant="sticky").
     Stack: Stack.extend({
       classNames: (_theme, props) => ({ root: stackVariants[props.variant ?? ''] ?? '' }),
     }),
@@ -167,7 +177,8 @@ export const theme = createTheme({
     }),
     // The steps of a procedure: an ordered list in columns (StepList). The
     // latest moves: a list on a vertical line, one mark per move
-    // (variant="timeline").
+    // (variant="timeline"). The steps of a procedure on its page: an ordered
+    // list that writes its own numbers (variant="numbered").
     List: List.extend({
       classNames: (_theme, props) =>
         props.variant === 'steps'
@@ -217,6 +228,15 @@ export const theme = createTheme({
       classNames: (_theme, props) => ({
         root: props.variant === 'counter' ? `${classes.badge} ${classes.counter}` : classes.badge,
       }),
+    }),
+    // A notice is a state the person has to read, not a box: it goes between
+    // two hairlines, its title in the color of what it says.
+    Alert: Alert.extend({ classNames: { root: classes.notice } }),
+    // The stages of a form are numbers on a hairline, not gray discs: the
+    // current one in the action color, the done ones filled.
+    Stepper: Stepper.extend({
+      defaultProps: { size: 'sm' },
+      classNames: { stepIcon: classes.stageIcon, separator: classes.stageSeparator },
     }),
     Avatar: Avatar.extend({
       defaultProps: { color: tokens.primaryColor, variant: 'light' },

@@ -53,7 +53,13 @@ export function ProcedureRows({
         onBlur={() => setCurrent(null)}
       >
         {Children.map(children, (row, index) => (
-          <Reveal as="li" index={index} onPointerEnter={() => setCurrent(index)} onFocus={() => setCurrent(index)}>
+          <Reveal
+            as="li"
+            index={index}
+            layout
+            onPointerEnter={() => setCurrent(index)}
+            onFocus={() => setCurrent(index)}
+          >
             <AnimatePresence>
               {current === index && (
                 <Paper

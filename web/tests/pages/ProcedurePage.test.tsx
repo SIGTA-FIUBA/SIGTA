@@ -123,7 +123,9 @@ describe('ProcedurePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Equivalencia de asignaturas' })).toBeDefined()
     expect(screen.getByText('En un área')).toBeDefined()
     expect(screen.getByText('Titular Uno')).toBeDefined()
-    expect(screen.getByText('Revisar la solicitud · Dirección de Alumnos')).toBeDefined()
+    const summary = screen.getByLabelText('Resumen del trámite')
+    expect(within(summary).getByText('Revisar la solicitud')).toBeDefined()
+    expect(within(summary).getByText('A cargo de Dirección de Alumnos')).toBeDefined()
     expect(screen.getByText('Acción requerida')).toBeDefined()
   })
 
@@ -222,7 +224,7 @@ describe('ProcedurePage', () => {
     renderPage()
 
     await screen.findByRole('heading', { level: 2, name: 'Pasos' })
-    const review = screen.getAllByText('Revisar la solicitud').at(-1)!.closest('div.mantine-Paper-root') as HTMLElement
+    const review = screen.getAllByText('Revisar la solicitud').at(-1)!.closest('li') as HTMLElement
     expect(within(review).getByText('Paso actual')).toBeDefined()
     expect(within(review).getByText('Dirección de Alumnos')).toBeDefined()
   })
@@ -291,7 +293,7 @@ describe('ProcedurePage', () => {
     stubApi(200, detail)
     renderPage()
 
-    await screen.findByText('Revisar la solicitud · Dirección de Alumnos')
+    await screen.findByText('A cargo de Dirección de Alumnos')
     expect(screen.queryByText('Qué se espera ahora')).toBeNull()
   })
 
@@ -337,7 +339,7 @@ describe('ProcedurePage', () => {
     renderPage()
 
     const heading = await screen.findByRole('heading', { level: 2, name: 'Resolución' })
-    const section = heading.parentElement!
+    const section = heading.closest('section')!
     expect(within(section).getByText('Resolución de Decano')).toBeDefined()
     expect(within(section).getByText('resolucion.pdf')).toBeDefined()
     expect(within(section).queryByText('constancia.pdf')).toBeNull()
@@ -359,7 +361,8 @@ describe('ProcedurePage', () => {
     })
     renderPage()
 
-    expect(await screen.findByText(/^Dirección de Alumnos · /)).toBeDefined()
+    const history = await screen.findByRole('list', { name: 'Historial' })
+    expect(within(history).getByText('Dirección de Alumnos')).toBeDefined()
   })
 
   it('shows the history in the order it was recorded, with who, when and what', async () => {
@@ -411,12 +414,10 @@ describe('ProcedurePage', () => {
     renderPage()
 
     await screen.findByRole('heading', { level: 2, name: 'Historial' })
-    const items = screen.getAllByText(/ · \d{2}\/\d{2}\/\d{4}/).map((item) => item.textContent)
-    expect(items).toEqual([
-      'Titular Uno · 16/11/2026, 12:00',
-      'Operativa Dos · 17/11/2026, 12:30',
-      's-2 · 20/11/2026, 10:00',
-    ])
+    const items = Array.from(document.querySelectorAll('time')).map(
+      (time) => `${time.previousElementSibling?.textContent} ${time.textContent}`,
+    )
+    expect(items).toEqual(['Titular Uno 16/11/2026, 12:00', 'Operativa Dos 17/11/2026, 12:30', 's-2 20/11/2026, 10:00'])
     expect(screen.getByText('Salida: Aceptar')).toBeDefined()
     expect(screen.getByText('Documentación completa')).toBeDefined()
     expect(screen.getByText('Derivado a Comisión Curricular, expediente EX-2026-00001')).toBeDefined()
@@ -757,7 +758,7 @@ describe('ProcedurePage attachment', () => {
     renderPage()
 
     const title = await screen.findByText('Documento adjuntado en Revisar la solicitud')
-    const entry = title.closest('.mantine-Timeline-item') as HTMLElement
+    const entry = title.closest('li') as HTMLElement
     expect(within(entry).getByText('Acta')).toBeDefined()
     expect(within(entry).getByRole('button', { name: 'Ver acta.pdf' })).toBeDefined()
     const link = within(entry).getByRole('link', { name: 'Descargar acta.pdf' })
@@ -942,8 +943,8 @@ describe('ProcedurePage correction request', () => {
     stubPost(201, {}, { ...awaiting, as_applicant: true, can_act: false, correction_requests: [withoutWho] })
     renderPage()
 
-    expect(await screen.findByText('Subsanación pendiente')).toBeDefined()
-    expect(screen.getByText(/^Dirección de Alumnos · /)).toBeDefined()
+    const pending = (await screen.findByText('Subsanación pendiente')).closest('[role="alert"], section') as HTMLElement
+    expect(within(pending).getByText('Dirección de Alumnos', { selector: '[data-who]' })).toBeDefined()
     expect(screen.queryByText(/Operativo Uno/)).toBeNull()
     expect(screen.getByText('Lo que pide la subsanación, a cargo del titular.')).toBeDefined()
   })

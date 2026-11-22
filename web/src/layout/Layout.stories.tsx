@@ -7,10 +7,14 @@ import type { components } from '../api/schema'
 import { AppHeader } from './AppHeader'
 import { fixtures } from '../dev/administrationFixtures'
 import { fixtures as procedureFixtures } from '../dev/procedureFixtures'
+import { fixtures as startFixtures } from '../dev/startProcedureFixtures'
+import { AboutPage } from '../pages/AboutPage'
 import { AdministrationPage } from '../pages/AdministrationPage'
+import { CatalogPage } from '../pages/CatalogPage'
 import { HomePage } from '../pages/HomePage'
 import { InboxPage } from '../pages/InboxPage'
 import { ProcedurePage } from '../pages/ProcedurePage'
+import { StartProcedurePage } from '../pages/StartProcedurePage'
 import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
 import { UserMenu } from './UserMenu'
@@ -18,6 +22,7 @@ import { UserMenu } from './UserMenu'
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
 type MyProcedure = components['schemas']['MyProcedure']
+type CatalogEntry = components['schemas']['CatalogEntry']
 
 // The frame of the pages runs inside a router, as in the app. The session,
 // the inbox and the procedures of the person are invented, so the stories
@@ -104,6 +109,30 @@ const mine: MyProcedure[] = [
   },
 ]
 
+// The catalog: three procedure types, one with all that a type can say and
+// two shorter ones.
+const catalog: CatalogEntry[] = [
+  {
+    ...startFixtures.demo,
+    id: 1,
+    description: 'Para que una asignatura aprobada en otra carrera o universidad se reconozca en el plan vigente.',
+    deadlines: ['Hasta 30 días antes del cierre de inscripción del cuatrimestre'],
+    admissibility: ['Ser alumno regular de la facultad', 'Tener aprobada la asignatura de origen'],
+  },
+  {
+    ...startFixtures.one,
+    id: 2,
+    description: 'Una constancia de alumno regular, de inscripción o de materias aprobadas.',
+  },
+  {
+    ...startFixtures.demo,
+    id: 3,
+    name: 'Pase de carrera',
+    description: 'Para pasar a otra carrera de la facultad conservando lo aprobado.',
+    deadlines: ['Durante el período de reinscripción'],
+  },
+]
+
 // seedAdministration puts the demo areas, memberships and administrators of
 // the development preview where the administration reads them.
 function seedAdministration(client: QueryClient) {
@@ -127,7 +156,14 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
     })
   }
   client.setQueryData(['me', 'procedures'], mine)
+  client.setQueryData(['procedure', 'm1'], {
+    ...procedureFixtures.correctionRequested,
+    id: 'm1',
+    as_applicant: true,
+    can_act: false,
+  })
   seedAdministration(client)
+  client.setQueryData(['procedure-types'], catalog)
   const router = createMemoryRouter(
     [
       {
@@ -136,6 +172,7 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
         element: <AppLayout />,
         children: [
           { path: 'procedures/:id', element: <ProcedurePage /> },
+          { path: 'catalog/:procedureTypeId/start', element: <StartProcedurePage /> },
           { path: '*', element: children },
         ],
       },
@@ -255,6 +292,67 @@ export const AdministrationStory: StoryObj = {
       },
     },
   },
+}
+
+export const CatalogStory: StoryObj = {
+  name: 'Catálogo',
+  render: () => (
+    <Page user={applicant} path="/catalog">
+      <CatalogPage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El catálogo como un índice: cada tipo de trámite bajo un filete, con su nombre, qué es y el botón para iniciarlo en el primer tercio, y lo que pide (datos, documentos, plazos y condiciones) como una lista de definiciones en el resto.',
+      },
+    },
+  },
+}
+
+export const StartProcedureStory: StoryObj = {
+  name: 'Iniciar un trámite',
+  render: () => (
+    <Page user={applicant} path="/catalog/1/start">
+      {null}
+    </Page>
+  ),
+}
+
+export const ProcedureStaff: StoryObj = {
+  name: 'Detalle del trámite, personal',
+  render: () => (
+    <Page user={staff} path="/procedures/p1">
+      {null}
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El detalle de un trámite sin cajas: el tipo en display, y al costado un resumen entre filetes que queda a la vista al bajar. Cada parte (datos, historial, pasos) abre con un filete y su título; los pasos van numerados, y el actual lo dice en palabras.',
+      },
+    },
+  },
+}
+
+export const ProcedureApplicant: StoryObj = {
+  name: 'Detalle del trámite, titular',
+  render: () => (
+    <Page user={applicant} path="/procedures/m1">
+      {null}
+    </Page>
+  ),
+}
+
+export const AboutStory: StoryObj = {
+  name: 'Acerca de SIGTA',
+  render: () => (
+    <Page user={applicant} path="/about">
+      <AboutPage />
+    </Page>
+  ),
 }
 
 export const AppHeaderStory: StoryObj = {

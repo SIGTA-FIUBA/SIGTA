@@ -1,32 +1,18 @@
-import {
-  Alert,
-  Anchor,
-  Box,
-  Container,
-  Grid,
-  Group,
-  List,
-  Paper,
-  SimpleGrid,
-  Skeleton,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core'
+import { Alert, Anchor, Box, Container, Grid, Group, List, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useInView } from 'motion/react'
 import { useRef, type ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
 import { useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { CountUp } from '../components/CountUp/CountUp'
+import { Figure } from '../components/Figure/Figure'
+import { Figures } from '../components/Figures/Figures'
 import { EmptyState } from '../components/EmptyState/EmptyState'
-import { Icon } from '../components/Icon/Icon'
 import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
 import { StepList } from '../components/StepList/StepList'
 import { applicantHowTo, staffHowTo } from '../content/platform'
-import { movedText, procedurePath, procedureStates } from '../content/procedures'
+import { movedText, procedurePath, procedureStates, standing } from '../content/procedures'
 
 type User = components['schemas']['User']
 type Item = components['schemas']['ProcedureListItem']
@@ -47,30 +33,6 @@ function todayText() {
 
 function byLastMove(a: Item, b: Item) {
   return Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
-}
-
-// Figure is one figure of the staff: a large number that counts up to its
-// value and what it counts, between the rules of the row of figures. The whole
-// cell is a link to the inbox with that filter; under the pointer a tint rises
-// from its foot, the number lifts and the arrow moves forward.
-function Figure({ value, label, to }: { value: number; label: string; to: string }) {
-  return (
-    <Paper component={Link} to={to} variant="figure" radius={0} px={{ base: 'md', md: 'lg' }} py="lg">
-      <Group justify="space-between" align="flex-end" wrap="nowrap" gap="sm">
-        <Stack gap="xs">
-          <Text component="div" variant="figure" c="fiuba.9" data-figure>
-            <CountUp value={value} />
-          </Text>
-          <Text size="sm" c="gray.7">
-            {label}
-          </Text>
-        </Stack>
-        <Box data-chevron aria-hidden>
-          <Icon name="chevron-right" size={16} />
-        </Box>
-      </Group>
-    </Paper>
-  )
 }
 
 // figures are what the staff has in hand: what needs action and what is in
@@ -94,11 +56,11 @@ function Summary() {
     return <Skeleton h="var(--sigta-figures-height)" />
   }
   return (
-    <SimpleGrid variant="figures" cols={2} spacing={0} aria-label="Resumen">
+    <Figures label="Resumen">
       {figures(list).map((figure) => (
         <Figure key={figure.to} {...figure} />
       ))}
-    </SimpleGrid>
+    </Figures>
   )
 }
 
@@ -137,15 +99,6 @@ function Condensed({ shown, greeting }: { shown: boolean; greeting: string }) {
 
 const staffColumns = ['Trámite', 'Paso', 'A cargo de', 'Último movimiento'] as const
 const myColumns = ['Trámite', 'Paso', 'Estado', 'Último movimiento'] as const
-
-// standing says who acts now on a procedure of the inbox. One waiting on its
-// applicant is in no area's hands, even if its open step belongs to one.
-function standing(item: Item) {
-  if (item.state === 'with_applicant' || !item.area) {
-    return { text: procedureStates[item.state].label }
-  }
-  return { label: 'A cargo de', text: item.area.name }
-}
 
 function Pending({ list }: { list: ProcedureList }) {
   const items = list.items.filter((item) => item.actionable).sort(byLastMove)

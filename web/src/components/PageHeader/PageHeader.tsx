@@ -16,9 +16,11 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
     <Group justify="space-between" align="flex-start" gap="md">
       <Stack gap="xs">
-        <Title order={1}>{title}</Title>
+        <Title order={1} variant="display" c="fiuba.9">
+          {title}
+        </Title>
         {description && (
-          <Text c="dimmed" maw="var(--sigta-measure)">
+          <Text c="gray.7" maw="var(--sigta-measure)">
             {description}
           </Text>
         )}

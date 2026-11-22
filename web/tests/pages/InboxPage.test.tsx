@@ -86,21 +86,21 @@ function renderAt(path = '/inbox') {
   return router
 }
 
-// The table and the cards are both in the DOM: CSS shows one per screen width.
-// The tests read the table.
+// Each procedure is a row of the list, one link with all its columns.
 async function tableRows() {
-  const table = await screen.findByRole('table')
-  return within(table).getAllByRole('row').slice(1)
+  const list = await screen.findByRole('list', { name: 'Trámites de la bandeja' })
+  return within(list).getAllByRole('link')
 }
 
+// listedNames are the applicants of the rows, in their order.
 function listedNames() {
-  const table = screen.queryByRole('table')
-  if (table === null) {
+  const list = screen.queryByRole('list', { name: 'Trámites de la bandeja' })
+  if (list === null) {
     return []
   }
-  return within(table)
+  return within(list)
     .getAllByRole('link')
-    .map((link) => link.textContent)
+    .map((link) => within(link).getByText(/^Titular/).textContent)
 }
 
 describe('InboxPage', () => {
@@ -117,27 +117,35 @@ describe('InboxPage', () => {
     expect(Object.fromEntries(new URL(fetch.mock.calls[0]![0].url).searchParams)).toEqual({ view: 'all' })
   })
 
-  it('shows the procedure type, pending step, who has it, state and age', async () => {
+  it('shows the procedure type, the applicant, the pending step, who has it and its age', async () => {
     stubApi(200, { items: [pending], ...options })
     renderAt()
 
     const [row] = await tableRows()
-    expect(within(row!).getByRole('link', { name: 'Titular Uno' })).toBeVisible()
+    expect(row).toHaveAttribute('href', '/procedures/p-1')
+    expect(within(row!).getByText('Titular Uno')).toBeVisible()
     expect(within(row!).getByText('Equivalencia')).toBeVisible()
     expect(within(row!).getByText('Registrar expediente')).toBeVisible()
-    expect(within(row!).getByText('Dirección de Alumnos')).toBeVisible()
-    expect(within(row!).getByText('En un área')).toBeVisible()
-    expect(within(row!).getByText('3 días')).toBeVisible()
+    expect(row).toHaveTextContent('A cargo de Dirección de Alumnos')
+    expect(within(row!).getByText('Iniciado hace 3 días')).toBeVisible()
     expect(within(row!).getByText('Hace 3 días')).toBeVisible()
   })
 
-  it('shows the applicant in charge of a step of their own, and a name the API does not know', async () => {
+  it('says when a procedure is referred to another area', async () => {
+    stubApi(200, { items: [{ ...evaluating, state: 'referred' }], ...options })
+    renderAt('/inbox?view=all')
+
+    const [row] = await tableRows()
+    expect(row).toHaveTextContent('A cargo de Comisión Curricular (derivado)')
+  })
+
+  it('says a step of the applicant waits on them, and a name the API does not know', async () => {
     stubApi(200, { items: [{ ...waiting, applicant: { id: 'a-3', name: '' } }], ...options })
     renderAt('/inbox?view=all')
 
     const [row] = await tableRows()
-    expect(within(row!).getByRole('link', { name: 'Titular sin nombre registrado' })).toBeVisible()
-    expect(within(row!).getByText('Titular')).toBeVisible()
+    expect(within(row!).getByText('Titular sin nombre registrado')).toBeVisible()
+    expect(within(row!).getByText('Pendiente del titular')).toBeVisible()
   })
 
   it('shows only what needs action by default', async () => {
@@ -155,9 +163,9 @@ describe('InboxPage', () => {
     renderAt('/inbox?view=all&type=3')
 
     await tableRows()
-    expect(screen.getByRole('button', { name: /Acción requerida\s*1/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /En un área\s*2/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /Pendiente del titular\s*1/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /1\s*Acción requerida/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /2\s*En un área/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /1\s*Pendiente del titular/ })).toBeVisible()
   })
 
   it('lists everything in progress, marking what needs action, oldest first', async () => {
@@ -209,7 +217,7 @@ describe('InboxPage', () => {
     const router = renderAt('/inbox?view=all&area=office')
 
     const [row] = await tableRows()
-    await userEvent.click(within(row!).getByRole('link', { name: 'Titular Uno' }))
+    await userEvent.click(row!)
     expect(router.state.location.pathname).toBe('/procedures/p-1')
     await userEvent.click(screen.getByRole('link', { name: 'Volver a la bandeja de trámites' }))
 

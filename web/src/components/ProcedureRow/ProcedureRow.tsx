@@ -22,6 +22,9 @@ export type ProcedureRowProps = {
   note?: string
   // date is the last news, already written for people.
   date: string
+  // age is how long the procedure has been in progress, under the date, for
+  // the lists that sort by it.
+  age?: string
 }
 
 // ProcedureRow is one procedure in a list, in four columns that answer what
@@ -29,7 +32,7 @@ export type ProcedureRowProps = {
 // it is, and its last news. The whole row is one link, with no box: the list
 // draws a rule between the rows and a mark that follows the pointer. Opening
 // it, the type becomes the title of the page it opens.
-export function ProcedureRow({ to, state, type, applicant, step, standing, note, date }: ProcedureRowProps) {
+export function ProcedureRow({ to, state, type, applicant, step, standing, note, date, age }: ProcedureRowProps) {
   const opening = useViewTransitionState(to)
   return (
     <Paper
@@ -81,9 +84,16 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
             )}
             {standing.text}
           </Text>
-          <Text size="sm" c="gray.7" ta={{ md: 'right' }} flex={{ md: rowColumns[3] }}>
-            {date}
-          </Text>
+          <Stack gap="xxs" ta={{ md: 'right' }} flex={{ md: rowColumns[3] }}>
+            <Text size="sm" c="gray.7">
+              {date}
+            </Text>
+            {age && (
+              <Text size="xs" c="gray.7">
+                {age}
+              </Text>
+            )}
+          </Stack>
         </Flex>
         <Box data-chevron aria-hidden>
           <Icon name="chevron-right" size={16} />

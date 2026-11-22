@@ -1,31 +1,12 @@
-import {
-  Alert,
-  Anchor,
-  Badge,
-  Group,
-  Paper,
-  SegmentedControl,
-  Select,
-  SimpleGrid,
-  Skeleton,
-  Stack,
-  Table,
-  Text,
-  Title,
-} from '@mantine/core'
-import { motion } from 'motion/react'
-import { Link, useLocation, useSearchParams, useViewTransitionState } from 'react-router'
+import { Alert, Grid, SegmentedControl, Select, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { useLocation, useSearchParams } from 'react-router'
 import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { CountUp } from '../components/CountUp/CountUp'
-import { StatusBadge } from '../components/StatusBadge/StatusBadge'
-import { procedurePath, procedureStates, stateNames } from '../content/procedures'
-import { enter, move } from '../theme/motion'
-
-// The parts of the inbox that move: the mark of the selected tile, which
-// slides to the next one selected, and the rows, which arrive one after the
-// other and travel to their place when the order changes.
-const MotionRow = motion.create(Table.Tr)
+import { Figure } from '../components/Figure/Figure'
+import { Figures } from '../components/Figures/Figures'
+import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
+import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
+import { movedText, procedurePath, stateNames, standing } from '../content/procedures'
 
 type ProcedureListItem = components['schemas']['ProcedureListItem']
 type ProcedureState = components['schemas']['ProcedureState']
@@ -85,228 +66,38 @@ function compare(sort: ProcedureListSort) {
   }
 }
 
-function daysSince(timestamp: string) {
-  return Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 86_400_000))
-}
-
+// ageText says how long a procedure has been in progress.
 function ageText(days: number) {
   if (days === 0) {
-    return 'Hoy'
+    return 'Iniciado hoy'
   }
-  return days === 1 ? '1 día' : `${days} días`
+  return days === 1 ? 'Iniciado hace 1 día' : `Iniciado hace ${days} días`
 }
 
-function movedText(timestamp: string) {
-  const days = daysSince(timestamp)
-  if (days === 0) {
-    return 'Hoy'
-  }
-  return days === 1 ? 'Hace 1 día' : `Hace ${days} días`
-}
+const columns = ['Trámite', 'Paso', 'A cargo de', 'Último movimiento'] as const
 
-type Tile = { key: string; label: string; count: number; hint: string; selected: boolean; onSelect: () => void }
-
-// SummaryTile is a figure of the inbox and the filter it applies. The
-// selected one carries the mark (a tint and a line in the action color at
-// its foot), which travels from the tile left to the one chosen, so the eye
-// follows the filter that changed.
-function SummaryTile({ tile }: { tile: Tile }) {
+// ProcedureList is the list of the inbox, in the rows of the home page: the
+// type and the applicant, the open step, who has it and the last news with
+// the age. In the view of everything, what needs action of this account says
+// so. The rows travel to their new place when the order or a filter changes.
+function ProcedureList({ items, from, showAction }: { items: ProcedureListItem[]; from: string; showAction: boolean }) {
   return (
-    <Paper
-      component="button"
-      type="button"
-      variant="interactive"
-      onClick={tile.onSelect}
-      aria-pressed={tile.selected}
-      withBorder
-      pos="relative"
-      p="md"
-      w="100%"
-      h="100%"
-      ta="left"
-    >
-      {tile.selected && (
-        <Paper
-          variant="selection"
-          renderRoot={(props) => <motion.div {...props} layoutId="inbox-selection" transition={move} />}
-        />
-      )}
-      <Stack gap="xs" pos="relative">
-        <Text size="sm" fw={500} c="dimmed">
-          {tile.label}
-        </Text>
-        <Text component="div" fz="xl" fw={600}>
-          <CountUp value={tile.count} />
-        </Text>
-        <Text size="xs" c="dimmed">
-          {tile.hint}
-        </Text>
-      </Stack>
-    </Paper>
-  )
-}
-
-function StateBadge({ item }: { item: ProcedureListItem }) {
-  return <StatusBadge tone={procedureStates[item.state].tone}>{procedureStates[item.state].label}</StatusBadge>
-}
-
-// A step of the applicant has no area: the applicant is shown as the one in
-// charge.
-function responsibleText(item: ProcedureListItem) {
-  return item.area?.name ?? 'Titular'
-}
-
-// ProcedureLink opens the procedure with a view transition: the type of the
-// procedure under the link becomes the title of the page it opens
-// (data-transition-title, global.css), so the row and the page read as one.
-function ProcedureLink({ item, from }: { item: ProcedureListItem; from: string }) {
-  return (
-    <Anchor component={Link} to={procedurePath(item.id)} state={{ from }} viewTransition fw={600}>
-      {item.applicant.name || 'Titular sin nombre registrado'}
-    </Anchor>
-  )
-}
-
-function ProcedureType({ item }: { item: ProcedureListItem }) {
-  const opening = useViewTransitionState(procedurePath(item.id))
-  return (
-    <Text size="sm" c="dimmed" data-transition-title={opening || undefined}>
-      {item.procedure_type_name}
-    </Text>
-  )
-}
-
-function ActionBadge({ item, show }: { item: ProcedureListItem; show: boolean }) {
-  return show && item.actionable ? (
-    <Badge variant="filled" size="sm">
-      Acción requerida
-    </Badge>
-  ) : null
-}
-
-function ProceduresTable({
-  items,
-  from,
-  showAction,
-}: {
-  items: ProcedureListItem[]
-  from: string
-  showAction: boolean
-}) {
-  return (
-    <Table.ScrollContainer minWidth={860} visibleFrom="md">
-      <Table verticalSpacing="sm" highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Trámite</Table.Th>
-            <Table.Th>Instancia pendiente</Table.Th>
-            <Table.Th>Estado</Table.Th>
-            <Table.Th ta="right">Antigüedad</Table.Th>
-            <Table.Th ta="right">Último movimiento</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {items.map((item, index) => (
-            <MotionRow
-              key={item.id}
-              layout="position"
-              transition={move}
-              variants={enter}
-              initial="hidden"
-              animate="shown"
-              custom={index}
-            >
-              <Table.Td>
-                <Stack gap={0}>
-                  <ProcedureLink item={item} from={from} />
-                  <ProcedureType item={item} />
-                </Stack>
-              </Table.Td>
-              <Table.Td>
-                <Stack gap={0}>
-                  <Group gap="xs">
-                    <Text fw={500}>{item.step_name}</Text>
-                    <ActionBadge item={item} show={showAction} />
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {responsibleText(item)}
-                  </Text>
-                </Stack>
-              </Table.Td>
-              <Table.Td>
-                <StateBadge item={item} />
-              </Table.Td>
-              <Table.Td ta="right">{ageText(item.age_days)}</Table.Td>
-              <Table.Td ta="right">
-                <Text size="sm" c="dimmed">
-                  {movedText(item.last_moved_at)}
-                </Text>
-              </Table.Td>
-            </MotionRow>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Table.ScrollContainer>
-  )
-}
-
-function ProcedureCards({
-  items,
-  from,
-  showAction,
-}: {
-  items: ProcedureListItem[]
-  from: string
-  showAction: boolean
-}) {
-  return (
-    <Stack gap="sm" hiddenFrom="md">
-      {items.map((item, index) => (
-        <Paper
+    <ProcedureRows label="Trámites de la bandeja" columns={columns}>
+      {items.map((item) => (
+        <ProcedureRow
           key={item.id}
-          withBorder
-          p="md"
-          renderRoot={(props) => (
-            <motion.article
-              {...props}
-              layout="position"
-              transition={move}
-              variants={enter}
-              initial="hidden"
-              animate="shown"
-              custom={index}
-            />
-          )}
-        >
-          <Stack gap="xs">
-            <Group justify="space-between" align="flex-start" gap="xs">
-              <Stack gap={0}>
-                <ProcedureLink item={item} from={from} />
-                <ProcedureType item={item} />
-              </Stack>
-              <StateBadge item={item} />
-            </Group>
-            <Stack gap={0}>
-              <Group gap="xs">
-                <Text fw={500}>{item.step_name}</Text>
-                <ActionBadge item={item} show={showAction} />
-              </Group>
-              <Text size="sm" c="dimmed">
-                {responsibleText(item)}
-              </Text>
-            </Stack>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Iniciado hace {ageText(item.age_days).toLowerCase()}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Último movimiento: {movedText(item.last_moved_at).toLowerCase()}
-              </Text>
-            </Group>
-          </Stack>
-        </Paper>
+          to={procedurePath(item.id)}
+          state={{ from }}
+          type={item.procedure_type_name}
+          applicant={item.applicant.name || 'Titular sin nombre registrado'}
+          note={showAction && item.actionable ? 'Acción requerida' : undefined}
+          step={{ name: item.step_name }}
+          standing={standing(item)}
+          date={movedText(item.last_moved_at)}
+          age={ageText(item.age_days)}
+        />
       ))}
-    </Stack>
+    </ProcedureRows>
   )
 }
 
@@ -336,31 +127,36 @@ export function InboxPage() {
   const hasFilters = filters.procedureType !== undefined || filters.state !== undefined || filters.area !== undefined
   const from = `${location.pathname}${location.search}`
 
-  const stateTile = (state: ProcedureState, hint: string): Tile => ({
+  // The figures of the inbox, which filter the list: what needs action of
+  // this account and each state, counted over everything visible.
+  const stateTile = (state: ProcedureState) => ({
     key: state,
     label: stateNames[state],
-    count: countByState(state),
-    hint,
+    value: countByState(state),
     selected: filters.view === 'all' && filters.state === state,
     onSelect: () => updateParams({ view: 'all', state: filters.state === state ? null : state }),
   })
-  const tiles: Tile[] = [
+  const tiles = [
     {
       key: 'mine',
       label: 'Acción requerida',
-      count: actionableCount,
-      hint: 'Pasos abiertos que exigen los permisos de esta cuenta',
+      value: actionableCount,
       selected: filters.view === 'mine' && !hasFilters,
       onSelect: () => updateParams({ view: null, state: null, type: null, area: null }),
     },
-    stateTile('in_office', 'En las áreas del personal'),
-    stateTile('referred', 'En otra área, sin volver todavía al área de la que salió'),
-    stateTile('with_applicant', 'Documentación o datos solicitados'),
+    stateTile('in_office'),
+    stateTile('referred'),
+    stateTile('with_applicant'),
   ]
 
   return (
-    <Stack gap="lg">
-      <Title order={1}>Bandeja de trámites</Title>
+    <Stack gap="xl">
+      <Stack gap="xs">
+        <Title order={1} variant="display" c="fiuba.9">
+          Bandeja de trámites
+        </Title>
+        <Text c="gray.7">Los trámites en curso que ve esta cuenta, con el paso en que está cada uno.</Text>
+      </Stack>
 
       {procedures.isPending && (
         <Stack gap="sm" aria-label="Cargando los trámites">
@@ -380,17 +176,20 @@ export function InboxPage() {
 
       {procedures.isSuccess && (
         <>
-          <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
-            {tiles.map((tile) => (
-              <SummaryTile key={tile.key} tile={tile} />
+          <Figures label="Resumen por estado">
+            {tiles.map(({ key, ...tile }) => (
+              <Figure key={key} {...tile} />
             ))}
-          </SimpleGrid>
+          </Figures>
 
-          <Paper withBorder>
-            <Stack gap={0}>
-              <Group justify="space-between" align="end" gap="sm" p="md">
+          {/* On a wide screen the filters take the first quarter of the
+              grid, as the titles of the home page, and the list the rest. */}
+          <Grid gap={{ base: 'lg', lg: 'xl' }}>
+            <Grid.Col span={{ base: 12, lg: 3 }}>
+              <Stack gap="md" component="search" aria-label="Filtros">
                 <SegmentedControl
                   aria-label="Trámites a mostrar"
+                  fullWidth
                   value={filters.view}
                   onChange={(value) => updateParams({ view: value === 'mine' ? null : value })}
                   data={[
@@ -398,7 +197,7 @@ export function InboxPage() {
                     { value: 'all', label: `Todos (${all.length})` },
                   ]}
                 />
-                <Group align="end" gap="sm">
+                <SimpleGrid cols={{ base: 2, lg: 1 }} spacing="md">
                   <Select
                     label="Tipo de trámite"
                     placeholder="Todos"
@@ -430,11 +229,15 @@ export function InboxPage() {
                     value={filters.sort}
                     onChange={(value) => updateParams({ sort: value === 'oldest' ? null : value })}
                   />
-                </Group>
-              </Group>
-
+                </SimpleGrid>
+                <Text size="sm" c="gray.7" aria-live="polite">
+                  {shown.length === 1 ? '1 trámite' : `${shown.length} trámites`}
+                </Text>
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, lg: 9 }}>
               {shown.length === 0 ? (
-                <Text c="dimmed" p="md">
+                <Text c="gray.7">
                   {hasFilters
                     ? 'No hay trámites que coincidan con los filtros.'
                     : filters.view === 'mine'
@@ -442,16 +245,10 @@ export function InboxPage() {
                       : 'No hay trámites en curso.'}
                 </Text>
               ) : (
-                <>
-                  <ProceduresTable items={shown} from={from} showAction={filters.view === 'all'} />
-                  <ProcedureCards items={shown} from={from} showAction={filters.view === 'all'} />
-                </>
+                <ProcedureList items={shown} from={from} showAction={filters.view === 'all'} />
               )}
-              <Text size="sm" c="dimmed" p="md" aria-live="polite">
-                {shown.length === 1 ? '1 trámite' : `${shown.length} trámites`}
-              </Text>
-            </Stack>
-          </Paper>
+            </Grid.Col>
+          </Grid>
         </>
       )}
     </Stack>

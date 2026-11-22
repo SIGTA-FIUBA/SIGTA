@@ -369,7 +369,9 @@ export function StartProcedurePage() {
 
   return (
     <Stack gap="lg">
-      <Title order={1}>{entry ? entry.name : 'Iniciar un trámite'}</Title>
+      <Title order={1} variant="display" c="fiuba.9">
+        {entry ? entry.name : 'Iniciar un trámite'}
+      </Title>
       {catalog.isPending && <Loader aria-label="Cargando el trámite…" />}
       {catalog.isError && (
         <Alert color="red" role="alert">
