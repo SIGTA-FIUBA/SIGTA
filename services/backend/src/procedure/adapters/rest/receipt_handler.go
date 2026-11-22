@@ -71,7 +71,7 @@ func receiptPDF(r input.Receipt, names map[string]string) []byte {
 	doc.Space()
 	doc.Field("Trámite", p.ID)
 	doc.Field("Tipo de trámite", fmt.Sprintf("%s (versión %d)", r.Name, p.Version))
-	doc.Field("Titular", nameOf(p.Applicant, names))
+	doc.Field("Titular", nameOrID(names[p.Applicant], p.Applicant))
 	doc.Field("Estado", stateNames[r.State])
 	if step := stepOf(r.Steps, p.OpenStep); step != nil {
 		doc.Field("Paso abierto", step.Step.Name+" · "+responsibleOf(step))
@@ -117,7 +117,7 @@ func routeStep(doc *pdf.Document, r input.Receipt, e domain.Event, names map[str
 	by := "Personal"
 	switch {
 	case e.By != "":
-		by = nameOf(e.By, names)
+		by = nameOrID(names[e.By], e.By)
 	case step != nil:
 		by = responsibleOf(step)
 	}
@@ -161,13 +161,6 @@ func routeStep(doc *pdf.Document, r input.Receipt, e domain.Event, names map[str
 
 func dateTime(t time.Time) string {
 	return t.In(argentina).Format("02/01/2006 15:04")
-}
-
-func nameOf(id string, names map[string]string) string {
-	if name := names[id]; name != "" {
-		return name
-	}
-	return id
 }
 
 func stepOf(steps []detail.Step, id string) *detail.Step {
