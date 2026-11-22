@@ -55,8 +55,10 @@ func (h *ProcedureHandler) DownloadProcedureReceipt(ctx context.Context, req api
 		Body:          strings.NewReader(string(content)),
 		ContentLength: int64(len(content)),
 		Headers: api.DownloadProcedureReceipt200ResponseHeaders{
-			ContentDisposition: mime.FormatMediaType(dispositionAttachment, map[string]string{"filename": "comprobante-" + r.Procedure.ID + ".pdf"}),
-			CacheControl:       noStore,
+			ContentDisposition:    mime.FormatMediaType(dispositionAttachment, map[string]string{"filename": "comprobante-" + r.Procedure.ID + ".pdf"}),
+			XContentTypeOptions:   noSniff,
+			ContentSecurityPolicy: sandbox,
+			CacheControl:          noStore,
 		},
 	}, nil
 }
@@ -74,28 +76,32 @@ func receiptPDF(r input.Receipt, names map[string]string) []byte {
 	doc.Field("Titular", nameOrID(names[p.Applicant], p.Applicant))
 	doc.Field("Estado", stateNames[r.State])
 	if step := stepOf(r.Steps, p.OpenStep); step != nil {
-		doc.Field("Paso abierto", step.Step.Name+" · "+responsibleOf(step))
+		doc.Field("Paso actual", step.Step.Name+" · "+responsibleOf(step))
 	}
 	if ref := r.Referral; ref != nil {
-		doc.Field("Derivado a", fmt.Sprintf("%s, desde %s", ref.Area.Name, ref.From.Name))
+		doc.Field("Derivación", referralText(*ref))
 	}
 	doc.Field("Iniciado el", dateTime(p.StartedAt))
-	doc.Field("Último movimiento", dateTime(p.MovedAt))
+	if p.Closed() {
+		doc.Field("Cerrado el", dateTime(p.MovedAt))
+	} else {
+		doc.Field("Último movimiento", dateTime(p.MovedAt))
+	}
 	doc.Field("Emitido el", dateTime(r.IssuedAt))
 
-	doc.Heading("Recorrido")
+	doc.Heading("Historial")
 	if len(r.History) == 0 {
 		doc.Text("Todavía no hay pasos hechos.")
 	}
 	for _, e := range r.History {
-		routeStep(doc, r, e, names)
+		historyEvent(doc, r, e, names)
 	}
 	doc.Space()
 	doc.Note("Este comprobante deja constancia del estado y del recorrido del trámite en SIGTA cuando se emitió. No es una resolución ni reemplaza a la que se adjunte al trámite. Horarios de Argentina.")
 	return doc.Bytes()
 }
 
-func routeStep(doc *pdf.Document, r input.Receipt, e domain.Event, names map[string]string) {
+func historyEvent(doc *pdf.Document, r input.Receipt, e domain.Event, names map[string]string) {
 	step := stepOf(r.Steps, e.Step)
 	name := e.Step
 	if step != nil {
@@ -157,6 +163,16 @@ func routeStep(doc *pdf.Document, r input.Receipt, e domain.Event, names map[str
 	if e.Declared {
 		doc.Indented("Hecho fuera de SIGTA, declarado por quien lo confirmó")
 	}
+}
+
+// referralText says where a referred procedure is and for how long, as the
+// procedure page does.
+func referralText(r detail.Referral) string {
+	days := fmt.Sprintf("%d días", r.DaysWithoutReturn)
+	if r.DaysWithoutReturn == 1 {
+		days = "1 día"
+	}
+	return fmt.Sprintf("En %s, desde %s. %s sin retorno.", r.Area.Name, r.From.Name, days)
 }
 
 func dateTime(t time.Time) string {

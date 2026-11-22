@@ -1038,6 +1038,16 @@ paths:
               description: Siempre attachment, con un nombre que lleva el identificador del trámite
               schema:
                 type: string
+            X-Content-Type-Options:
+              required: true
+              description: Siempre nosniff, como en la descarga de un documento
+              schema:
+                type: string
+            Content-Security-Policy:
+              required: true
+              description: Siempre sandbox, como en la descarga de un documento
+              schema:
+                type: string
             Cache-Control:
               required: true
               description: Siempre no-store, porque tiene datos del titular

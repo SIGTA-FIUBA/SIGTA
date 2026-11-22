@@ -2413,6 +2413,10 @@ export interface operations {
                 headers: {
                     /** @description Siempre attachment, con un nombre que lleva el identificador del trámite */
                     "Content-Disposition": string;
+                    /** @description Siempre nosniff, como en la descarga de un documento */
+                    "X-Content-Type-Options": string;
+                    /** @description Siempre sandbox, como en la descarga de un documento */
+                    "Content-Security-Policy": string;
                     /** @description Siempre no-store, porque tiene datos del titular */
                     "Cache-Control": string;
                     [name: string]: unknown;

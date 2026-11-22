@@ -5980,8 +5980,10 @@ type DownloadProcedureReceiptResponseObject interface {
 }
 
 type DownloadProcedureReceipt200ResponseHeaders struct {
-	CacheControl       string
-	ContentDisposition string
+	CacheControl          string
+	ContentDisposition    string
+	ContentSecurityPolicy string
+	XContentTypeOptions   string
 }
 
 type DownloadProcedureReceipt200ApplicationpdfResponse struct {
@@ -5998,6 +6000,8 @@ func (response DownloadProcedureReceipt200ApplicationpdfResponse) VisitDownloadP
 	}
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.Header().Set("Content-Security-Policy", fmt.Sprint(response.Headers.ContentSecurityPolicy))
+	w.Header().Set("X-Content-Type-Options", fmt.Sprint(response.Headers.XContentTypeOptions))
 	w.WriteHeader(200)
 
 	if closer, ok := response.Body.(io.ReadCloser); ok {
