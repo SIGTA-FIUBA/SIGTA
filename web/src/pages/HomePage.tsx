@@ -53,19 +53,15 @@ function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
 
 // ClosedProcedureCard is not a link as a whole, as MyProcedureCard is, because
 // it holds the buttons to see and download the resolution: its name leads to
-// the detail.
+// the detail. It has no state badge, which would repeat the title of its
+// section.
 function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
   return (
     <Paper withBorder p="md" h="fit-content">
       <Stack gap="xs">
-        <Group justify="space-between" gap="xs" align="flex-start">
-          <Anchor component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`} fw={600}>
-            {procedure.procedure_type_name}
-          </Anchor>
-          <Badge variant="light" color={stateColors[procedure.state]}>
-            {stateNames[procedure.state]}
-          </Badge>
-        </Group>
+        <Anchor component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`} fw={600}>
+          {procedure.procedure_type_name}
+        </Anchor>
         <Text size="sm" c="dimmed">
           Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
         </Text>
