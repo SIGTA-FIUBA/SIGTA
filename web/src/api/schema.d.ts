@@ -570,6 +570,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descarga el comprobante de un trámite
+         * @description Solo para el titular, en curso o cerrado: un PDF con el identificador, el tipo de trámite, el estado, las fechas de inicio, del último movimiento y de emisión, el paso abierto y el recorrido de los pasos con sus fechas, con lo mismo que el titular ve en el detalle. Para el personal de las áreas por las que pasa, como para quien no lo ve, el trámite no existe. No dice el resultado del trámite, que no se modela.
+         */
+        get: operations["downloadProcedureReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}/steps/{stepId}/confirmation": {
         parameters: {
             query?: never;
@@ -2369,6 +2389,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcedureDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadProcedureReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El comprobante */
+            200: {
+                headers: {
+                    /** @description Siempre attachment, con un nombre que lleva el identificador del trámite */
+                    "Content-Disposition": string;
+                    /** @description Siempre no-store, porque tiene datos del titular */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

@@ -19,11 +19,12 @@ import (
 	"backend/src/procedure/ports/input"
 )
 
-// fakeProcedures opens detail, or answers err.
+// fakeProcedures opens detail and issues receipt, or answers err.
 type fakeProcedures struct {
-	detail input.ProcedureDetail
-	mine   []input.MyProcedure
-	err    error
+	detail  input.ProcedureDetail
+	mine    []input.MyProcedure
+	receipt input.Receipt
+	err     error
 }
 
 func (f fakeProcedures) Detail(context.Context, string, string) (input.ProcedureDetail, error) {
@@ -35,7 +36,7 @@ func (f fakeProcedures) Mine(context.Context, string) ([]input.MyProcedure, erro
 }
 
 func (f fakeProcedures) Receipt(context.Context, string, string) (input.Receipt, error) {
-	return input.Receipt{ProcedureDetail: f.detail}, f.err
+	return f.receipt, f.err
 }
 
 // fakePeople knows the names of ana and of the staff member staff-1.
