@@ -113,22 +113,28 @@ func (w *authenticationWorld) server() http.Handler {
 }
 
 // newBrowser keeps cookies like a browser, but stops at each redirect so that
-// a step can see it.
-func (w *authenticationWorld) newBrowser() error {
+// a step can see it. It asks for the server on each request, so a world can
+// build it after the browser.
+func newBrowser(server func() http.Handler) (*http.Client, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	w.client = &http.Client{
+	return &http.Client{
 		Jar: jar,
 		Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 			recorder := httptest.NewRecorder()
-			w.server().ServeHTTP(recorder, r)
+			server().ServeHTTP(recorder, r)
 			return recorder.Result(), nil
 		}),
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-	return nil
+	}, nil
+}
+
+func (w *authenticationWorld) newBrowser() error {
+	client, err := newBrowser(w.server)
+	w.client = client
+	return err
 }
 
 // get takes a path or a full URL, and records the result.
