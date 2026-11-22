@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
+import { MotionGlobalConfig } from 'motion/react'
 import { afterEach, vi } from 'vitest'
 
 afterEach(() => {
   cleanup()
 })
+
+// The tests check what a screen shows and does, not its motion: every
+// animation ends at once, so nothing waits at opacity 0.
+MotionGlobalConfig.skipAnimations = true
 
 // jsdom lacks the browser APIs that Mantine components read, as listed in
 // https://mantine.dev/guides/vitest.

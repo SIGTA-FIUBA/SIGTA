@@ -86,15 +86,106 @@
 }
 
 .stepsItem {
+  position: relative;
   list-style: none;
   padding-top: var(--mantine-spacing-md);
   border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
 }
 
-/* The page (AppShell main) is gray, so the lists and cards on it read
- * white. The landing page (variant="landing") paints its own sections. */
-.page {
-  background-color: var(--mantine-color-gray-0);
+/* Over the gray line, the line in the action color draws from left to right
+ * as the steps come into view, one after the other: it reads the order before
+ * the numbers. Where the browser cannot tie an animation to the scroll, the
+ * gray line stays alone. */
+.stepsItem::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: calc(var(--sigta-border-width) * -1);
+  height: var(--sigta-border-width);
+  background-color: var(--mantine-primary-color-filled);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+@supports (animation-timeline: view()) {
+  .stepsItem::before {
+    animation: draw linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 40%;
+  }
+
+  .stepsItem:nth-child(2)::before {
+    animation-range: entry 35% cover 45%;
+  }
+
+  .stepsItem:nth-child(3)::before {
+    animation-range: entry 50% cover 50%;
+  }
+}
+
+@keyframes draw {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The latest moves (List variant="timeline"): a vertical line with a mark
+ * per move; the newest, on top, in the action color. */
+.timeline {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.timelineItem {
+  --dot: var(--mantine-spacing-xs);
+  --center: calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm) / 2);
+
+  position: relative;
+  list-style: none;
+  padding-inline-start: var(--mantine-spacing-lg);
+  padding-bottom: var(--mantine-spacing-md);
+}
+
+/* The mark sits on the middle of the first line of the entry. */
+.timelineItem::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(var(--center) - var(--dot) / 2);
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background-color: var(--mantine-color-white);
+  box-shadow: inset 0 0 0 var(--sigta-border-width) var(--mantine-color-gray-5);
+}
+
+.timelineItem:first-child::before {
+  background-color: var(--mantine-primary-color-filled);
+  box-shadow: 0 0 0 var(--sigta-nudge) var(--mantine-color-fiuba-1);
+}
+
+/* The line runs from one mark to the next, with a little air around each. */
+.timelineItem:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--dot) / 2 - var(--sigta-border-width) / 2);
+  top: calc(var(--center) + var(--dot) / 2 + var(--sigta-nudge));
+  bottom: calc((var(--center) - var(--dot) / 2 - var(--sigta-nudge)) * -1);
+  width: var(--sigta-border-width);
+  background-color: var(--mantine-color-gray-3);
+}
+
+/* The mark of the selected tile (Paper variant="selection"): it sits under
+ * the content of the tile and moves to the next one selected, so the eye
+ * follows the filter that changed. */
+.selection {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--mantine-color-fiuba-0);
+  box-shadow: inset 0 calc(var(--sigta-nav-bar) * -1) 0 var(--mantine-primary-color-filled);
 }
 
 /* The side navigation (AppShell navbar), the tablet rail and the phone menu:
@@ -195,29 +286,6 @@
   font-weight: var(--mantine-font-weight-bold);
 }
 
-/* A row of figures (Paper variant="figures"), the summary of the home page:
- * one cell per figure, with a vertical divider between them, two columns
- * apart on a phone. The figures fade in, in motion.base. */
-.figures {
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-}
-
-.figures > * + * {
-  border-inline-start: var(--sigta-border-width) solid var(--mantine-color-gray-3);
-}
-
-.figures [data-figure] {
-  animation: fade-in var(--sigta-duration-base) var(--sigta-ease);
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
 /* On a phone every control is at least 44px tall (component.touchTarget in
  * tokens.json), so a finger hits it. A media query cannot read a variable, so
  * 48em repeats breakpoint.sm. */
@@ -234,7 +302,7 @@
     animation: none;
   }
 
-  .figures [data-figure] {
-    animation: none;
+  .stepsItem::before {
+    display: none;
   }
 }

@@ -32,13 +32,14 @@
   text-transform: uppercase;
 }
 
-/* A figure of the landing page, such as the size of the catalog
-   (Text variant="figure"). */
+/* A large figure (Text variant="figure"), such as those of the home header:
+ * tabular, tight and without line height of its own. */
 .figure {
   font-size: var(--sigta-figure-size);
-  font-weight: var(--mantine-font-weight-bold);
   line-height: var(--sigta-figure-line-height);
-  letter-spacing: var(--sigta-tracking-display);
+  letter-spacing: var(--sigta-tracking-figure);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The words a headline highlights (Mark), on a tint of the cyan. */

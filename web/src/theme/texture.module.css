@@ -1,0 +1,182 @@
+/*
+ * The textures: the technical grid of the blueprint and its grain, which the
+ * Styles API cannot write inline. Only theme.ts uses these classes; screens
+ * never import CSS. A texture is background only: it never carries
+ * information, and the text on it keeps its contrast without it.
+ */
+
+/* The blueprint (Paper variant="blueprint"): the navy of the logo with a fine
+ * grid, a marked line every module, a glow of the brand color in the upper
+ * corner that drifts slowly and a grain, so the blue does not read as a flat
+ * screen color. BlueprintPanel writes the pointer position in --pointer-x and
+ * --pointer-y; the grid lights up around it. */
+.blueprint {
+  --grid: var(--sigta-texture-grid);
+  --major: var(--sigta-texture-grid-major);
+  --line: var(--sigta-blueprint-line);
+  --line-major: var(--sigta-blueprint-line-major);
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--sigta-blueprint-text);
+  background-color: var(--sigta-blueprint-background);
+  background-image:
+    linear-gradient(var(--line-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-major) 1px, transparent 1px), linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:
+    var(--major) var(--major),
+    var(--major) var(--major),
+    var(--grid) var(--grid),
+    var(--grid) var(--grid);
+  background-position: -1px -1px;
+}
+
+/* The glow and the grain, under the content. The glow drifts from one corner
+ * to the other in a long, slow loop: it is felt more than seen. */
+.blueprint::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(closest-side, color-mix(in srgb, var(--sigta-blueprint-glow) 55%, transparent), transparent),
+    radial-gradient(closest-side, color-mix(in srgb, var(--mantine-color-fiuba-3) 25%, transparent), transparent);
+  background-size:
+    60% 70%,
+    45% 55%;
+  background-repeat: no-repeat;
+  background-position:
+    100% 0%,
+    0% 100%;
+  animation: drift 24s var(--sigta-ease) infinite alternate;
+}
+
+/* The lit grid around the pointer: the same lines, brighter, shown through a
+ * round mask that follows it. It appears only while the pointer is over the
+ * panel (data-pointer). */
+.blueprint::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background-image:
+    linear-gradient(var(--line-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-major) 1px, transparent 1px),
+    linear-gradient(var(--line-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-major) 1px, transparent 1px),
+    radial-gradient(
+      var(--sigta-texture-glow) circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+      color-mix(in srgb, var(--sigta-blueprint-glow) 22%, transparent),
+      transparent 60%
+    );
+  background-size:
+    var(--major) var(--major),
+    var(--major) var(--major),
+    var(--grid) var(--grid),
+    var(--grid) var(--grid),
+    100% 100%;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(
+    calc(var(--sigta-texture-glow) / 2) circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+    black,
+    transparent
+  );
+  transition: opacity var(--sigta-duration-slow) var(--sigta-ease);
+}
+
+.blueprint[data-pointer]::after {
+  opacity: 1;
+}
+
+/* The grain ([data-grain], drawn by BlueprintPanel), a fixed noise that the
+ * browser renders once from an SVG filter. */
+.blueprint > [data-grain] {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--sigta-texture-grain);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes drift {
+  to {
+    background-position:
+      70% 30%,
+      30% 70%;
+  }
+}
+
+/* The page of the work screens (AppShell main) keeps its gray, with the same
+ * grid in the brand color, very faint, that fades into the gray before the
+ * content gets dense: it frames the header and is gone by the lists. */
+.paper {
+  background-color: var(--mantine-color-gray-0);
+  background-image:
+    linear-gradient(transparent, var(--mantine-color-gray-0) var(--sigta-texture-fade)),
+    linear-gradient(var(--sigta-blueprint-paper) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sigta-blueprint-paper) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    var(--sigta-texture-grid-major) var(--sigta-texture-grid-major),
+    var(--sigta-texture-grid-major) var(--sigta-texture-grid-major);
+  background-position: -1px -1px;
+}
+
+/* A control on the blueprint (Paper variant="on-blueprint"), such as a figure
+ * of the home header that leads to the inbox: transparent, it lights up a
+ * little under the pointer and its arrow ([data-chevron]) moves forward. */
+.onBlueprint {
+  position: relative;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  background-color: transparent;
+  border: var(--sigta-border-width) solid var(--line-major, var(--sigta-blueprint-line-major));
+  transition:
+    background-color var(--sigta-duration-fast) var(--sigta-ease),
+    border-color var(--sigta-duration-fast) var(--sigta-ease);
+}
+
+.onBlueprint:hover {
+  background-color: color-mix(in srgb, var(--sigta-blueprint-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--sigta-blueprint-text) 30%, transparent);
+}
+
+.onBlueprint:active {
+  background-color: color-mix(in srgb, var(--sigta-blueprint-text) 10%, transparent);
+}
+
+.onBlueprint:focus-visible {
+  outline: var(--sigta-focus-width) solid var(--sigta-blueprint-text);
+  outline-offset: var(--sigta-focus-offset);
+}
+
+.onBlueprint [data-chevron] {
+  display: flex;
+  color: var(--sigta-blueprint-muted);
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+.onBlueprint:hover [data-chevron] {
+  color: var(--sigta-blueprint-text);
+  transform: translateX(calc(var(--sigta-nudge) * 2));
+}
+
+/* With reduced motion nothing drifts and the grid does not follow the
+ * pointer. */
+@media (prefers-reduced-motion: reduce) {
+  .blueprint::before {
+    animation: none;
+  }
+
+  .blueprint::after {
+    display: none;
+  }
+}

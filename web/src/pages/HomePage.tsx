@@ -1,11 +1,29 @@
-import { Alert, Anchor, Box, Group, List, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import {
+  Alert,
+  Anchor,
+  Box,
+  Flex,
+  Grid,
+  Group,
+  List,
+  Paper,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
 import { useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { BlueprintPanel } from '../components/BlueprintPanel/BlueprintPanel'
+import { CountUp } from '../components/CountUp/CountUp'
 import { EmptyState } from '../components/EmptyState/EmptyState'
+import { Icon } from '../components/Icon/Icon'
 import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
+import { Reveal } from '../components/Reveal/Reveal'
 import { StepList } from '../components/StepList/StepList'
 import { applicantHowTo, staffHowTo } from '../content/platform'
 import { movedText, procedurePath, procedureStates } from '../content/procedures'
@@ -31,36 +49,47 @@ function byLastMove(a: Item, b: Item) {
   return Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
 }
 
-// Figure is one cell of the summary: a number and what it counts. With a
-// destination, the whole cell is a link to the inbox with that filter.
-function Figure({ value, label, to }: { value: number; label: string; to?: string }) {
-  const content = (
-    <Stack gap="xxs">
-      <Text data-figure fz="xl" lh="xl" fw={600}>
-        {value}
-      </Text>
-      <Text size="xs" c="gray.7">
-        {label}
-      </Text>
-    </Stack>
-  )
-  if (to === undefined) {
-    return <Box p="md">{content}</Box>
-  }
+// Figure is one cell of the summary in the header: a number that counts up
+// to its value and what it counts. The whole cell is a link to the inbox with
+// that filter, and its arrow moves forward under the pointer.
+function Figure({ value, label, to }: { value: number; label: string; to: string }) {
   return (
-    <Paper component={Link} to={to} variant="interactive" radius={0} p="md" td="none" c="inherit">
-      {content}
+    <Paper component={Link} to={to} variant="on-blueprint" radius="sm" p="md">
+      <Group justify="space-between" align="flex-end" wrap="nowrap" gap="sm">
+        <Stack gap="xs">
+          <Text component="div" variant="figure">
+            <CountUp value={value} />
+          </Text>
+          <Text size="sm" c="fiuba.1">
+            {label}
+          </Text>
+        </Stack>
+        <Box data-chevron aria-hidden>
+          <Icon name="chevron-right" size={16} />
+        </Box>
+      </Group>
     </Paper>
   )
 }
 
-function Summary({ list }: { list: ProcedureList }) {
+// Summary is what the staff has in hand, in the header: what needs action and
+// what is in progress, the two figures the inbox gives. While the list loads,
+// it keeps its place.
+function Summary() {
+  const procedures = useInboxProcedures()
+  if (procedures.isError) {
+    return null
+  }
+  const list = procedures.data
+  if (!list) {
+    return <Skeleton h="var(--sigta-figures-height)" />
+  }
   const actionable = list.items.filter((item) => item.actionable).length
   return (
-    <Paper withBorder variant="figures" p={0} aria-label="Resumen">
+    <SimpleGrid cols={2} spacing="sm" aria-label="Resumen">
       <Figure value={actionable} label="Requieren acción" to="/inbox" />
       <Figure value={list.items.length} label="En curso" to="/inbox?view=all" />
-    </Paper>
+    </SimpleGrid>
   )
 }
 
@@ -96,31 +125,34 @@ function Pending({ list }: { list: ProcedureList }) {
 }
 
 // Activity lists the latest moves of every visible procedure, one entry each,
-// with the step where it is now: the list does not say what the move was. A
-// long one wraps instead of running past the screen of a phone.
+// with the step where it is now: the list does not say what the move was. The
+// entries hang from a line, the newest on top. A long one wraps instead of
+// running past the screen of a phone.
 function Activity({ list }: { list: ProcedureList }) {
   const items = [...list.items].sort(byLastMove).slice(0, recentCount)
   if (items.length === 0) {
     return <Text c="dimmed">Todavía no hay movimientos.</Text>
   }
   return (
-    <List listStyleType="none" spacing="sm" aria-label="Movimientos recientes">
-      {items.map((item) => (
-        <List.Item key={item.id}>
-          <Group justify="space-between" wrap="nowrap" gap="md" align="flex-start">
-            <Text size="sm">
-              <Anchor component={Link} to={procedurePath(item.id)} state={{ from: '/' }} inherit>
-                {item.procedure_type_name} de {item.applicant.name}
-              </Anchor>{' '}
-              está en {item.step_name}
-            </Text>
-            <Text size="xs" c="gray.6" flex="none">
-              {movedText(item.last_moved_at)}
-            </Text>
-          </Group>
-        </List.Item>
-      ))}
-    </List>
+    <Reveal>
+      <List variant="timeline" aria-label="Movimientos recientes">
+        {items.map((item) => (
+          <List.Item key={item.id}>
+            <Stack gap="xxs">
+              <Text size="sm">
+                <Anchor component={Link} to={procedurePath(item.id)} state={{ from: '/' }} inherit>
+                  {item.procedure_type_name} de {item.applicant.name}
+                </Anchor>{' '}
+                está en {item.step_name}
+              </Text>
+              <Text size="xs" c="gray.6">
+                {movedText(item.last_moved_at)}
+              </Text>
+            </Stack>
+          </List.Item>
+        ))}
+      </List>
+    </Reveal>
   )
 }
 
@@ -148,8 +180,9 @@ function Section({
   )
 }
 
-// StaffHome is the home of the staff: the summary, what needs action and the
-// latest moves. While the list loads, each part shows its shape.
+// StaffHome is the work of the staff below the header: what needs action,
+// and beside it on a wide screen, the latest moves. While the list loads, each
+// part shows its shape.
 function StaffHome() {
   const procedures = useInboxProcedures()
   if (procedures.isError) {
@@ -161,31 +194,34 @@ function StaffHome() {
   }
   const list = procedures.data
   return (
-    <>
-      {list ? <Summary list={list} /> : <Skeleton h="var(--sigta-figures-height)" />}
-      <Section
-        id="pending"
-        title="Requieren acción"
-        action={
-          <Anchor component={Link} to="/inbox" size="sm">
-            Ver todos
-          </Anchor>
-        }
-      >
-        {list ? (
-          <Pending list={list} />
-        ) : (
-          <Stack gap="xs" aria-label="Cargando los trámites">
-            {Array.from({ length: 3 }, (_, index) => (
-              <Skeleton key={index} h="var(--sigta-row-height)" />
-            ))}
-          </Stack>
-        )}
-      </Section>
-      <Section id="activity" title="Actividad reciente">
-        {list ? <Activity list={list} /> : <Skeleton h="var(--sigta-row-height)" />}
-      </Section>
-    </>
+    <Grid gap="xxl">
+      <Grid.Col span={{ base: 12, lg: 8 }}>
+        <Section
+          id="pending"
+          title="Requieren acción"
+          action={
+            <Anchor component={Link} to="/inbox" size="sm">
+              Ver todos
+            </Anchor>
+          }
+        >
+          {list ? (
+            <Pending list={list} />
+          ) : (
+            <Stack gap="xs" aria-label="Cargando los trámites">
+              {Array.from({ length: 3 }, (_, index) => (
+                <Skeleton key={index} h="var(--sigta-row-height)" />
+              ))}
+            </Stack>
+          )}
+        </Section>
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, lg: 4 }}>
+        <Section id="activity" title="Actividad reciente">
+          {list ? <Activity list={list} /> : <Skeleton h="var(--sigta-row-height)" />}
+        </Section>
+      </Grid.Col>
+    </Grid>
   )
 }
 
@@ -253,10 +289,11 @@ function MyProcedures() {
   )
 }
 
-// HomePage greets the person and shows what to do next. The staff gets the
-// summary, the procedures that need action and the latest moves; everyone,
-// the procedures they started, and how SIGTA is used by their profile. The
-// destinations live in the menu, so no button here repeats them.
+// HomePage greets the person in a navy header with the grid of a blueprint,
+// and shows what to do next. The staff gets its figures in the header, the
+// procedures that need action and the latest moves; everyone, the procedures
+// they started, and how SIGTA is used by their profile. The destinations live
+// in the menu, so no button here repeats them.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -265,12 +302,31 @@ export function HomePage() {
 
   return (
     <Stack gap="xxl">
-      <Stack gap="xxs">
-        <Title order={1}>{firstName ? `Hola, ${firstName}` : 'Inicio'}</Title>
-        <Text size="sm" c="gray.7">
-          {todayText()}
-        </Text>
-      </Stack>
+      <BlueprintPanel component="header" radius="md" p={{ base: 'lg', md: 'xl' }} aria-labelledby="greeting">
+        <Flex
+          direction={{ base: 'column', md: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', md: 'flex-end' }}
+          gap="xl"
+        >
+          <Reveal>
+            <Stack gap="xs">
+              <Text size="sm" c="fiuba.1">
+                {todayText()}
+              </Text>
+              <Title order={1} variant="display" id="greeting" c="white">
+                {firstName ? `Hola, ${firstName}` : 'Inicio'}
+              </Title>
+              {!staff && <Text c="fiuba.1">Acá ves en qué paso está cada trámite que iniciaste.</Text>}
+            </Stack>
+          </Reveal>
+          {staff && (
+            <Reveal index={2}>
+              <Summary />
+            </Reveal>
+          )}
+        </Flex>
+      </BlueprintPanel>
       {staff && <StaffHome />}
       <MyProcedures />
       {staff ? (

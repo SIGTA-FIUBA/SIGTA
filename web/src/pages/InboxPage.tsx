@@ -13,11 +13,19 @@ import {
   Text,
   Title,
 } from '@mantine/core'
-import { Link, useLocation, useSearchParams } from 'react-router'
+import { motion } from 'motion/react'
+import { Link, useLocation, useSearchParams, useViewTransitionState } from 'react-router'
 import { ForbiddenError, useInboxProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
+import { CountUp } from '../components/CountUp/CountUp'
 import { StatusBadge } from '../components/StatusBadge/StatusBadge'
 import { procedurePath, procedureStates, stateNames } from '../content/procedures'
+import { enter, move } from '../theme/motion'
+
+// The parts of the inbox that move: the mark of the selected tile, which
+// slides to the next one selected, and the rows, which arrive one after the
+// other and travel to their place when the order changes.
+const MotionRow = motion.create(Table.Tr)
 
 type ProcedureListItem = components['schemas']['ProcedureListItem']
 type ProcedureState = components['schemas']['ProcedureState']
@@ -98,6 +106,10 @@ function movedText(timestamp: string) {
 
 type Tile = { key: string; label: string; count: number; hint: string; selected: boolean; onSelect: () => void }
 
+// SummaryTile is a figure of the inbox and the filter it applies. The
+// selected one carries the mark (a tint and a line in the action color at
+// its foot), which travels from the tile left to the one chosen, so the eye
+// follows the filter that changed.
 function SummaryTile({ tile }: { tile: Tile }) {
   return (
     <Paper
@@ -107,18 +119,24 @@ function SummaryTile({ tile }: { tile: Tile }) {
       onClick={tile.onSelect}
       aria-pressed={tile.selected}
       withBorder
+      pos="relative"
       p="md"
       w="100%"
       h="100%"
       ta="left"
-      bg={tile.selected ? 'fiuba.0' : 'white'}
     >
-      <Stack gap="xs">
+      {tile.selected && (
+        <Paper
+          variant="selection"
+          renderRoot={(props) => <motion.div {...props} layoutId="inbox-selection" transition={move} />}
+        />
+      )}
+      <Stack gap="xs" pos="relative">
         <Text size="sm" fw={500} c="dimmed">
           {tile.label}
         </Text>
-        <Text fz="xl" fw={600}>
-          {tile.count}
+        <Text component="div" fz="xl" fw={600}>
+          <CountUp value={tile.count} />
         </Text>
         <Text size="xs" c="dimmed">
           {tile.hint}
@@ -138,11 +156,23 @@ function responsibleText(item: ProcedureListItem) {
   return item.area?.name ?? 'Titular'
 }
 
+// ProcedureLink opens the procedure with a view transition: the type of the
+// procedure under the link becomes the title of the page it opens
+// (data-transition-title, global.css), so the row and the page read as one.
 function ProcedureLink({ item, from }: { item: ProcedureListItem; from: string }) {
   return (
-    <Anchor component={Link} to={procedurePath(item.id)} state={{ from }} fw={600}>
+    <Anchor component={Link} to={procedurePath(item.id)} state={{ from }} viewTransition fw={600}>
       {item.applicant.name || 'Titular sin nombre registrado'}
     </Anchor>
+  )
+}
+
+function ProcedureType({ item }: { item: ProcedureListItem }) {
+  const opening = useViewTransitionState(procedurePath(item.id))
+  return (
+    <Text size="sm" c="dimmed" data-transition-title={opening || undefined}>
+      {item.procedure_type_name}
+    </Text>
   )
 }
 
@@ -176,14 +206,20 @@ function ProceduresTable({
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {items.map((item) => (
-            <Table.Tr key={item.id}>
+          {items.map((item, index) => (
+            <MotionRow
+              key={item.id}
+              layout="position"
+              transition={move}
+              variants={enter}
+              initial="hidden"
+              animate="shown"
+              custom={index}
+            >
               <Table.Td>
                 <Stack gap={0}>
                   <ProcedureLink item={item} from={from} />
-                  <Text size="sm" c="dimmed">
-                    {item.procedure_type_name}
-                  </Text>
+                  <ProcedureType item={item} />
                 </Stack>
               </Table.Td>
               <Table.Td>
@@ -206,7 +242,7 @@ function ProceduresTable({
                   {movedText(item.last_moved_at)}
                 </Text>
               </Table.Td>
-            </Table.Tr>
+            </MotionRow>
           ))}
         </Table.Tbody>
       </Table>
@@ -225,15 +261,28 @@ function ProcedureCards({
 }) {
   return (
     <Stack gap="sm" hiddenFrom="md">
-      {items.map((item) => (
-        <Paper key={item.id} component="article" withBorder p="md">
+      {items.map((item, index) => (
+        <Paper
+          key={item.id}
+          withBorder
+          p="md"
+          renderRoot={(props) => (
+            <motion.article
+              {...props}
+              layout="position"
+              transition={move}
+              variants={enter}
+              initial="hidden"
+              animate="shown"
+              custom={index}
+            />
+          )}
+        >
           <Stack gap="xs">
             <Group justify="space-between" align="flex-start" gap="xs">
               <Stack gap={0}>
                 <ProcedureLink item={item} from={from} />
-                <Text size="sm" c="dimmed">
-                  {item.procedure_type_name}
-                </Text>
+                <ProcedureType item={item} />
               </Stack>
               <StateBadge item={item} />
             </Group>

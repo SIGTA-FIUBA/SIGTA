@@ -14,5 +14,40 @@ body {
   :root:root {
     --sigta-duration-fast: 0ms;
     --sigta-duration-base: 0ms;
+    --sigta-duration-slow: 0ms;
+  }
+}
+
+/* Going from a row to its procedure (a view transition of React Router): the
+ * page cross-fades in motion.route and the type of the procedure travels from
+ * the row to the title of the page, in motion.slow. Only the element that
+ * takes part has the attribute at a time, since a name has to be unique. */
+[data-transition-title] {
+  view-transition-name: procedure-title;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--sigta-duration-route);
+}
+
+::view-transition-group(procedure-title) {
+  animation-duration: var(--sigta-duration-slow);
+  animation-timing-function: var(--sigta-ease-out);
+}
+
+/* The text changes size on the way: both pictures keep their proportions
+ * instead of stretching. */
+::view-transition-old(procedure-title),
+::view-transition-new(procedure-title) {
+  height: 100%;
+  width: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
   }
 }
