@@ -1,9 +1,10 @@
-import { List, Text } from '@mantine/core'
+import { List, Text, Title } from '@mantine/core'
 
 export type Step = { title: string; text: string }
 
 // StepList shows how something is done, in order: an ordered list in three
-// columns, without boxes. The number is in the action color, without a circle.
+// columns, without boxes, each step a heading under the title of its
+// section. The number is in the action color, without a circle.
 export function StepList({ steps }: { steps: Step[] }) {
   return (
     <List type="ordered" variant="steps">
@@ -12,9 +13,9 @@ export function StepList({ steps }: { steps: Step[] }) {
           <Text fw={600} c="fiuba.7">
             {index + 1}
           </Text>
-          <Text fw={600} mt="xxs">
+          <Title order={3} size="h4" mt="xxs">
             {step.title}
-          </Text>
+          </Title>
           <Text size="sm" c="dimmed" mt="xxs">
             {step.text}
           </Text>

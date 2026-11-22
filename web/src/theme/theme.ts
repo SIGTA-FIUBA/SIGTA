@@ -1,4 +1,5 @@
 import {
+  Alert,
   AppShell,
   Avatar,
   Badge,
@@ -9,7 +10,6 @@ import {
   defaultVariantColorsResolver,
   Input,
   List,
-  Mark,
   Menu,
   Modal,
   NavLink,
@@ -17,15 +17,17 @@ import {
   Popover,
   rem,
   SegmentedControl,
+  SimpleGrid,
   Skeleton,
   Spoiler,
+  Stepper,
+  Stack,
   Text,
   Title,
   Tooltip,
   type VariantColorsResolver,
 } from '@mantine/core'
 import classes from './interactions.module.css'
-import texture from './texture.module.css'
 import { tokens } from './tokens'
 import typography from './typography.module.css'
 
@@ -67,6 +69,31 @@ const controlHeight = (size: unknown, height: string, variable: string) =>
 // where it has to instead of running past its box. break-word, unlike
 // anywhere, does not narrow the box to fit the word broken up.
 const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
+
+const paperVariants: Record<string, string> = {
+  interactive: classes.interactive,
+  rows: classes.rows,
+  row: classes.row,
+  hover: classes.hover,
+  figure: classes.figure,
+  condensed: classes.condensed,
+  'nav-current': classes.navCurrent,
+  selection: classes.selection,
+}
+
+const textVariants: Record<string, string> = {
+  figure: typography.figure,
+  prefix: typography.prefix,
+  column: typography.column,
+  ordinal: typography.ordinal,
+}
+
+const stackVariants: Record<string, string> = {
+  masthead: classes.masthead,
+  facts: classes.facts,
+  part: classes.part,
+  sticky: classes.sticky,
+}
 
 export const theme = createTheme({
   colors: tokens.color.scales,
@@ -114,40 +141,39 @@ export const theme = createTheme({
       }),
     }),
     // The side navigation is white with a border on its right; the page is
-    // gray, except on the landing page (variant="landing").
+    // white too, so what is on it is ordered by type, space and rules, not by
+    // boxes.
     AppShell: AppShell.extend({
       defaultProps: { transitionDuration: tokens.motion.base, transitionTimingFunction: tokens.motion.easing },
-      classNames: (_theme, props) => ({
-        navbar: classes.sideNav,
-        main: props.variant === 'landing' ? '' : texture.paper,
-      }),
+      classNames: { navbar: classes.sideNav },
     }),
     // A panel with a border and a background of its own is a control: the
     // action card and the rows use variant="interactive", which answers the
-    // pointer; the container of rows uses variant="rows". variant="blueprint"
-    // is the navy panel with the technical grid (BlueprintPanel),
-    // variant="on-blueprint" a control on it, and variant="selection" the
+    // pointer; the container of rows uses variant="rows". variant="selection" is the
     // mark of the selected tile, which moves from one tile to the other.
+    // Without boxes: variant="row" is a row of a list and variant="hover" the
+    // mark that glides under the rows; variant="figure" a figure of the home
+    // page; variant="condensed" the bar that takes the place of its greeting;
+    // variant="nav-current" the mark of the current page in the menu.
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
-      classNames: (_theme, props) => ({
-        root:
-          props.variant === 'interactive'
-            ? classes.interactive
-            : props.variant === 'rows'
-              ? classes.rows
-              : props.variant === 'blueprint'
-                ? texture.blueprint
-                : props.variant === 'on-blueprint'
-                  ? texture.onBlueprint
-                  : props.variant === 'selection'
-                    ? classes.selection
-                    : '',
-      }),
+      classNames: (_theme, props) => ({ root: paperVariants[props.variant ?? ''] ?? '' }),
+    }),
+    // The greeting of the home page, which recedes on scroll
+    // (variant="masthead"); a list of facts between rules (variant="facts");
+    // a part of a page under a rule (variant="part"); a column that stays in
+    // sight (variant="sticky").
+    Stack: Stack.extend({
+      classNames: (_theme, props) => ({ root: stackVariants[props.variant ?? ''] ?? '' }),
+    }),
+    // The figures of the home page, between rules (variant="figures").
+    SimpleGrid: SimpleGrid.extend({
+      classNames: (_theme, props) => ({ root: props.variant === 'figures' ? classes.figures : '' }),
     }),
     // The steps of a procedure: an ordered list in columns (StepList). The
     // latest moves: a list on a vertical line, one mark per move
-    // (variant="timeline").
+    // (variant="timeline"). The steps of a procedure on its page: an ordered
+    // list that writes its own numbers (variant="numbered").
     List: List.extend({
       classNames: (_theme, props) =>
         props.variant === 'steps'
@@ -198,6 +224,15 @@ export const theme = createTheme({
         root: props.variant === 'counter' ? `${classes.badge} ${classes.counter}` : classes.badge,
       }),
     }),
+    // A notice is a state the person has to read, not a box: it goes between
+    // two hairlines, its title in the color of what it says.
+    Alert: Alert.extend({ classNames: { root: classes.notice } }),
+    // The stages of a form are numbers on a hairline, not gray discs: the
+    // current one in the action color, the done ones filled.
+    Stepper: Stepper.extend({
+      defaultProps: { size: 'sm' },
+      classNames: { stepIcon: classes.stageIcon, separator: classes.stageSeparator },
+    }),
     Avatar: Avatar.extend({
       defaultProps: { color: tokens.primaryColor, variant: 'light' },
       vars: () => ({ root: { '--avatar-size': tokens.component.avatar.size } }),
@@ -212,16 +247,12 @@ export const theme = createTheme({
     Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
     // Titles of 20px or more are tighter; the headline of the landing page
     // grows with the screen, and so do the titles of its sections
-    // (variant="section"). The landing page also has the label over a title
-    // (Text variant="overline"); variant="figure" is a large figure, such as
+    // (variant="section"); variant="figure" is a large figure, such as
     // those of the home header and the size of the catalog.
     Text: Text.extend({
       styles: breakLongWords,
-      classNames: (_theme, props) => ({
-        root: props.variant === 'overline' ? typography.overline : props.variant === 'figure' ? typography.figure : '',
-      }),
+      classNames: (_theme, props) => ({ root: textVariants[props.variant ?? ''] ?? '' }),
     }),
-    Mark: Mark.extend({ defaultProps: { color: 'fiuba.1' }, classNames: { root: typography.mark } }),
     Title: Title.extend({
       styles: breakLongWords,
       classNames: (_theme, props) => ({
@@ -270,7 +301,6 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-display-size': tokens.font.display.size,
     '--sigta-display-line-height': tokens.font.display.lineHeight,
     '--sigta-tracking-section': tokens.font.trackingSection,
-    '--sigta-tracking-overline': tokens.font.trackingOverline,
     '--sigta-section-size': tokens.font.section.size,
     '--sigta-section-line-height': tokens.font.section.lineHeight,
     '--sigta-figure-size': tokens.font.figure.size,
@@ -282,18 +312,6 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-duration-slow': `${tokens.motion.slow}ms`,
     '--sigta-duration-route': `${tokens.motion.route}ms`,
     '--sigta-ease-out': `cubic-bezier(${tokens.motion.easingOut.join(', ')})`,
-    '--sigta-blueprint-background': tokens.color.blueprint.background,
-    '--sigta-blueprint-text': tokens.color.blueprint.text,
-    '--sigta-blueprint-muted': tokens.color.blueprint.muted,
-    '--sigta-blueprint-line': tokens.color.blueprint.line,
-    '--sigta-blueprint-line-major': tokens.color.blueprint.lineMajor,
-    '--sigta-blueprint-glow': tokens.color.blueprint.glow,
-    '--sigta-blueprint-paper': tokens.color.blueprint.paper,
-    '--sigta-texture-grid': tokens.texture.grid,
-    '--sigta-texture-grid-major': tokens.texture.gridMajor,
-    '--sigta-texture-glow': tokens.texture.glow,
-    '--sigta-texture-grain': String(tokens.texture.grain),
-    '--sigta-texture-fade': tokens.texture.fade,
     '--sigta-ease': tokens.motion.easing,
     '--sigta-nudge': tokens.motion.nudge,
     '--sigta-press': String(tokens.motion.press),

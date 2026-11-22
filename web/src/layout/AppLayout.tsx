@@ -3,26 +3,43 @@ import {
   Anchor,
   AppShell,
   Badge,
+  Box,
   Burger,
   Button,
   Container,
   Image,
   Indicator,
   NavLink,
+  Paper,
   Stack,
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
+import { motion } from 'motion/react'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { useInboxProcedures } from '../api/procedures'
 import { logout, type optionalSession } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
+import { move } from '../theme/motion'
 import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
 import { UserMenu } from './UserMenu'
 
 type MenuLink = { to: string; label: string; icon: IconName; active: boolean; actionableCount?: number }
+
+// CurrentMark is the mark of the current page in the menu, behind its item.
+// There is one: going to another page, it travels from the item left to the
+// one opened, so the menu shows the move and not only where the person is.
+function CurrentMark() {
+  return (
+    <Paper
+      variant="nav-current"
+      aria-hidden
+      renderRoot={(props) => <motion.div {...props} layoutId="nav-current" transition={move} />}
+    />
+  )
+}
 
 // Between breakpoint.sm and breakpoint.md the menu shows only its icons.
 const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
@@ -93,36 +110,41 @@ export function AppLayout() {
     }
     if (compact) {
       return (
-        <Tooltip key={link.to} label={label} position="right">
-          <NavLink
-            {...common}
-            variant="menu-icon"
-            leftSection={
-              <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.5">
-                <Icon name={link.icon} />
-              </Indicator>
-            }
-          />
-        </Tooltip>
+        <Box key={link.to} pos="relative">
+          {link.active && <CurrentMark />}
+          <Tooltip label={label} position="right">
+            <NavLink
+              {...common}
+              variant="menu-icon"
+              leftSection={
+                <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.5">
+                  <Icon name={link.icon} />
+                </Indicator>
+              }
+            />
+          </Tooltip>
+        </Box>
       )
     }
     return (
-      <NavLink
-        key={link.to}
-        {...common}
-        variant="menu"
-        label={link.label}
-        leftSection={<Icon name={link.icon} />}
-        rightSection={
-          count !== undefined && (
-            // A long count would widen the badge past the menu; the label
-            // keeps the exact number.
-            <Badge variant="counter" aria-hidden>
-              {count > 99 ? '99+' : count}
-            </Badge>
-          )
-        }
-      />
+      <Box key={link.to} pos="relative">
+        {link.active && <CurrentMark />}
+        <NavLink
+          {...common}
+          variant="menu"
+          label={link.label}
+          leftSection={<Icon name={link.icon} />}
+          rightSection={
+            count !== undefined && (
+              // A long count would widen the badge past the menu; the label
+              // keeps the exact number.
+              <Badge variant="counter" aria-hidden>
+                {count > 99 ? '99+' : count}
+              </Badge>
+            )
+          }
+        />
+      </Box>
     )
   }
 

@@ -1,24 +1,26 @@
-import { List, Paper, Stack, Text, Title } from '@mantine/core'
+import { SimpleGrid, Stack, Text, Title } from '@mantine/core'
 import { BrandSignature } from '../components/BrandSignature/BrandSignature'
-import { PageHeader } from '../components/PageHeader/PageHeader'
 import { type ContentItem, pillars, principles } from '../content/platform'
 
+// Entries is a section of the page: its title and its entries in three
+// columns, each under a hairline, with no box. There are three of each, so
+// the row closes.
 function Entries({ id, title, entries }: { id: string; title: string; entries: ContentItem[] }) {
   return (
-    <Stack component="section" aria-labelledby={id} gap="md">
+    <Stack component="section" aria-labelledby={id} gap="lg">
       <Title order={2} id={id}>
         {title}
       </Title>
-      <List listStyleType="none" spacing="md" p={0}>
+      <SimpleGrid component="ul" cols={{ base: 1, sm: entries.length }} spacing="xl" verticalSpacing="lg" p={0} m={0}>
         {entries.map((entry) => (
-          <List.Item key={entry.title}>
+          <Stack key={entry.title} component="li" variant="part" gap="xs">
             <Text fw={600}>{entry.title}</Text>
-            <Text size="sm" c="dimmed" maw="var(--sigta-measure)">
+            <Text size="sm" c="gray.7">
               {entry.text}
             </Text>
-          </List.Item>
+          </Stack>
         ))}
-      </List>
+      </SimpleGrid>
     </Stack>
   )
 }
@@ -28,14 +30,19 @@ function Entries({ id, title, entries }: { id: string; title: string; entries: C
 export function AboutPage() {
   return (
     <Stack gap="xxl">
-      {/* The joint signature goes on white; the page behind is gray. */}
-      <Paper withBorder p="lg" w="fit-content">
+      <Stack gap="lg" align="flex-start">
         <BrandSignature />
-      </Paper>
-      <PageHeader
-        title="Acerca de SIGTA"
-        description="SIGTA, el Sistema Integral de Gestión de Trámites Académicos, es la plataforma de la Secretaría de Gestión Académica para iniciar, gestionar y seguir los trámites académicos de la facultad, del inicio a la resolución."
-      />
+        <Stack gap="sm">
+          <Title order={1} variant="display" c="fiuba.9">
+            Acerca de SIGTA
+          </Title>
+          <Text size="lg" c="gray.7" maw="var(--sigta-measure)">
+            SIGTA, el Sistema Integral de Gestión de Trámites Académicos, es la plataforma de la Secretaría de Gestión
+            Académica para iniciar, gestionar y seguir los trámites académicos de la facultad, del inicio a la
+            resolución.
+          </Text>
+        </Stack>
+      </Stack>
       <Entries id="pillars" title="Qué ofrece" entries={pillars} />
       <Entries id="principles" title="Criterios de la plataforma" entries={principles} />
     </Stack>

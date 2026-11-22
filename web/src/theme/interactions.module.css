@@ -56,15 +56,208 @@
   transform: scale(var(--sigta-press));
 }
 
-/* The container of rows (Paper variant="rows"), a list: its corners clip the
- * hover of the first and last row, and a divider separates the rows. */
+/* A list of rows (Paper variant="rows") with no box: a rule above, one
+ * between the rows and one below, as in a table set in a book. The text of
+ * the rows lines up with the rules, and the hover mark reaches a little past
+ * them, so it has room around the text. */
 .rows {
-  overflow: hidden;
   list-style: none;
+  border-block: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+.rows > li {
+  position: relative;
 }
 
 .rows > li + li {
   border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+/* A row (Paper variant="row"), a link over the hover mark: transparent, its
+ * arrow appears and moves forward under the pointer or the keyboard. */
+.row {
+  position: relative;
+  z-index: 1;
+  background-color: transparent;
+}
+
+.row:focus-visible {
+  outline: none;
+}
+
+.rows > li:has(.row:focus-visible) .hover {
+  outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
+  outline-offset: calc(var(--sigta-focus-width) * -1);
+}
+
+.row [data-chevron] {
+  display: flex;
+  color: var(--mantine-primary-color-filled);
+  opacity: 0;
+  transform: translateX(calc(var(--sigta-nudge) * -2));
+  transition:
+    opacity var(--sigta-duration-fast) var(--sigta-ease),
+    transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+.row:hover [data-chevron],
+.row:focus-visible [data-chevron] {
+  opacity: 1;
+  transform: none;
+}
+
+/* The hover mark (Paper variant="hover"): one gray shape that glides from
+ * row to row with the pointer instead of each row lighting up on its own.
+ * Pressed, it darkens. */
+.hover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  inset-inline: calc(var(--mantine-spacing-sm) * -1);
+  pointer-events: none;
+  border-radius: var(--mantine-radius-sm);
+  background-color: var(--mantine-color-gray-0);
+  transition: background-color var(--sigta-duration-fast) var(--sigta-ease);
+}
+
+.rows > li:has(.row:active) .hover {
+  background-color: var(--mantine-color-gray-1);
+}
+
+/* The figures of the home page (SimpleGrid variant="figures"): between two
+ * rules, one cell per figure with a rule between them. The rule above draws
+ * from left to right when the page arrives. */
+.figures {
+  position: relative;
+  border-bottom: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+.figures::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: var(--sigta-border-width);
+  background-color: var(--mantine-color-fiuba-9);
+  transform-origin: left;
+  animation: rule var(--sigta-duration-route) var(--sigta-ease-out) both;
+}
+
+/* The hairline between the cells is the gray of the row seen through a gap
+ * as wide as a border, so it runs between columns and between rows alike
+ * when the figures wrap on a phone. The class goes twice to win over the gap
+ * that SimpleGrid writes in its own style. */
+.figures.figures {
+  --sg-spacing-x: var(--sigta-border-width);
+  --sg-spacing-y: var(--sigta-border-width);
+
+  background-color: var(--mantine-color-gray-3);
+}
+
+/* A figure (Paper variant="figure"), a link to the inbox with its filter.
+ * Under the pointer a tint rises from the foot of the cell, the number lifts
+ * and the arrow moves forward: the cell answers like something that can be
+ * pushed. */
+.figure {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  background-color: var(--mantine-color-white);
+}
+
+.figure::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--mantine-color-fiuba-0);
+  transform-origin: bottom;
+  transform: scaleY(0);
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+.figure:hover::before,
+.figure:focus-visible::before {
+  transform: scaleY(1);
+}
+
+.figure:active::before {
+  background-color: var(--mantine-color-fiuba-1);
+}
+
+.figure:focus-visible {
+  outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
+  outline-offset: calc(var(--sigta-focus-width) * -1);
+}
+
+.figure [data-figure] {
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+.figure:hover [data-figure] {
+  transform: translateY(calc(var(--sigta-nudge) * -1));
+}
+
+.figure [data-chevron] {
+  display: flex;
+  color: var(--mantine-color-gray-6);
+  transition:
+    transform var(--sigta-duration-base) var(--sigta-ease-out),
+    color var(--sigta-duration-fast) var(--sigta-ease);
+}
+
+.figure:hover [data-chevron] {
+  color: var(--mantine-primary-color-filled);
+  transform: translateX(calc(var(--sigta-nudge) * 2));
+}
+
+/* The greeting of the home page (Stack variant="masthead"): as it leaves the
+ * screen it rises a little faster than the page and fades, while the
+ * condensed bar takes its place. */
+@supports (animation-timeline: view()) {
+  .masthead {
+    animation: recede linear both;
+    animation-timeline: view();
+    animation-range: exit 0% exit 100%;
+  }
+}
+
+@keyframes recede {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--mantine-spacing-xl) * -1));
+  }
+}
+
+/* The condensed bar (Paper variant="condensed"): fixed over the page, under
+ * the top bar of a phone and beside the menu. Hidden above the screen until
+ * the greeting has gone ([data-shown]); then it slides down. */
+.condensed {
+  position: fixed;
+  top: var(--app-shell-header-offset, 0);
+  inset-inline-start: var(--app-shell-navbar-offset, 0);
+  inset-inline-end: 0;
+  z-index: 90;
+  padding-inline: var(--app-shell-padding);
+  background-color: var(--mantine-color-white);
+  border-bottom: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+  opacity: 0;
+  transform: translateY(-100%);
+  transition:
+    transform var(--sigta-duration-slow) var(--sigta-ease-out),
+    opacity var(--sigta-duration-base) var(--sigta-ease);
+}
+
+.condensed[data-shown] {
+  opacity: 1;
+  transform: none;
 }
 
 /* The steps of a procedure (List variant="steps"): an ordered list in three
@@ -176,16 +369,70 @@
   background-color: var(--mantine-color-gray-3);
 }
 
-/* The mark of the selected tile (Paper variant="selection"): it sits under
- * the content of the tile and moves to the next one selected, so the eye
- * follows the filter that changed. */
+/* A list of facts (Stack variant="facts", a dl): one fact under the other,
+ * between rules, with a hairline between them. */
+.facts {
+  border-block: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+.facts > * + * {
+  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+/* Inside a part, the rule of the part already opens the facts, so they keep
+ * only the hairlines between them: never two rules in a row. */
+.part .facts {
+  border-block: 0;
+}
+
+/* A part of a page (Stack variant="part"): a rule above and air under it,
+ * instead of a box. */
+.part {
+  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+  padding-top: var(--mantine-spacing-lg);
+}
+
+/* Right under the rule of the tabs, the first part draws no rule of its own,
+ * so there are never two lines one over the other. */
+[role='tabpanel'] > * > .part:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* A column that stays in sight while the page scrolls beside it (Stack
+ * variant="sticky"), from 75em on, which repeats breakpoint.lg. */
+@media (min-width: 75em) {
+  .sticky {
+    position: sticky;
+    top: calc(var(--app-shell-header-offset, 0rem) + var(--mantine-spacing-lg));
+  }
+}
+
+/* An ordered list without its numbers (List variant="numbered"), whose items
+ * write their own; a hairline between them. */
+.numbered.numbered {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.numbered > li {
+  list-style: none;
+}
+
+.numbered > li + li {
+  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+}
+
+/* The mark of the selected tile (Paper variant="selection"): a tint, with no
+ * bar of color, that sits under the content of the tile and moves to the next
+ * one selected, so the eye follows the filter that changed. */
 .selection {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background-color: var(--mantine-color-fiuba-0);
-  box-shadow: inset 0 calc(var(--sigta-nav-bar) * -1) 0 var(--mantine-primary-color-filled);
 }
 
 /* The side navigation (AppShell navbar), the tablet rail and the phone menu:
@@ -218,8 +465,24 @@
 .navItem[data-active],
 .navItem[data-active]:hover {
   color: var(--sigta-nav-active-text);
+  background-color: transparent;
+}
+
+/* The items sit over the mark of the current page (Paper
+ * variant="nav-current"), which travels from the item left to the one
+ * opened: the menu says where the person went, not only where they are. */
+.navItem {
+  position: relative;
+  z-index: 1;
+}
+
+.navCurrent {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: var(--sigta-nav-item-radius);
   background-color: var(--sigta-nav-active-background);
-  box-shadow: inset var(--sigta-nav-bar) 0 0 var(--sigta-nav-active-bar);
 }
 
 .navItem:focus-visible {
@@ -305,4 +568,56 @@
   .stepsItem::before {
     display: none;
   }
+
+  .figures::before,
+  .masthead {
+    animation: none;
+  }
+
+  .figure::before,
+  .figure [data-figure],
+  .figure [data-chevron] {
+    transition: none;
+  }
+}
+
+@keyframes rule {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* A notice (Alert): no fill and no frame, two hairlines around it, so a state
+ * reads in its title and text and not as one more box. */
+.notice.notice {
+  background-color: transparent;
+  border: 0;
+  border-block: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+  border-radius: 0;
+  padding-inline: 0;
+}
+
+/* The stages of a form (Stepper): the number on a hairline circle, the
+ * current one in the action color, the done ones filled with it. */
+.stageIcon.stageIcon {
+  background-color: var(--mantine-color-white);
+  border: var(--sigta-border-width) solid var(--mantine-color-gray-4);
+  color: var(--mantine-color-gray-7);
+  font-variant-numeric: tabular-nums;
+}
+
+.stageIcon.stageIcon[data-progress] {
+  border-color: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-filled);
+}
+
+.stageIcon.stageIcon[data-completed] {
+  background-color: var(--mantine-primary-color-filled);
+  border-color: var(--mantine-primary-color-filled);
+  color: var(--mantine-color-white);
+}
+
+.stageSeparator.stageSeparator {
+  height: var(--sigta-border-width);
+  background-color: var(--mantine-color-gray-3);
 }

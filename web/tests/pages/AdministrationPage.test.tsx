@@ -114,7 +114,7 @@ describe('AdministrationPage', () => {
     renderPage()
 
     const secretariatPanel = await area('Secretaría')
-    expect(within(secretariatPanel).getByText('Viene con SIGTA')).toBeVisible()
+    expect(within(secretariatPanel).getByText(/viene con SIGTA/)).toBeVisible()
     expect(within(secretariatPanel).getByText('De plataforma')).toBeVisible()
     expect(within(secretariatPanel).queryByRole('button', { name: /Dar de baja/ })).not.toBeInTheDocument()
     const officePanel = await area('Dirección de Alumnos')

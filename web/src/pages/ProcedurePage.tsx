@@ -1,21 +1,19 @@
 import {
   Alert,
   Anchor,
-  Badge,
   Button,
   Code,
   FileInput,
+  Grid,
   Group,
+  List,
   Loader,
   MultiSelect,
-  Paper,
   Select,
-  SimpleGrid,
   Stack,
   Text,
   Textarea,
   TextInput,
-  Timeline,
   Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
@@ -28,7 +26,10 @@ import type { components } from '../api/schema'
 import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
-import { StatusBadge } from '../components/StatusBadge/StatusBadge'
+import { Fact } from '../components/Fact/Fact'
+import { Facts } from '../components/Facts/Facts'
+import { Icon } from '../components/Icon/Icon'
+import { Part } from '../components/Part/Part'
 import { documentDescription } from '../content/documentFormats'
 import { procedureStates } from '../content/procedures'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
@@ -54,26 +55,21 @@ function BackLink() {
   const state: unknown = useLocation().state
   if (typeof state === 'object' && state !== null && 'from' in state && typeof state.from === 'string') {
     return (
-      <Anchor component={Link} to={state.from}>
-        Volver a la bandeja de trámites
+      <Anchor component={Link} to={state.from} size="sm" c="gray.7">
+        <Group component="span" gap="xxs" wrap="nowrap">
+          <Icon name="chevron-left" size={16} />
+          Volver a la bandeja de trámites
+        </Group>
       </Anchor>
     )
   }
   return (
-    <Anchor component={Link} to="/">
-      Volver al inicio
+    <Anchor component={Link} to="/" size="sm" c="gray.7">
+      <Group component="span" gap="xxs" wrap="nowrap">
+        <Icon name="chevron-left" size={16} />
+        Volver al inicio
+      </Group>
     </Anchor>
-  )
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Stack gap={0}>
-      <Text size="sm" c="dimmed">
-        {label}
-      </Text>
-      {children}
-    </Stack>
   )
 }
 
@@ -90,12 +86,17 @@ function OpenStep({ step, canAct }: { step: Step | undefined; canAct: boolean })
     return <Text>Sin paso abierto</Text>
   }
   return (
-    <Group gap="xs">
-      <Text>
-        {step.name} · {responsible(step)}
+    <Stack gap="xxs">
+      <Text fw={600}>{step.name}</Text>
+      <Text size="sm" c="gray.7">
+        A cargo de {step.area?.name ?? 'el titular'}
       </Text>
-      {canAct && <Badge variant="filled">Acción requerida</Badge>}
-    </Group>
+      {canAct && (
+        <Text size="sm" fw={600} c="fiuba.7">
+          Acción requerida
+        </Text>
+      )}
+    </Stack>
   )
 }
 
@@ -129,18 +130,16 @@ function Resolution({ detail }: { detail: Detail }) {
     return <Text c="dimmed">El trámite se cerró sin un documento resolutivo adjunto.</Text>
   }
   return (
-    <Paper withBorder p="md">
-      <Stack gap="sm">
-        {files.map((file) => (
-          <Stack key={file.id} gap={0}>
-            <Text size="sm" fw={500}>
-              {documentName(detail, file.document)}
-            </Text>
-            <DocumentFile procedureId={detail.id} file={file} />
-          </Stack>
-        ))}
-      </Stack>
-    </Paper>
+    <Stack gap="md">
+      {files.map((file) => (
+        <Stack key={file.id} gap="xxs">
+          <Text size="sm" fw={600}>
+            {documentName(detail, file.document)}
+          </Text>
+          <DocumentFile procedureId={detail.id} file={file} />
+        </Stack>
+      ))}
+    </Stack>
   )
 }
 
@@ -149,36 +148,62 @@ function referralText(referral: NonNullable<Detail['referral']>) {
   return `En ${referral.area.name}, desde ${referral.from.name}. ${days} sin retorno.`
 }
 
-function StepCard({ procedureId, step, open }: { procedureId: string; step: Step; open: boolean }) {
+// StepItem is one step of the procedure in the ordered list of its steps:
+// its number, its name, who does it and the documents it asks for. The open
+// one says so in words, in the action color.
+function StepItem({
+  procedureId,
+  step,
+  number,
+  open,
+}: {
+  procedureId: string
+  step: Step
+  number: number
+  open: boolean
+}) {
   return (
-    <Paper withBorder p="md">
-      <Stack gap="xs">
-        <Group justify="space-between" gap="xs">
-          <Text fw={600}>{step.name}</Text>
-          {open && <Badge variant="light">Paso actual</Badge>}
-        </Group>
-        <Text size="sm" c="dimmed">
-          {responsible(step)}
+    <Grid component="li" gap="md" py="md" aria-current={open ? 'step' : undefined}>
+      <Grid.Col span="content">
+        <Text variant="ordinal" c={open ? 'fiuba.7' : 'gray.6'}>
+          {String(number).padStart(2, '0')}
         </Text>
-        {step.documents.map((requirement) => {
-          const file = step.files.find((candidate) => candidate.document === requirement.id)
-          return (
-            <Stack key={requirement.id} gap={0}>
-              <Text size="sm" fw={500}>
-                {requirement.name}
-              </Text>
-              {file ? (
-                <DocumentFile procedureId={procedureId} file={file} />
-              ) : (
-                <Text size="sm" c="dimmed">
-                  Sin archivo
+      </Grid.Col>
+      <Grid.Col span="auto" miw={0}>
+        <Stack gap="xs">
+          <Stack gap="xxs">
+            <Group gap="sm" wrap="wrap">
+              <Text fw={600}>{step.name}</Text>
+              {open && (
+                <Text size="sm" fw={600} c="fiuba.7">
+                  Paso actual
                 </Text>
               )}
-            </Stack>
-          )
-        })}
-      </Stack>
-    </Paper>
+            </Group>
+            <Text size="sm" c="gray.7">
+              {responsible(step)}
+            </Text>
+          </Stack>
+          {step.documents.map((requirement) => {
+            const file = step.files.find((candidate) => candidate.document === requirement.id)
+            return (
+              <Stack key={requirement.id} gap={0}>
+                <Text size="sm" fw={500}>
+                  {requirement.name}
+                </Text>
+                {file ? (
+                  <DocumentFile procedureId={procedureId} file={file} />
+                ) : (
+                  <Text size="sm" c="gray.7">
+                    Sin archivo
+                  </Text>
+                )}
+              </Stack>
+            )
+          })}
+        </Stack>
+      </Grid.Col>
+    </Grid>
   )
 }
 
@@ -203,21 +228,19 @@ function Values({ detail }: { detail: Detail }) {
     return <Text c="dimmed">El trámite no tiene datos cargados.</Text>
   }
   return (
-    <Paper withBorder p="md">
-      <Stack gap="sm">
-        {entered.map(({ field, value }) => (
-          <Fact key={field.id} label={field.name}>
-            {value.items ? (
-              <LongValue text={value.items.map((item) => item.trim()).join('\n')} />
-            ) : field.type === 'long_text' ? (
-              <LongValue text={valueText(field, value.text)} />
-            ) : (
-              <Text>{valueText(field, value.text)}</Text>
-            )}
-          </Fact>
-        ))}
-      </Stack>
-    </Paper>
+    <Facts label="Datos cargados">
+      {entered.map(({ field, value }) => (
+        <Fact key={field.id} label={field.name} split>
+          {value.items ? (
+            <LongValue text={value.items.map((item) => item.trim()).join('\n')} />
+          ) : field.type === 'long_text' ? (
+            <LongValue text={valueText(field, value.text)} />
+          ) : (
+            <Text>{valueText(field, value.text)}</Text>
+          )}
+        </Fact>
+      ))}
+    </Facts>
   )
 }
 
@@ -272,13 +295,26 @@ function stepName(detail: Detail, id: string | undefined) {
   return detail.steps.find((step) => step.id === id)?.name ?? id
 }
 
+// WhoWhen says who did something and when: the name, and the date after it in
+// gray.
+function WhoWhen({ who, at }: { who: string; at: string }) {
+  return (
+    <Group gap="xs" wrap="wrap">
+      <Text size="sm" fw={500} data-who>
+        {who}
+      </Text>
+      <Text component="time" size="sm" c="gray.7" dateTime={at}>
+        {dateTime.format(new Date(at))}
+      </Text>
+    </Group>
+  )
+}
+
 function HistoryItem({ detail, event, step }: { detail: Detail; event: Event; step: Step | undefined }) {
   const outcome = step?.outcomes.find((candidate) => candidate.id === event.outcome)
   return (
     <Stack gap="xs">
-      <Text size="sm" c="dimmed">
-        {doneBy(event.by, step)} · {dateTime.format(new Date(event.at))}
-      </Text>
+      <WhoWhen who={doneBy(event.by, step)} at={event.at} />
       {event.document && (
         <Stack gap={0}>
           <Text size="sm" fw={500}>
@@ -343,16 +379,19 @@ function History({ detail }: { detail: Detail }) {
     return <Text c="dimmed">Todavía no hay pasos hechos.</Text>
   }
   return (
-    <Timeline active={detail.history.length - 1} bulletSize={20} lineWidth={2}>
+    <List variant="timeline" aria-label="Historial">
       {detail.history.map((event, i) => {
         const step = detail.steps.find((candidate) => candidate.id === event.step)
         return (
-          <Timeline.Item key={i} title={historyTitle(event, step)}>
-            <HistoryItem detail={detail} event={event} step={step} />
-          </Timeline.Item>
+          <List.Item key={i}>
+            <Stack gap="xs">
+              <Text fw={600}>{historyTitle(event, step)}</Text>
+              <HistoryItem detail={detail} event={event} step={step} />
+            </Stack>
+          </List.Item>
         )
       })}
-    </Timeline>
+    </List>
   )
 }
 
@@ -390,9 +429,7 @@ function PendingCorrections({ detail }: { detail: Detail }) {
               <Text size="sm" fw={500}>
                 Se pide: {requestedNames(detail, request)}
               </Text>
-              <Text size="sm" c="dimmed">
-                {doneBy(request.by, step)} · {dateTime.format(new Date(request.at))}
-              </Text>
+              <WhoWhen who={doneBy(request.by, step)} at={request.at} />
               <Text size="sm">Motivo:</Text>
               <LongValue text={request.reason} />
             </Stack>
@@ -505,9 +542,9 @@ function RequestedItem({ name, loaded, children }: { name: string; loaded: boole
         <Text size="sm" fw={500}>
           {name}
         </Text>
-        <Badge variant="light" color={loaded ? 'green' : 'gray'}>
+        <Text size="sm" fw={600} c={loaded ? 'green.8' : 'gray.7'}>
           {loaded ? 'Cargado' : 'Pendiente'}
-        </Badge>
+        </Text>
       </Group>
       {children}
     </Stack>
@@ -545,7 +582,7 @@ function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: 
   }
 
   return (
-    <Paper withBorder p="md">
+    <Stack component="section" variant="part" gap={0}>
       <Stack gap="md">
         <Title order={2}>Responder la subsanación</Title>
         <Text size="sm" c="dimmed">
@@ -581,7 +618,7 @@ function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: 
           </Button>
         </Group>
       </Stack>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -737,7 +774,7 @@ function StepDocuments({
     return null
   }
   return (
-    <Paper withBorder p="md">
+    <Stack component="section" variant="part" gap={0}>
       <Stack gap="md">
         <Title order={2}>Documentos del paso</Title>
         {step.documents.map((document) => (
@@ -750,7 +787,7 @@ function StepDocuments({
           />
         ))}
       </Stack>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -805,7 +842,7 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
   }
 
   return (
-    <Paper withBorder p="md">
+    <Stack component="section" variant="part" gap={0}>
       <form onSubmit={form.onSubmit((values) => void confirm(values))} noValidate>
         <Stack gap="md">
           <Title order={2}>Confirmar {step.name}</Title>
@@ -854,7 +891,7 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
           </Group>
         </Stack>
       </form>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -922,7 +959,7 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
   }
 
   return (
-    <Paper withBorder p="md">
+    <Stack component="section" variant="part" gap={0}>
       <form onSubmit={form.onSubmit((values) => void request(values))} noValidate>
         <Stack gap="md">
           <Title order={2}>Pedir una subsanación</Title>
@@ -964,7 +1001,7 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
           </Group>
         </Stack>
       </form>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -973,104 +1010,114 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
   const open = detail.steps.find((step) => step.id === detail.open_step)
   const awaiting = detail.correction_requests.length > 0
   return (
-    <Stack gap="lg">
-      <Stack gap="xs">
+    <Stack gap="xl">
+      <Stack component="header" gap="xs">
         {/* The type of the procedure in the row that opened it becomes this
             title (a view transition, global.css). */}
-        <Title order={1} data-transition-title>
+        <Title order={1} variant="display" c="fiuba.9" data-transition-title>
           {detail.name}
         </Title>
-        <Text c="dimmed">
+        <Text c="gray.7">
           Trámite <Code translate="no">{detail.id}</Code>
         </Text>
       </Stack>
-      <Paper withBorder p="md">
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <Fact label="Estado">
-            <Group>
-              <StatusBadge tone={procedureStates[detail.state].tone}>{procedureStates[detail.state].label}</StatusBadge>
-            </Group>
-          </Fact>
-          <Fact label="Titular">
-            <Text>{personName(detail.applicant)}</Text>
-          </Fact>
-          <Fact label="Paso actual">
-            <OpenStep step={open} canAct={detail.can_act && !awaiting} />
-          </Fact>
-          {detail.referral && (
-            <Fact label="Derivación">
-              <Text>{referralText(detail.referral)}</Text>
-            </Fact>
-          )}
-          {detail.as_applicant && (
-            <Fact label="Qué se espera ahora">
-              <Text>{expected(detail, open)}</Text>
-            </Fact>
-          )}
-        </SimpleGrid>
-      </Paper>
-      <SentBack detail={detail} />
-      <PendingCorrections detail={detail} />
-      {detail.as_applicant && awaiting && (
-        <CorrectionAnswer
-          detail={detail}
-          onAnswered={() => setNotice('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')}
-        />
-      )}
-      {detail.state === 'closed' && (
-        <Stack gap="sm">
-          <Title order={2}>Resolución</Title>
-          <Resolution detail={detail} />
-        </Stack>
-      )}
-      {notice && (
-        <Alert withCloseButton onClose={() => setNotice(null)} closeButtonLabel="Cerrar el aviso">
-          {notice}
-        </Alert>
-      )}
-      <Stack gap="sm">
-        <Title order={2}>Datos del trámite</Title>
-        <Values detail={detail} />
-      </Stack>
-      {detail.can_act && open?.role === 'staff' && (
-        <>
-          <StepDocuments
-            key={`documents-${open.id}`}
-            procedureId={detail.id}
-            step={open}
-            onAttached={(replaced) =>
-              setNotice(`Documento ${replaced ? 'reemplazado' : 'adjuntado'}. Quedó en el historial.`)
-            }
-          />
-          {!awaiting && (
-            <ConfirmStep
-              key={open.id}
-              detail={detail}
-              step={open}
-              onConfirmed={() => setNotice('Paso confirmado. Quedó en el historial.')}
-            />
-          )}
-          <RequestCorrection
-            key={`correction-${open.id}`}
-            detail={detail}
-            step={open}
-            onRequested={() => setNotice('Subsanación pedida. Quedó en el historial.')}
-          />
-        </>
-      )}
-      <Stack gap="sm">
-        <Title order={2}>Historial</Title>
-        <History detail={detail} />
-      </Stack>
-      <Stack gap="sm">
-        <Title order={2}>Pasos</Title>
-        <Text size="sm" c="dimmed">
-          En el orden en que los define el trámite. No es necesariamente el recorrido.
-        </Text>
-        {detail.steps.map((step) => (
-          <StepCard key={step.id} procedureId={detail.id} step={step} open={step.id === detail.open_step} />
-        ))}
-      </Stack>
+      {/* On a wide screen what the procedure is goes in a narrow column on
+          the right, which stays in sight; the work and the record, on the
+          left. On a phone the facts come first. */}
+      <Grid gap={{ base: 'xl', lg: 'xxl' }}>
+        <Grid.Col span={{ base: 12, lg: 4 }} order={{ base: 1, lg: 2 }}>
+          <Stack variant="sticky" gap={0}>
+            <Facts label="Resumen del trámite">
+              <Fact label="Estado">
+                <Text fw={600}>{procedureStates[detail.state].label}</Text>
+              </Fact>
+              <Fact label="Titular">
+                <Text>{personName(detail.applicant)}</Text>
+              </Fact>
+              <Fact label="Paso actual">
+                <OpenStep step={open} canAct={detail.can_act && !awaiting} />
+              </Fact>
+              {detail.referral && (
+                <Fact label="Derivación">
+                  <Text>{referralText(detail.referral)}</Text>
+                </Fact>
+              )}
+              {detail.as_applicant && (
+                <Fact label="Qué se espera ahora">
+                  <Text>{expected(detail, open)}</Text>
+                </Fact>
+              )}
+            </Facts>
+          </Stack>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, lg: 8 }} order={{ base: 2, lg: 1 }}>
+          <Stack gap="xxl">
+            <SentBack detail={detail} />
+            <PendingCorrections detail={detail} />
+            {detail.as_applicant && awaiting && (
+              <CorrectionAnswer
+                detail={detail}
+                onAnswered={() => setNotice('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')}
+              />
+            )}
+            {detail.state === 'closed' && (
+              <Part title="Resolución">
+                <Resolution detail={detail} />
+              </Part>
+            )}
+            {notice && (
+              <Alert withCloseButton onClose={() => setNotice(null)} closeButtonLabel="Cerrar el aviso">
+                {notice}
+              </Alert>
+            )}
+            {detail.can_act && open?.role === 'staff' && (
+              <>
+                <StepDocuments
+                  key={`documents-${open.id}`}
+                  procedureId={detail.id}
+                  step={open}
+                  onAttached={(replaced) =>
+                    setNotice(`Documento ${replaced ? 'reemplazado' : 'adjuntado'}. Quedó en el historial.`)
+                  }
+                />
+                {!awaiting && (
+                  <ConfirmStep
+                    key={open.id}
+                    detail={detail}
+                    step={open}
+                    onConfirmed={() => setNotice('Paso confirmado. Quedó en el historial.')}
+                  />
+                )}
+                <RequestCorrection
+                  key={`correction-${open.id}`}
+                  detail={detail}
+                  step={open}
+                  onRequested={() => setNotice('Subsanación pedida. Quedó en el historial.')}
+                />
+              </>
+            )}
+            <Part title="Datos del trámite">
+              <Values detail={detail} />
+            </Part>
+            <Part title="Historial">
+              <History detail={detail} />
+            </Part>
+            <Part title="Pasos" lead="En el orden en que los define el trámite. No es necesariamente el recorrido.">
+              <List component="ol" variant="numbered" aria-label="Pasos del trámite">
+                {detail.steps.map((step, index) => (
+                  <StepItem
+                    key={step.id}
+                    procedureId={detail.id}
+                    step={step}
+                    number={index + 1}
+                    open={step.id === detail.open_step}
+                  />
+                ))}
+              </List>
+            </Part>
+          </Stack>
+        </Grid.Col>
+      </Grid>
     </Stack>
   )
 }
@@ -1080,7 +1127,7 @@ export function ProcedurePage() {
   const procedure = useProcedure(id)
 
   return (
-    <Stack gap="md">
+    <Stack gap="lg">
       <Group>
         <BackLink />
       </Group>

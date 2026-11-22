@@ -51,3 +51,65 @@ body {
     animation: none;
   }
 }
+
+/* The route of a procedure on the landing page (ProcedureFlow, [data-flow]),
+ * on white: a dashed gray line under the drawn one, the stops as rings of the
+ * brand, the last one filled, and the dot that travels the route. */
+[data-flow] {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+[data-flow] [data-line] {
+  fill: none;
+  stroke-width: var(--sigta-border-width);
+  stroke-linejoin: round;
+}
+
+[data-flow] [data-line='base'] {
+  stroke: var(--mantine-color-gray-3);
+  stroke-dasharray: 4 4;
+}
+
+[data-flow] [data-line='drawn'] {
+  stroke: var(--mantine-color-fiuba-7);
+}
+
+[data-flow] [data-node] {
+  fill: var(--mantine-color-white);
+  stroke: var(--mantine-color-fiuba-7);
+  stroke-width: var(--sigta-border-width);
+}
+
+[data-flow] [data-node='end'] {
+  fill: var(--mantine-color-fiuba-7);
+}
+
+[data-flow] [data-ring] {
+  fill: none;
+  stroke: var(--mantine-color-fiuba-6);
+  stroke-width: var(--sigta-border-width);
+}
+
+[data-flow] [data-dot] {
+  fill: var(--mantine-color-fiuba-6);
+}
+
+[data-flow] [data-label] {
+  fill: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-md);
+  font-weight: 600;
+}
+
+[data-flow] [data-caption] {
+  fill: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+[data-flow] [data-note] {
+  fill: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+}

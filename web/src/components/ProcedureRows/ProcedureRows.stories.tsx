@@ -1,22 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MemoryRouter } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { ProcedureRow } from '../ProcedureRow/ProcedureRow'
 import { ProcedureRows } from './ProcedureRows'
 
 const meta: Meta = {
   title: 'SIGTA/ProcedureRows',
   decorators: [
-    (Story) => (
-      <MemoryRouter>
-        <Story />
-      </MemoryRouter>
-    ),
+    // The rows follow the opening of a page (useViewTransitionState), which
+    // takes a data router.
+    (Story) => <RouterProvider router={createMemoryRouter([{ path: '*', element: <Story /> }])} />,
   ],
   parameters: {
     docs: {
       description: {
         component:
-          'El contenedor de una lista de trámites: una lista con nombre, blanca, con borde, radio 10 y un divisor entre filas. Cada hijo es una fila (`ProcedureRow`).',
+          'Una lista de trámites como una tabla de libro, sin caja: un filete arriba, uno entre filas y uno abajo, en `gray-3`, y en pantalla ancha el encabezado de las cuatro columnas en caption `ink-600`. Una sola marca gris sigue al puntero o al foco de fila en fila. Cada hijo es una fila (`ProcedureRow`).',
       },
     },
   },
@@ -27,14 +25,13 @@ export default meta
 export const Rows: StoryObj = {
   name: 'ProcedureRows',
   render: () => (
-    <ProcedureRows label="Trámites">
+    <ProcedureRows label="Trámites" columns={['Trámite', 'Paso', 'A cargo de', 'Último movimiento']}>
       <ProcedureRow
         to="/procedures/1"
         type="Equivalencia entre asignaturas"
         applicant="Martín Sosa"
         step={{ name: 'Revisión de la Secretaría' }}
-        area="Secretaría de Gestión Académica"
-        status={{ tone: 'office', label: 'En un área' }}
+        standing={{ label: 'A cargo de', text: 'Secretaría de Gestión Académica' }}
         date="Hoy"
       />
       <ProcedureRow
@@ -42,7 +39,7 @@ export const Rows: StoryObj = {
         type="Reconocimiento de créditos"
         applicant="Ana Ruiz"
         step={{ name: 'Corrección de la solicitud' }}
-        status={{ tone: 'applicant', label: 'Pendiente del titular' }}
+        standing={{ text: 'Pendiente del titular' }}
         date="Hace 9 días"
       />
     </ProcedureRows>

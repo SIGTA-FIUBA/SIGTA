@@ -63,15 +63,6 @@ export const tokens = {
       border: text('color.nav.border'),
     },
     border: { subtle: text('color.border.subtle'), control: text('color.border.control') },
-    blueprint: {
-      background: text('color.blueprint.background'),
-      text: text('color.blueprint.text'),
-      muted: text('color.blueprint.muted'),
-      line: text('color.blueprint.line'),
-      lineMajor: text('color.blueprint.lineMajor'),
-      glow: text('color.blueprint.glow'),
-      paper: text('color.blueprint.paper'),
-    },
     scales: Object.fromEntries(SCALES.map((name) => [name, scale(`color.${name}`)])) as Record<
       (typeof SCALES)[number],
       MantineColorsTuple
@@ -95,7 +86,6 @@ export const tokens = {
     trackingTitle: text('font.tracking.title'),
     trackingDisplay: text('font.tracking.display'),
     trackingSection: text('font.tracking.section'),
-    trackingOverline: text('font.tracking.overline'),
     display: { size: text('font.fluid.display.size'), lineHeight: text('font.fluid.display.lineHeight') },
     section: { size: text('font.fluid.section.size'), lineHeight: text('font.fluid.section.lineHeight') },
     figure: { size: text('font.fluid.figure.size'), lineHeight: text('font.fluid.figure.lineHeight') },
@@ -139,13 +129,6 @@ export const tokens = {
     draw: ms('motion.draw'),
     flow: ms('motion.flow'),
     rest: ms('motion.rest'),
-  },
-  texture: {
-    grid: scaled('texture.grid'),
-    gridMajor: scaled('texture.gridMajor'),
-    glow: scaled('texture.glow'),
-    grain: value('texture.grain') as number,
-    fade: scaled('texture.fade'),
   },
   breakpoints: sizes('breakpoint'),
   layout: {

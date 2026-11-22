@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
-import type { ReactNode } from 'react'
-import { enter, viewport } from '../../theme/motion'
+import type { FocusEventHandler, PointerEventHandler, ReactNode } from 'react'
+import { enter, move, viewport } from '../../theme/motion'
 
 const elements = { div: motion.div, li: motion.li, section: motion.section }
 
@@ -14,17 +14,40 @@ type RevealProps = {
   // first screen of a long page.
   inView?: boolean
   children: ReactNode
+  // A list can follow the pointer and the focus over its items.
+  onPointerEnter?: PointerEventHandler
+  onFocus?: FocusEventHandler
+  // layout makes the content travel to its new place when the order of the
+  // list changes, in motion.slow.
+  layout?: boolean
 }
 
 // Reveal brings its content in when the page arrives: it rises a little and
 // fades in, once. It orients: the page builds up from the top, in the order
 // in which it is read; with inView, when it is scrolled to. With reduced
 // motion the content only fades in.
-export function Reveal({ index = 0, as = 'div', inView = false, children }: RevealProps) {
+export function Reveal({
+  index = 0,
+  as = 'div',
+  inView = false,
+  children,
+  onPointerEnter,
+  onFocus,
+  layout,
+}: RevealProps) {
   const Element = elements[as]
   const arrival = inView ? { whileInView: 'shown', viewport: viewport } : { animate: 'shown' }
   return (
-    <Element variants={enter} initial="hidden" custom={index} {...arrival}>
+    <Element
+      variants={enter}
+      initial="hidden"
+      custom={index}
+      {...arrival}
+      layout={layout ? 'position' : undefined}
+      transition={layout ? { layout: move } : undefined}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
+    >
       {children}
     </Element>
   )

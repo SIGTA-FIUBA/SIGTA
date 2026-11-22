@@ -7,11 +7,15 @@ import type { components } from '../api/schema'
 import { AppHeader } from './AppHeader'
 import { fixtures } from '../dev/administrationFixtures'
 import { fixtures as procedureFixtures } from '../dev/procedureFixtures'
+import { fixtures as startFixtures } from '../dev/startProcedureFixtures'
+import { AboutPage } from '../pages/AboutPage'
 import { AdministrationPage } from '../pages/AdministrationPage'
+import { CatalogPage } from '../pages/CatalogPage'
 import { HomePage } from '../pages/HomePage'
 import { InboxPage } from '../pages/InboxPage'
 import { LoginPage } from '../pages/LoginPage'
 import { ProcedurePage } from '../pages/ProcedurePage'
+import { StartProcedurePage } from '../pages/StartProcedurePage'
 import { tokens } from '../theme/tokens'
 import { AppLayout } from './AppLayout'
 import { UserMenu } from './UserMenu'
@@ -106,6 +110,30 @@ const mine: MyProcedure[] = [
   },
 ]
 
+// The catalog: three procedure types, one with all that a type can say and
+// two shorter ones.
+const catalog: CatalogEntry[] = [
+  {
+    ...startFixtures.demo,
+    id: 1,
+    description: 'Para que una asignatura aprobada en otra carrera o universidad se reconozca en el plan vigente.',
+    deadlines: ['Hasta 30 días antes del cierre de inscripción del cuatrimestre'],
+    admissibility: ['Ser alumno regular de la facultad', 'Tener aprobada la asignatura de origen'],
+  },
+  {
+    ...startFixtures.one,
+    id: 2,
+    description: 'Una constancia de alumno regular, de inscripción o de materias aprobadas.',
+  },
+  {
+    ...startFixtures.demo,
+    id: 3,
+    name: 'Pase de carrera',
+    description: 'Para pasar a otra carrera de la facultad conservando lo aprobado.',
+    deadlines: ['Durante el período de reinscripción'],
+  },
+]
+
 // seedAdministration puts the demo areas, memberships and administrators of
 // the development preview where the administration reads them.
 function seedAdministration(client: QueryClient) {
@@ -129,7 +157,14 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
     })
   }
   client.setQueryData(['me', 'procedures'], mine)
+  client.setQueryData(['procedure', 'm1'], {
+    ...procedureFixtures.correctionRequested,
+    id: 'm1',
+    as_applicant: true,
+    can_act: false,
+  })
   seedAdministration(client)
+  client.setQueryData(['procedure-types'], catalog)
   const router = createMemoryRouter(
     [
       {
@@ -138,6 +173,7 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
         element: <AppLayout />,
         children: [
           { path: 'procedures/:id', element: <ProcedurePage /> },
+          { path: 'catalog/:procedureTypeId/start', element: <StartProcedurePage /> },
           { path: '*', element: children },
         ],
       },
@@ -151,21 +187,7 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
   )
 }
 
-// The landing page counts the catalog; three invented types are enough.
-const catalog: CatalogEntry[] = ['Equivalencia entre asignaturas', 'Reconocimiento de créditos', 'Pase de carrera'].map(
-  (name, index) => ({
-    id: index + 1,
-    version: 1,
-    name,
-    description: '',
-    deadlines: [],
-    admissibility: [],
-    fields: [],
-    documents: [],
-    submission: { fields: [], documents: [] },
-  }),
-)
-
+// The landing page counts the same catalog of three types.
 function Landing() {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
   client.setQueryData(['procedure-types'], catalog)
@@ -224,7 +246,7 @@ export const LandingStory: StoryObj = {
     docs: {
       description: {
         story:
-          'La portada pública (`/login`), antes del ingreso: en el plano, el título con el botón de Google y la nota de la cuenta de la UBA, y el recorrido de un trámite que se traza y un punto recorre (se oculta en el celular). Debajo, cómo funciona, cuántos trámites hay en el catálogo y los criterios, que entran al llegar a ellos. Es la única pantalla con píldoras y títulos que crecen con el ancho.',
+          'La portada pública (`/login`), antes del ingreso: blanca y sin cajas, el título con el botón de Google y la nota de la cuenta de la UBA, y a la derecha el recorrido de un trámite que se traza y un punto recorre (se oculta en el celular). Debajo, en la grilla del inicio, cómo se realiza un trámite, cuántos trámites hay en el catálogo y los criterios, que entran al llegar a ellos.',
       },
     },
   },
@@ -241,7 +263,7 @@ export const HomeStaff: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del personal: el saludo con la fecha, el resumen en dos cifras (cada una lleva a la bandeja filtrada), hasta cinco trámites que requieren acción y la actividad reciente, un renglón por movimiento.',
+          'El Inicio del personal, en una página blanca sin cajas: la fecha y el saludo en display `fiuba-9`, y debajo las dos cifras entre filetes (cada una lleva a la bandeja filtrada). Cuando las cifras salen de la pantalla, una barra fina las mantiene a la vista arriba. Cada sección pone su título en el primer cuarto de la grilla y el contenido en el resto: hasta cinco trámites que requieren acción, en una tabla sin caja con una marca que sigue al puntero, y la actividad reciente, un renglón por movimiento.',
       },
     },
   },
@@ -296,6 +318,67 @@ export const AdministrationStory: StoryObj = {
       },
     },
   },
+}
+
+export const CatalogStory: StoryObj = {
+  name: 'Catálogo',
+  render: () => (
+    <Page user={applicant} path="/catalog">
+      <CatalogPage />
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El catálogo como un índice: cada tipo de trámite bajo un filete, con su nombre, qué es y el botón para iniciarlo en el primer tercio, y lo que pide (datos, documentos, plazos y condiciones) como una lista de definiciones en el resto.',
+      },
+    },
+  },
+}
+
+export const StartProcedureStory: StoryObj = {
+  name: 'Iniciar un trámite',
+  render: () => (
+    <Page user={applicant} path="/catalog/1/start">
+      {null}
+    </Page>
+  ),
+}
+
+export const ProcedureStaff: StoryObj = {
+  name: 'Detalle del trámite, personal',
+  render: () => (
+    <Page user={staff} path="/procedures/p1">
+      {null}
+    </Page>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'El detalle de un trámite sin cajas: el tipo en display, y al costado un resumen entre filetes que queda a la vista al bajar. Cada parte (datos, historial, pasos) abre con un filete y su título; los pasos van numerados, y el actual lo dice en palabras.',
+      },
+    },
+  },
+}
+
+export const ProcedureApplicant: StoryObj = {
+  name: 'Detalle del trámite, titular',
+  render: () => (
+    <Page user={applicant} path="/procedures/m1">
+      {null}
+    </Page>
+  ),
+}
+
+export const AboutStory: StoryObj = {
+  name: 'Acerca de SIGTA',
+  render: () => (
+    <Page user={applicant} path="/about">
+      <AboutPage />
+    </Page>
+  ),
 }
 
 export const AppHeaderStory: StoryObj = {

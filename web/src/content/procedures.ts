@@ -32,3 +32,18 @@ export function movedText(timestamp: string) {
   }
   return days === 1 ? 'Hace 1 día' : `Hace ${days} días`
 }
+
+type Item = components['schemas']['ProcedureListItem']
+
+// standing says who acts now on a procedure of the inbox, for the third
+// column of its row. One waiting on its applicant is in no area's hands, even
+// if its open step belongs to one; one referred says so after the area.
+export function standing(item: Item): { label?: string; text: string } {
+  if (item.state === 'with_applicant' || !item.area) {
+    return { text: procedureStates[item.state].label }
+  }
+  return {
+    label: 'A cargo de',
+    text: item.state === 'referred' ? `${item.area.name} (derivado)` : item.area.name,
+  }
+}

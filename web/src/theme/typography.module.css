@@ -24,14 +24,6 @@
   text-wrap: balance;
 }
 
-/* The label over a title of the landing page (Text variant="overline"). */
-.overline {
-  font-size: var(--mantine-font-size-xs);
-  font-weight: var(--mantine-font-weight-bold);
-  letter-spacing: var(--sigta-tracking-overline);
-  text-transform: uppercase;
-}
-
 /* A large figure (Text variant="figure"), such as those of the home header:
  * tabular, tight and without line height of its own. */
 .figure {
@@ -42,35 +34,31 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The words a headline highlights (Mark), on a tint of the cyan. */
-.mark {
-  padding: 0 0.15em;
-  border-radius: var(--mantine-radius-sm);
-  color: inherit;
-  box-decoration-break: clone;
-}
-
-/* On the blueprint (data-sweep) the highlight is painted from left to right
- * once the headline is in, as a marker would. Its color is fiuba.6 and the
- * text stays white, which reads on the navy and on the highlight (5,1:1), at
- * every point of the sweep. */
-.mark[data-sweep] {
-  background-color: transparent;
-  background-image: linear-gradient(var(--mark-bg-light), var(--mark-bg-light));
-  background-repeat: no-repeat;
-  background-size: 0% 100%;
-  animation: sweep var(--sigta-duration-route) var(--sigta-ease-out) var(--sigta-duration-slow) forwards;
-}
-
-@keyframes sweep {
-  to {
-    background-size: 100% 100%;
+/* A label that a row of a list says on a phone, where its columns stack, and
+ * that the column heading says from md on (Text variant="prefix"): there it
+ * stays only for screen readers. */
+@media (min-width: 64em) {
+  .prefix {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mark[data-sweep] {
-    animation: none;
-    background-size: 100% 100%;
-  }
+/* A column heading of a list without a box (Text variant="column"). */
+.column {
+  white-space: nowrap;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-7);
+}
+
+/* The number of an item that writes its own (Text variant="ordinal"):
+ * tabular, so the numbers line up. */
+.ordinal {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }

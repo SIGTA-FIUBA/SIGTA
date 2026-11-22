@@ -79,7 +79,7 @@ export const TitleOrders: StoryObj = {
     docs: {
       description: {
         story:
-          '`variant="display"` es el título grande de la portada pública y crece con el ancho de pantalla; no se usa en las pantallas de trabajo.',
+          '`variant="display"` es el título de cada pantalla y el titular de la portada pública, y crece con el ancho de pantalla.',
       },
     },
   },
@@ -89,12 +89,7 @@ export const LandingType: StoryObj = {
   name: 'Portada',
   render: () => (
     <Stack gap="md">
-      <Text variant="overline" c="fiuba.7">
-        Cómo funciona
-      </Text>
-      <Title variant="display">
-        Los trámites académicos, <Mark>en línea</Mark> y con seguimiento
-      </Title>
+      <Title variant="display">Los trámites académicos, en línea y con seguimiento</Title>
       <Title order={2} variant="section">
         Un solo lugar, del inicio a la resolución
       </Title>
@@ -107,7 +102,7 @@ export const LandingType: StoryObj = {
     docs: {
       description: {
         story:
-          'Solo en la portada pública: la etiqueta sobre un título (`Text variant="overline"`), el titular (`Title variant="display"`) con las palabras que destaca en `Mark`, los títulos de sección (`Title variant="section"`) y las cifras (`Text variant="figure"`). Los tres tamaños crecen con el ancho de pantalla, entre los valores de `font.fluid` en `tokens.json`.',
+          'La escala grande: el titular (`Title variant="display"`), sin palabras destacadas ni etiquetas en mayúsculas encima, los títulos de sección (`Title variant="section"`) y las cifras (`Text variant="figure"`). Los tres tamaños crecen con el ancho de pantalla, entre los valores de `font.fluid` en `tokens.json`.',
       },
     },
   },
