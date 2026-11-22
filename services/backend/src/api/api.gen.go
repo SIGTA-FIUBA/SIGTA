@@ -531,7 +531,10 @@ type MyProcedure struct {
 	LastMovedAt       time.Time `json:"last_moved_at"`
 	ProcedureType     int64     `json:"procedure_type"`
 	ProcedureTypeName string    `json:"procedure_type_name"`
-	StartedAt         time.Time `json:"started_at"`
+
+	// Resolutions Los documentos que resuelven el trámite, el último que se adjuntó de cada uno, para descargarlos sin abrir el detalle. Vacío mientras el trámite está en curso o si se cerró sin uno.
+	Resolutions []ResolutionFile `json:"resolutions"`
+	StartedAt   time.Time        `json:"started_at"`
 
 	// State Se deriva del paso abierto. with_applicant: espera al titular. in_office: lo tiene el personal. referred: lo tiene el personal de otra área, a la que se derivó, y todavía no volvió al área de la que salió (ADR-020). closed: no tiene paso abierto. No es el resultado del trámite, que no se modela.
 	State ProcedureState `json:"state"`
@@ -933,6 +936,21 @@ type RegisteredPerson struct {
 	Email openapi_types.Email `json:"email"`
 	Id    string              `json:"id"`
 	Name  string              `json:"name"`
+}
+
+// ResolutionFile Un documento que resuelve un trámite cerrado, tal como lo ve su titular. Se descarga como cualquier documento del trámite. No dice cuál fue el resultado, que no se modela (ADR-009).
+type ResolutionFile struct {
+	// Document Identificador del documento del tipo de trámite que cubre
+	Document     string `json:"document"`
+	DocumentName string `json:"document_name"`
+	FileName     string `json:"file_name"`
+	Id           string `json:"id"`
+
+	// MediaType Tipo que reconoció el servidor por el contenido
+	MediaType string `json:"media_type"`
+
+	// Size Tamaño en bytes
+	Size int64 `json:"size"`
 }
 
 // Role Grupo de permisos de un área (ADR-020). Una membresía con el rol tiene los permisos que el rol tenga en cada momento

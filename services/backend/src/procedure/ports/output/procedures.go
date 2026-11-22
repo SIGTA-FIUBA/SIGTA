@@ -44,10 +44,10 @@ type ProcedureRepository interface {
 	// which does not move the procedure. The document is of the open step or,
 	// attached by the applicant in answer to a correction (ADR-026), of a
 	// step of theirs. It fails with domain.ErrProcedureNotFound if there is
-	// no such procedure, with engine.ErrNoCorrectionPending if the applicant
-	// attaches to a step of theirs and no correction is pending any more,
-	// with engine.ErrStepNotOpen if d.Step is no longer the open step, and
-	// with ErrDocumentExists if the document identifier is already taken.
+	// no such procedure, with engine.ErrStepNotOpen if d.Step is no longer the
+	// open step or, for the applicant on a step of theirs, if no correction is
+	// pending any more (engine.CanRecordAttachment), and with
+	// ErrDocumentExists if the document identifier is already taken.
 	Attach(ctx context.Context, d domain.Document, e domain.Event) error
 	// RequestCorrection adds a pending correction request to the procedure of
 	// the event, together with the event, as one change. It fails with

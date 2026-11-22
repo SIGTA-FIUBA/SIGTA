@@ -36,6 +36,19 @@ describe('DocumentFile', () => {
     expect(link.getAttribute('download')).toBe('constancia.pdf')
   })
 
+  it('shows in bytes a file smaller than one KB', () => {
+    render(<DocumentFile procedureId="P-1" file={{ ...pdf, size: 512 }} />)
+
+    expect(screen.getByText(/^512\sB$/)).toBeDefined()
+  })
+
+  it('names the procedure in its buttons, where files of several procedures share a page', () => {
+    render(<DocumentFile procedureId="P-1" file={pdf} procedureName="Pase de carrera" />)
+
+    expect(screen.getByRole('link', { name: 'Descargar constancia.pdf de Pase de carrera' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Ver constancia.pdf de Pase de carrera' })).toBeDefined()
+  })
+
   it('shows a PDF in the page, from the content the server sent', async () => {
     const fetch = stubContent(200, 'application/pdf')
     render(<DocumentFile procedureId="P-1" file={pdf} />)

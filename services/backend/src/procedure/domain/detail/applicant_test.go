@@ -121,6 +121,28 @@ func TestTheApplicantSeesTheResolutionOnceTheProcedureCloses(t *testing.T) {
 	}
 }
 
+func TestTheResolutionsOfAClosedProcedure(t *testing.T) {
+	c := applicantContent()
+	c.Definition.Documents[2].Name = "Resolución"
+	attached := []domain.Document{
+		{ID: "D-1", Requirement: "transcript", Step: "request", UploadedBy: "applicant"},
+		{ID: "D-2", Requirement: "minutes", Step: "ruling"},
+		{ID: "D-3", Requirement: "resolution", Step: "ruling", UploadedBy: "commission"},
+		{ID: "D-4", Requirement: "resolution", Step: "ruling", UploadedBy: "commission"},
+	}
+
+	if got := detail.ForApplicant(c, domain.Procedure{OpenStep: "ruling"}).Resolutions(attached); len(got) != 0 {
+		t.Errorf("resolutions of an open procedure = %+v, want none", got)
+	}
+	got := detail.ForApplicant(c, domain.Procedure{}).Resolutions(attached)
+	if len(got) != 1 || got[0].File.ID != "D-4" || got[0].Name != "Resolución" {
+		t.Fatalf("resolutions = %+v, want the last file of the resolution, with its name", got)
+	}
+	if got[0].File.UploadedBy != "" {
+		t.Errorf("the resolution was uploaded by %q, want no one shown", got[0].File.UploadedBy)
+	}
+}
+
 func TestDocumentsTheApplicantSees(t *testing.T) {
 	c := applicantContent()
 	for _, tt := range []struct {

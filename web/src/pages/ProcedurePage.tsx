@@ -29,7 +29,7 @@ import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
 import { documentDescription } from '../content/documentFormats'
-import { stateColors, stateNames } from '../content/procedureStates'
+import { closedWithoutResolution, stateColors, stateNames } from '../content/procedureStates'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -125,7 +125,7 @@ function resolutionFiles(detail: Detail) {
 function Resolution({ detail }: { detail: Detail }) {
   const files = resolutionFiles(detail)
   if (files.length === 0) {
-    return <Text c="dimmed">El trámite se cerró sin un documento resolutivo adjunto.</Text>
+    return <Text c="dimmed">{closedWithoutResolution}</Text>
   }
   return (
     <Paper withBorder p="md">
