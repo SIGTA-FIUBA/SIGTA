@@ -41,6 +41,7 @@ func TestScenarios(t *testing.T) {
 			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)
 			registerProcedureTypeDraftSteps(sc)
+			registerSubjectEquivalenceSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",

@@ -1,0 +1,121 @@
+[
+  {
+    "id": "front_desk",
+    "name": "Mesa de Entradas",
+    "permissions": [
+      {
+        "id": "open_case",
+        "name": "Caratular expedientes"
+      },
+      {
+        "id": "archive",
+        "name": "Archivar"
+      }
+    ],
+    "roles": [
+      {
+        "id": "clerk",
+        "name": "Personal de Mesa de Entradas",
+        "permissions": [
+          "open_case",
+          "archive"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "curricular_commission",
+    "name": "Comisión Curricular",
+    "permissions": [
+      {
+        "id": "rule",
+        "name": "Registrar el dictamen"
+      }
+    ],
+    "roles": [
+      {
+        "id": "member",
+        "name": "Integrante de la Comisión Curricular",
+        "permissions": [
+          "rule"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "student_affairs",
+    "name": "Dirección de Alumnos",
+    "permissions": [
+      {
+        "id": "process",
+        "name": "Tramitar"
+      }
+    ],
+    "roles": [
+      {
+        "id": "clerk",
+        "name": "Personal de la Dirección de Alumnos",
+        "permissions": [
+          "process"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "board_office",
+    "name": "Despacho del Consejo Directivo",
+    "permissions": [
+      {
+        "id": "schedule",
+        "name": "Poner en el orden del día"
+      }
+    ],
+    "roles": [
+      {
+        "id": "clerk",
+        "name": "Personal del Despacho",
+        "permissions": [
+          "schedule"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "board",
+    "name": "Consejo Directivo",
+    "permissions": [
+      {
+        "id": "ratify",
+        "name": "Registrar la resolución del Consejo"
+      }
+    ],
+    "roles": [
+      {
+        "id": "secretary",
+        "name": "Registro de las sesiones del Consejo Directivo",
+        "permissions": [
+          "ratify"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "general_directorate",
+    "name": "Dirección General Académica",
+    "permissions": [
+      {
+        "id": "review",
+        "name": "Dar el visto bueno"
+      }
+    ],
+    "roles": [
+      {
+        "id": "director",
+        "name": "Dirección General",
+        "permissions": [
+          "review"
+        ]
+      }
+    ]
+  }
+]

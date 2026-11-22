@@ -1,0 +1,233 @@
+{
+  "name": "Equivalencia entre asignaturas",
+  "description": "Pedí que te reconozcan como aprobadas materias de tu carrera por otras que aprobaste en otra carrera o facultad.",
+  "fields": [
+    {
+      "id": "student_id",
+      "name": "Legajo",
+      "type": "text"
+    },
+    {
+      "id": "degree",
+      "name": "Carrera",
+      "type": "degree"
+    },
+    {
+      "id": "study_plan",
+      "name": "Plan",
+      "type": "text"
+    },
+    {
+      "id": "entry_year",
+      "name": "Año de ingreso",
+      "type": "number"
+    },
+    {
+      "id": "requested_subjects",
+      "name": "Materias que pedís que te reconozcan",
+      "type": "subject_list"
+    },
+    {
+      "id": "current_subjects",
+      "name": "Materias que cursás",
+      "type": "subject_list"
+    },
+    {
+      "id": "notes",
+      "name": "Nota ampliatoria",
+      "type": "long_text"
+    }
+  ],
+  "documents": [
+    {
+      "id": "academic_record",
+      "name": "Historia académica descargada de SIU Guaraní",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760
+    },
+    {
+      "id": "other_institution_transcript",
+      "name": "Certificado analítico de la otra institución",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760
+    },
+    {
+      "id": "other_institution_syllabi",
+      "name": "Programas de las materias aprobadas en la otra institución",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760
+    },
+    {
+      "id": "commission_minutes",
+      "name": "Acta de la Comisión Curricular con su dictamen",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760
+    },
+    {
+      "id": "resolution_draft",
+      "name": "Proyecto de resolución",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760
+    },
+    {
+      "id": "board_resolution",
+      "name": "Resolución del Consejo Directivo",
+      "accepted_types": [
+        "application/pdf"
+      ],
+      "max_size": 10485760,
+      "resolution": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "request",
+      "name": "Solicitud",
+      "role": "applicant",
+      "action": "enter_data",
+      "fields": [
+        "student_id",
+        "degree",
+        "study_plan",
+        "entry_year",
+        "requested_subjects"
+      ],
+      "optional_fields": [
+        "current_subjects",
+        "notes"
+      ],
+      "next": "request_documents"
+    },
+    {
+      "id": "request_documents",
+      "name": "Documentación",
+      "role": "applicant",
+      "action": "upload_document",
+      "documents": [
+        "academic_record"
+      ],
+      "optional_documents": [
+        "other_institution_transcript",
+        "other_institution_syllabi"
+      ],
+      "next": "case_opened"
+    },
+    {
+      "id": "case_opened",
+      "name": "Expediente electrónico caratulado",
+      "role": "staff",
+      "area": "front_desk",
+      "permissions": [
+        "open_case"
+      ],
+      "action": "confirm_external_fact",
+      "next": "commission_ruling"
+    },
+    {
+      "id": "commission_ruling",
+      "name": "Dictamen de la Comisión Curricular",
+      "role": "staff",
+      "area": "curricular_commission",
+      "permissions": [
+        "rule"
+      ],
+      "action": "upload_document",
+      "documents": [
+        "commission_minutes"
+      ],
+      "next": "resolution_draft"
+    },
+    {
+      "id": "resolution_draft",
+      "name": "Proyecto de resolución",
+      "role": "staff",
+      "area": "student_affairs",
+      "permissions": [
+        "process"
+      ],
+      "action": "upload_document",
+      "documents": [
+        "resolution_draft"
+      ],
+      "next": "dean_resolution_signed"
+    },
+    {
+      "id": "dean_resolution_signed",
+      "name": "Resolución de Decano ad referéndum del Consejo Directivo firmada",
+      "role": "staff",
+      "area": "student_affairs",
+      "permissions": [
+        "process"
+      ],
+      "action": "confirm_external_fact",
+      "next": "board_agenda"
+    },
+    {
+      "id": "board_agenda",
+      "name": "Resolución en el orden del día del Consejo Directivo",
+      "role": "staff",
+      "area": "board_office",
+      "permissions": [
+        "schedule"
+      ],
+      "action": "confirm_external_fact",
+      "next": "board_ratification"
+    },
+    {
+      "id": "board_ratification",
+      "name": "Resolución ratificada por el Consejo Directivo",
+      "role": "staff",
+      "area": "board",
+      "permissions": [
+        "ratify"
+      ],
+      "action": "upload_document",
+      "documents": [
+        "board_resolution"
+      ],
+      "next": "siu_record"
+    },
+    {
+      "id": "siu_record",
+      "name": "Equivalencias cargadas en SIU Guaraní",
+      "role": "staff",
+      "area": "student_affairs",
+      "permissions": [
+        "process"
+      ],
+      "action": "confirm_external_fact",
+      "next": "general_review"
+    },
+    {
+      "id": "general_review",
+      "name": "Visto bueno de la Dirección General Académica",
+      "role": "staff",
+      "area": "general_directorate",
+      "permissions": [
+        "review"
+      ],
+      "action": "confirm_external_fact",
+      "next": "archived"
+    },
+    {
+      "id": "archived",
+      "name": "Expediente en guarda temporal",
+      "role": "staff",
+      "area": "front_desk",
+      "permissions": [
+        "archive"
+      ],
+      "action": "confirm_external_fact"
+    }
+  ]
+}
