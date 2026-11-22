@@ -24,15 +24,15 @@ type style struct {
 	size    float64
 	leading float64
 	gray    float64
-	bold    bool
+	widths  *[95]float64
 }
 
 var (
-	titleStyle   = style{font: "F2", size: 16, leading: 22, bold: true}
-	headingStyle = style{font: "F2", size: 12, leading: 18, bold: true}
-	labelStyle   = style{font: "F2", size: 10, leading: 14, bold: true}
-	textStyle    = style{font: "F1", size: 10, leading: 14}
-	noteStyle    = style{font: "F1", size: 8, leading: 11, gray: 0.4}
+	titleStyle   = style{font: "F2", size: 16, leading: 22, widths: &helveticaBoldWidths}
+	headingStyle = style{font: "F2", size: 12, leading: 18, widths: &helveticaBoldWidths}
+	labelStyle   = style{font: "F2", size: 10, leading: 14, widths: &helveticaBoldWidths}
+	textStyle    = style{font: "F1", size: 10, leading: 14, widths: &helveticaWidths}
+	noteStyle    = style{font: "F1", size: 8, leading: 11, gray: 0.4, widths: &helveticaWidths}
 )
 
 // Document lays out its lines top to bottom and starts a new page when one
@@ -192,29 +192,59 @@ func wrap(text string, s style, width float64) []string {
 	return lines
 }
 
-// widthOf measures text with the widths of Helvetica, in thousandths of the
-// font size. Helvetica-Bold is a little wider, so it counts a tenth more.
+// widthOf measures text with the widths of its font, in thousandths of the
+// font size. A letter with an accent is as wide as the letter without it, as
+// in Helvetica; a character it does not know counts as the widest, so that
+// the line never goes past the margin.
 func widthOf(text string, s style) float64 {
 	total := 0.0
-	for _, b := range []byte(encode(text)) {
-		w := 778.0 // the widest Latin letters, for those not in the table
-		if b >= ' ' && b <= '~' {
-			w = helveticaWidths[b-' ']
+	for _, r := range text {
+		if base, ok := unaccented[r]; ok {
+			r = base
 		}
-		total += w
-	}
-	if s.bold {
-		total *= 1.1
+		switch w, ok := latinWidths[r]; {
+		case ok:
+			total += w
+		case r >= ' ' && r <= '~':
+			total += s.widths[r-' ']
+		default:
+			total += 1000
+		}
 	}
 	return total * s.size / 1000
 }
 
-// helveticaWidths are the widths of the characters from space to tilde.
-var helveticaWidths = [...]float64{
+// unaccented are the letters of Spanish and its neighbors that Helvetica
+// draws as wide as the letter without the accent.
+var unaccented = map[rune]rune{
+	'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'Á': 'A', 'À': 'A', 'Â': 'A', 'Ä': 'A', 'Ã': 'A',
+	'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+	'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+	'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Ö': 'O', 'Õ': 'O',
+	'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+	'ñ': 'n', 'Ñ': 'N', 'ç': 'c', 'Ç': 'C',
+}
+
+// latinWidths are the signs of Spanish outside ASCII, as wide in Helvetica as
+// in Helvetica-Bold.
+var latinWidths = map[rune]float64{'¿': 611, '¡': 333, 'º': 365, 'ª': 370, '°': 400, '·': 278}
+
+// helveticaWidths and helveticaBoldWidths are the widths of the characters
+// from space to tilde.
+var helveticaWidths = [95]float64{
 	278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, // space to /
 	556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, // 0 to ?
 	1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, // @ to O
 	667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, // P to _
 	333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, // ` to o
 	556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, // p to ~
+}
+
+var helveticaBoldWidths = [95]float64{
+	278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, // space to /
+	556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, // 0 to ?
+	975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, // @ to O
+	667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, // P to _
+	333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, // ` to o
+	611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, // p to ~
 }

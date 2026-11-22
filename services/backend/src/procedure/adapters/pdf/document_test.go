@@ -3,37 +3,14 @@ package pdf
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 
-	"golang.org/x/text/encoding/charmap"
+	"backend/src/procedure/adapters/pdf/pdftest"
 )
-
-var (
-	contentStream = regexp.MustCompile(`(?s)>>\nstream\n(.*?)endstream`)
-	shownText     = regexp.MustCompile(`\(((?:[^()\\]|\\.)*)\) Tj`)
-)
-
-// linesOf returns the lines each page shows, back in UTF-8.
-func linesOf(t *testing.T, document []byte) [][]string {
-	t.Helper()
-	var pages [][]string
-	for _, stream := range contentStream.FindAllStringSubmatch(string(document), -1) {
-		var lines []string
-		for _, m := range shownText.FindAllStringSubmatch(stream[1], -1) {
-			raw := strings.NewReplacer(`\\`, `\`, `\(`, `(`, `\)`, `)`).Replace(m[1])
-			line, err := charmap.Windows1252.NewDecoder().String(raw)
-			if err != nil {
-				t.Fatal(err)
-			}
-			lines = append(lines, line)
-		}
-		pages = append(pages, lines)
-	}
-	return pages
-}
 
 func TestBytesIsAPDFWhoseTableFindsEveryObject(t *testing.T) {
 	d := New("Comprobante", "SIGTA")
@@ -73,7 +50,7 @@ func TestTextKeepsSpanishAndMarksWhatWinAnsiLacks(t *testing.T) {
 	d := New("Comprobante", "SIGTA")
 	d.Text("Análisis (II) \\ Ñandú ¿sí? 日本")
 
-	if got := linesOf(t, d.Bytes())[0][0]; got != "Análisis (II) \\ Ñandú ¿sí? ??" {
+	if got := pdftest.Lines(t, d.Bytes())[0][0]; got != "Análisis (II) \\ Ñandú ¿sí? ??" {
 		t.Errorf("line = %q", got)
 	}
 }
@@ -82,7 +59,7 @@ func TestTextWrapsBetweenWordsAndInsideOnesTooLong(t *testing.T) {
 	d := New("Comprobante", "SIGTA")
 	d.Text(strings.Repeat("palabra ", 30) + strings.Repeat("x", 200) + "\nfin")
 
-	lines := linesOf(t, d.Bytes())[0]
+	lines := pdftest.Lines(t, d.Bytes())[0]
 	lines = lines[:len(lines)-1] // the footer
 	if len(lines) < 4 || lines[len(lines)-1] != "fin" {
 		t.Fatalf("lines = %q", lines)
@@ -103,7 +80,7 @@ func TestDocumentGoesOnToANewPageAndNumbersThem(t *testing.T) {
 		d.Field("Paso", fmt.Sprintf("línea %d", i))
 	}
 
-	pages := linesOf(t, d.Bytes())
+	pages := pdftest.Lines(t, d.Bytes())
 	if len(pages) != 2 {
 		t.Fatalf("%d pages, want 2", len(pages))
 	}
@@ -114,5 +91,41 @@ func TestDocumentGoesOnToANewPageAndNumbersThem(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(pages[1], "\n"), "línea 79") {
 		t.Errorf("the second page does not go on: %q", pages[1])
+	}
+}
+
+// A backslash at the end must not escape the parenthesis that closes the
+// string, or the reader loses the rest of the page.
+func TestTextEndingInABackslashKeepsTheNextLines(t *testing.T) {
+	d := New("Comprobante", "SIGTA")
+	d.Text(`C:\`)
+	d.Text(`a \(b\) c\\`)
+	d.Text("sigue")
+
+	out := d.Bytes()
+	if !bytes.Contains(out, []byte(`(C:\\) Tj`)) {
+		t.Errorf("the backslash is not escaped: %q", out)
+	}
+	if got := pdftest.Lines(t, out)[0]; fmt.Sprint(got[:3]) != fmt.Sprint([]string{`C:\`, `a \(b\) c\\`, "sigue"}) {
+		t.Errorf("lines = %q", got)
+	}
+}
+
+func TestWidthOfMeasuresEachFontAndCountsWhatItDoesNotKnowAsTheWidest(t *testing.T) {
+	for _, tc := range []struct {
+		text  string
+		style style
+		want  float64
+	}{
+		{"m", textStyle, 8.33},
+		{"m", labelStyle, 8.89},
+		{"Ñandú", textStyle, 7.22 + 5.56 + 5.56 + 5.56 + 5.56},
+		{"¿", labelStyle, 6.11},
+		{"——", labelStyle, 20},
+		{"陈", textStyle, 10},
+	} {
+		if got := widthOf(tc.text, tc.style); math.Abs(got-tc.want) > 0.001 {
+			t.Errorf("widthOf(%q) = %.3f, want %.3f", tc.text, got, tc.want)
+		}
 	}
 }
