@@ -46,6 +46,7 @@ type subjectEquivalenceWorld struct {
 	handler        http.Handler
 	users          *authmem.UserRepository
 	administrators *authmem.AdministratorRepository
+	administrator  string // the email of the first administrator
 	dir            string
 	now            time.Time
 	ids            int
@@ -289,6 +290,7 @@ func (w *subjectEquivalenceWorld) givenFirstAdministrator(email string) error {
 	if _, err := authapp.GrantFirstAdministrator(context.Background(), w.users, w.administrators, email, w.newID, w.now); err != nil {
 		return err
 	}
+	w.administrator = email
 	var areas []api.Area
 	if err := w.call(email, http.MethodGet, "/areas", nil, http.StatusOK, &areas); err != nil {
 		return err
@@ -309,16 +311,16 @@ func (w *subjectEquivalenceWorld) givenAreas() error {
 		return err
 	}
 	for _, a := range areas {
-		if err := w.call(scenarioAdministrator, http.MethodPost, "/areas", map[string]string{"id": a.Id, "name": a.Name}, http.StatusCreated, nil); err != nil {
+		if err := w.call(w.administrator, http.MethodPost, "/areas", map[string]string{"id": a.Id, "name": a.Name}, http.StatusCreated, nil); err != nil {
 			return err
 		}
 		for _, p := range a.Permissions {
-			if err := w.call(scenarioAdministrator, http.MethodPost, "/areas/"+a.Id+"/permissions", map[string]string{"id": p.Id, "name": p.Name}, http.StatusCreated, nil); err != nil {
+			if err := w.call(w.administrator, http.MethodPost, "/areas/"+a.Id+"/permissions", map[string]string{"id": p.Id, "name": p.Name}, http.StatusCreated, nil); err != nil {
 				return err
 			}
 		}
 		for _, r := range a.Roles {
-			if err := w.call(scenarioAdministrator, http.MethodPost, "/areas/"+a.Id+"/roles", api.NewRole(r), http.StatusCreated, nil); err != nil {
+			if err := w.call(w.administrator, http.MethodPost, "/areas/"+a.Id+"/roles", api.NewRole(r), http.StatusCreated, nil); err != nil {
 				return err
 			}
 		}
@@ -331,7 +333,7 @@ func (w *subjectEquivalenceWorld) givenAreas() error {
 // by name.
 func (w *subjectEquivalenceWorld) givenMemberships(table *godog.Table) error {
 	var areas []api.Area
-	if err := w.call(scenarioAdministrator, http.MethodGet, "/areas", nil, http.StatusOK, &areas); err != nil {
+	if err := w.call(w.administrator, http.MethodGet, "/areas", nil, http.StatusOK, &areas); err != nil {
 		return err
 	}
 	for _, row := range table.Rows[1:] {
@@ -340,7 +342,7 @@ func (w *subjectEquivalenceWorld) givenMemberships(table *godog.Table) error {
 			return err
 		}
 		var found []api.RegisteredPerson
-		if err := w.call(scenarioAdministrator, http.MethodGet, "/people?q="+url.QueryEscape(email), nil, http.StatusOK, &found); err != nil {
+		if err := w.call(w.administrator, http.MethodGet, "/people?q="+url.QueryEscape(email), nil, http.StatusOK, &found); err != nil {
 			return err
 		}
 		if len(found) != 1 {
@@ -360,7 +362,7 @@ func (w *subjectEquivalenceWorld) givenMemberships(table *godog.Table) error {
 			return err
 		}
 		membership := api.NewMembership{UserId: found[0].Id, Area: area.Id, Roles: &roles, Permissions: &permissions}
-		if err := w.call(scenarioAdministrator, http.MethodPost, "/memberships", membership, http.StatusCreated, nil); err != nil {
+		if err := w.call(w.administrator, http.MethodPost, "/memberships", membership, http.StatusCreated, nil); err != nil {
 			return err
 		}
 		w.staff = append(w.staff, email)
