@@ -10,8 +10,6 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"net/http/cookiejar"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,15 +38,15 @@ const (
 	subjectEquivalenceAreas      = "testdata/subject_equivalence/areas.json"
 )
 
-// subjectEquivalenceWorld runs SIGTA wired as the server wires it, over the
-// in-memory adapters and the test identity provider. Everyone signs in with
+// subjectEquivalenceWorld runs SIGTA over the in-memory adapters and the test
+// identity provider, following the wiring of src/cmd/http.go. Everyone signs in with
 // their own browser and does their part through the API, so nothing is
 // loaded behind it.
 type subjectEquivalenceWorld struct {
 	handler        http.Handler
 	users          *authmem.UserRepository
 	administrators *authmem.AdministratorRepository
-	files          string
+	dir            string
 	now            time.Time
 	ids            int
 
@@ -81,8 +79,8 @@ func registerSubjectEquivalenceSteps(sc *godog.ScenarioContext) {
 		attached: map[string][]byte{},
 	}
 	sc.After(func(ctx context.Context, _ *godog.Scenario, err error) (context.Context, error) {
-		if w.files != "" {
-			return ctx, errors.Join(err, os.RemoveAll(w.files))
+		if w.dir != "" {
+			return ctx, errors.Join(err, os.RemoveAll(w.dir))
 		}
 		return ctx, err
 	})
@@ -131,7 +129,7 @@ func (w *subjectEquivalenceWorld) setUp() error {
 	if err != nil {
 		return err
 	}
-	w.files = files
+	w.dir = files
 	stored, err := disk.NewFiles(files)
 	if err != nil {
 		return err
@@ -201,18 +199,9 @@ func (w *subjectEquivalenceWorld) readDefinition() error {
 // signIn opens a browser that goes through the identity provider and comes
 // back with a session, and records who the person is.
 func (w *subjectEquivalenceWorld) signIn(email string) error {
-	jar, err := cookiejar.New(nil)
+	browser, err := newBrowser(func() http.Handler { return w.handler })
 	if err != nil {
 		return err
-	}
-	browser := &http.Client{
-		Jar: jar,
-		Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
-			recorder := httptest.NewRecorder()
-			w.handler.ServeHTTP(recorder, r)
-			return recorder.Result(), nil
-		}),
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	w.browsers[email] = browser
 	target := baseURL + "/auth/login?login_hint=" + url.QueryEscape(email)
@@ -479,8 +468,8 @@ func (w *subjectEquivalenceWorld) thenInCatalog(email, name string) error {
 }
 
 func (w *subjectEquivalenceWorld) thenNotPublished() error {
-	if w.status != http.StatusForbidden {
-		return fmt.Errorf("the approval got status %d with %s, want it refused", w.status, w.body)
+	if w.status != http.StatusForbidden || !strings.Contains(w.body, "otra persona") {
+		return fmt.Errorf("the approval got status %d with %s, want it refused for another person", w.status, w.body)
 	}
 	entries, err := w.catalog("tomas@fi.uba.ar")
 	if err != nil {
@@ -508,7 +497,7 @@ func (w *subjectEquivalenceWorld) start(email string) error {
 	if err := errors.Join(
 		form.WriteField("procedure_type", strconv.FormatInt(w.procedureType, 10)),
 		form.WriteField("values", string(values)),
-		writeFile(form, w.documents["Historia académica descargada de SIU Guaraní"], w.pdf("historia académica")),
+		writeDocumentPart(form, w.documents["Historia académica descargada de SIU Guaraní"], pdf("historia académica")),
 		form.Close(),
 	); err != nil {
 		return err
@@ -528,12 +517,12 @@ func (w *subjectEquivalenceWorld) start(email string) error {
 }
 
 // pdf is a synthetic PDF that says what it is.
-func (w *subjectEquivalenceWorld) pdf(what string) []byte {
+func pdf(what string) []byte {
 	return []byte("%PDF-1.7\n% " + what + ", sintético\n")
 }
 
-// writeFile adds a document and its file, in the order the API reads them.
-func writeFile(form *multipart.Writer, document string, content []byte) error {
+// writeDocumentPart adds a document and its file, in the order the API reads them.
+func writeDocumentPart(form *multipart.Writer, document string, content []byte) error {
 	if err := form.WriteField("document", document); err != nil {
 		return err
 	}
@@ -629,10 +618,10 @@ func (w *subjectEquivalenceWorld) attachNamed(email, document string) error {
 	if !ok {
 		return fmt.Errorf("the procedure type has no document %q", document)
 	}
-	content := w.pdf(document)
+	content := pdf(document)
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
-	if err := errors.Join(writeFile(form, id, content), form.Close()); err != nil {
+	if err := errors.Join(writeDocumentPart(form, id, content), form.Close()); err != nil {
 		return err
 	}
 	if err := w.send(email, http.MethodPost, "/procedures/"+w.procedure+"/documents", &body, form.FormDataContentType()); err != nil {
@@ -684,7 +673,28 @@ func (w *subjectEquivalenceWorld) do(step, email, document, externalFileNumber s
 	if w.status != http.StatusCreated {
 		return fmt.Errorf("%s confirming %q got status %d with %s", email, step, w.status, w.body)
 	}
-	return nil
+	if externalFileNumber == "" {
+		return nil
+	}
+	return w.thenExternalFileNumber(email, step, externalFileNumber)
+}
+
+// thenExternalFileNumber looks for the number in the referral that the
+// confirmation of step left in the history.
+func (w *subjectEquivalenceWorld) thenExternalFileNumber(email, step, want string) error {
+	d, err := w.detail(email)
+	if err != nil {
+		return err
+	}
+	for _, e := range d.History {
+		if e.Step == w.steps[step] && e.Document == nil {
+			if e.Referral == nil || e.Referral.ExternalFileNumber == nil || *e.Referral.ExternalFileNumber != want {
+				return fmt.Errorf("%q left the referral %+v, want the external file number %s", step, e.Referral, want)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("the history has no %q", step)
 }
 
 func (w *subjectEquivalenceWorld) doSteps(table *godog.Table) error {

@@ -13,19 +13,19 @@ Feature: Subject equivalence, the anchor procedure type
     Given SIGTA starts with only the Secretariat, and "admin@fi.uba.ar" signs in as its first administrator
     And the administrator creates the areas of subject equivalence, with their permissions and roles
     And these people sign in and the administrator grants them these memberships:
-      | person           | area                            | roles                                          | permissions               |
-      | ana@fi.uba.ar    | Secretaría de Gestión Académica |                                                | Editar tipos de trámite   |
-      | beto@fi.uba.ar   | Secretaría de Gestión Académica |                                                | Editar tipos de trámite   |
-      | carla@fi.uba.ar  | Secretaría de Gestión Académica |                                                | Publicar tipos de trámite |
-      | dora@fi.uba.ar   | Mesa de Entradas                | Personal de Mesa de Entradas                   |                           |
-      | ciro@fi.uba.ar   | Comisión Curricular             | Integrante de la Comisión Curricular           |                           |
-      | alba@fi.uba.ar   | Dirección de Alumnos            | Personal de la Dirección de Alumnos            |                           |
-      | bruno@fi.uba.ar  | Despacho del Consejo Directivo  | Personal del Despacho                          |                           |
-      | elsa@fi.uba.ar   | Consejo Directivo               | Registro de las sesiones del Consejo Directivo |                           |
-      | gael@fi.uba.ar   | Dirección General Académica     | Dirección General                              |                           |
+      | person           | area                            | roles                                          | permissions                                        |
+      | ana@fi.uba.ar    | Secretaría de Gestión Académica |                                                | Editar tipos de trámite, Publicar tipos de trámite |
+      | beto@fi.uba.ar   | Secretaría de Gestión Académica |                                                | Editar tipos de trámite, Publicar tipos de trámite |
+      | carla@fi.uba.ar  | Secretaría de Gestión Académica |                                                | Publicar tipos de trámite                          |
+      | dora@fi.uba.ar   | Mesa de Entradas                | Personal de Mesa de Entradas                   |                                                    |
+      | ciro@fi.uba.ar   | Comisión Curricular             | Integrante de la Comisión Curricular           |                                                    |
+      | alba@fi.uba.ar   | Dirección de Alumnos            | Personal de la Dirección de Alumnos            |                                                    |
+      | bruno@fi.uba.ar  | Despacho del Consejo Directivo  | Personal del Despacho                          |                                                    |
+      | elsa@fi.uba.ar   | Consejo Directivo               | Registro de las sesiones del Consejo Directivo |                                                    |
+      | gael@fi.uba.ar   | Dirección General Académica     | Dirección General                              |                                                    |
     And "tomas@fi.uba.ar" signs in, with no membership
 
-  Scenario: the configuration is published by a third person, who neither edited nor proposed it
+  Scenario: the configuration is published when someone who neither edited nor proposed it approves it
     When "ana@fi.uba.ar" creates the draft of subject equivalence with its configuration
     Then the draft of subject equivalence has no problems with the areas
     When "beto@fi.uba.ar" proposes the draft of subject equivalence
@@ -33,7 +33,7 @@ Feature: Subject equivalence, the anchor procedure type
     Then version 1 of subject equivalence is published, proposed by "beto@fi.uba.ar" and approved by "carla@fi.uba.ar"
     And "tomas@fi.uba.ar" finds "Equivalencia entre asignaturas" in the catalog
 
-  Scenario: whoever created or proposed the configuration does not approve it
+  Scenario: whoever created or proposed the configuration does not approve it, even with the permission to publish
     Given "ana@fi.uba.ar" created the draft of subject equivalence and "beto@fi.uba.ar" proposed it
     When "beto@fi.uba.ar" approves the draft of subject equivalence
     Then subject equivalence is not published
