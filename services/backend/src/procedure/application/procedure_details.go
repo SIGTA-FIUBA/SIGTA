@@ -80,6 +80,17 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	}, nil
 }
 
+func (s *ProcedureDetailService) Receipt(ctx context.Context, userID, procedureID string) (input.Receipt, error) {
+	d, err := s.Detail(ctx, userID, procedureID)
+	if err != nil {
+		return input.Receipt{}, err
+	}
+	if !d.AsApplicant {
+		return input.Receipt{}, domain.ErrProcedureNotFound
+	}
+	return input.Receipt{ProcedureDetail: d, IssuedAt: s.procedures.now()}, nil
+}
+
 // Mine lists the procedures the person started, the closed ones too, with
 // the documents that resolve them. It leaves out those of others, also for staff:
 // what goes through their areas is in the inbox. It fails, as the detail does,

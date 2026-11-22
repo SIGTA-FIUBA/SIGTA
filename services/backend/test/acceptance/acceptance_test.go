@@ -34,6 +34,7 @@ func TestScenarios(t *testing.T) {
 			registerStaffAdministrationSteps(sc, authorization)
 			confirmations := registerConfirmationSteps(sc, authorization)
 			registerHistorySteps(sc, confirmations)
+			registerReceiptSteps(sc, confirmations)
 			registerCorrectionRequestSteps(sc, confirmations)
 			myDetail := registerMyProcedureDetailSteps(sc, confirmations)
 			registerMyProceduresSteps(sc, myDetail)
@@ -42,6 +43,7 @@ func TestScenarios(t *testing.T) {
 			registerSubmissionSteps(sc)
 			registerInboxSteps(sc)
 			registerProcedureTypeDraftSteps(sc)
+			registerSubjectEquivalenceSteps(sc)
 		},
 		Options: &godog.Options{
 			Format:   "progress",

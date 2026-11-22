@@ -60,6 +60,7 @@ type ProcedureServer interface {
 	EnterProcedureValue(ctx context.Context, request EnterProcedureValueRequestObject) (EnterProcedureValueResponseObject, error)
 	AnswerCorrection(ctx context.Context, request AnswerCorrectionRequestObject) (AnswerCorrectionResponseObject, error)
 	ListMyProcedures(ctx context.Context, request ListMyProceduresRequestObject) (ListMyProceduresResponseObject, error)
+	DownloadProcedureReceipt(ctx context.Context, request DownloadProcedureReceiptRequestObject) (DownloadProcedureReceiptResponseObject, error)
 }
 
 type InboxServer interface {

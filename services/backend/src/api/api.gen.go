@@ -1325,6 +1325,11 @@ type DownloadProcedureDocumentParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
 }
 
+// DownloadProcedureReceiptParams defines parameters for DownloadProcedureReceipt.
+type DownloadProcedureReceiptParams struct {
+	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
+}
+
 // ConfirmStepParams defines parameters for ConfirmStep.
 type ConfirmStepParams struct {
 	SigtaSession *SessionCookie `form:"sigta_session,omitempty" json:"sigta_session,omitempty"`
@@ -1510,6 +1515,9 @@ type ServerInterface interface {
 	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
 	// (GET /procedures/{procedureId}/documents/{documentId}/content)
 	DownloadProcedureDocument(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, documentId string, params DownloadProcedureDocumentParams)
+	// DownloadProcedureReceipt Descarga el comprobante de un trámite
+	// (GET /procedures/{procedureId}/receipt)
+	DownloadProcedureReceipt(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params DownloadProcedureReceiptParams)
 	// ConfirmStep Confirma el paso abierto de un trámite
 	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
 	ConfirmStep(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, stepId StepId, params ConfirmStepParams)
@@ -3236,6 +3244,50 @@ func (siw *ServerInterfaceWrapper) DownloadProcedureDocument(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// DownloadProcedureReceipt operation middleware
+func (siw *ServerInterfaceWrapper) DownloadProcedureReceipt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "procedureId" -------------
+	var procedureId ProcedureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "procedureId", r.PathValue("procedureId"), &procedureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "procedureId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadProcedureReceiptParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("sigta_session"); err == nil {
+			var value SessionCookie
+			err = runtime.BindStyledParameterWithOptions("simple", "sigta_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sigta_session", Err: err})
+				return
+			}
+			params.SigtaSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadProcedureReceipt(w, r, procedureId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ConfirmStep operation middleware
 func (siw *ServerInterfaceWrapper) ConfirmStep(w http.ResponseWriter, r *http.Request) {
 
@@ -3541,6 +3593,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures", wrapper.ListProcedures)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures", wrapper.SubmitProcedure)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}", wrapper.GetProcedure)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/procedures/{procedureId}/receipt", wrapper.DownloadProcedureReceipt)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/confirmation", wrapper.ConfirmStep)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/steps/{stepId}/correction-requests", wrapper.RequestCorrection)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/procedures/{procedureId}/values", wrapper.EnterProcedureValue)
@@ -6042,6 +6095,75 @@ func (response DownloadProcedureDocument404JSONResponse) VisitDownloadProcedureD
 	return err
 }
 
+type DownloadProcedureReceiptRequestObject struct {
+	ProcedureId ProcedureId `json:"procedureId"`
+	Params      DownloadProcedureReceiptParams
+}
+
+type DownloadProcedureReceiptResponseObject interface {
+	VisitDownloadProcedureReceiptResponse(w http.ResponseWriter) error
+}
+
+type DownloadProcedureReceipt200ResponseHeaders struct {
+	CacheControl          string
+	ContentDisposition    string
+	ContentSecurityPolicy string
+	XContentTypeOptions   string
+}
+
+type DownloadProcedureReceipt200ApplicationpdfResponse struct {
+	Body          io.Reader
+	Headers       DownloadProcedureReceipt200ResponseHeaders
+	ContentLength int64
+}
+
+func (response DownloadProcedureReceipt200ApplicationpdfResponse) VisitDownloadProcedureReceiptResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/pdf")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.Header().Set("Content-Security-Policy", fmt.Sprint(response.Headers.ContentSecurityPolicy))
+	w.Header().Set("X-Content-Type-Options", fmt.Sprint(response.Headers.XContentTypeOptions))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadProcedureReceipt401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DownloadProcedureReceipt401JSONResponse) VisitDownloadProcedureReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadProcedureReceipt404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DownloadProcedureReceipt404JSONResponse) VisitDownloadProcedureReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ConfirmStepRequestObject struct {
 	ProcedureId ProcedureId `json:"procedureId"`
 	StepId      StepId      `json:"stepId"`
@@ -6445,6 +6567,9 @@ type StrictServerInterface interface {
 	// DownloadProcedureDocument Descarga el archivo de un documento adjunto
 	// (GET /procedures/{procedureId}/documents/{documentId}/content)
 	DownloadProcedureDocument(ctx context.Context, request DownloadProcedureDocumentRequestObject) (DownloadProcedureDocumentResponseObject, error)
+	// DownloadProcedureReceipt Descarga el comprobante de un trámite
+	// (GET /procedures/{procedureId}/receipt)
+	DownloadProcedureReceipt(ctx context.Context, request DownloadProcedureReceiptRequestObject) (DownloadProcedureReceiptResponseObject, error)
 	// ConfirmStep Confirma el paso abierto de un trámite
 	// (POST /procedures/{procedureId}/steps/{stepId}/confirmation)
 	ConfirmStep(ctx context.Context, request ConfirmStepRequestObject) (ConfirmStepResponseObject, error)
@@ -7624,6 +7749,33 @@ func (sh *strictHandler) DownloadProcedureDocument(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DownloadProcedureDocumentResponseObject); ok {
 		if err := validResponse.VisitDownloadProcedureDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadProcedureReceipt operation middleware
+func (sh *strictHandler) DownloadProcedureReceipt(w http.ResponseWriter, r *http.Request, procedureId ProcedureId, params DownloadProcedureReceiptParams) {
+	var request DownloadProcedureReceiptRequestObject
+
+	request.ProcedureId = procedureId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadProcedureReceipt(ctx, request.(DownloadProcedureReceiptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadProcedureReceipt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadProcedureReceiptResponseObject); ok {
+		if err := validResponse.VisitDownloadProcedureReceiptResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
