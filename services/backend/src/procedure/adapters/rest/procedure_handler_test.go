@@ -378,6 +378,9 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
 		Name:      "Equivalencias",
 		State:     domain.StateClosed,
+		Resolutions: []detail.ResolutionFile{{Name: "Resolución de Decano", File: domain.Document{
+			ID: "D-1", Requirement: "dean_resolution", FileName: "resolucion.pdf", MediaType: "application/pdf", Size: 2048,
+		}}},
 	}, {
 		Procedure: domain.Procedure{ID: "P-3", ProcedureType: 7, Applicant: "ana", OpenStep: "check", StartedAt: started, MovedAt: moved,
 			CorrectionRequests: []domain.CorrectionRequest{{Step: "check", Reason: "falta la firma", Fields: []string{"subjects"}}}},
@@ -401,12 +404,16 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		t.Errorf("correction pending = %t, %t; want only the third one", got[0].CorrectionPending, got[2].CorrectionPending)
 	}
 	step := "Revisión"
-	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved}
+	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved, Resolutions: []api.ResolutionFile{}}
 	if !reflect.DeepEqual(got[0], open) {
 		t.Errorf("open procedure = %+v, want %+v", got[0], open)
 	}
 	if got[1].State != api.Closed || got[1].StepName != nil {
 		t.Errorf("closed procedure = %+v, want it closed without an open step", got[1])
+	}
+	resolution := api.ResolutionFile{Id: "D-1", Document: "dean_resolution", DocumentName: "Resolución de Decano", FileName: "resolucion.pdf", MediaType: "application/pdf", Size: 2048}
+	if !reflect.DeepEqual(got[1].Resolutions, []api.ResolutionFile{resolution}) {
+		t.Errorf("resolutions = %+v, want %+v", got[1].Resolutions, resolution)
 	}
 }
 
