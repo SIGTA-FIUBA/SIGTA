@@ -378,7 +378,7 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
 		Name:      "Equivalencias",
 		State:     domain.StateClosed,
-		Resolutions: []detail.Resolution{{Name: "Resolución de Decano", File: domain.Document{
+		Resolutions: []detail.ResolutionFile{{Name: "Resolución de Decano", File: domain.Document{
 			ID: "D-1", Requirement: "dean_resolution", FileName: "resolucion.pdf", MediaType: "application/pdf", Size: 2048,
 		}}},
 	}, {

@@ -62,9 +62,9 @@ func (a Applicant) ownStep(id string) bool {
 	})
 }
 
-// Resolution is a document that resolves a closed procedure, with the name the
-// procedure type gives it.
-type Resolution struct {
+// ResolutionFile is a document that resolves a closed procedure, with the name
+// the procedure type gives it.
+type ResolutionFile struct {
 	Name string
 	File domain.Document
 }
@@ -72,18 +72,18 @@ type Resolution struct {
 // Resolutions keeps the current file of each document that resolves the
 // procedure, in the order they were attached, without who attached it. There
 // is none while the procedure is open.
-func (a Applicant) Resolutions(attached []domain.Document) []Resolution {
+func (a Applicant) Resolutions(attached []domain.Document) []ResolutionFile {
 	if !a.closed {
 		return nil
 	}
-	var resolutions []Resolution
+	var resolutions []ResolutionFile
 	for _, d := range domain.Current(attached) {
 		i := slices.IndexFunc(a.content.Definition.Documents, func(r definition.Document) bool { return r.ID == d.Requirement })
 		if i < 0 || !a.content.Definition.Documents[i].Resolution {
 			continue
 		}
 		d.UploadedBy = ""
-		resolutions = append(resolutions, Resolution{Name: a.content.Definition.Documents[i].Name, File: d})
+		resolutions = append(resolutions, ResolutionFile{Name: a.content.Definition.Documents[i].Name, File: d})
 	}
 	return resolutions
 }

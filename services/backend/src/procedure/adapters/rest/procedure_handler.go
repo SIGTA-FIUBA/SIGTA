@@ -179,7 +179,7 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 	return response, nil
 }
 
-func resolutionFiles(resolutions []detail.Resolution) []api.ResolutionFile {
+func resolutionFiles(resolutions []detail.ResolutionFile) []api.ResolutionFile {
 	files := make([]api.ResolutionFile, 0, len(resolutions))
 	for _, r := range resolutions {
 		files = append(files, api.ResolutionFile{

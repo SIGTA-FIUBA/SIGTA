@@ -56,7 +56,7 @@ type MyProcedure struct {
 	Name        string
 	StepName    string // empty once the procedure is closed
 	State       domain.State
-	Resolutions []detail.Resolution
+	Resolutions []detail.ResolutionFile
 }
 
 type StepConfirmation struct {
