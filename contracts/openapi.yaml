@@ -113,9 +113,9 @@ paths:
       summary: Trámites de la persona con sesión abierta
       description: >
         Los trámites que inició quien tiene la sesión, sea o no del personal,
-        en curso y cerrados: un trámite cerrado se lista para que su titular
-        llegue a la resolución. Primero los que se movieron más
-        recientemente. Cada uno se abre con su detalle.
+        en curso y cerrados: un trámite cerrado se lista con su resolución,
+        para que su titular la descargue sin buscarla. Primero los que se
+        movieron más recientemente. Cada uno se abre con su detalle.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -1201,8 +1201,10 @@ paths:
         subsanación, cuentan solo los adjuntados desde el último pedido que
         nombra ese documento. Cada archivo adjuntado queda en el historial,
         sin avanzar el trámite. Si el paso ya no está abierto (otro lo
-        confirmó o el trámite está cerrado), o la subsanación que pedía el
-        documento ya se respondió, responde 409.
+        confirmó o el trámite está cerrado), responde 409. Responde 403 a
+        quien no puede hacer el paso abierto ni tiene una subsanación
+        pendiente que pida ese documento, también si la respuesta a la
+        subsanación se envió mientras adjuntaba.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -2367,7 +2369,7 @@ components:
           type: string
     MyProcedure:
       type: object
-      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at]
+      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at, resolutions]
       properties:
         id:
           type: string
@@ -2391,6 +2393,38 @@ components:
           type: string
           format: date-time
           description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
+        resolutions:
+          type: array
+          description: >
+            Los documentos que resuelven el trámite, el último que se adjuntó
+            de cada uno, para descargarlos sin abrir el detalle. Vacío
+            mientras el trámite está en curso o si se cerró sin uno.
+          items:
+            $ref: "#/components/schemas/ResolutionFile"
+    ResolutionFile:
+      type: object
+      description: >
+        Un documento que resuelve un trámite cerrado, tal como lo ve su
+        titular. Se descarga como cualquier documento del trámite. No dice
+        cuál fue el resultado, que no se modela (ADR-009).
+      required: [id, document, document_name, file_name, media_type, size]
+      properties:
+        id:
+          type: string
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        document_name:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
+          description: Tipo que reconoció el servidor por el contenido
+        size:
+          type: integer
+          format: int64
+          description: Tamaño en bytes
     ProcedureDetail:
       type: object
       required:

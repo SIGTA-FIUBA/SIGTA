@@ -62,6 +62,32 @@ func (a Applicant) ownStep(id string) bool {
 	})
 }
 
+// ResolutionFile is a document that resolves a closed procedure, with the name
+// the procedure type gives it.
+type ResolutionFile struct {
+	Name string
+	File domain.Document
+}
+
+// Resolutions keeps the current file of each document that resolves the
+// procedure, in the order they were attached, without who attached it. There
+// is none while the procedure is open.
+func (a Applicant) Resolutions(attached []domain.Document) []ResolutionFile {
+	if !a.closed {
+		return nil
+	}
+	var resolutions []ResolutionFile
+	for _, d := range domain.Current(attached) {
+		i := slices.IndexFunc(a.content.Definition.Documents, func(r definition.Document) bool { return r.ID == d.Requirement })
+		if i < 0 || !a.content.Definition.Documents[i].Resolution {
+			continue
+		}
+		d.UploadedBy = ""
+		resolutions = append(resolutions, ResolutionFile{Name: a.content.Definition.Documents[i].Name, File: d})
+	}
+	return resolutions
+}
+
 // Steps puts together the steps as the applicant sees them, with the values
 // and documents they see: in their own steps, the last value or file they
 // entered, even if staff entered another one for the same requirement later.

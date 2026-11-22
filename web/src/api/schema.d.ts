@@ -83,7 +83,7 @@ export interface paths {
         };
         /**
          * Trámites de la persona con sesión abierta
-         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista con su resolución, para que su titular la descargue sin buscarla. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
          */
         get: operations["listMyProcedures"];
         put?: never;
@@ -667,7 +667,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), o la subsanación que pedía el documento ya se respondió, responde 409.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), responde 409. Responde 403 a quien no puede hacer el paso abierto ni tiene una subsanación pendiente que pida ese documento, también si la respuesta a la subsanación se envió mientras adjuntaba.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;
@@ -1210,6 +1210,23 @@ export interface components {
              * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
+            /** @description Los documentos que resuelven el trámite, el último que se adjuntó de cada uno, para descargarlos sin abrir el detalle. Vacío mientras el trámite está en curso o si se cerró sin uno. */
+            resolutions: components["schemas"]["ResolutionFile"][];
+        };
+        /** @description Un documento que resuelve un trámite cerrado, tal como lo ve su titular. Se descarga como cualquier documento del trámite. No dice cuál fue el resultado, que no se modela (ADR-009). */
+        ResolutionFile: {
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            document_name: string;
+            file_name: string;
+            /** @description Tipo que reconoció el servidor por el contenido */
+            media_type: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes
+             */
+            size: number;
         };
         ProcedureDetail: {
             id: string;

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 
@@ -15,19 +16,24 @@ import (
 
 // myProceduresWorld lists the procedures of a person over the
 // procedures and the service of the confirmations, so that a scenario can
-// move a procedure before listing it.
+// move a procedure before listing it, and downloads their resolutions over
+// the files the detail of my procedure attaches.
 type myProceduresWorld struct {
 	*confirmationWorld
-	listed []input.MyProcedure
+	myDetail *myProcedureDetailWorld
+	listed   []input.MyProcedure
 }
 
-func registerMyProceduresSteps(sc *godog.ScenarioContext, confirmations *confirmationWorld) {
-	w := &myProceduresWorld{confirmationWorld: confirmations}
+func registerMyProceduresSteps(sc *godog.ScenarioContext, myDetail *myProcedureDetailWorld) {
+	w := &myProceduresWorld{confirmationWorld: myDetail.confirmationWorld, myDetail: myDetail}
 
 	sc.When(`^"([^"]*)" looks at their procedures$`, w.listMine)
 	sc.Then(`^they see these procedures:$`, w.thenSee)
 	sc.Then(`^they see no procedures$`, func() error { return w.thenSee(nil) })
+	sc.Then(`^they see these closed procedures:$`, w.thenSeeClosed)
+	sc.Then(`^they see no closed procedures$`, func() error { return w.thenSeeClosed(nil) })
 	sc.Then(`^"([^"]*)" can open the detail of each one$`, w.thenOpensEach)
+	sc.Then(`^"([^"]*)" can download the resolution of each closed procedure$`, w.thenDownloadsEachResolution)
 }
 
 func (w *myProceduresWorld) details() *application.ProcedureDetailService {
@@ -75,6 +81,60 @@ func (w *myProceduresWorld) thenOpensEach(user string) error {
 		if _, err := w.details().Detail(context.Background(), user, m.Procedure.ID); err != nil {
 			return fmt.Errorf("open %s: %w", m.Procedure.ID, err)
 		}
+	}
+	return nil
+}
+
+// thenSeeClosed lists one row for each resolution of a closed procedure, or
+// one without resolution if it closed without one.
+func (w *myProceduresWorld) thenSeeClosed(table *godog.Table) error {
+	var want []string
+	if table != nil {
+		for _, row := range tableRows(table) {
+			want = append(want, strings.Join([]string{row["procedure type"], row["closed on"], idOf(row["resolution"]), row["file"]}, " | "))
+		}
+	}
+	var got []string
+	for _, m := range w.listed {
+		if m.State != domain.StateClosed {
+			continue
+		}
+		closedOn := m.Procedure.MovedAt.Format(time.DateOnly)
+		if len(m.Resolutions) == 0 {
+			got = append(got, strings.Join([]string{m.Name, closedOn, "", ""}, " | "))
+		}
+		for _, r := range m.Resolutions {
+			got = append(got, strings.Join([]string{m.Name, closedOn, r.File.Requirement, r.File.FileName}, " | "))
+		}
+	}
+	slices.Sort(want)
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		return fmt.Errorf("closed %q, want %q", got, want)
+	}
+	return nil
+}
+
+func (w *myProceduresWorld) thenDownloadsEachResolution(user string) error {
+	documents, err := w.myDetail.documentService()
+	if err != nil {
+		return err
+	}
+	downloaded := 0
+	for _, m := range w.listed {
+		for _, r := range m.Resolutions {
+			_, content, err := documents.Open(context.Background(), user, m.Procedure.ID, r.File.ID)
+			if err != nil {
+				return fmt.Errorf("download %s of %s: %w", r.File.FileName, m.Procedure.ID, err)
+			}
+			if err := content.Close(); err != nil {
+				return err
+			}
+			downloaded++
+		}
+	}
+	if downloaded == 0 {
+		return fmt.Errorf("no resolution was listed")
 	}
 	return nil
 }

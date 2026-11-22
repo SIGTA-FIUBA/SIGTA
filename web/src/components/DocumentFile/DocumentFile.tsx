@@ -91,10 +91,20 @@ function DocumentContent({ procedureId, file }: { procedureId: string; file: Att
 }
 
 // DocumentFile names an attached file and offers to see it in the page, when
-// the browser can show it, and to download it.
-export function DocumentFile({ procedureId, file }: { procedureId: string; file: AttachedFile }) {
+// the browser can show it, and to download it. Where files of several
+// procedures share a page, procedureName tells their buttons apart.
+export function DocumentFile({
+  procedureId,
+  file,
+  procedureName,
+}: {
+  procedureId: string
+  file: AttachedFile
+  procedureName?: string
+}) {
   const [opened, setOpened] = useState(false)
   const previewable = canPreview(file.media_type ?? mediaTypeOf(file.file_name))
+  const label = procedureName === undefined ? file.file_name : `${file.file_name} de ${procedureName}`
   const download = (
     <Button
       component="a"
@@ -102,7 +112,7 @@ export function DocumentFile({ procedureId, file }: { procedureId: string; file:
       download={file.file_name}
       variant="subtle"
       size="compact-sm"
-      aria-label={`Descargar ${file.file_name}`}
+      aria-label={`Descargar ${label}`}
     >
       Descargar
     </Button>
@@ -120,12 +130,7 @@ export function DocumentFile({ procedureId, file }: { procedureId: string; file:
         )}
         <Group gap={0}>
           {previewable && (
-            <Button
-              variant="subtle"
-              size="compact-sm"
-              aria-label={`Ver ${file.file_name}`}
-              onClick={() => setOpened(true)}
-            >
+            <Button variant="subtle" size="compact-sm" aria-label={`Ver ${label}`} onClick={() => setOpened(true)}>
               Ver
             </Button>
           )}
