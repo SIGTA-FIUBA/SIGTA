@@ -73,7 +73,7 @@ func registerProcedureTypeDraftSteps(sc *godog.ScenarioContext) {
 	sc.Then(`^no version is published from the draft$`, w.thenNoVersionFromDraft)
 	sc.Then(`^the approval is refused because another version was published since$`, w.thenOutdated)
 	sc.Then(`^they are offered to edit it: (yes|no), and to approve or reject it: (yes|no)$`, w.thenOffered)
-	sc.Then(`^they (can|cannot) create a procedure type and (?:can|cannot) open a draft of "([^"]*)"$`, w.thenEditableOffers)
+	sc.Then(`^they (can|cannot) create a procedure type and (can|cannot) open a draft of "([^"]*)"$`, w.thenEditableOffers)
 }
 
 // givenAreas adds the Secretariat, whose permissions the drafts ask for
@@ -396,16 +396,15 @@ func (w *draftWorld) thenOffered(edit, review string) error {
 	return nil
 }
 
-// thenEditableOffers checks both offers with the same answer: the scenario
-// writes it twice so that it reads as a sentence.
-func (w *draftWorld) thenEditableOffers(offer, name string) error {
-	want := offer == "can"
-	if w.editable.CanCreate != want {
+// thenEditableOffers checks whether the person is offered to create a
+// procedure type and to open a draft of the one named name.
+func (w *draftWorld) thenEditableOffers(create, open, name string) error {
+	if want := create == "can"; w.editable.CanCreate != want {
 		return fmt.Errorf("can create = %t, want %t", w.editable.CanCreate, want)
 	}
 	for _, t := range w.editable.ProcedureTypes {
 		if t.Name == name {
-			if t.CanOpenDraft != want {
+			if want := open == "can"; t.CanOpenDraft != want {
 				return fmt.Errorf("can open a draft of %q = %t, want %t", name, t.CanOpenDraft, want)
 			}
 			return nil

@@ -101,10 +101,10 @@ func proposedView() input.DraftView {
 			},
 			Status:     draft.StatusProposed,
 			Revision:   4,
-			EditedBy:   "ana",
+			EditedBy:   "5RnF8i6-BEyF",
 			EditedAt:   editedAt,
-			Editors:    []string{"beto", "ana"},
-			ProposedBy: "ana",
+			Editors:    []string{"3Las2Qqyn", "5RnF8i6-BEyF"},
+			ProposedBy: "5RnF8i6-BEyF",
 			ProposedAt: editedAt,
 		},
 	}
@@ -112,7 +112,7 @@ func proposedView() input.DraftView {
 
 func callDrafts(t *testing.T, drafts *fakeDrafts, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	server := api.NewServer(nil, nil, nil, nil, nil, nil, rest.NewProcedureTypeDraftHandler(fakeAuth{}, drafts))
+	server := api.NewServer(nil, nil, nil, nil, nil, nil, rest.NewProcedureTypeDraftHandler(fakeAuth{}, fakePeople{}, drafts))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
@@ -176,10 +176,12 @@ func TestGetProcedureTypeDraftShowsTheDraft(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.ProcedureTypeId != 7 || got.Base != 2 || got.Revision != 4 || got.Status != "proposed" || got.EditedBy != "ana" || !got.EditedAt.Equal(editedAt) || !slices.Equal(got.Editors, []string{"beto", "ana"}) {
+	if got.ProcedureTypeId != 7 || got.Base != 2 || got.Revision != 4 || got.Status != "proposed" || got.EditedBy != (api.Person{Id: "5RnF8i6-BEyF", Name: "Ana Prueba"}) || !got.EditedAt.Equal(editedAt) ||
+		!slices.Equal(got.Editors, []api.Person{{Id: "3Las2Qqyn", Name: "Beto Ejemplo"}, {Id: "5RnF8i6-BEyF", Name: "Ana Prueba"}}) {
 		t.Errorf("draft = %+v", got)
 	}
-	if got.ProposedBy == nil || *got.ProposedBy != "ana" || got.Rejection != nil {
+	// The identifiers are opaque, as those of Google accounts: the screen shows the names.
+	if got.ProposedBy == nil || got.ProposedBy.Name != "Ana Prueba" || got.Rejection != nil {
 		t.Errorf("proposed by %v, rejection %v", got.ProposedBy, got.Rejection)
 	}
 	documents := *got.Definition.Documents
@@ -321,7 +323,7 @@ func TestInvalidDefinitionListsItsProblems(t *testing.T) {
 }
 
 func TestDraftsAskToSignIn(t *testing.T) {
-	server := api.NewServer(nil, nil, nil, nil, nil, nil, rest.NewProcedureTypeDraftHandler(fakeAuth{}, &fakeDrafts{}))
+	server := api.NewServer(nil, nil, nil, nil, nil, nil, rest.NewProcedureTypeDraftHandler(fakeAuth{}, fakePeople{}, &fakeDrafts{}))
 	handler := api.Mount(http.NewServeMux(), server, slog.New(slog.DiscardHandler))
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/procedure-type-drafts", nil)
 	recorder := httptest.NewRecorder()

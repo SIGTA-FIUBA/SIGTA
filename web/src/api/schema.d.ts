@@ -939,7 +939,7 @@ export interface components {
          */
         DraftStatus: "editing" | "proposed";
         DraftRejection: {
-            by: string;
+            by: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             reason: string;
@@ -953,20 +953,20 @@ export interface components {
             revision: number;
             status: components["schemas"]["DraftStatus"];
             definition: components["schemas"]["ProcedureTypeDefinition"];
-            edited_by: string;
+            edited_by: components["schemas"]["Person"];
             /** Format: date-time */
             edited_at: string;
             /** @description Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza */
-            editors: string[];
-            proposed_by?: string;
+            editors: components["schemas"]["Person"][];
+            proposed_by?: components["schemas"]["Person"];
             /** Format: date-time */
             proposed_at?: string;
             rejection?: components["schemas"]["DraftRejection"];
             /** @description Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer */
             problems: components["schemas"]["DefinitionProblem"][];
-            /** @description Si quien pregunta puede editarlo, proponerlo y descartarlo */
+            /** @description Si quien pregunta puede editarlo, proponerlo y descartarlo ahora, es decir, mientras no está propuesto */
             can_edit: boolean;
-            /** @description Si quien pregunta puede aprobarlo o rechazarlo cuando está propuesto: tiene el permiso de publicar y no lo editó ni lo propuso */
+            /** @description Si quien pregunta puede aprobarlo o rechazarlo ahora: está propuesto, tiene el permiso de publicar y no lo editó ni lo propuso */
             can_review: boolean;
         };
         EditableProcedureTypes: {

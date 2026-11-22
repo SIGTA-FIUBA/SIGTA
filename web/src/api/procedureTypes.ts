@@ -16,6 +16,9 @@ export function useEditableProcedureTypes(enabled = true) {
   return useQuery({
     queryKey: editableKey,
     enabled,
+    // The menu asks on every page; what a person can edit changes rarely,
+    // and every change to a draft refreshes it.
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, response } = await api.GET('/editable-procedure-types')
       return forbiddenOr('/editable-procedure-types', data, response)

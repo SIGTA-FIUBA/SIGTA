@@ -55,8 +55,8 @@ export function problemText(problem: DefinitionProblem, names: Names): string {
   const subject = kindNames[last?.kind ?? 'definition'] ?? 'Un elemento'
   const value = problem.value ?? ''
   const texts: Record<string, string> = {
-    no_id: `${subject} no tiene identificador.`,
-    invalid_id: `${subject} tiene un identificador que no sirve: «${value}».`,
+    no_id: `${subject} quedó mal guardado. Volvé a cargar el borrador; si sigue, avisá al equipo.`,
+    invalid_id: `${subject} quedó mal guardado. Volvé a cargar el borrador; si sigue, avisá al equipo.`,
     no_name: `${subject} no tiene nombre.`,
     name_with_spaces: `El nombre «${value}» empieza o termina con espacios.`,
     declared_twice: `${subject} está dos veces.`,
@@ -91,7 +91,7 @@ export function problemText(problem: DefinitionProblem, names: Names): string {
     decide_with_next: 'Una decisión sigue por sus salidas, no por un paso siguiente.',
     decide_few_outcomes: 'Una decisión necesita al menos dos salidas.',
     outcomes_outside_decide: 'Solo una decisión tiene salidas.',
-    unknown_next_step: `El paso «${value}» no existe.`,
+    unknown_next_step: value === '' ? 'La salida no lleva a ningún paso.' : `El paso «${value}» no existe.`,
     unknown_field_type: 'El tipo del dato no existe.',
     options_outside_option: 'Solo un dato de opciones tiene opciones.',
     option_field_no_options: 'Un dato de opciones necesita al menos una opción.',

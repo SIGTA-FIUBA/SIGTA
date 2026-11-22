@@ -30,5 +30,5 @@ Cada historia tiene al menos un escenario, y cada escenario referencia su histor
 | US37 | SIG-25 | [procedure_list_filters.feature](procedure_list_filters.feature) | 7 |
 | — | SIG-82 | [step_documents.feature](step_documents.feature) | 7 |
 | US72 | SIG-74 | [procedure_type_drafts.feature](procedure_type_drafts.feature) | 14 |
-| — | SIG-84 | [procedure_type_editing.feature](procedure_type_editing.feature) | 6 |
+| — | SIG-84 | [procedure_type_editing.feature](procedure_type_editing.feature) | 9 |
 | US74 | SIG-76 | [staff_administration.feature](staff_administration.feature) | 25 |

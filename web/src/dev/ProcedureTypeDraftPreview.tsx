@@ -1,4 +1,4 @@
-import { Affix, Container, SegmentedControl } from '@mantine/core'
+import { Container, SegmentedControl } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
@@ -36,17 +36,18 @@ export function ProcedureTypeDraftPreview() {
     <>
       <QueryClientProvider client={client} key={fixture}>
         <Container size="xl" py="md">
+          {/* Above the page and not floating, so that it covers nothing of it. */}
+          <SegmentedControl
+            size="xs"
+            mb="md"
+            value={fixture}
+            data={fixtureOptions}
+            onChange={(value) => setParams({ data: value }, { replace: true })}
+            aria-label="Datos de prueba"
+          />
           <ProcedureTypeDraftPage />
         </Container>
       </QueryClientProvider>
-      <Affix position={{ bottom: 'md', left: '50%' }}>
-        <SegmentedControl
-          size="xs"
-          value={fixture}
-          data={fixtureOptions}
-          onChange={(value) => setParams({ data: value }, { replace: true })}
-        />
-      </Affix>
     </>
   )
 }

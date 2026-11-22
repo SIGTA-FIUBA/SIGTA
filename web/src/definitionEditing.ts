@@ -93,12 +93,46 @@ export function removeStep(definition: Definition, stepId: string): Definition {
   }
 }
 
-// isEarlier tells whether target comes before stepId in the definition,
-// which is where a send back can lead.
+// isEarlier tells whether target is a step before stepId on the route, where
+// a send back can lead (ADR-025): one reached from the first step without
+// going through stepId, and from which stepId is reached again. The order of
+// the steps in the definition does not matter.
 export function isEarlier(definition: Definition, stepId: string, target: string) {
+  const first = definition.steps[0]?.id
+  if (first === undefined || target === stepId || !stepOf(definition, target)) {
+    return false
+  }
+  return reaches(definition, first, target, stepId) && reaches(definition, target, stepId)
+}
+
+// reaches tells whether the route goes from one step to another, without
+// going through avoiding.
+function reaches(definition: Definition, from: string, to: string, avoiding?: string) {
+  const seen = new Set<string>()
+  const pending = [from]
+  while (pending.length > 0) {
+    const id = pending.pop()!
+    if (id === avoiding || seen.has(id)) {
+      continue
+    }
+    if (id === to) {
+      return true
+    }
+    seen.add(id)
+    const step = stepOf(definition, id)
+    const next = step?.action === 'decide' ? (step.outcomes ?? []).map((outcome) => outcome.next) : [step?.next]
+    pending.push(...next.filter((target): target is string => !!target))
+  }
+  return false
+}
+
+// defaultTarget is where a new outcome of stepId leads: the step after it in
+// the definition, or else the first other one. An outcome cannot close the
+// procedure; only a step without next does.
+export function defaultTarget(definition: Definition, stepId: string) {
   const index = definition.steps.findIndex((step) => step.id === stepId)
-  const targetIndex = definition.steps.findIndex((step) => step.id === target)
-  return targetIndex >= 0 && targetIndex < index
+  const others = [...definition.steps.slice(index + 1), ...definition.steps.slice(0, index)]
+  return others[0]?.id ?? ''
 }
 
 // setRole changes who does a step. A step of the applicant has no area nor
@@ -115,8 +149,8 @@ export function setRole(step: DefinitionStep, role: 'applicant' | 'staff'): Part
 // take: documents from a step that enters data or confirms a fact, fields
 // from one that uploads documents, and the outcomes of a step that stops
 // deciding, which goes on where its first outcome went. A step that starts to
-// decide gets its next step as its first outcome.
-export function setAction(step: DefinitionStep, action: StepAction): Partial<DefinitionStep> {
+// decide gets its next step as its first outcome, or else target.
+export function setAction(step: DefinitionStep, action: StepAction, target = ''): Partial<DefinitionStep> {
   const change: Partial<DefinitionStep> = { action }
   if (action === 'upload_document') {
     change.fields = undefined
@@ -127,7 +161,7 @@ export function setAction(step: DefinitionStep, action: StepAction): Partial<Def
     change.optional_documents = undefined
   }
   if (action === 'decide' && step.action !== 'decide') {
-    change.outcomes = [{ id: 'continuar', name: 'Continuar', next: step.next ?? '', send_back: false }]
+    change.outcomes = [{ id: 'salida_1', name: 'Salida 1', next: step.next || target, send_back: false }]
     change.next = undefined
   }
   if (action !== 'decide' && step.action === 'decide') {
@@ -137,13 +171,33 @@ export function setAction(step: DefinitionStep, action: StepAction): Partial<Def
   return change
 }
 
-export function addOutcome(step: DefinitionStep): Partial<DefinitionStep> {
+export function addOutcome(definition: Definition, step: DefinitionStep): Partial<DefinitionStep> {
   const outcomes = step.outcomes ?? []
   const id = newId(
     'salida',
     outcomes.map((outcome) => outcome.id),
   )
-  return { outcomes: [...outcomes, { id, name: `Salida ${outcomes.length + 1}`, next: '', send_back: false }] }
+  const next = defaultTarget(definition, step.id)
+  return { outcomes: [...outcomes, { id, name: `Salida ${outcomes.length + 1}`, next, send_back: false }] }
+}
+
+// setOptions sets the options of a field by their names. An option keeps its
+// identifier while it keeps its name, since the answers already given name
+// the identifier; a new name gets a new one.
+export function setOptions(field: DefinitionField, names: string[]): Partial<DefinitionField> {
+  const options = field.options ?? []
+  const taken = options.map((option) => option.id)
+  return {
+    options: names.map((name) => {
+      const kept = options.find((option) => option.name === name)
+      if (kept) {
+        return kept
+      }
+      const id = newId('opcion', taken)
+      taken.push(id)
+      return { id, name }
+    }),
+  }
 }
 
 export function addField(definition: Definition): { definition: Definition; id: string } {
@@ -176,6 +230,9 @@ export function removeField(definition: Definition, fieldId: string): Definition
   }
 }
 
+// addDocument adds a document with no formats nor maximum size: the
+// definition asks for both, so the editor shows them as missing until they
+// are chosen.
 export function addDocument(definition: Definition): { definition: Definition; id: string } {
   const documents = definition.documents ?? []
   const id = newId(
@@ -185,8 +242,8 @@ export function addDocument(definition: Definition): { definition: Definition; i
   const added: DefinitionDocument = {
     id,
     name: 'Documento nuevo',
-    accepted_types: ['application/pdf'],
-    max_size: 5 * 1024 * 1024,
+    accepted_types: [],
+    max_size: 0,
   }
   return { definition: { ...definition, documents: [...documents, added] }, id }
 }

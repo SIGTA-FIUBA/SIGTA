@@ -141,7 +141,7 @@ func start(ctx context.Context, cfg config, stores stores, files output.Files, i
 		procedurerest.NewDocumentHandler(auth, people, documents),
 		procedurerest.NewProcedureHandler(auth, people, procedureapp.NewProcedureDetailService(procedures, stores.documents), procedureapp.NewSubmissionService(procedures, files, newID, now), procedures),
 		procedurerest.NewInboxHandler(auth, people, procedureapp.NewInboxService(procedures)),
-		procedurerest.NewProcedureTypeDraftHandler(auth, drafts),
+		procedurerest.NewProcedureTypeDraftHandler(auth, people, drafts),
 	)
 	return started{server, procedureTypes, documents}, nil
 }

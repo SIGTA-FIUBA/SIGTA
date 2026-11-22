@@ -388,7 +388,7 @@ type DraftEdit struct {
 // DraftRejection defines model for DraftRejection.
 type DraftRejection struct {
 	At     time.Time `json:"at"`
-	By     string    `json:"by"`
+	By     Person    `json:"by"`
 	Reason string    `json:"reason"`
 }
 
@@ -861,25 +861,25 @@ type ProcedureTypeDraft struct {
 	// Base La versión de la que se editó, o 0 si el tipo de trámite no tiene ninguna
 	Base int `json:"base"`
 
-	// CanEdit Si quien pregunta puede editarlo, proponerlo y descartarlo
+	// CanEdit Si quien pregunta puede editarlo, proponerlo y descartarlo ahora, es decir, mientras no está propuesto
 	CanEdit bool `json:"can_edit"`
 
-	// CanReview Si quien pregunta puede aprobarlo o rechazarlo cuando está propuesto: tiene el permiso de publicar y no lo editó ni lo propuso
+	// CanReview Si quien pregunta puede aprobarlo o rechazarlo ahora: está propuesto, tiene el permiso de publicar y no lo editó ni lo propuso
 	CanReview bool `json:"can_review"`
 
 	// Definition Cómo es un tipo de trámite (ADR-013). Un trámite empieza en el primer paso, y un paso sin next ni outcomes lo cierra.
 	Definition ProcedureTypeDefinition `json:"definition"`
 	EditedAt   time.Time               `json:"edited_at"`
-	EditedBy   string                  `json:"edited_by"`
+	EditedBy   Person                  `json:"edited_by"`
 
 	// Editors Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
-	Editors []string `json:"editors"`
+	Editors []Person `json:"editors"`
 
 	// Problems Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
 	Problems        []DefinitionProblem `json:"problems"`
 	ProcedureTypeId int64               `json:"procedure_type_id"`
 	ProposedAt      *time.Time          `json:"proposed_at,omitempty"`
-	ProposedBy      *string             `json:"proposed_by,omitempty"`
+	ProposedBy      *Person             `json:"proposed_by,omitempty"`
 	Rejection       *DraftRejection     `json:"rejection,omitempty"`
 
 	// Revision Crece con cada cambio. Cada cambio dice sobre cuál se hizo

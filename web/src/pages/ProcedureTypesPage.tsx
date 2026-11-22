@@ -118,7 +118,7 @@ function ProcedureTypeRow({ type }: { type: EditableProcedureType }) {
             </Badge>
             {awaitsReview && (
               <Text size="sm" fw={600} c="fiuba.7">
-                Espera tu aprobación
+                Pendiente de aprobación
               </Text>
             )}
           </Group>

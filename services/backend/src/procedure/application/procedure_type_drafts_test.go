@@ -195,7 +195,8 @@ func TestADraftSaysWhatThePersonCanDoWithIt(t *testing.T) {
 	if _, err := s.Propose(ctx, "ana", 1, 1); err != nil {
 		t.Fatal(err)
 	}
-	for user, want := range map[string][2]bool{"ana": {true, false}, "beto": {false, true}, "carla": {true, false}, "eva": {true, true}} {
+	// Proposed, it is not edited, and only who did not propose it reviews it.
+	for user, want := range map[string][2]bool{"ana": {false, false}, "beto": {false, true}, "carla": {false, false}, "eva": {false, true}} {
 		view, err := s.Get(ctx, user, 1)
 		if err != nil {
 			t.Fatal(err)
@@ -208,7 +209,13 @@ func TestADraftSaysWhatThePersonCanDoWithIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if view, err := s.Get(ctx, "eva", 2); err != nil || !view.CanEdit || view.CanReview {
-		t.Errorf("Get(eva) of a draft she edited = %+v, %v, want to edit and not to review", view, err)
+		t.Errorf("Get(eva) of a draft in editing = %+v, %v, want to edit and not to review", view, err)
+	}
+	if _, err := s.Propose(ctx, "eva", 2, 1); err != nil {
+		t.Fatal(err)
+	}
+	if view, err := s.Get(ctx, "eva", 2); err != nil || view.CanEdit || view.CanReview {
+		t.Errorf("Get(eva) of a draft she proposed = %+v, %v, want neither", view, err)
 	}
 }
 

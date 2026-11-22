@@ -39,11 +39,13 @@ import {
   addOutcome,
   addStepAfter,
   askedBy,
+  defaultTarget,
   isEarlier,
   removeDocument,
   removeField,
   removeStep,
   setAction,
+  setOptions,
   setRole,
   stepOf,
   updateDocument,
@@ -57,6 +59,7 @@ import {
 type ProcedureTypeDraft = components['schemas']['ProcedureTypeDraft']
 type DefinitionProblem = components['schemas']['DefinitionProblem']
 type StepArea = components['schemas']['StepArea']
+type Person = components['schemas']['Person']
 
 const actionNames: Record<StepAction, string> = {
   enter_data: 'Cargar dato',
@@ -77,6 +80,7 @@ const fieldTypes = [
 
 const acceptedTypes = ['application/pdf', 'image/jpeg', 'image/png'].map((value) => ({ value, label: typeName(value) }))
 const megabyte = 1024 * 1024
+// A step without next closes the procedure.
 const closes = ''
 
 const dateTimeFormat = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' })
@@ -107,7 +111,7 @@ export function ProcedureTypeDraftPage() {
       )}
       {draft.data && (
         <DraftEditor
-          key={draft.data.revision}
+          key={draft.data.procedure_type_id}
           draft={draft.data}
           areas={editable.data?.areas ?? []}
           section={section}
@@ -120,8 +124,9 @@ export function ProcedureTypeDraftPage() {
   )
 }
 
-// DraftEditor keeps the changes until they are saved. It starts again from
-// each revision the server returns, so a saved draft shows its problems.
+// DraftEditor keeps the changes until they are saved, also when the draft is
+// read again: a revision that someone else saved meanwhile is shown as a
+// conflict, with the changes still there, and never replaces them.
 function DraftEditor({
   draft,
   areas,
@@ -144,14 +149,28 @@ function DraftEditor({
   const id = draft.procedure_type_id
   const [definition, setDefinition] = useState<Definition>(draft.definition)
   const [dirty, setDirty] = useState(false)
+  // editedRevision is the revision the changes were made on, which saving
+  // names: if the draft moved on, the server refuses them.
+  const [editedRevision, setEditedRevision] = useState(draft.revision)
   const proposed = draft.status === 'proposed'
-  const readOnly = !draft.can_edit || proposed
+  const readOnly = !draft.can_edit
   const change = (next: Definition) => {
     setDefinition(next)
     setDirty(true)
   }
+  const takeLatest = (latest: ProcedureTypeDraft) => {
+    setDefinition(latest.definition)
+    setEditedRevision(latest.revision)
+    setDirty(false)
+  }
+  // A draft read again without changes pending is shown as it came; with
+  // changes, it is kept for the conflict below.
+  if (!dirty && draft.revision !== editedRevision) {
+    takeLatest(draft)
+  }
+  const conflict = dirty && draft.revision !== editedRevision
 
-  const save = useDraftChange(() => draftActions.edit(id, draft.revision, definition))
+  const save = useDraftChange(() => draftActions.edit(id, editedRevision, definition))
   const propose = useDraftChange(() => draftActions.propose(id, draft.revision))
   const discard = useDraftChange(() => draftActions.discard(id, draft.revision))
   const approve = useDraftChange(() => draftActions.approve(id, draft.revision))
@@ -159,7 +178,7 @@ function DraftEditor({
   const failure = [save, propose, discard, approve, reject].find((action) => action.isError)?.error
 
   const names = namesOf(definition, areas)
-  const problems = proposed ? [] : draft.problems
+  const problems = draft.problems
   const count = (of: ProblemSection) => problems.filter((problem) => problemPlace(problem).section === of).length
   const current = stepOf(definition, selected) ?? definition.steps[0]
   const status = draftStatus(draft)
@@ -179,8 +198,7 @@ function DraftEditor({
           <Text size="sm" c="dimmed">
             {draft.base > 0
               ? `Borrador de la versión ${draft.base + 1}, sobre la ${draft.base}`
-              : 'Tipo de trámite nuevo'}{' '}
-            · revisión {draft.revision}
+              : 'Tipo de trámite nuevo'}
           </Text>
           <Group gap="sm">
             <Title order={1}>{definition.name || 'Tipo de trámite sin nombre'}</Title>
@@ -201,7 +219,12 @@ function DraftEditor({
                 discard.mutate(undefined, { onSettled: done, onSuccess: () => void navigate('/procedure-types') })
               }
             />
-            <Button variant="default" disabled={!dirty} loading={save.isPending} onClick={() => save.mutate(undefined)}>
+            <Button
+              variant="default"
+              disabled={!dirty || conflict}
+              loading={save.isPending}
+              onClick={() => save.mutate(undefined, { onSuccess: (saved) => saved && takeLatest(saved) })}
+            >
               Guardar
             </Button>
             <ConfirmAction
@@ -218,7 +241,22 @@ function DraftEditor({
         )}
       </Group>
 
-      {failure && <Alert color="red">{failure.message}</Alert>}
+      {failure && !conflict && <Alert color="red">{failure.message}</Alert>}
+      {conflict && (
+        <Alert color="orange" title="Otra persona guardó este borrador mientras lo editabas">
+          <Stack gap="sm">
+            <Text size="sm">
+              Tus cambios siguen acá, pero no se pueden guardar sobre la versión anterior. Anotá lo que necesites y
+              cargá la última versión para seguir desde ella.
+            </Text>
+            <Group>
+              <Button variant="default" onClick={() => takeLatest(draft)}>
+                Descartar mis cambios y cargar la última versión
+              </Button>
+            </Group>
+          </Stack>
+        </Alert>
+      )}
       <StatusNotice
         draft={draft}
         approvePending={approve.isPending}
@@ -231,7 +269,7 @@ function DraftEditor({
         }
         onReject={(reason, done) => reject.mutate(reason, { onSettled: done })}
       />
-      {!readOnly && dirty && (
+      {!readOnly && dirty && !conflict && (
         <Text size="sm" c="dimmed">
           Hay cambios sin guardar. Los problemas que se marcan son los de la última vez que se guardó.
         </Text>
@@ -244,7 +282,9 @@ function DraftEditor({
       {problems.length > 0 && (
         <Stack gap="xs">
           <Text size="sm" fw={600} c="red.8">
-            {problems.length === 1 ? 'Hay un problema' : `Hay ${problems.length} problemas`} antes de proponer:
+            {proposed
+              ? `${problems.length === 1 ? 'La propuesta tiene un problema' : `La propuesta tiene ${problems.length} problemas`} con las áreas de hoy: así no se puede publicar.`
+              : `${problems.length === 1 ? 'Hay un problema' : `Hay ${problems.length} problemas`} antes de proponer:`}
           </Text>
           <Stack gap="xs" align="flex-start">
             {problems.map((problem, index) => (
@@ -286,8 +326,7 @@ function DraftEditor({
             !readOnly &&
             current && (
               <Button
-                variant="filled"
-                color="dark"
+                variant="default"
                 onClick={() => {
                   const added = addStepAfter(definition, current.id)
                   change(added.definition)
@@ -318,7 +357,7 @@ function DraftEditor({
                     onClick={() => {
                       const first: DefinitionStep = {
                         id: 'paso_1',
-                        name: 'Solicitud',
+                        name: 'Paso nuevo',
                         role: 'applicant',
                         action: 'enter_data',
                       }
@@ -354,11 +393,17 @@ function DraftEditor({
       )}
 
       <Text size="sm" c="dimmed">
-        Lo editaron: {draft.editors.join(', ') || draft.edited_by}. Última edición:{' '}
-        {dateTimeFormat.format(new Date(draft.edited_at))}.
+        Lo editaron: {(draft.editors.length > 0 ? draft.editors : [draft.edited_by]).map(personName).join(', ')}. Última
+        edición: {dateTimeFormat.format(new Date(draft.edited_at))}
       </Text>
     </Stack>
   )
+}
+
+// personName shows who someone is; the API has no name for a person who
+// never entered SIGTA.
+function personName(person: Person) {
+  return person.name || 'una persona sin registrar'
 }
 
 function withCount(label: string, problems: number) {
@@ -455,12 +500,11 @@ function StepPanel({
     value: document.id,
     label: document.name || document.id,
   }))
-  const targets = [
-    ...definition.steps
-      .filter((s) => s.id !== step.id)
-      .map((s) => ({ value: s.id, label: s.name || 'Paso sin nombre' })),
-    { value: closes, label: 'Cierra el trámite' },
-  ]
+  // An outcome leads to another step; only a step without next closes the
+  // procedure.
+  const steps = definition.steps
+    .filter((s) => s.id !== step.id)
+    .map((s) => ({ value: s.id, label: s.name || 'Paso sin nombre' }))
   const asks = [step.fields, step.optional_fields, step.documents, step.optional_documents]
     .flatMap((ids) => ids ?? [])
     .map(names)
@@ -531,7 +575,7 @@ function StepPanel({
         value={step.action}
         allowDeselect={false}
         disabled={readOnly}
-        onChange={(value) => value && set(setAction(step, value as StepAction))}
+        onChange={(value) => value && set(setAction(step, value as StepAction, defaultTarget(definition, step.id)))}
       />
       <Accordion variant="contained" chevronPosition="right">
         <Accordion.Item value="asks">
@@ -611,15 +655,13 @@ function StepPanel({
                   />
                   <Select
                     label="Lleva a"
-                    data={targets}
-                    value={outcome.next}
+                    data={steps}
+                    value={outcome.next || null}
+                    placeholder="Elegí un paso"
                     allowDeselect={false}
                     disabled={readOnly}
                     onChange={(next) =>
-                      setOutcome({
-                        next: next ?? closes,
-                        send_back: outcome.send_back && isEarlier(definition, step.id, next ?? ''),
-                      })
+                      next && setOutcome({ next, send_back: outcome.send_back && isEarlier(definition, step.id, next) })
                     }
                   />
                   {isEarlier(definition, step.id, outcome.next) && (
@@ -645,7 +687,7 @@ function StepPanel({
             )
           })}
           {!readOnly && (
-            <Button variant="light" onClick={() => set(addOutcome(step))}>
+            <Button variant="light" onClick={() => set(addOutcome(definition, step))}>
               + Salida
             </Button>
           )}
@@ -653,7 +695,7 @@ function StepPanel({
       ) : (
         <Select
           label="Sigue en"
-          data={targets}
+          data={[...steps, { value: closes, label: 'Cierra el trámite' }]}
           value={step.next ?? closes}
           allowDeselect={false}
           disabled={readOnly}
@@ -747,13 +789,7 @@ function RequirementsSection({
                 description="Escribí cada opción y apretá Enter."
                 value={(field.options ?? []).map((option) => option.name)}
                 disabled={readOnly}
-                onChange={(options) =>
-                  onChange(
-                    updateField(definition, field.id, {
-                      options: options.map((name, i) => ({ id: `opcion_${i + 1}`, name })),
-                    }),
-                  )
-                }
+                onChange={(options) => onChange(updateField(definition, field.id, setOptions(field, options)))}
               />
             )}
           </RequirementCard>
@@ -981,20 +1017,23 @@ function StatusNotice({
     return (
       <Alert
         color="orange"
-        title={`Rechazado por ${draft.rejection.by} el ${dateTimeFormat.format(new Date(draft.rejection.at))}`}
+        title={`Rechazado por ${personName(draft.rejection.by)} el ${dateTimeFormat.format(new Date(draft.rejection.at))}`}
       >
-        «{draft.rejection.reason}». {draft.can_edit && 'Se puede editar y volver a proponer.'}
+        <Stack gap="xs">
+          <Text size="sm">Motivo: «{draft.rejection.reason.trim()}»</Text>
+          {draft.can_edit && <Text size="sm">Se puede editar y volver a proponer.</Text>}
+        </Stack>
       </Alert>
     )
   }
   if (!proposed) {
     return draft.can_edit ? null : (
       <Alert color="gray">
-        Lo está editando {draft.edited_by}. Cuando lo proponga, se aprueba o se rechaza desde acá.
+        Lo está editando {personName(draft.edited_by)}. Cuando lo proponga, se aprueba o se rechaza desde acá.
       </Alert>
     )
   }
-  const by = draft.proposed_by ?? draft.edited_by
+  const by = personName(draft.proposed_by ?? draft.edited_by)
   const at = draft.proposed_at ? ` el ${dateTimeFormat.format(new Date(draft.proposed_at))}` : ''
   if (!draft.can_review) {
     return (

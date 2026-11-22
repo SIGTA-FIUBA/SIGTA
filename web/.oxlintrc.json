@@ -22,12 +22,8 @@
       "rules": { "no-restricted-imports": "off" }
     },
     {
-      "files": ["src/components/StepDiagram/StepDiagram.tsx"],
-      "rules": {
-        "react/forbid-dom-props": "off",
-        "react/forbid-component-props": "off",
-        "sigta-design/no-raw-design-values": "off"
-      }
+      "files": ["src/components/StepDiagram/Placed.tsx"],
+      "rules": { "react/forbid-dom-props": "off" }
     },
     {
       "files": ["src/components/GoogleSignInButton/**"],

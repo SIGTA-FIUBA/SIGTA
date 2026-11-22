@@ -148,10 +148,13 @@ func (s *ProcedureTypeDraftService) List(ctx context.Context, userID string) ([]
 // whoever can edit or review something, as /areas goes only to
 // administrators.
 func (s *ProcedureTypeDraftService) Editable(ctx context.Context, userID string) (input.EditableProcedureTypes, error) {
-	canCreate, err := s.holdsAny(ctx, userID, noProcedureType, authinput.EditProcedureTypes)
+	// A membership without scope reaches every procedure type, so only
+	// whoever lacks it is asked about each one.
+	everywhere, err := s.permissionsOn(ctx, userID, noProcedureType, held{})
 	if err != nil {
 		return input.EditableProcedureTypes{}, err
 	}
+	canCreate := everywhere.edit
 	versions, err := s.types.versions.LatestOfEach(ctx)
 	if err != nil {
 		return input.EditableProcedureTypes{}, fmt.Errorf("list latest versions: %w", err)
@@ -166,25 +169,21 @@ func (s *ProcedureTypeDraftService) Editable(ctx context.Context, userID string)
 	}
 	editable := input.EditableProcedureTypes{CanCreate: canCreate}
 	add := func(t input.EditableProcedureType) error {
-		canEdit, err := s.holdsAny(ctx, userID, t.ProcedureTypeID, authinput.EditProcedureTypes)
+		h, err := s.permissionsOn(ctx, userID, t.ProcedureTypeID, everywhere)
 		if err != nil {
 			return err
 		}
-		canPublish, err := s.holdsAny(ctx, userID, t.ProcedureTypeID, authinput.PublishProcedureTypes)
-		if err != nil {
-			return err
-		}
-		if !canEdit && !canPublish {
+		if !h.edit && !h.publish {
 			return nil
 		}
 		if d, ok := draftOf[t.ProcedureTypeID]; ok {
-			view, err := s.view(ctx, userID, d)
+			view, err := s.viewWith(ctx, userID, d, h)
 			if err != nil {
 				return err
 			}
 			t.Draft = &view
 		}
-		t.CanOpenDraft = canEdit && t.Latest > 0 && t.Draft == nil
+		t.CanOpenDraft = h.edit && t.Latest > 0 && t.Draft == nil
 		editable.ProcedureTypes = append(editable.ProcedureTypes, t)
 		return nil
 	}
@@ -335,18 +334,43 @@ func (s *ProcedureTypeDraftService) validate(ctx context.Context, d draft.Draft)
 	return d.Definition.Validate(areas)
 }
 
-// view adds to the draft its problems and what userID can do with it.
+// view adds to the draft its problems and what userID can do with it now.
 func (s *ProcedureTypeDraftService) view(ctx context.Context, userID string, d draft.Draft) (input.DraftView, error) {
-	canEdit, err := s.holdsAny(ctx, userID, d.ProcedureTypeID, authinput.EditProcedureTypes)
+	held, err := s.permissionsOn(ctx, userID, d.ProcedureTypeID, held{})
 	if err != nil {
 		return input.DraftView{}, err
 	}
-	canPublish, err := s.holdsAny(ctx, userID, d.ProcedureTypeID, authinput.PublishProcedureTypes)
-	if err != nil {
-		return input.DraftView{}, err
+	return s.viewWith(ctx, userID, d, held)
+}
+
+// held is which of the two permissions of the Secretariat a person holds.
+type held struct{ edit, publish bool }
+
+// permissionsOn checks the permissions of userID on procedureType, except
+// those already known to reach every procedure type.
+func (s *ProcedureTypeDraftService) permissionsOn(ctx context.Context, userID string, procedureType int64, everywhere held) (held, error) {
+	h := everywhere
+	var err error
+	if !h.edit {
+		if h.edit, err = s.holdsAny(ctx, userID, procedureType, authinput.EditProcedureTypes); err != nil {
+			return held{}, err
+		}
 	}
-	view := input.DraftView{Draft: d, CanEdit: canEdit, CanReview: canPublish && !d.Involves(userID)}
-	err = s.validate(ctx, d)
+	if !h.publish {
+		if h.publish, err = s.holdsAny(ctx, userID, procedureType, authinput.PublishProcedureTypes); err != nil {
+			return held{}, err
+		}
+	}
+	return h, nil
+}
+
+// viewWith says that a draft is edited only while it is not proposed, and
+// approved or rejected only while it is, by someone who did not edit nor
+// propose it.
+func (s *ProcedureTypeDraftService) viewWith(ctx context.Context, userID string, d draft.Draft, h held) (input.DraftView, error) {
+	proposed := d.Status == draft.StatusProposed
+	view := input.DraftView{Draft: d, CanEdit: h.edit && !proposed, CanReview: h.publish && proposed && !d.Involves(userID)}
+	err := s.validate(ctx, d)
 	if invalid, ok := errors.AsType[*definition.ValidationError](err); ok {
 		view.Problems = invalid.Problems
 		return view, nil

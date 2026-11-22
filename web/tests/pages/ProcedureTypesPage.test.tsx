@@ -13,9 +13,9 @@ function draft(changes: Record<string, unknown> = {}) {
     revision: 3,
     status: 'editing',
     definition: { name: 'Pase de universidad extranjera', steps: [] },
-    edited_by: 'ana@fi.uba.ar',
+    edited_by: { id: '5RnF8i6-BEyFCTX4fs2BN', name: 'Ana Prueba' },
     edited_at: '2026-11-20T12:00:00Z',
-    editors: ['ana@fi.uba.ar'],
+    editors: [{ id: '5RnF8i6-BEyFCTX4fs2BN', name: 'Ana Prueba' }],
     problems: [],
     can_edit: true,
     can_review: false,
@@ -109,7 +109,7 @@ describe('ProcedureTypesPage', () => {
     )
     const credits = screen.getByText('Reconocimiento de créditos').closest('tr')!
     expect(within(credits).getByText('Propuesto')).toBeVisible()
-    expect(within(credits).getByText('Espera tu aprobación')).toBeVisible()
+    expect(within(credits).getByText('Pendiente de aprobación')).toBeVisible()
     expect(within(credits).getByRole('link', { name: 'Revisar propuesta' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Nuevo tipo de trámite' })).toBeVisible()
   })

@@ -38,7 +38,7 @@ func (f fakeProcedures) Mine(context.Context, string) ([]input.MyProcedure, erro
 type fakePeople struct{ authinput.People }
 
 func (fakePeople) Names(_ context.Context, ids []string) (map[string]string, error) {
-	known := map[string]string{"ana": "Ana Prueba", "staff-1": "Sofía Ejemplo"}
+	known := map[string]string{"ana": "Ana Prueba", "staff-1": "Sofía Ejemplo", "5RnF8i6-BEyF": "Ana Prueba", "3Las2Qqyn": "Beto Ejemplo"}
 	names := map[string]string{}
 	for _, id := range ids {
 		if name, ok := known[id]; ok {

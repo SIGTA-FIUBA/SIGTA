@@ -3,8 +3,13 @@ import type { components } from '../api/schema'
 type ProcedureTypeDraft = components['schemas']['ProcedureTypeDraft']
 type EditableProcedureTypes = components['schemas']['EditableProcedureTypes']
 
+const laura = { id: '5RnF8i6-BEyFCTX4fs2BN-WCnyQNj5K89Y_xKGfvQvU', name: 'Laura Méndez' }
+const martin = { id: '3Las2QqynzRcykV5BlT4Pm4CDB_E3jrmzs4YVUfsc8o', name: 'Martín Ruiz' }
+
 // What the editor of procedure types reads, for ProcedureTypeDraftPreview.
-// The names are made up: no fixture holds real people.
+// The names are made up: no fixture holds real people. The identifiers are
+// opaque, as those of Google accounts, so that a screen that showed them
+// instead of the names would show here.
 type Fixture = { draft: ProcedureTypeDraft; editable: EditableProcedureTypes }
 
 const editable: EditableProcedureTypes = {
@@ -95,9 +100,9 @@ const draft: ProcedureTypeDraft = {
   revision: 7,
   status: 'editing',
   definition,
-  edited_by: 'laura.mendez@fi.uba.ar',
+  edited_by: laura,
   edited_at: '2026-11-21T16:30:00Z',
-  editors: ['laura.mendez@fi.uba.ar'],
+  editors: [laura],
   can_edit: true,
   can_review: false,
   problems: [
@@ -120,7 +125,7 @@ export const fixtures = {
       ...draft,
       status: 'proposed',
       problems: [],
-      proposed_by: 'laura.mendez@fi.uba.ar',
+      proposed_by: laura,
       proposed_at: '2026-11-21T16:40:00Z',
       can_edit: false,
       can_review: true,
@@ -142,14 +147,14 @@ export const fixtures = {
               { id: 'go_on', name: 'Continuar con la resolución del trámite', next: 'resolution', send_back: false },
               { id: 'ask', name: 'Pedir información adicional al titular', next: 'request', send_back: true },
               { id: 'back', name: 'Volver a verificar', next: 'verification', send_back: true },
-              { id: 'archive', name: 'Archivar', next: '', send_back: false },
+              { id: 'archive', name: 'Archivar', next: 'resolution', send_back: false },
             ],
           },
           definition.steps[4],
         ],
       },
       rejection: {
-        by: 'martin.ruiz@fi.uba.ar',
+        by: martin,
         at: '2026-11-21T17:05:00Z',
         reason: 'Falta el plazo de presentación y el área del dictamen. '.repeat(4),
       },

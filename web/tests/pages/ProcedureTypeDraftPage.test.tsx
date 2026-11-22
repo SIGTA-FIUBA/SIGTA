@@ -41,6 +41,10 @@ const definition = {
   ],
 }
 
+// Identifiers are opaque, as those of Google accounts: the page shows names.
+const ana = { id: '5RnF8i6-BEyFCTX4fs2BN', name: 'Ana Prueba' }
+const beto = { id: '3Las2QqynzRcykV5BlT4P', name: 'Beto Ejemplo' }
+
 const problems = [
   {
     code: 'no_permissions',
@@ -57,9 +61,9 @@ function draft(changes: Record<string, unknown> = {}) {
     revision: 7,
     status: 'editing',
     definition,
-    edited_by: 'ana@fi.uba.ar',
+    edited_by: ana,
     edited_at: '2026-11-20T12:00:00Z',
-    editors: ['ana@fi.uba.ar'],
+    editors: [ana],
     problems,
     can_edit: true,
     can_review: false,
@@ -188,7 +192,7 @@ describe('ProcedureTypeDraftPage', () => {
     const fetch = stubApi(
       draft({
         status: 'proposed',
-        proposed_by: 'ana@fi.uba.ar',
+        proposed_by: ana,
         proposed_at: '2026-11-21T16:40:00Z',
         can_edit: false,
         can_review: true,
@@ -197,7 +201,8 @@ describe('ProcedureTypeDraftPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText(/Propuesto por ana@fi\.uba\.ar/)).toBeVisible()
+    expect(await screen.findByText(/Propuesto por Ana Prueba/)).toBeVisible()
+    expect(screen.queryByText(new RegExp(ana.id))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aprobar y publicar' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument()
     expect(panel().getByRole('textbox', { name: 'Nombre' })).toBeDisabled()
@@ -214,7 +219,7 @@ describe('ProcedureTypeDraftPage', () => {
   })
 
   it('does not offer to approve to whoever proposed it', async () => {
-    stubApi(draft({ status: 'proposed', proposed_by: 'ana@fi.uba.ar', can_edit: true, can_review: false }))
+    stubApi(draft({ status: 'proposed', proposed_by: ana, can_edit: false, can_review: false }))
     renderPage()
 
     expect(await screen.findByText(/No se edita mientras espera/)).toBeVisible()
@@ -223,11 +228,11 @@ describe('ProcedureTypeDraftPage', () => {
   })
 
   it('shows who rejected the draft and why', async () => {
-    stubApi(draft({ rejection: { by: 'beto@fi.uba.ar', at: '2026-11-21T17:05:00Z', reason: 'Falta el plazo' } }))
+    stubApi(draft({ rejection: { by: beto, at: '2026-11-21T17:05:00Z', reason: 'Falta el plazo' } }))
     renderPage()
 
-    expect(await screen.findByText(/Rechazado por beto@fi\.uba\.ar/)).toBeVisible()
-    expect(screen.getByText(/«Falta el plazo»/)).toBeVisible()
+    expect(await screen.findByText(/Rechazado por Beto Ejemplo/)).toBeVisible()
+    expect(screen.getByText('Motivo: «Falta el plazo»')).toBeVisible()
   })
 
   it('publishes an approved proposal and goes back to the list', async () => {
@@ -251,5 +256,54 @@ describe('ProcedureTypeDraftPage', () => {
 
     expect(await screen.findByText('Lista de tipos de trámite')).toBeVisible()
     expect((await sent(fetch))[0]).toEqual({ request: 'POST /procedure-types/1/draft/approval', body: { revision: 7 } })
+  })
+
+  it('keeps the changes when another person saves meanwhile, and says so', async () => {
+    const fetch = stubApi(draft(), {
+      'PUT /procedure-types/1/draft': {
+        status: 409,
+        body: { message: 'El borrador cambió desde que lo abriste. Volvé a cargarlo.' },
+      },
+    })
+    renderPage()
+
+    await userEvent.click(await step(/^Paso 3: Resolución/))
+    const name = panel().getByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Fin')
+    // Someone else saves: the draft read again comes at a later revision.
+    fetch.mockImplementation(async (request: Request) => {
+      const path = new URL(request.url).pathname.replace(/^\/api/, '')
+      if (request.method === 'GET') {
+        return Response.json(path === '/editable-procedure-types' ? editable : draft({ revision: 8 }))
+      }
+      return Response.json({ message: 'El borrador cambió desde que lo abriste. Volvé a cargarlo.' }, { status: 409 })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('Otra persona guardó este borrador mientras lo editabas')).toBeVisible()
+    expect(panel().getByRole('textbox', { name: 'Nombre' })).toHaveValue('Fin')
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Descartar mis cambios y cargar la última versión' }))
+    expect(panel().getByRole('textbox', { name: 'Nombre' })).toHaveValue('Resolución')
+  })
+
+  it('shows the reviewer the problems a proposal has with the areas of today', async () => {
+    stubApi(draft({ status: 'proposed', proposed_by: ana, can_edit: false, can_review: true }))
+    renderPage()
+
+    expect(await screen.findByText(/La propuesta tiene 2 problemas con las áreas de hoy/)).toBeVisible()
+  })
+
+  it('offers an outcome only another step to lead to, never closing the procedure', async () => {
+    stubApi(draft())
+    renderPage()
+
+    await userEvent.click(await step(/^Paso 2: Dictamen/))
+    await userEvent.click(panel().getAllByLabelText('Lleva a')[0])
+
+    expect(screen.getByRole('option', { name: 'Solicitud' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: 'Cierra el trámite' })).not.toBeInTheDocument()
   })
 })
