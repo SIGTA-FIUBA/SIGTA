@@ -48,22 +48,6 @@
       "max_size": 10485760
     },
     {
-      "id": "other_institution_transcript",
-      "name": "Certificado analítico de la otra institución",
-      "accepted_types": [
-        "application/pdf"
-      ],
-      "max_size": 10485760
-    },
-    {
-      "id": "other_institution_syllabi",
-      "name": "Programas de las materias aprobadas en la otra institución",
-      "accepted_types": [
-        "application/pdf"
-      ],
-      "max_size": 10485760
-    },
-    {
       "id": "commission_minutes",
       "name": "Acta de la Comisión Curricular con su dictamen",
       "accepted_types": [
@@ -115,10 +99,6 @@
       "action": "upload_document",
       "documents": [
         "academic_record"
-      ],
-      "optional_documents": [
-        "other_institution_transcript",
-        "other_institution_syllabi"
       ],
       "next": "case_opened"
     },
