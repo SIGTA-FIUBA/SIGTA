@@ -4,10 +4,9 @@
  */
 
 /* Helvetica Neue, the typeface of the FIUBA manual (A.6), for the public
- * landing page (font.family.landing). It is licensed, and the repository is
- * public: the files are not committed, each copy adds them to
- * public/fonts/helvetica-neue/. Without them the page falls to the Helvetica
- * Neue of the system, Helvetica or Arial, the replacement the manual accepts. */
+ * landing page (font.family.landing): Roman, Medium and Bold, cut to Latin in
+ * public/fonts/helvetica-neue/. Helvetica and Arial, the replacement the
+ * manual accepts, are the fallback while they load. */
 @font-face {
   font-family: 'Helvetica Neue Web';
   font-weight: 400;
