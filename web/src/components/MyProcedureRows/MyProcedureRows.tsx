@@ -1,5 +1,5 @@
 import type { components } from '../../api/schema'
-import { movedText, procedurePath, procedureStates } from '../../content/procedures'
+import { movedText, procedurePath, stateText } from '../../content/procedures'
 import { ProcedureRow } from '../ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../ProcedureRows/ProcedureRows'
 
@@ -15,7 +15,8 @@ const closeFormat = new Intl.DateTimeFormat('es-AR', {
 })
 
 // MyProcedureRows lists the person's own procedures: no applicant, and the
-// state in the third column.
+// state in the third column, in orange where something is required of them,
+// so that every row keeps the same height.
 export function MyProcedureRows({
   label,
   procedures,
@@ -33,9 +34,8 @@ export function MyProcedureRows({
           to={procedurePath(procedure.id)}
           state={{ from }}
           type={procedure.procedure_type_name}
-          note={procedure.correction_pending ? 'Subsanación pendiente del titular' : undefined}
           step={{ name: procedure.step_name ?? 'Trámite cerrado' }}
-          standing={{ text: procedureStates[procedure.state].label }}
+          standing={stateText(procedure.state, { area: procedure.area, applicant: true })}
           date={
             procedure.state === 'closed'
               ? `Cierre: ${closeFormat.format(new Date(procedure.last_moved_at))}`

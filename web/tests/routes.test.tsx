@@ -57,7 +57,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).toHaveTextContent('AT')
     expect(router.state.location.pathname).toBe('/')
   })
@@ -74,7 +74,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
   })
   it('opens the landing for a visitor when the API cannot say who is there', async () => {

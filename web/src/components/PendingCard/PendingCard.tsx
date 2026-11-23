@@ -16,8 +16,8 @@ export type PendingCardProps = {
 
 // PendingCard is one thing an applicant has to do, where it cannot be missed:
 // a panel with an orange mark, what has to be done, the procedure it belongs
-// to and the deadline, and the way to answer it. The whole card is one link,
-// a panel that answers the pointer (Paper variant="interactive").
+// to and the deadline. The whole card is one link to answer it, a panel that
+// answers the pointer (Paper variant="interactive").
 export function PendingCard({ to, state, task, context, due }: PendingCardProps) {
   return (
     <Paper
@@ -44,19 +44,11 @@ export function PendingCard({ to, state, task, context, due }: PendingCardProps)
               {context}
             </Text>
           </Stack>
-          <Group justify="space-between" wrap="nowrap" gap="md">
+          {due && (
             <Text size="sm" c="orange.8" fw={500}>
               {due}
             </Text>
-            <Group gap="xxs" wrap="nowrap" c="fiuba.7">
-              <Text size="sm" fw={600} inherit>
-                Responder
-              </Text>
-              <Group data-chevron gap={0} aria-hidden>
-                <Icon name="arrow-right" size={16} />
-              </Group>
-            </Group>
-          </Group>
+          )}
         </Stack>
       </Group>
     </Paper>

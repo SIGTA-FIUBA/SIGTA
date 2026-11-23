@@ -121,7 +121,7 @@ describe('ProcedurePage', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Equivalencia de asignaturas' })).toBeDefined()
-    expect(screen.getByText('En un área')).toBeDefined()
+    expect(screen.getByText('En Dirección de Alumnos')).toBeDefined()
     expect(screen.getByText('Titular Uno')).toBeDefined()
     const open = within(screen.getByRole('list', { name: 'Pasos del trámite' }))
       .getByText('Revisar la solicitud')

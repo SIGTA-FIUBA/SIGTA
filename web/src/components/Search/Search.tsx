@@ -2,6 +2,7 @@ import { Group, Kbd, Text } from '@mantine/core'
 import { Spotlight } from '@mantine/spotlight'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { normalize, searchWords } from '../../content/search'
 import { Icon, type IconName } from '../Icon/Icon'
 
 export type SearchItem = {
@@ -27,14 +28,6 @@ export type SearchGroup = {
 // The most items a group shows once something is written.
 const matchLimit = 6
 
-// normalize lets "tramite" find "Trámite": no accents, no case.
-function normalize(text: string) {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-}
-
 function matches(item: SearchItem, words: string[]) {
   const text = normalize([item.label, item.description ?? '', ...(item.keywords ?? [])].join(' '))
   return words.every((word) => text.includes(word))
@@ -48,7 +41,7 @@ function matches(item: SearchItem, words: string[]) {
 export function Search({ groups }: { groups: SearchGroup[] }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const words = normalize(query).split(/\s+/).filter(Boolean)
+  const words = searchWords(query)
   const shown = groups
     .map((group) => ({
       ...group,

@@ -20,6 +20,23 @@ export const procedureStates: Record<State, { tone: StatusTone; label: string }>
   closed: { tone: 'closed', label: stateNames.closed },
 }
 
+// stateText is the state of a procedure as the person who looks at it reads
+// it: the area that has it, rather than that it is in one, and, to its own
+// applicant, that something is required of them, rather than that it waits
+// for its applicant. attention marks the latter.
+export function stateText(
+  state: State,
+  { area, applicant }: { area?: { name: string }; applicant: boolean },
+): { text: string; attention: boolean } {
+  if (state === 'with_applicant' && applicant) {
+    return { text: 'Acción requerida', attention: true }
+  }
+  if (state === 'in_office' && area) {
+    return { text: `En ${area.name}`, attention: false }
+  }
+  return { text: stateNames[state], attention: false }
+}
+
 // The home page and the detail say the same when a procedure closed without
 // a document that resolves it.
 export const closedWithoutResolution = 'El trámite se cerró sin un documento resolutivo adjunto.'

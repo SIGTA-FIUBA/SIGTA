@@ -12,6 +12,7 @@ const inOffice = {
   procedure_type_name: 'Equivalencia entre asignaturas',
   step_name: 'Revisión de la solicitud',
   state: 'in_office',
+  area: { id: 'secretariat', name: 'Secretaría' },
   correction_pending: false,
   started_at: '2026-11-02T12:00:00Z',
   last_moved_at: '2026-11-10T15:00:00Z',
@@ -75,10 +76,11 @@ describe('MyProceduresPage', () => {
     const list = await screen.findByRole('list', { name: 'Trámites en curso' })
     const first = within(list).getByRole('link', { name: /Equivalencia entre asignaturas/ })
     expect(first).toHaveAttribute('href', '/procedures/P-1')
-    expect(within(first).getByText('En un área')).toBeVisible()
+    expect(within(first).getByText('En Secretaría')).toBeVisible()
     const second = within(list).getByRole('link', { name: /Reconocimiento de créditos/ })
-    expect(within(second).getByText('Pendiente del titular')).toBeVisible()
+    expect(within(second).getByText('Acción requerida')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'En curso (2)' })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: 'Historial' })).toBeVisible()
   })
 
   it('lists the closed procedures apart, with their resolution', async () => {

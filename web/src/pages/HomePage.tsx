@@ -12,8 +12,6 @@ import { PendingRow } from '../components/PendingRow/PendingRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
-import { openSearch } from '../components/Search/openSearch'
-import { SearchShortcut } from '../components/SearchShortcut/SearchShortcut'
 import { StartCard } from '../components/StartCard/StartCard'
 import { applicantName, byLastMove, movedText, procedurePath } from '../content/procedures'
 
@@ -123,28 +121,13 @@ function ApplicantPending() {
 }
 
 // NewProcedure gives weight to starting a procedure: the first types of the
-// catalog as cards, in rows of three that close, the search of the catalog
-// and the way to the whole gallery.
+// catalog as cards, in rows of three that close, and the way to the whole
+// gallery. The search is fixed at the top right of the page (AppLayout).
 function NewProcedure() {
   const catalog = useQuery(catalogQuery)
   const entries = catalog.data?.slice(0, startCount) ?? []
   return (
-    <Section
-      id="new"
-      title="Nuevo trámite"
-      action={
-        // On a phone the top bar has the search already.
-        <Button
-          variant="default"
-          visibleFrom="sm"
-          leftSection={<Icon name="search" size={16} />}
-          rightSection={<SearchShortcut />}
-          onClick={openSearch}
-        >
-          Buscar en el catálogo
-        </Button>
-      }
-    >
+    <Section id="new" title="Iniciar trámite">
       {catalog.isError ? (
         <Alert color="red" role="alert">
           No se pudo cargar el catálogo. Volvé a intentarlo más tarde.
@@ -186,13 +169,7 @@ function InProgress() {
       title="Trámites en curso"
       count={inProgress.length > 0 ? String(inProgress.length) : undefined}
       action={
-        <Button
-          component={Link}
-          to="/my-procedures"
-          variant="default"
-          size="compact-sm"
-          leftSection={<Icon name="files" size={16} />}
-        >
+        <Button component={Link} to="/my-procedures" variant="default" leftSection={<Icon name="history" size={16} />}>
           Historial
         </Button>
       }
@@ -319,9 +296,8 @@ function StaffHome() {
 }
 
 // HomePage is what to do next, without a greeting: for the staff, what needs
-// action and the latest moves; for an applicant, the way to start a
-// procedure on top, what their procedures ask for, the procedures in
-// progress and the procedures to start.
+// action and the latest moves; for an applicant, their procedures: what they
+// ask for, those in progress and the procedures to start.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -329,14 +305,9 @@ export function HomePage() {
 
   return (
     <Stack gap="xl">
-      <Group justify="space-between" align="center" gap="md">
-        <Title order={1}>Inicio</Title>
-        {!staff && (
-          <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
-            Nuevo trámite
-          </Button>
-        )}
-      </Group>
+      {/* An applicant starts a procedure from the top right of every page
+          (AppLayout). */}
+      <Title order={1}>{staff ? 'Inicio' : 'Mis trámites'}</Title>
       {staff ? (
         <StaffHome />
       ) : (

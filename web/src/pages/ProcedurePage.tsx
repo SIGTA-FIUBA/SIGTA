@@ -33,12 +33,7 @@ import { Facts } from '../components/Facts/Facts'
 import { Icon } from '../components/Icon/Icon'
 import { Part } from '../components/Part/Part'
 import { documentDescription } from '../content/documentFormats'
-import {
-  closedWithoutResolution,
-  procedureStates,
-  requestedNames as namesOf,
-  requirementsOf,
-} from '../content/procedures'
+import { closedWithoutResolution, stateText, requestedNames as namesOf, requirementsOf } from '../content/procedures'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -993,6 +988,10 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
   const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
   const awaiting = detail.correction_requests.length > 0
+  const state = stateText(detail.state, {
+    area: detail.steps.find((step) => step.id === detail.open_step)?.area,
+    applicant: detail.as_applicant,
+  })
   return (
     <Stack gap="xl">
       {/* The type of the procedure in the row that opened it becomes this
@@ -1009,7 +1008,9 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Stack gap="md">
               <Facts label="Resumen del trámite">
                 <Fact label="Estado">
-                  <Text fw={600}>{procedureStates[detail.state].label}</Text>
+                  <Text fw={600} c={state.attention ? 'orange.8' : undefined}>
+                    {state.text}
+                  </Text>
                 </Fact>
                 <Fact label="Titular">
                   <Text>{personName(detail.applicant)}</Text>

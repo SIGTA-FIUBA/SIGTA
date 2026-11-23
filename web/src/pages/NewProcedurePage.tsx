@@ -15,7 +15,7 @@ export function NewProcedurePage() {
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
     <Stack gap="xl">
-      <PageHeader title="Nuevo trámite" />
+      <PageHeader title="Iniciar trámite" />
       {catalog.isError ? (
         <Alert color="red" role="alert">
           No se pudo cargar el catálogo. Volvé a intentarlo más tarde.

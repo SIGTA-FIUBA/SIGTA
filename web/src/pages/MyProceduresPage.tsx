@@ -1,5 +1,6 @@
-import { Alert, Group, Skeleton, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Skeleton, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useState, type ReactNode } from 'react'
+import { useOutletContext } from 'react-router'
 import { useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { DocumentFile } from '../components/DocumentFile/DocumentFile'
@@ -7,8 +8,10 @@ import { EmptyState } from '../components/EmptyState/EmptyState'
 import { Icon } from '../components/Icon/Icon'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
 import { byLastMove, closedWithoutResolution } from '../content/procedures'
+import { normalize, searchWords } from '../content/search'
 
 type MyProcedure = components['schemas']['MyProcedure']
+type User = components['schemas']['User']
 
 // ClosedResolutions goes under the rows of the closed procedures, apart from
 // them because each row is a link as a whole: for each one, the resolution to
@@ -43,13 +46,6 @@ function ClosedResolutions({ procedures }: { procedures: MyProcedure[] }) {
   )
 }
 
-function normalize(text: string) {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-}
-
 // Section is a group of the page: its title with the count, and its rows.
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -66,9 +62,12 @@ function Section({ id, title, children }: { id: string; title: string; children:
 // in progress, by their latest move, and closed, with the resolution of
 // each. A search by name narrows both.
 export function MyProceduresPage() {
+  // An applicant has their procedures in progress on the home page, which
+  // calls this page its history.
+  const user = useOutletContext<User | null | undefined>()
   const myProcedures = useMyProcedures()
   const [search, setSearch] = useState('')
-  const words = normalize(search).split(/\s+/).filter(Boolean)
+  const words = searchWords(search)
   const found = (myProcedures.data ?? [])
     .filter((procedure) => words.every((word) => normalize(procedure.procedure_type_name).includes(word)))
     .sort(byLastMove)
@@ -77,8 +76,8 @@ export function MyProceduresPage() {
 
   return (
     <Stack gap="xxl">
-      <Group justify="space-between" align="flex-end" gap="md">
-        <Title order={1}>Mis trámites</Title>
+      <Stack gap="lg" align="flex-start">
+        <Title order={1}>{user?.staff === true ? 'Mis trámites' : 'Historial'}</Title>
         <TextInput
           aria-label="Buscar por nombre"
           placeholder="Buscar por nombre"
@@ -86,7 +85,7 @@ export function MyProceduresPage() {
           value={search}
           onChange={(event) => setSearch(event.currentTarget.value)}
         />
-      </Group>
+      </Stack>
       {myProcedures.isPending && (
         <Stack gap="xs" aria-label="Cargando los trámites">
           {Array.from({ length: 3 }, (_, index) => (

@@ -127,7 +127,7 @@ describe('HomePage', () => {
     stubApi({})
     renderAs(false)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Mis trámites' })).toBeInTheDocument()
     expect(screen.queryByText(/Hola/)).not.toBeInTheDocument()
     expect(await screen.findByText('Sin pendientes')).toBeVisible()
   })
@@ -149,13 +149,6 @@ describe('HomePage', () => {
     expect(row).toHaveAttribute('href', '/procedures/P-2')
     expect(within(row).getByText('Reconocimiento de créditos')).toBeVisible()
     expect(within(pending).getAllByRole('link')).toHaveLength(1)
-  })
-
-  it('offers to start a procedure on top', async () => {
-    stubApi({})
-    renderAs(false)
-
-    expect(await screen.findByRole('link', { name: 'Nuevo trámite' })).toHaveAttribute('href', '/new')
   })
 
   it('shows every procedure in progress, the latest first, and leads to the history', async () => {
@@ -191,7 +184,6 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: /Trámite 6/ })).toBeVisible()
     expect(screen.queryByRole('link', { name: /Trámite 7/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver todos los trámites' })).toHaveAttribute('href', '/new')
-    expect(screen.getByRole('button', { name: /Buscar en el catálogo/ })).toBeVisible()
   })
 
   it('says when the procedures could not be loaded', async () => {

@@ -1,12 +1,15 @@
 import {
   ActionIcon,
+  Affix,
   Alert,
   Anchor,
   AppShell,
   Badge,
   Box,
   Burger,
+  Button,
   Container,
+  Group,
   Image,
   Indicator,
   NavLink,
@@ -81,9 +84,9 @@ export function AppLayout() {
   }
 
   const links: MenuLink[] = [
-    { to: '/', label: 'Inicio', icon: 'home', active: pathname === '/' },
     // An applicant has their procedures in progress on the home page, and the
     // rest behind its "Historial".
+    { to: '/', label: staff ? 'Inicio' : 'Mis trámites', icon: staff ? 'home' : 'files', active: pathname === '/' },
     ...(staff
       ? [
           {
@@ -175,6 +178,10 @@ export function AppLayout() {
     )
   }
 
+  // An applicant has the search and the start of a procedure fixed at the top
+  // right of every page; the start, but on the pages that start one.
+  const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
+
   const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
 
   if (user === null) {
@@ -202,9 +209,16 @@ export function AppLayout() {
             />
           }
           end={
-            <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
-              <Icon name="search" />
-            </ActionIcon>
+            <>
+              <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
+                <Icon name="search" />
+              </ActionIcon>
+              {offerStart && (
+                <ActionIcon component={Link} to="/new" size="lg" aria-label="Iniciar trámite">
+                  <Icon name="plus" />
+                </ActionIcon>
+              )}
+            </>
           }
         />
       </AppShell.Header>
@@ -259,6 +273,25 @@ export function AppLayout() {
         staff={staff}
         pages={[...links, about].map((link) => ({ id: link.to, label: link.label, to: link.to }))}
       />
+      {!staff && (
+        <Affix position={{ top: tokens.layout.pagePadding, right: tokens.layout.pagePadding }} visibleFrom="sm">
+          <Group gap="sm" wrap="nowrap">
+            <Button
+              variant="default"
+              leftSection={<Icon name="search" size={16} />}
+              rightSection={<SearchShortcut />}
+              onClick={openSearch}
+            >
+              Buscar
+            </Button>
+            {offerStart && (
+              <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
+                Iniciar trámite
+              </Button>
+            )}
+          </Group>
+        </Affix>
+      )}
       <AppShell.Main>
         <Container px={0}>
           {logoutFailed && (

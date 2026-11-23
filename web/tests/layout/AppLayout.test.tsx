@@ -70,15 +70,15 @@ describe('AppLayout', () => {
     stubApi({ session: true })
     renderAt('/')
 
-    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
+    await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
-    // The applicant has their procedures on the home page.
-    expect(within(menu).queryByRole('link', { name: 'Mis trámites' })).not.toBeInTheDocument()
+    // The applicant has their procedures on the home page, named after them.
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/')
+    expect(within(menu).queryByRole('link', { name: 'Inicio' })).not.toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
     expect(within(menu).getByRole('button', { name: 'Buscar' })).toBeVisible()
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('aria-current', 'page')
     expect(within(menu).getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
     // The applicant has no inbox, and the account closes the menu.
     expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
@@ -138,8 +138,39 @@ describe('AppLayout', () => {
 
     await screen.findByRole('heading', { name: 'Catálogo de trámites' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('data-active', 'true')
+  })
+
+  it('fixes the search and the start of a procedure at the top for an applicant', async () => {
+    stubApi({ session: true })
+    renderAt('/catalog')
+
+    await screen.findByRole('heading', { name: 'Catálogo de trámites' })
+    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
+    const starts = screen.getAllByRole('link', { name: 'Iniciar trámite' })
+    expect(starts.length).toBeGreaterThan(0)
+    for (const start of starts) {
+      expect(start).toHaveAttribute('href', '/new')
+    }
+    const searches = screen.getAllByRole('button', { name: /^Buscar/ }).filter((button) => !menu.contains(button))
+    expect(searches.length).toBeGreaterThan(0)
+  })
+
+  it('does not offer to start a procedure on the page that starts one', async () => {
+    stubApi({ session: true })
+    renderAt('/new')
+
+    await screen.findByRole('heading', { level: 1, name: 'Iniciar trámite' })
+    expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
+  })
+
+  it('leaves the start of a procedure out of the pages of the staff', async () => {
+    stubApi({ session: true, account: { ...user, staff: true } })
+    renderAt('/')
+
+    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
+    expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
   })
 
   it('shows the name and email in the account menu', async () => {
