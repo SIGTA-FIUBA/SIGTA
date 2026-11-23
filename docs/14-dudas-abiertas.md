@@ -24,9 +24,9 @@ Salen de "Flujos de los trámites" ([relevamiento](13-relevamiento-de-tramites.m
 | DU-02 | ¿El Secretario Académico y el de Gestión Académica son la misma persona? | Son cargos distintos, pero no importa para SIGTA: firman afuera y la DA confirma la firma | Supuesto |
 | DU-03 | ¿Por qué algunos trámites pasan por el CD y otros no? | Lo define cada tipo de trámite en su configuración | Supuesto |
 | DU-04 | En los pases, ¿FIUBA ve algo antes de que llegue de Rectorado? | El estudiante inicia en SIGTA al presentar en Rectorado; el trámite espera en un paso externo hasta que la DA lo recibe | Supuesto |
-| DU-05 | ¿Quiénes de la DA usan el sistema? ¿La Directora General es otra área? | Todo el personal de la DA, de Intercambios y la Directora General. Cada persona tiene una membresía en su área, con los roles y permisos de esa área que le asigna el administrador (ADR-020). La Directora General es parte del área de la DA, con un rol propio para los pasos que exigen su permiso | Supuesto, en línea con la respuesta del 4/11 |
+| DU-05 | ¿Quiénes de la DA usan el sistema? ¿La Directora General es otra área? | Todo el personal de la DA, de Intercambios y la Directora General. Cada persona tiene una membresía en su área, con los roles y permisos de esa área que le asigna el administrador (ADR-020). La Directora General es parte del área de la DA, con un rol propio para los pasos que exigen su permiso. En el trámite ancla es un área aparte (DU-40) | Supuesto, en línea con la respuesta del 4/11 |
 | DU-06 | ¿Quién sube los documentos al expediente electrónico? | La DA, fuera de SIGTA. SIGTA guarda solo el número de expediente | Supuesto (ADR-004) |
-| DU-34 | Rectorado, el CBC y el Despacho del Consejo Directivo no usan SIGTA, pero tampoco evalúan. Con ADR-020 no hay áreas `external`: un paso que resuelve alguien de afuera es del área que lo registra en SIGTA. ¿Sus pasos los confirma la DA, como el archivo, o cada dependencia es un área con su propio permiso para registrarlos? ¿Cómo se muestra al titular que el trámite espera a otra dependencia? | Sus pasos son de la DA, que confirma lo que pasó afuera, como el archivo. Mesa de Entrada ya no es un área | Se espera, con el equipo, junto con SIG-71 |
+| DU-34 | Rectorado, el CBC y el Despacho del Consejo Directivo no usan SIGTA, pero tampoco evalúan. Con ADR-020 no hay áreas `external`: un paso que resuelve alguien de afuera es del área que lo registra en SIGTA. ¿Sus pasos los confirma la DA, como el archivo, o cada dependencia es un área con su propio permiso para registrarlos? ¿Cómo se muestra al titular que el trámite espera a otra dependencia? | Sus pasos son de la DA, que confirma lo que pasó afuera, como el archivo. Mesa de Entrada ya no es un área. En el trámite ancla, Mesa de Entradas y el Despacho son áreas con su personal (DU-40) | Se espera, con el equipo, junto con SIG-71 |
 
 ### Equivalencia entre asignaturas
 
@@ -102,7 +102,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 
 | ID | Duda | Por ahora | Cómo |
 | --- | --- | --- | --- |
-| DU-40 | ¿Con qué áreas se configura el trámite ancla? SIG-83 nombra seis: Dirección Académica, Comisión Curricular, Despacho del Consejo Directivo, Consejo Directivo, Dirección General y Mesa de Entrada. No coincide con lo relevado: la DA es la Dirección de Alumnos; según DU-05 la Directora General es parte del área de la DA, con un rol propio; según DU-34 los pasos del Despacho del Consejo Directivo los confirma la DA y Mesa de Entrada ya no es un área; y en los actores del relevamiento ([docs/13](13-relevamiento-de-tramites.md)) la CC, el Despacho y el CD no usan SIGTA | Ninguna todavía. Son configuración: las carga un administrador desde la pantalla de SIG-76, y si cambian se editan ahí, sin código (ADR-027) | A decidir con el equipo antes de cargar las áreas, y a confirmar con la Secretaría |
+| DU-40 | ¿Con qué áreas se configura el trámite ancla? SIG-83 nombra seis: Dirección Académica, Comisión Curricular, Despacho del Consejo Directivo, Consejo Directivo, Dirección General y Mesa de Entrada. No coincide con lo relevado: la DA es la Dirección de Alumnos; según DU-05 la Directora General es parte del área de la DA, con un rol propio; según DU-34 los pasos del Despacho del Consejo Directivo los confirma la DA y Mesa de Entrada ya no es un área; y en los actores del relevamiento ([docs/13](13-relevamiento-de-tramites.md)) la CC, el Despacho y el CD no usan SIGTA | Seis, además de la Secretaría: Mesa de Entradas, Comisión Curricular, Dirección de Alumnos, Despacho del Consejo Directivo, Consejo Directivo y Dirección General Académica, cada una con su personal. Así las cargó el equipo en sigta-dev el 22/11, desde la pantalla de SIG-76, y así las usa `features/subject_equivalence.feature` (SIG-15). Para el trámite ancla dejan de lado lo que suponían DU-05 y DU-34. Son configuración: si la Secretaría dice otra cosa, se editan ahí, sin código (ADR-027) | Supuesto del equipo (22/11), a confirmar con la Secretaría |
 | DU-32 | ¿Quién puede proponer y quién aprobar una versión de un tipo de trámite? (D-08) | En parte: son dos permisos de plataforma de la Secretaría, uno para proponer y otro para aprobar (ADR-020). Falta saber a quién se le otorgan y si el equipo tiene una membresía en la Secretaría | Se espera, con la Secretaría, antes de la interfaz de edición |
 | DU-41 | ¿Hasta cuándo vale una membresía con fecha de fin? | Hasta el final de ese día en Buenos Aires: el "Hasta" de la pantalla de administración se guarda como las 23:59:59 de ese día, hora de Argentina (SIG-76) | Supuesto; a confirmar con la Secretaría |
 | DU-42 | ¿Qué pasa con el alcance y la fecha de fin de una membresía cuando se le cambian los roles o permisos? | Se conservan: el cambio cierra la membresía y abre otra con el mismo alcance y el mismo fin, con los roles y permisos nuevos, para que quede registrado quién cambió qué y cuándo (SIG-76) | Supuesto; a confirmar con la Secretaría |
@@ -110,6 +110,7 @@ Salen de la persistencia de los tipos de trámite (SIG-65).
 | DU-44 | ¿Se puede cambiar el nombre de un área? | No: un área, un permiso o un rol no se renombran. Si cambia el nombre, se da de baja y se crea otra con otro identificador, porque el de una baja no se vuelve a usar. Eso exige terminar antes las membresías que la usan y volver a publicar los tipos de trámite que la nombran, aunque el nombre solo se muestra (SIG-76) | Supuesto del equipo; a confirmar con la Secretaría si prefiere poder corregir el nombre |
 | DU-45 | ¿Cómo se elige el identificador de un área, un permiso o un rol? | Lo tipea a mano el administrador al crearlo: minúsculas, dígitos y guiones bajos, empezando con una letra. No se puede cambiar después ni volver a usar tras una baja. Los pasos de un tipo de trámite nombran los permisos por ese identificador (ADR-020) | Supuesto del equipo; a revisar si se propone a partir del nombre |
 | DU-46 | ¿A quiénes puede ver un administrador? | A cualquier persona que haya entrado a SIGTA, por nombre y correo: la búsqueda para otorgar una membresía o la administración devuelve hasta 10 por pedido, sin otro límite ni registro de lo buscado (SIG-76, ADR-027) | Supuesto del equipo; a confirmar con la Secretaría y, si hace falta, con quien vele por los datos personales |
+| DU-50 | En el trámite ancla, el trámite sale de Mesa de Entradas al caratularse y recién vuelve al archivarse: figura derivado desde la carátula hasta el archivo, también mientras lo tramitan la Dirección de Alumnos o el Despacho, y los días sin retorno se cuentan desde la carátula. ¿Es lo que la Secretaría espera ver? | Se acepta como el comportamiento actual de ADR-023: todo pase entre dos áreas del personal es una derivación. La alternativa que ADR-023 descartó, un área responsable por tipo de trámite, haría que solo derive el paso que sale de esa área (D-13) | A revisar con el equipo, y con la Secretaría junto con D-13 |
 
 ## 5. Del inicio de un trámite
 
@@ -120,6 +121,23 @@ Salen de "Iniciar una solicitud" (SIG-17).
 | DU-35 | ¿Cómo se carga la carrera (`degree`) y las asignaturas (`subject_list`)? ¿Hay un listado para elegir? | Texto libre: la carrera, un texto; las asignaturas, una lista de textos. No se controla contra ningún plan de estudios | Supuesto; a confirmar con la Secretaría |
 | DU-36 | ¿Cuánto puede ocupar un dato de texto? | 200 caracteres para un texto corto y 5000 para uno largo; hasta 100 asignaturas | Decidido por el equipo |
 | DU-37 | ¿Un número admite decimales y negativos, como un promedio o un ajuste? | Sí: un decimal con signo. La web acepta coma o punto y envía punto. Un tipo de trámite todavía no puede pedir solo enteros ni un rango | Supuesto; a confirmar con la Secretaría |
+
+## 6. Del comprobante del trámite
+
+Salen de "Descarga de comprobante del trámite" (SIG-53).
+
+| ID | Duda | Por ahora | Cómo |
+| --- | --- | --- | --- |
+| DU-47 | ¿Qué valor le da la Secretaría al comprobante? No lleva firma digital ni un código para verificarlo, y se puede editar (no hay firma digital con validez legal) | Deja constancia del estado y del historial del trámite en SIGTA cuando se emitió, y aclara que no es una resolución. Lo que vale es lo que está en SIGTA | Se espera, con la Secretaría |
+| DU-48 | ¿Cómo sale en el comprobante un nombre con caracteres fuera del español, como los de un titular extranjero? | El PDF usa las fuentes Helvetica que trae todo lector, sin embeber ninguna, en WinAnsiEncoding: cubre el español y las lenguas de Europa occidental, y lo demás sale como `?` ("Zoë Chen 陈伟" sale "Zoë Chen ??"). En la página del trámite el nombre sale completo | Decidido por el equipo; si la Secretaría lo necesita, se embebe una fuente con esos caracteres |
+
+## 7. Del seguimiento del titular
+
+Salen del historial de trámites cerrados (SIG-35) y del detalle del trámite (SIG-31).
+
+| ID | Duda | Por ahora | Cómo |
+| --- | --- | --- | --- |
+| DU-49 | Lo que el personal adjunta como resolución, ¿es siempre el documento firmado? Podría subir un borrador sin firmar, y el titular lo ve en cuanto el trámite se cierra. Si después lo reemplaza, el historial del detalle sigue mostrando el archivo anterior y deja descargarlo | SIGTA no lo distingue: el titular ve la última versión de cada documento resolutivo y, en el historial, las que fue reemplazando. Que lo adjuntado sea el documento final queda a cargo de quien lo sube | Se espera, con la Secretaría: si el titular debe ver solo la versión final y si las reemplazadas tienen que quedar a su alcance |
 
 ---
 

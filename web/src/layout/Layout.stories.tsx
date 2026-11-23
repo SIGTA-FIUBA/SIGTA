@@ -98,6 +98,7 @@ const mine: MyProcedure[] = [
     correction_pending: true,
     started_at: '2026-11-02T12:00:00Z',
     last_moved_at: '2026-11-12T15:00:00Z',
+    resolutions: [],
   },
   {
     id: 'm2',
@@ -107,6 +108,7 @@ const mine: MyProcedure[] = [
     correction_pending: false,
     started_at: '2026-10-01T12:00:00Z',
     last_moved_at: '2026-11-05T15:00:00Z',
+    resolutions: [],
   },
 ]
 

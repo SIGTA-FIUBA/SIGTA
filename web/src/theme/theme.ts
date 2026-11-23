@@ -79,6 +79,8 @@ const paperVariants: Record<string, string> = {
   condensed: classes.condensed,
   'nav-current': classes.navCurrent,
   selection: classes.selection,
+  canvas: classes.canvas,
+  step: classes.step,
 }
 
 const textVariants: Record<string, string> = {
@@ -154,7 +156,9 @@ export const theme = createTheme({
     // Without boxes: variant="row" is a row of a list and variant="hover" the
     // mark that glides under the rows; variant="figure" a figure of the home
     // page; variant="condensed" the bar that takes the place of its greeting;
-    // variant="nav-current" the mark of the current page in the menu.
+    // variant="nav-current" the mark of the current page in the menu. The
+    // diagram of a route draws on variant="canvas", a dotted surface, and each
+    // step is a variant="step" box, marked with data-selected or data-problem.
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
       classNames: (_theme, props) => ({ root: paperVariants[props.variant ?? ''] ?? '' }),

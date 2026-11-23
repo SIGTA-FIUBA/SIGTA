@@ -173,7 +173,23 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 			CorrectionPending: m.Procedure.AwaitingApplicant(),
 			StartedAt:         m.Procedure.StartedAt,
 			LastMovedAt:       m.Procedure.MovedAt,
+			Resolutions:       resolutionFiles(m.Resolutions),
 		})
 	}
 	return response, nil
+}
+
+func resolutionFiles(resolutions []detail.ResolutionFile) []api.ResolutionFile {
+	files := make([]api.ResolutionFile, 0, len(resolutions))
+	for _, r := range resolutions {
+		files = append(files, api.ResolutionFile{
+			Id:           r.File.ID,
+			Document:     r.File.Requirement,
+			DocumentName: r.Name,
+			FileName:     r.File.FileName,
+			MediaType:    r.File.MediaType,
+			Size:         r.File.Size,
+		})
+	}
+	return files
 }

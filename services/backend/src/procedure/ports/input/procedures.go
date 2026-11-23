@@ -3,6 +3,7 @@ package input
 import (
 	"context"
 	"slices"
+	"time"
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
@@ -43,18 +44,30 @@ type ProcedureDetail struct {
 // the procedure, as Procedures does.
 type ProcedureDetails interface {
 	Detail(ctx context.Context, userID, procedureID string) (ProcedureDetail, error)
-	// Mine returns the procedures in progress that the person started, the
-	// most recently moved first.
+	// Mine returns the procedures that the person started, in progress and
+	// closed, the most recently moved first.
 	Mine(ctx context.Context, userID string) ([]MyProcedure, error)
+	// Receipt is for the applicant alone: to staff of the areas the
+	// procedure passes through it is not found either.
+	Receipt(ctx context.Context, userID, procedureID string) (Receipt, error)
 }
 
-// MyProcedure is a procedure in progress as its applicant sees it in their
-// list: where it is, not what happened inside each area.
+// Receipt is the proof the applicant takes away of their procedure: its
+// detail as they see it and when it was issued.
+type Receipt struct {
+	ProcedureDetail
+	IssuedAt time.Time
+}
+
+// MyProcedure is a procedure as its applicant sees it in their list: where it
+// is, not what happened inside each area, and once it closes, the documents
+// that resolve it.
 type MyProcedure struct {
-	Procedure domain.Procedure
-	Name      string
-	StepName  string // empty once the procedure is closed
-	State     domain.State
+	Procedure   domain.Procedure
+	Name        string
+	StepName    string // empty once the procedure is closed
+	State       domain.State
+	Resolutions []detail.ResolutionFile
 }
 
 type StepConfirmation struct {

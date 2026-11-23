@@ -31,7 +31,7 @@ import { Facts } from '../components/Facts/Facts'
 import { Icon } from '../components/Icon/Icon'
 import { Part } from '../components/Part/Part'
 import { documentDescription } from '../content/documentFormats'
-import { procedureStates } from '../content/procedures'
+import { closedWithoutResolution, procedureStates } from '../content/procedures'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -127,7 +127,7 @@ function resolutionFiles(detail: Detail) {
 function Resolution({ detail }: { detail: Detail }) {
   const files = resolutionFiles(detail)
   if (files.length === 0) {
-    return <Text c="dimmed">El trámite se cerró sin un documento resolutivo adjunto.</Text>
+    return <Text c="dimmed">{closedWithoutResolution}</Text>
   }
   return (
     <Stack gap="md">
@@ -1005,6 +1005,12 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
   )
 }
 
+// receiptUrl is the receipt that the applicant keeps of their procedure, in
+// progress or closed, with what they see of it here.
+function receiptUrl(procedureId: string) {
+  return `/api/procedures/${encodeURIComponent(procedureId)}/receipt`
+}
+
 function ProcedureDetail({ detail }: { detail: Detail }) {
   const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
@@ -1048,6 +1054,17 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
                 </Fact>
               )}
             </Facts>
+            {detail.as_applicant && (
+              <Button
+                component="a"
+                href={receiptUrl(detail.id)}
+                download={`comprobante-${detail.id}.pdf`}
+                variant="default"
+                mt="md"
+              >
+                Descargar comprobante
+              </Button>
+            )}
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 8 }} order={{ base: 2, lg: 1 }}>

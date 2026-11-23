@@ -113,9 +113,9 @@ paths:
       summary: Trámites de la persona con sesión abierta
       description: >
         Los trámites que inició quien tiene la sesión, sea o no del personal,
-        en curso y cerrados: un trámite cerrado se lista para que su titular
-        llegue a la resolución. Primero los que se movieron más
-        recientemente. Cada uno se abre con su detalle.
+        en curso y cerrados: un trámite cerrado se lista con su resolución,
+        para que su titular la descargue sin buscarla. Primero los que se
+        movieron más recientemente. Cada uno se abre con su detalle.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       responses:
@@ -174,6 +174,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /editable-procedure-types:
+    get:
+      operationId: listEditableProcedureTypes
+      summary: Tipos de trámite que la persona puede editar o aprobar
+      description: >
+        Para la pantalla de edición de tipos de trámite (ADR-013). Lista, por
+        número, los tipos de trámite con una versión publicada y los borradores
+        de tipos nuevos en los que la persona tiene el permiso de editar o el
+        de publicar, cada uno con su borrador si lo tiene, y dice si puede
+        crear uno nuevo. A quien puede editar o aprobar algo le trae además las
+        áreas del personal con los permisos que un paso puede exigir, para
+        elegir el área de cada paso. Sin ninguno de los dos permisos, todo
+        viene vacío.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Lo que la persona puede editar o aprobar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditableProcedureTypes"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /procedure-type-drafts:
     get:
       operationId: listProcedureTypeDrafts
@@ -1015,6 +1039,53 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /procedures/{procedureId}/receipt:
+    get:
+      operationId: downloadProcedureReceipt
+      summary: Descarga el comprobante de un trámite
+      description: >
+        Solo para el titular, en curso o cerrado: un PDF con el identificador,
+        el tipo de trámite, el estado, las fechas de inicio, del último
+        movimiento y de emisión, el paso abierto y el recorrido de los pasos
+        con sus fechas, con lo mismo que el titular ve en el detalle. Para el
+        personal de las áreas por las que pasa, como para quien no lo ve, el
+        trámite no existe. No dice el resultado del trámite, que no se modela.
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+        - $ref: "#/components/parameters/ProcedureId"
+      responses:
+        "200":
+          description: El comprobante
+          headers:
+            Content-Disposition:
+              required: true
+              description: Siempre attachment, con un nombre que lleva el identificador del trámite
+              schema:
+                type: string
+            X-Content-Type-Options:
+              required: true
+              description: Siempre nosniff, como en la descarga de un documento
+              schema:
+                type: string
+            Content-Security-Policy:
+              required: true
+              description: Siempre sandbox, como en la descarga de un documento
+              schema:
+                type: string
+            Cache-Control:
+              required: true
+              description: Siempre no-store, porque tiene datos del titular
+              schema:
+                type: string
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /procedures/{procedureId}/steps/{stepId}/confirmation:
     post:
       operationId: confirmStep
@@ -1201,8 +1272,10 @@ paths:
         subsanación, cuentan solo los adjuntados desde el último pedido que
         nombra ese documento. Cada archivo adjuntado queda en el historial,
         sin avanzar el trámite. Si el paso ya no está abierto (otro lo
-        confirmó o el trámite está cerrado), o la subsanación que pedía el
-        documento ya se respondió, responde 409.
+        confirmó o el trámite está cerrado), responde 409. Responde 403 a
+        quien no puede hacer el paso abierto ni tiene una subsanación
+        pendiente que pida ese documento, también si la respuesta a la
+        subsanación se envió mientras adjuntaba.
       parameters:
         - $ref: "#/components/parameters/SessionCookie"
       requestBody:
@@ -1825,7 +1898,7 @@ components:
       required: [by, at, reason]
       properties:
         by:
-          type: string
+          $ref: "#/components/schemas/Person"
         at:
           type: string
           format: date-time
@@ -1833,7 +1906,7 @@ components:
           type: string
     ProcedureTypeDraft:
       type: object
-      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems]
+      required: [procedure_type_id, base, revision, status, definition, edited_by, edited_at, editors, problems, can_edit, can_review]
       properties:
         procedure_type_id:
           type: integer
@@ -1849,7 +1922,7 @@ components:
         definition:
           $ref: "#/components/schemas/ProcedureTypeDefinition"
         edited_by:
-          type: string
+          $ref: "#/components/schemas/Person"
         edited_at:
           type: string
           format: date-time
@@ -1857,9 +1930,9 @@ components:
           type: array
           description: Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza
           items:
-            type: string
+            $ref: "#/components/schemas/Person"
         proposed_by:
-          type: string
+          $ref: "#/components/schemas/Person"
         proposed_at:
           type: string
           format: date-time
@@ -1870,6 +1943,72 @@ components:
           description: Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer
           items:
             $ref: "#/components/schemas/DefinitionProblem"
+        can_edit:
+          type: boolean
+          description: Si quien pregunta puede editarlo, proponerlo y descartarlo ahora, es decir, mientras no está propuesto
+        can_review:
+          type: boolean
+          description: >
+            Si quien pregunta puede aprobarlo o rechazarlo ahora: está
+            propuesto, tiene el permiso de publicar y no lo editó ni lo propuso
+    EditableProcedureTypes:
+      type: object
+      required: [can_create, procedure_types, areas]
+      properties:
+        can_create:
+          type: boolean
+          description: Si puede crear un tipo de trámite nuevo, para lo que hace falta el permiso de editar sin alcance limitado
+        procedure_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditableProcedureType"
+        areas:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepArea"
+    EditableProcedureType:
+      type: object
+      required: [procedure_type_id, name, version, can_open_draft]
+      properties:
+        procedure_type_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: El de la última versión o, si no tiene ninguna, el de su borrador
+        version:
+          type: integer
+          description: La última versión publicada, o 0 si no tiene ninguna
+        published_at:
+          type: string
+          format: date-time
+          description: Cuándo se publicó la última versión; ausente si no tiene ninguna
+        can_open_draft:
+          type: boolean
+          description: Si puede abrir el borrador de una versión nueva, porque tiene el permiso de editar, hay una versión publicada y no hay borrador
+        draft:
+          $ref: "#/components/schemas/ProcedureTypeDraft"
+    StepArea:
+      type: object
+      description: Un área del personal que puede hacer un paso, con los permisos que el paso puede exigir
+      required: [id, name, permissions]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepAreaPermission"
+    StepAreaPermission:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
     NewProcedureType:
       type: object
       required: [definition]
@@ -2367,7 +2506,7 @@ components:
           type: string
     MyProcedure:
       type: object
-      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at]
+      required: [id, procedure_type, procedure_type_name, state, correction_pending, started_at, last_moved_at, resolutions]
       properties:
         id:
           type: string
@@ -2391,6 +2530,38 @@ components:
           type: string
           format: date-time
           description: Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
+        resolutions:
+          type: array
+          description: >
+            Los documentos que resuelven el trámite, el último que se adjuntó
+            de cada uno, para descargarlos sin abrir el detalle. Vacío
+            mientras el trámite está en curso o si se cerró sin uno.
+          items:
+            $ref: "#/components/schemas/ResolutionFile"
+    ResolutionFile:
+      type: object
+      description: >
+        Un documento que resuelve un trámite cerrado, tal como lo ve su
+        titular. Se descarga como cualquier documento del trámite. No dice
+        cuál fue el resultado, que no se modela (ADR-009).
+      required: [id, document, document_name, file_name, media_type, size]
+      properties:
+        id:
+          type: string
+        document:
+          type: string
+          description: Identificador del documento del tipo de trámite que cubre
+        document_name:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
+          description: Tipo que reconoció el servidor por el contenido
+        size:
+          type: integer
+          format: int64
+          description: Tamaño en bytes
     ProcedureDetail:
       type: object
       required:

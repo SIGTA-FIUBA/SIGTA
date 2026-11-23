@@ -19,6 +19,10 @@ export const procedureStates: Record<State, { tone: StatusTone; label: string }>
   closed: { tone: 'closed', label: stateNames.closed },
 }
 
+// The home page and the detail say the same when a procedure closed without
+// a document that resolves it.
+export const closedWithoutResolution = 'El trámite se cerró sin un documento resolutivo adjunto.'
+
 // procedurePath is the page of a procedure.
 export function procedurePath(id: string) {
   return `/procedures/${encodeURIComponent(id)}`

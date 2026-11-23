@@ -549,6 +549,34 @@
   font-weight: var(--mantine-font-weight-bold);
 }
 
+/* The surface where the diagram of a route is drawn (Paper variant="canvas"):
+ * a grid of dots, as on a drawing board. */
+.canvas {
+  background-color: var(--mantine-color-gray-0);
+  background-image: radial-gradient(var(--mantine-color-gray-3) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* A step of the diagram (Paper variant="step"). The selected one stands out
+ * with the primary color and a ring; one with a problem, in red. */
+.step {
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-gray-3);
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.step[data-problem] {
+  border-color: var(--mantine-color-red-3);
+}
+
+.step[data-selected] {
+  border: 2px solid var(--mantine-primary-color-filled);
+  box-shadow:
+    0 0 0 4px var(--mantine-color-fiuba-1),
+    var(--mantine-shadow-md);
+}
+
 /* On a phone every control is at least 44px tall (component.touchTarget in
  * tokens.json), so a finger hits it. A media query cannot read a variable, so
  * 48em repeats breakpoint.sm. */

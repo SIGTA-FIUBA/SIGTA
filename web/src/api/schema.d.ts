@@ -83,7 +83,7 @@ export interface paths {
         };
         /**
          * Trámites de la persona con sesión abierta
-         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista para que su titular llegue a la resolución. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
+         * @description Los trámites que inició quien tiene la sesión, sea o no del personal, en curso y cerrados: un trámite cerrado se lista con su resolución, para que su titular la descargue sin buscarla. Primero los que se movieron más recientemente. Cada uno se abre con su detalle.
          */
         get: operations["listMyProcedures"];
         put?: never;
@@ -112,6 +112,26 @@ export interface paths {
          * @description Para quien tiene el permiso de proponer en el área de diseño de trámites, sin alcance limitado a algunos tipos (ADR-013). El tipo de trámite recibe un número que no tiene otro tipo ni otro borrador, y no aparece en el catálogo hasta que se aprueba su primera versión. El borrador puede estar incompleto: problems dice qué le falta.
          */
         post: operations["createProcedureType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/editable-procedure-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tipos de trámite que la persona puede editar o aprobar
+         * @description Para la pantalla de edición de tipos de trámite (ADR-013). Lista, por número, los tipos de trámite con una versión publicada y los borradores de tipos nuevos en los que la persona tiene el permiso de editar o el de publicar, cada uno con su borrador si lo tiene, y dice si puede crear uno nuevo. A quien puede editar o aprobar algo le trae además las áreas del personal con los permisos que un paso puede exigir, para elegir el área de cada paso. Sin ninguno de los dos permisos, todo viene vacío.
+         */
+        get: operations["listEditableProcedureTypes"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -570,6 +590,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/procedures/{procedureId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descarga el comprobante de un trámite
+         * @description Solo para el titular, en curso o cerrado: un PDF con el identificador, el tipo de trámite, el estado, las fechas de inicio, del último movimiento y de emisión, el paso abierto y el recorrido de los pasos con sus fechas, con lo mismo que el titular ve en el detalle. Para el personal de las áreas por las que pasa, como para quien no lo ve, el trámite no existe. No dice el resultado del trámite, que no se modela.
+         */
+        get: operations["downloadProcedureReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/procedures/{procedureId}/steps/{stepId}/confirmation": {
         parameters: {
             query?: never;
@@ -667,7 +707,7 @@ export interface paths {
         put?: never;
         /**
          * Adjunta un documento a un trámite
-         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), o la subsanación que pedía el documento ya se respondió, responde 409.
+         * @description Adjunta un archivo para un documento que pide el paso abierto, y solo quien puede hacer ese paso. Mientras tiene una subsanación pendiente, el titular adjunta además lo que ella pide, que queda en el paso suyo que pide ese documento. El servidor reconoce el tipo por el contenido del archivo, no por su nombre, y lo compara con los tipos y el tamaño máximo del documento. Adjuntar otro archivo para el mismo documento reemplaza al anterior, que queda registrado. Un trámite guarda hasta 20 archivos por documento; para responder una subsanación, cuentan solo los adjuntados desde el último pedido que nombra ese documento. Cada archivo adjuntado queda en el historial, sin avanzar el trámite. Si el paso ya no está abierto (otro lo confirmó o el trámite está cerrado), responde 409. Responde 403 a quien no puede hacer el paso abierto ni tiene una subsanación pendiente que pida ese documento, también si la respuesta a la subsanación se envió mientras adjuntaba.
          */
         post: operations["attachProcedureDocument"];
         delete?: never;
@@ -919,7 +959,7 @@ export interface components {
          */
         DraftStatus: "editing" | "proposed";
         DraftRejection: {
-            by: string;
+            by: components["schemas"]["Person"];
             /** Format: date-time */
             at: string;
             reason: string;
@@ -933,17 +973,53 @@ export interface components {
             revision: number;
             status: components["schemas"]["DraftStatus"];
             definition: components["schemas"]["ProcedureTypeDefinition"];
-            edited_by: string;
+            edited_by: components["schemas"]["Person"];
             /** Format: date-time */
             edited_at: string;
             /** @description Quienes editaron el borrador, en el orden de su primer cambio. Ninguno lo aprueba ni lo rechaza */
-            editors: string[];
-            proposed_by?: string;
+            editors: components["schemas"]["Person"][];
+            proposed_by?: components["schemas"]["Person"];
             /** Format: date-time */
             proposed_at?: string;
             rejection?: components["schemas"]["DraftRejection"];
             /** @description Lo que falla en la definición con las áreas actuales. Vacío si se puede proponer */
             problems: components["schemas"]["DefinitionProblem"][];
+            /** @description Si quien pregunta puede editarlo, proponerlo y descartarlo ahora, es decir, mientras no está propuesto */
+            can_edit: boolean;
+            /** @description Si quien pregunta puede aprobarlo o rechazarlo ahora: está propuesto, tiene el permiso de publicar y no lo editó ni lo propuso */
+            can_review: boolean;
+        };
+        EditableProcedureTypes: {
+            /** @description Si puede crear un tipo de trámite nuevo, para lo que hace falta el permiso de editar sin alcance limitado */
+            can_create: boolean;
+            procedure_types: components["schemas"]["EditableProcedureType"][];
+            areas: components["schemas"]["StepArea"][];
+        };
+        EditableProcedureType: {
+            /** Format: int64 */
+            procedure_type_id: number;
+            /** @description El de la última versión o, si no tiene ninguna, el de su borrador */
+            name: string;
+            /** @description La última versión publicada, o 0 si no tiene ninguna */
+            version: number;
+            /**
+             * Format: date-time
+             * @description Cuándo se publicó la última versión; ausente si no tiene ninguna
+             */
+            published_at?: string;
+            /** @description Si puede abrir el borrador de una versión nueva, porque tiene el permiso de editar, hay una versión publicada y no hay borrador */
+            can_open_draft: boolean;
+            draft?: components["schemas"]["ProcedureTypeDraft"];
+        };
+        /** @description Un área del personal que puede hacer un paso, con los permisos que el paso puede exigir */
+        StepArea: {
+            id: string;
+            name: string;
+            permissions: components["schemas"]["StepAreaPermission"][];
+        };
+        StepAreaPermission: {
+            id: string;
+            name: string;
         };
         NewProcedureType: {
             definition: components["schemas"]["ProcedureTypeDefinition"];
@@ -1210,6 +1286,23 @@ export interface components {
              * @description Cuándo el trámite llegó al paso abierto o, si está cerrado, cuándo se cerró
              */
             last_moved_at: string;
+            /** @description Los documentos que resuelven el trámite, el último que se adjuntó de cada uno, para descargarlos sin abrir el detalle. Vacío mientras el trámite está en curso o si se cerró sin uno. */
+            resolutions: components["schemas"]["ResolutionFile"][];
+        };
+        /** @description Un documento que resuelve un trámite cerrado, tal como lo ve su titular. Se descarga como cualquier documento del trámite. No dice cuál fue el resultado, que no se modela (ADR-009). */
+        ResolutionFile: {
+            id: string;
+            /** @description Identificador del documento del tipo de trámite que cubre */
+            document: string;
+            document_name: string;
+            file_name: string;
+            /** @description Tipo que reconoció el servidor por el contenido */
+            media_type: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes
+             */
+            size: number;
         };
         ProcedureDetail: {
             id: string;
@@ -1552,6 +1645,29 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listEditableProcedureTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lo que la persona puede editar o aprobar */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditableProcedureTypes"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listProcedureTypeDrafts: {
@@ -2352,6 +2468,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcedureDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadProcedureReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                procedureId: components["parameters"]["ProcedureId"];
+            };
+            cookie?: {
+                sigta_session?: components["parameters"]["SessionCookie"];
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El comprobante */
+            200: {
+                headers: {
+                    /** @description Siempre attachment, con un nombre que lleva el identificador del trámite */
+                    "Content-Disposition": string;
+                    /** @description Siempre nosniff, como en la descarga de un documento */
+                    "X-Content-Type-Options": string;
+                    /** @description Siempre sandbox, como en la descarga de un documento */
+                    "Content-Security-Policy": string;
+                    /** @description Siempre no-store, porque tiene datos del titular */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

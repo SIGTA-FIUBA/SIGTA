@@ -6,6 +6,7 @@ import { useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { Figure } from '../components/Figure/Figure'
 import { Figures } from '../components/Figures/Figures'
+import { DocumentFile } from '../components/DocumentFile/DocumentFile'
 import { EmptyState } from '../components/EmptyState/EmptyState'
 import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
@@ -13,7 +14,7 @@ import { Reveal } from '../components/Reveal/Reveal'
 import { PageSection } from '../components/PageSection/PageSection'
 import { StepList } from '../components/StepList/StepList'
 import { applicantHowTo, staffHowTo } from '../content/platform'
-import { movedText, procedurePath, procedureStates, standing } from '../content/procedures'
+import { closedWithoutResolution, movedText, procedurePath, procedureStates, standing } from '../content/procedures'
 
 type User = components['schemas']['User']
 type Item = components['schemas']['ProcedureListItem']
@@ -240,6 +241,39 @@ function MyProcedureRows({ label, procedures }: { label: string; procedures: MyP
   )
 }
 
+// ClosedResolutions goes under the rows of the closed procedures, apart from
+// them because each row is a link as a whole: for each one, the resolution to
+// see or download, or that it closed without one.
+function ClosedResolutions({ procedures }: { procedures: MyProcedure[] }) {
+  return (
+    <Stack gap="lg">
+      {procedures.map((procedure) => (
+        <Stack key={procedure.id} gap="xs">
+          <Text fw={600}>{procedure.procedure_type_name}</Text>
+          {procedure.resolutions.length === 0 ? (
+            <Text size="sm" c="gray.7">
+              {closedWithoutResolution}
+            </Text>
+          ) : (
+            procedure.resolutions.map((resolution) => (
+              <Stack key={resolution.id} gap="xxs">
+                <Text size="sm" fw={500}>
+                  {resolution.document_name}
+                </Text>
+                <DocumentFile
+                  procedureId={procedure.id}
+                  file={resolution}
+                  procedureName={procedure.procedure_type_name}
+                />
+              </Stack>
+            ))
+          )}
+        </Stack>
+      ))}
+    </Stack>
+  )
+}
+
 // MyProcedures lists what the person started, staff or not, so that signing
 // in answers where each procedure is. The closed ones go apart, for their
 // applicant to reach the resolution.
@@ -267,7 +301,10 @@ function MyProcedures() {
       </PageSection>
       {closed.length > 0 && (
         <PageSection id="my-closed-procedures" title="Mis trámites cerrados">
-          <MyProcedureRows label="Mis trámites cerrados" procedures={closed} />
+          <Stack gap="xl">
+            <MyProcedureRows label="Mis trámites cerrados" procedures={closed} />
+            <ClosedResolutions procedures={closed} />
+          </Stack>
         </PageSection>
       )}
     </>

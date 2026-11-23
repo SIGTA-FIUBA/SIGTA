@@ -80,8 +80,19 @@ func (s *ProcedureDetailService) Detail(ctx context.Context, userID, procedureID
 	}, nil
 }
 
-// Mine lists the procedures the person started, the closed ones too, so that
-// they reach their resolution. It leaves out those of others, also for staff:
+func (s *ProcedureDetailService) Receipt(ctx context.Context, userID, procedureID string) (input.Receipt, error) {
+	d, err := s.Detail(ctx, userID, procedureID)
+	if err != nil {
+		return input.Receipt{}, err
+	}
+	if !d.AsApplicant {
+		return input.Receipt{}, domain.ErrProcedureNotFound
+	}
+	return input.Receipt{ProcedureDetail: d, IssuedAt: s.procedures.now()}, nil
+}
+
+// Mine lists the procedures the person started, the closed ones too, with
+// the documents that resolve them. It leaves out those of others, also for staff:
 // what goes through their areas is in the inbox. It fails, as the detail does,
 // if the open step of a procedure is not in its version.
 func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]input.MyProcedure, error) {
@@ -103,7 +114,13 @@ func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]inp
 			return nil, err
 		}
 		m := input.MyProcedure{Procedure: p, Name: content.Definition.Name, State: state}
-		if !p.Closed() {
+		if p.Closed() {
+			documents, err := s.documents.List(ctx, p.ID)
+			if err != nil {
+				return nil, fmt.Errorf("documents of %s: %w", p.ID, err)
+			}
+			m.Resolutions = detail.ForApplicant(content, p).Resolutions(documents)
+		} else {
 			// StateOf already found the open step in the definition.
 			m.StepName = content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })].Name
 		}
