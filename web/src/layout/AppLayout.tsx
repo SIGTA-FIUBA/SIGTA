@@ -6,7 +6,6 @@ import {
   Badge,
   Box,
   Burger,
-  Button,
   Container,
   Image,
   Indicator,
@@ -29,6 +28,7 @@ import { move } from '../theme/motion'
 import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
 import { AppSearch } from './AppSearch'
+import { PublicLayout } from './PublicLayout'
 import { UserMenu } from './UserMenu'
 
 type MenuLink = { to: string; label: string; icon: IconName; active: boolean; actionableCount?: number }
@@ -53,8 +53,8 @@ const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc
 // from top to bottom: the SIGTA logo, the search (Ctrl K), the menu, and at
 // the foot the page about SIGTA and the account. From breakpoint.md it is 256 wide; on a tablet
 // it narrows to its icons; on a phone it folds behind a button in a white top
-// bar. A visitor without a session, who can only read the catalog, gets the
-// top bar with a way to log in and no menu.
+// bar. A visitor without a session, who can only read the public pages, gets
+// them under the header of the landing (PublicLayout).
 export function AppLayout() {
   const user = useLoaderData<typeof optionalSession>()
   const navigate = useNavigate()
@@ -171,24 +171,7 @@ export function AppLayout() {
   const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
 
   if (user === null) {
-    return (
-      <AppShell header={{ height: tokens.layout.topBar }} padding={{ base: 'md', sm: tokens.layout.pagePadding }}>
-        <AppShell.Header>
-          <AppHeader
-            end={
-              <Button component="a" href="/api/auth/login" variant="outline">
-                Ingresar
-              </Button>
-            }
-          />
-        </AppShell.Header>
-        <AppShell.Main>
-          <Container px={0}>
-            <Outlet context={user} />
-          </Container>
-        </AppShell.Main>
-      </AppShell>
-    )
+    return <PublicLayout />
   }
 
   return (

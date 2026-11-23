@@ -373,6 +373,7 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-landing-font': tokens.font.landing,
     '--sigta-landing-canvas': String(tokens.layout.landing.canvas),
     '--sigta-landing-content': String(tokens.layout.landing.content),
+    '--sigta-landing-scale': String(tokens.layout.landing.scale),
     '--sigta-landing-navy': tokens.color.landing.navy,
     '--sigta-landing-cyan': tokens.color.landing.cyan,
     '--sigta-landing-card': tokens.color.landing.card,

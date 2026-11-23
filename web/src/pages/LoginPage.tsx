@@ -1,7 +1,8 @@
-import { Alert, Anchor, Button, Group, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import { Alert, Button, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
 import { Fragment } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { components } from '../api/schema'
+import { loginUrl } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
 import { principles, staffHowTo } from '../content/platform'
 
@@ -22,9 +23,6 @@ function loginErrorText(error: string | null): string | undefined {
   return Object.hasOwn(loginErrorTexts, error) ? loginErrorTexts[error as LoginError] : loginErrorTexts.rejected
 }
 
-const loginUrl = '/api/auth/login'
-
-// The login is a page of the backend: its link loads it instead of routing.
 // lines is where the design breaks the title: the number of words of its
 // first line.
 type Offer = {
@@ -132,8 +130,8 @@ function Collage() {
   )
 }
 
-// LoginPage is the public landing page, drawn after its design (SIGTA.ai):
-// a header with the links of the public pages and the login, the headline
+// LoginPage is the public landing page, drawn after its design (SIGTA.ai),
+// under the header of PublicLayout: the headline
 // beside a collage of the faculty, what SIGTA offers in three cards, how the
 // staff works in it and the criteria it follows. Its look is its own
 // (landing.module.css, the landing-* variants): Montserrat, the navy and cyan
@@ -143,116 +141,86 @@ export function LoginPage() {
   const message = loginErrorText(params.get('error'))
 
   return (
-    <Stack variant="landing-page">
-      <Group component="header" variant="landing-header">
-        <Anchor component={Link} to="/login" aria-label="SIGTA, inicio">
-          <Image variant="landing-logo" src="/brand/sigta-horizontal-descriptor-color.svg" alt="" />
-        </Anchor>
-        <Group component="nav" variant="landing-nav" aria-label="SIGTA">
-          <Anchor component={Link} to="/login" variant="landing-nav-link" aria-current="page">
-            Inicio
-          </Anchor>
-          <Anchor component={Link} to="/catalog" variant="landing-nav-link">
-            Trámites
-          </Anchor>
-          <Anchor component={Link} to="/about" variant="landing-nav-link">
-            Sobre SIGTA
-          </Anchor>
-        </Group>
-        <Button component="a" href={loginUrl} variant="landing-login">
-          Iniciar sesión
-        </Button>
-      </Group>
-
-      <Stack component="main" variant="landing-main">
-        <Stack component="section" variant="landing-hero" aria-labelledby="hero">
-          <Stack variant="landing-hero-text">
-            <Title order={1} id="hero" variant="landing-headline">
-              Una nueva forma <br />
-              de hacer{' '}
-              <Text component="span" variant="landing-pill">
-                trámites
-              </Text>
-            </Title>
-            <Text variant="landing-lead">
-              <strong>SIGTA</strong> nace para que hacer trámites académicos <br />
-              sea más sencillo, desde el inicio hasta su finalización.
+    <>
+      <Stack component="section" variant="landing-hero" aria-labelledby="hero">
+        <Stack variant="landing-hero-text">
+          <Title order={1} id="hero" variant="landing-headline">
+            Una nueva forma <br />
+            de hacer{' '}
+            <Text component="span" variant="landing-pill">
+              trámites
             </Text>
-            {message && (
-              <Stack variant="landing-notice">
-                <Alert color="red">{message}</Alert>
-              </Stack>
-            )}
-            <Button component="a" href="#que-podes-hacer" variant="landing-discover">
-              Conocé SIGTA
-            </Button>
-          </Stack>
-          <Collage />
-        </Stack>
-
-        <Stack component="section" gap={0} aria-labelledby="que-podes-hacer">
-          <Paper variant="landing-banner">
-            <Title order={2} id="que-podes-hacer" variant="landing-banner-title">
-              ¿Qué podés hacer con SIGTA?
-            </Title>
-            <Paper variant="landing-chevron" aria-hidden>
-              <Icon name="chevron-down" size="fill" weight={2.5} />
-            </Paper>
-          </Paper>
-          <SimpleGrid variant="landing-cards" cols={{ base: 1, md: 3 }}>
-            {offers.map((offer) => (
-              <OfferCard key={offer.title} offer={offer} />
-            ))}
-          </SimpleGrid>
-        </Stack>
-
-        <Stack component="section" variant="landing-how" aria-labelledby="como-se-trabaja">
-          <Paper variant="landing-how-photo">
-            <Title order={2} id="como-se-trabaja" variant="landing-how-title">
-              <Lines lines={['¿Cómo', 'se trabaja', 'en SIGTA?']} />
-            </Title>
-          </Paper>
-          <Paper variant="landing-how-steps">
-            <Stack component="ol" variant="landing-steps">
-              {staffHowTo.map((step, index) => (
-                <Stack key={step.title} component="li" variant="landing-step">
-                  <Text component="span" variant="landing-step-number" aria-hidden>
-                    {index + 1}
-                  </Text>
-                  <Title order={3} variant="landing-step-title">
-                    <Lines lines={twoLines(step.title, stepLines[index] ?? 1)} />
-                  </Title>
-                  <Text variant="landing-step-text">{step.text}</Text>
-                </Stack>
-              ))}
-            </Stack>
-          </Paper>
-        </Stack>
-
-        <Stack component="section" gap={0} aria-labelledby="criterios">
-          <Title order={2} id="criterios" variant="landing-criteria-title">
-            Criterios de la plataforma
           </Title>
-          <Stack component="ul" variant="landing-criteria">
-            {principles.map((principle) => (
-              <Paper key={principle.title} component="li" variant="landing-criterion">
-                <Title order={3} variant="landing-criterion-title">
-                  {principle.title}
-                </Title>
-                <Text variant="landing-criterion-text">{principle.text}</Text>
-              </Paper>
-            ))}
-          </Stack>
+          <Text variant="landing-lead">
+            <strong>SIGTA</strong> nace para que hacer trámites académicos <br />
+            sea más sencillo, desde el inicio hasta su finalización.
+          </Text>
+          {message && (
+            <Stack variant="landing-notice">
+              <Alert color="red">{message}</Alert>
+            </Stack>
+          )}
+          <Button component="a" href="#que-podes-hacer" variant="landing-discover">
+            Conocé SIGTA
+          </Button>
         </Stack>
+        <Collage />
       </Stack>
 
-      <Paper component="footer" variant="landing-footer">
-        <Image
-          variant="landing-footer-logo"
-          src="/brand/sigta-horizontal-descriptor-white.svg"
-          alt="SIGTA, Sistema Integral de Gestión de Trámites Académicos"
-        />
-      </Paper>
-    </Stack>
+      <Stack component="section" gap={0} aria-labelledby="que-podes-hacer">
+        <Paper variant="landing-banner">
+          <Title order={2} id="que-podes-hacer" variant="landing-banner-title">
+            ¿Qué podés hacer con SIGTA?
+          </Title>
+          <Paper variant="landing-chevron" aria-hidden>
+            <Icon name="chevron-down" size="fill" weight={2.5} />
+          </Paper>
+        </Paper>
+        <SimpleGrid variant="landing-cards" cols={{ base: 1, md: 3 }}>
+          {offers.map((offer) => (
+            <OfferCard key={offer.title} offer={offer} />
+          ))}
+        </SimpleGrid>
+      </Stack>
+
+      <Stack component="section" variant="landing-how" aria-labelledby="como-se-trabaja">
+        <Paper variant="landing-how-photo">
+          <Title order={2} id="como-se-trabaja" variant="landing-how-title">
+            <Lines lines={['¿Cómo', 'se trabaja', 'en SIGTA?']} />
+          </Title>
+        </Paper>
+        <Paper variant="landing-how-steps">
+          <Stack component="ol" variant="landing-steps">
+            {staffHowTo.map((step, index) => (
+              <Stack key={step.title} component="li" variant="landing-step">
+                <Text component="span" variant="landing-step-number" aria-hidden>
+                  {index + 1}
+                </Text>
+                <Title order={3} variant="landing-step-title">
+                  <Lines lines={twoLines(step.title, stepLines[index] ?? 1)} />
+                </Title>
+                <Text variant="landing-step-text">{step.text}</Text>
+              </Stack>
+            ))}
+          </Stack>
+        </Paper>
+      </Stack>
+
+      <Stack component="section" gap={0} aria-labelledby="criterios">
+        <Title order={2} id="criterios" variant="landing-criteria-title">
+          Criterios de la plataforma
+        </Title>
+        <Stack component="ul" variant="landing-criteria">
+          {principles.map((principle) => (
+            <Paper key={principle.title} component="li" variant="landing-criterion">
+              <Title order={3} variant="landing-criterion-title">
+                {principle.title}
+              </Title>
+              <Text variant="landing-criterion-text">{principle.text}</Text>
+            </Paper>
+          ))}
+        </Stack>
+      </Stack>
+    </>
   )
 }

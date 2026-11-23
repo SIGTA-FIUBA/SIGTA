@@ -5,6 +5,7 @@ import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
 import { Fact } from '../components/Fact/Fact'
 import { Facts } from '../components/Facts/Facts'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 import { documentDescription } from '../content/documentFormats'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
@@ -88,14 +89,10 @@ export function CatalogPage() {
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
     <Stack gap="xxl">
-      <Stack gap="xs">
-        <Title order={1} variant="display" c="fiuba.9">
-          Catálogo de trámites
-        </Title>
-        <Text c="gray.7" maw="var(--sigta-measure)">
-          Requisitos, plazos y documentación de cada trámite disponible.
-        </Text>
-      </Stack>
+      <PageHeader
+        title="Catálogo de trámites"
+        description="Requisitos, plazos y documentación de cada trámite disponible."
+      />
       {catalog.isPending && (
         <Stack gap="sm" aria-label="Cargando los trámites">
           <Skeleton h="var(--sigta-row-height)" />

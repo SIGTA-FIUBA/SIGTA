@@ -12,21 +12,11 @@ function renderAt(path: string) {
 }
 
 describe('LoginPage', () => {
-  it('leaves for the identity provider through the API', () => {
+  it('asks for nothing: the login is the one of the identity provider', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('leads to the public pages from its header, on the current one', () => {
-    renderAt('/login')
-
-    const nav = screen.getByRole('navigation', { name: 'SIGTA' })
-    expect(within(nav).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
-    expect(within(nav).getByRole('link', { name: 'Trámites' })).toHaveAttribute('href', '/catalog')
-    expect(within(nav).getByRole('link', { name: 'Sobre SIGTA' })).toHaveAttribute('href', '/about')
   })
 
   it('opens with the headline and leads to what SIGTA offers', () => {
@@ -81,15 +71,5 @@ describe('LoginPage', () => {
     renderAt('/login?error=constructor')
 
     expect(screen.getByRole('alert')).toHaveTextContent('El ingreso no se pudo completar.')
-  })
-
-  it('signs with SIGTA in the footer', () => {
-    renderAt('/login')
-
-    expect(
-      within(screen.getByRole('contentinfo')).getByRole('img', {
-        name: 'SIGTA, Sistema Integral de Gestión de Trámites Académicos',
-      }),
-    ).toBeInTheDocument()
   })
 })

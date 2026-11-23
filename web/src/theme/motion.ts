@@ -34,3 +34,22 @@ export const count: Transition = { duration: seconds(tokens.motion.count), ease:
 // viewport is when something below the first screen counts as arrived: once,
 // when a fifth of it is in view, so it is never seen waiting.
 export const viewport = { once: true, amount: 0.2 } as const
+
+// swap is how one page of the public frame gives way to the next one under
+// the same header: the one leaving fades and rises a little, out of focus,
+// and the one arriving comes into focus from below.
+export const swap: Variants = {
+  hidden: { opacity: 0, y: tokens.motion.rise, filter: `blur(${tokens.motion.blur}px)` },
+  shown: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: seconds(tokens.motion.slow), ease: tokens.motion.easingOut },
+  },
+  gone: {
+    opacity: 0,
+    y: -tokens.motion.rise / 2,
+    filter: `blur(${tokens.motion.blur}px)`,
+    transition: { duration: seconds(tokens.motion.fast), ease: tokens.motion.easingOut },
+  },
+}

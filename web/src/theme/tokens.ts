@@ -141,6 +141,7 @@ export const tokens = {
     count: ms('motion.count'),
     route: ms('motion.route'),
     rise: Number.parseFloat(text('motion.rise')),
+    blur: Number.parseFloat(text('motion.blur')),
     easingOut: value('motion.easingOut') as [number, number, number, number],
     staggerLimit: value('motion.staggerLimit') as number,
     draw: ms('motion.draw'),
@@ -158,7 +159,11 @@ export const tokens = {
     signature: scaled('layout.signature'),
     measure: text('layout.measure'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
-    landing: { canvas: value('layout.landing.canvas') as number, content: value('layout.landing.content') as number },
+    landing: {
+      canvas: value('layout.landing.canvas') as number,
+      content: value('layout.landing.content') as number,
+      scale: value('layout.landing.scale') as number,
+    },
   },
   component: {
     button: { radius: text('component.button.radius'), height: scaled('component.button.height') },

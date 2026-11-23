@@ -46,9 +46,10 @@ describe('routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Catálogo de trámites' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/catalog')
-    // A visitor gets the frame with a way to log in, and no menu.
-    expect(screen.getByRole('link', { name: 'Ingresar' })).toHaveAttribute('href', '/api/auth/login')
-    expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
+    // A visitor gets the header of the public pages, with a way to log in,
+    // and no menu.
+    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.getByRole('link', { name: 'Trámites' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
   })
 

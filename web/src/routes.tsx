@@ -19,14 +19,16 @@ import { ProcedureTypeDraftPreview } from './dev/ProcedureTypeDraftPreview'
 import { optionalSession, requireSession, skipLoginWithSession } from './api/session'
 
 export const routes: RouteObject[] = [
-  { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },
-  // The catalog and the page about SIGTA ask for no session, so they can be
-  // read before logging in. They keep the same frame, with the menu for
-  // whoever has a session.
+  // The landing, the catalog and the page about SIGTA ask for no session, so
+  // they can be read before logging in. A visitor reads them under one header
+  // that stays from one to another; whoever has a session gets the catalog
+  // and the page about SIGTA with the menu, and the home page instead of the
+  // landing.
   {
     loader: optionalSession,
     element: <AppLayout />,
     children: [
+      { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },
       { path: '/catalog', element: <CatalogPage /> },
       { path: '/about', element: <AboutPage /> },
     ],

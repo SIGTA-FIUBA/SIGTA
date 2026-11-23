@@ -33,6 +33,10 @@ export async function skipLoginWithSession() {
   return null
 }
 
+// loginUrl is where the login starts: a page of the backend, so its link
+// loads it instead of routing.
+export const loginUrl = '/api/auth/login'
+
 // logout closes the session and reports whether the API did.
 export async function logout(): Promise<boolean> {
   const { response } = await api.POST('/auth/logout')
