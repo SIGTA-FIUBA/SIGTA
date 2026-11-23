@@ -242,7 +242,7 @@ export const LandingStory: StoryObj = {
     docs: {
       description: {
         story:
-          'La portada pública (`/login`), antes del ingreso, según su diseño (`SIGTA.ai`): el encabezado con los links públicos e "Iniciar sesión", el título con "trámites" en una etiqueta y el collage de fotos, lo que se puede hacer con SIGTA en tres tarjetas, cómo se trabaja y los criterios. Tiene su propio aspecto (`landing.module.css`): Montserrat y el azul marino y el cyan del logo. Desde md mantiene las proporciones del diseño; en el celular los bloques se apilan.',
+          'La portada pública (`/login`), antes del ingreso, según su diseño (`SIGTA.ai`): el encabezado con los links públicos e "Iniciar sesión", el título con "trámites" en una etiqueta y el collage de fotos, lo que se puede hacer con SIGTA en tres tarjetas, cómo se trabaja y los criterios. Tiene su propio aspecto (`landing.module.css`), dentro del manual de la FIUBA: Helvetica Neue y su azul y su cian, lisos. Desde md mantiene las proporciones del diseño; en el celular los bloques se apilan.',
       },
     },
   },

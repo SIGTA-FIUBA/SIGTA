@@ -3,6 +3,32 @@
  * the Inter files; screens never import CSS.
  */
 
+/* Helvetica Neue, the typeface of the FIUBA manual (A.6), for the public
+ * landing page (font.family.landing). It is licensed, and the repository is
+ * public: the files are not committed, each copy adds them to
+ * public/fonts/helvetica-neue/. Without them the page falls to the Helvetica
+ * Neue of the system, Helvetica or Arial, the replacement the manual accepts. */
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Roman.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 600 700;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Bold.woff2') format('woff2');
+}
+
 /* Dates and counters line up: Inter's tabular figures everywhere. */
 body {
   font-variant-numeric: tabular-nums;

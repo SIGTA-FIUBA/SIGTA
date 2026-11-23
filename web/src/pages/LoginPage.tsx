@@ -142,8 +142,8 @@ function Collage() {
 // under the header of PublicLayout: the headline
 // beside a collage of the faculty, what SIGTA offers in three cards, how the
 // staff works in it and the criteria it follows. Its look is its own
-// (landing.module.css, the landing-* variants): Montserrat, the navy and cyan
-// of the logo, rounded blocks.
+// (landing.module.css, the landing-* variants), within the FIUBA manual:
+// Helvetica Neue, its blue and cyan, flat, and rounded blocks.
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = loginErrorText(params.get('error'))

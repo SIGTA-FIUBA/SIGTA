@@ -377,11 +377,7 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-landing-navy': tokens.color.landing.navy,
     '--sigta-landing-cyan': tokens.color.landing.cyan,
     '--sigta-landing-card': tokens.color.landing.card,
-    '--sigta-landing-mist': tokens.color.landing.mist,
-    '--sigta-landing-login': tokens.gradient.login,
-    '--sigta-landing-pill': tokens.gradient.pill,
-    '--sigta-landing-banner': tokens.gradient.banner,
-    '--sigta-landing-plus': tokens.gradient.plus,
+    '--sigta-landing-navy-hover': tokens.color.landing.navyHover,
     '--sigta-landing-veil': tokens.gradient.veil,
   },
   light: {

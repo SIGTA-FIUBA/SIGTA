@@ -1,7 +1,7 @@
 /*
  * The public landing page (LoginPage), drawn after its design (SIGTA.ai, 1536
- * wide). It has a look of its own: Montserrat, the navy and cyan of the logo,
- * rounded blocks. Only theme.ts uses these classes, as landing-* variants.
+ * wide). It has a look of its own, within the FIUBA manual: Helvetica Neue, its
+ * blue and cyan, flat, and rounded blocks. Only theme.ts uses these classes, as landing-* variants.
  *
  * From breakpoint.md (64em) the page keeps the proportions of the design. The
  * content is as wide as in the design times --w, a pixel of the design, which
@@ -152,15 +152,14 @@
   padding-inline: 0.875rem;
   border: 0;
   border-radius: 0.5rem;
-  background: var(--sigta-landing-login);
+  background: var(--sigta-landing-navy);
   color: var(--mantine-color-white);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
 .login:hover {
-  background: var(--sigta-landing-login);
-  filter: brightness(1.1);
+  background: var(--sigta-landing-navy-hover);
 }
 
 /* Hero: the headline and the lead, and the collage. */
@@ -183,13 +182,13 @@
   color: var(--sigta-landing-navy);
 }
 
-/* The word "trámites" of the headline, white on a tilted gradient tag. */
+/* The word "trámites" of the headline, white on a tilted cyan tag. */
 .pill {
   display: inline-block;
   margin-block: -0.12em;
   padding: 0.05em 0.22em 0.14em;
   border-radius: 0.2em;
-  background: var(--sigta-landing-pill);
+  background: var(--sigta-landing-cyan);
   color: var(--mantine-color-white);
   font: inherit;
   line-height: 1;
@@ -318,7 +317,7 @@
   height: calc(60 * var(--c));
   padding: calc(14 * var(--c));
   border-radius: 50%;
-  background: var(--sigta-landing-plus);
+  background: var(--sigta-landing-cyan);
 }
 
 .arrow {
@@ -341,7 +340,7 @@
   gap: 1rem;
   padding: 1rem 1rem 1rem 1.25rem;
   border-radius: 1rem;
-  background: var(--sigta-landing-banner);
+  background: var(--sigta-landing-navy);
   position: relative;
   cursor: pointer;
 }
@@ -367,7 +366,7 @@
   height: 2.5rem;
   padding: 0.5rem;
   border-radius: 50%;
-  background: var(--sigta-landing-mist);
+  background: var(--sigta-landing-cyan);
   color: var(--mantine-color-white);
   display: flex;
 }

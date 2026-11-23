@@ -73,16 +73,12 @@ export const tokens = {
     white: text('color.white'),
     landing: {
       navy: text('color.landing.navy'),
+      navyHover: text('color.landing.navyHover'),
       cyan: text('color.landing.cyan'),
       card: text('color.landing.card'),
-      mist: text('color.landing.mist'),
     },
   },
   gradient: {
-    login: text('gradient.login'),
-    pill: text('gradient.pill'),
-    banner: text('gradient.banner'),
-    plus: text('gradient.plus'),
     veil: text('gradient.veil'),
   },
   primaryColor: text('theme.primaryColor'),
