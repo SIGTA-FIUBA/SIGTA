@@ -394,7 +394,9 @@
 }
 
 /* The latest moves (List variant="timeline"): a vertical line with a mark
- * per move; the newest, on top, in the action color. */
+ * per move; the newest, on top, in the action color. The first line of each
+ * entry has the size of the list (List size), so its middle is half a line
+ * of the item, whatever that size is. */
 .timeline {
   padding: 0;
   margin: 0;
@@ -403,7 +405,7 @@
 
 .timelineItem {
   --dot: var(--mantine-spacing-xs);
-  --center: calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm) / 2);
+  --center: 0.5lh;
 
   position: relative;
   list-style: none;
