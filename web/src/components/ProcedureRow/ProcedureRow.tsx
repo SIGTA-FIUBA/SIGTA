@@ -16,7 +16,7 @@ export type ProcedureRowProps = {
   // standing is the third column: who acts now in the lists of the staff
   // ("A cargo de" an area), the state in the lists of the person's own
   // procedures. Its label is said on a phone and by the column heading on a
-  // wide screen. attention marks, in orange, that the person has to act.
+  // wide screen. attention marks, in the action color, that the person has to act.
   standing: { label?: string; text: string; attention?: boolean }
   // note is something the person has to do, such as a step to act on.
   note?: string
@@ -64,7 +64,7 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
               </Text>
             )}
             {note && (
-              <Text size="sm" fw={600} c="orange.8">
+              <Text size="sm" fw={600} c="fiuba.7">
                 {note}
               </Text>
             )}
@@ -75,7 +75,7 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
             </Text>
             <Text
               size="sm"
-              c={standing.attention ? 'orange.8' : 'gray.7'}
+              c={standing.attention ? 'fiuba.7' : 'gray.7'}
               fw={standing.attention ? 600 : undefined}
               miw={0}
               flex={{ md: rowColumns[2] }}

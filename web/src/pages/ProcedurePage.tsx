@@ -519,7 +519,7 @@ function RequestedItem({ name, loaded, children }: { name: string; loaded: boole
     <Stack gap="xs" py="md">
       <Group justify="space-between" gap="xs" wrap="nowrap">
         <Text fw={600}>{name}</Text>
-        <Text size="sm" fw={600} c={loaded ? 'green.8' : 'orange.8'}>
+        <Text size="sm" fw={600} c={loaded ? 'green.8' : 'fiuba.7'}>
           {loaded ? 'Cargado' : 'Pendiente'}
         </Text>
       </Group>
@@ -562,7 +562,7 @@ function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: 
     <Paper component="section" withBorder p="xl" aria-label="Subsanación pendiente">
       <Stack gap="lg">
         <Group wrap="nowrap" gap="md" align="flex-start">
-          <ThemeIcon variant="light" color="orange" radius="xl" size="lg" aria-hidden>
+          <ThemeIcon variant="light" color="fiuba" radius="xl" size="lg" aria-hidden>
             <Icon name="file-pencil" size={20} />
           </ThemeIcon>
           <Stack gap="xs" miw={0}>
@@ -1008,7 +1008,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Stack gap="md">
               <Facts label="Resumen del trámite">
                 <Fact label="Estado">
-                  <Text fw={600} c={state.attention ? 'orange.8' : undefined}>
+                  <Text fw={600} c={state.attention ? 'fiuba.7' : undefined}>
                     {state.text}
                   </Text>
                 </Fact>
