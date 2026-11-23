@@ -26,7 +26,13 @@ import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ForbiddenError } from '../api/procedures'
-import { draftActions, useDraftChange, useEditableProcedureTypes, useProcedureTypeDraft } from '../api/procedureTypes'
+import {
+  draftActions,
+  useDraftChange,
+  useDraftSave,
+  useEditableProcedureTypes,
+  useProcedureTypeDraft,
+} from '../api/procedureTypes'
 import type { components } from '../api/schema'
 import { StepDiagram, type DiagramStep } from '../components/StepDiagram/StepDiagram'
 import { problemPlace, problemText, type Names, type ProblemSection } from '../content/definitionProblems'
@@ -167,15 +173,13 @@ function DraftEditor({
   // What was saved takes the place of what was sent before the draft is read
   // again, so the new revision is not taken for someone else's. What changed
   // while saving stays, to be saved on the new revision.
-  const save = useDraftChange((sent: Definition) => draftActions.edit(id, edit.revision, sent), {
-    onSuccess: (saved, sent) =>
-      saved &&
-      setEdit((current) =>
-        current.definition === sent
-          ? { definition: saved.definition, dirty: false, revision: saved.revision }
-          : { ...current, revision: saved.revision },
-      ),
-  })
+  const save = useDraftSave(id, edit.revision, (saved, sent) =>
+    setEdit((current) =>
+      current.definition === sent
+        ? { definition: saved.definition, dirty: false, revision: saved.revision }
+        : { ...current, revision: saved.revision },
+    ),
+  )
   const propose = useDraftChange(() => draftActions.propose(id, draft.revision))
   const discard = useDraftChange(() => draftActions.discard(id, draft.revision))
   const approve = useDraftChange(() => draftActions.approve(id, draft.revision))

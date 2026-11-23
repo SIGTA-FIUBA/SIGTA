@@ -4,6 +4,7 @@ import { change, forbiddenOr } from './requests'
 import type { components } from './schema'
 
 type ProcedureTypeDefinition = components['schemas']['ProcedureTypeDefinition']
+type ProcedureTypeDraft = components['schemas']['ProcedureTypeDraft']
 
 // Each key follows the route of the API. A change refreshes the list and the
 // draft, since both show its status.
@@ -95,5 +96,24 @@ export function useDraftChange<T, R>(
       queryClient
         .invalidateQueries({ queryKey: ['procedure-types'] })
         .then(() => queryClient.invalidateQueries({ queryKey: editableKey })),
+  })
+}
+
+// useDraftSave saves the definition of a draft on revision, and puts what was
+// saved in the cache of the draft: while the draft is read again, the page
+// shows the saved one as current, not the one from before saving.
+export function useDraftSave(
+  procedureTypeId: number,
+  revision: number,
+  onSaved: (saved: ProcedureTypeDraft, sent: ProcedureTypeDefinition) => void,
+) {
+  const queryClient = useQueryClient()
+  return useDraftChange((sent: ProcedureTypeDefinition) => draftActions.edit(procedureTypeId, revision, sent), {
+    onSuccess: (saved, sent) => {
+      if (saved) {
+        queryClient.setQueryData(draftKey(procedureTypeId), saved)
+        onSaved(saved, sent)
+      }
+    },
   })
 }
