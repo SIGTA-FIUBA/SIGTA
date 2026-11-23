@@ -1,4 +1,4 @@
-import { Box, Flex, Group, Paper, Stack, Text } from '@mantine/core'
+import { Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { Link, useViewTransitionState } from 'react-router'
 import { Icon } from '../Icon/Icon'
 import { rowColumns } from './columns'
@@ -49,15 +49,11 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
       display="block"
     >
       <Group wrap="nowrap" gap="md">
-        {/* On a narrow screen the columns stack; from md on they share the row. */}
-        <Flex
-          direction={{ base: 'column', md: 'row' }}
-          align={{ base: 'stretch', md: 'baseline' }}
-          gap={{ base: 'xxs', md: 'lg' }}
-          flex={1}
-          miw={0}
-        >
-          <Stack gap="xxs" miw={0} flex={{ md: rowColumns[0] }}>
+        {/* On a phone the row is two lines: what it is with its
+            date at the right, then where it is and who has it, side by side.
+            From md on the four columns share the row (interactions.module.css). */}
+        <Box data-cells>
+          <Stack data-cell="what" gap="xxs" miw={0} flex={{ md: rowColumns[0] }}>
             {/* A cut name stays readable on hover. */}
             <Text fw={600} truncate title={type} data-transition-title={opening || undefined}>
               {type}
@@ -73,18 +69,20 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
               </Text>
             )}
           </Stack>
-          <Text size="sm" miw={0} flex={{ md: rowColumns[1] }}>
-            {step.name}
-          </Text>
-          <Text size="sm" c="gray.7" miw={0} flex={{ md: rowColumns[2] }}>
-            {standing.label && (
-              <Text component="span" variant="prefix" inherit>
-                {standing.label}{' '}
-              </Text>
-            )}
-            {standing.text}
-          </Text>
-          <Stack gap="xxs" ta={{ md: 'right' }} flex={{ md: rowColumns[3] }}>
+          <Box data-cell="where">
+            <Text size="sm" miw={0} flex={{ md: rowColumns[1] }}>
+              {step.name}
+            </Text>
+            <Text size="sm" c="gray.7" miw={0} flex={{ md: rowColumns[2] }}>
+              {standing.label && (
+                <Text component="span" variant="prefix" inherit>
+                  {standing.label}{' '}
+                </Text>
+              )}
+              {standing.text}
+            </Text>
+          </Box>
+          <Stack data-cell="when" gap="xxs" ta="right" flex={{ md: rowColumns[3] }}>
             <Text size="sm" c="gray.7">
               {date}
             </Text>
@@ -94,7 +92,7 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
               </Text>
             )}
           </Stack>
-        </Flex>
+        </Box>
         <Box data-chevron aria-hidden>
           <Icon name="chevron-right" size={16} />
         </Box>

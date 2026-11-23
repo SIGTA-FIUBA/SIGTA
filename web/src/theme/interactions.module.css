@@ -106,6 +106,49 @@
   transform: none;
 }
 
+/* The cells of a row (ProcedureRow). On a phone, two lines: what it is with
+ * its date at the right, then where it is and who has it, side by side and
+ * wrapping when they do not fit. From md on, the four columns of the list. */
+.row [data-cells] {
+  display: grid;
+  flex: 1;
+  grid-template-areas:
+    'what when'
+    'where where';
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--mantine-spacing-xxs) var(--mantine-spacing-md);
+  min-width: 0;
+}
+
+.row [data-cell='what'] {
+  grid-area: what;
+}
+
+.row [data-cell='when'] {
+  grid-area: when;
+  white-space: nowrap;
+}
+
+.row [data-cell='where'] {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: where;
+  gap: 0 var(--mantine-spacing-md);
+}
+
+@media (min-width: 64em) {
+  .row [data-cells] {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mantine-spacing-lg);
+  }
+
+  .row [data-cell='where'] {
+    display: contents;
+  }
+}
+
 /* The hover mark (Paper variant="hover"): one gray shape that glides from
  * row to row with the pointer instead of each row lighting up on its own.
  * Pressed, it darkens. */
