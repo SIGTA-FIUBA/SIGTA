@@ -9,7 +9,7 @@ const meta: Meta<typeof DocumentFile> = {
     docs: {
       description: {
         component:
-          'Un archivo adjunto: su nombre, su tamaño y un icono para descargarlo. Si el navegador lo puede mostrar, el nombre lo abre en pantalla completa.',
+          'Un archivo adjunto: el icono de adjunto, su nombre y un icono para descargarlo, sin el tamaño. Si el navegador lo puede mostrar, el nombre lo abre en pantalla completa.',
       },
     },
   },

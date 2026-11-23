@@ -43,7 +43,6 @@ describe('NewProcedurePage', () => {
     const links = screen.getAllByRole('link', { name: /Una descripción/ })
     expect(links.map((link) => link.getAttribute('href'))).toEqual(['/catalog/2/start', '/catalog/1/start'])
     expect(screen.queryByText(/dato/)).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'catálogo de trámites' })).toHaveAttribute('href', '/catalog')
   })
 
   it('says when the catalog fails', async () => {

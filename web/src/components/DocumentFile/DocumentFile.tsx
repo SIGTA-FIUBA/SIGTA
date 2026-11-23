@@ -14,7 +14,7 @@ import {
   useMantineTheme,
 } from '@mantine/core'
 import { useEffect, useState } from 'react'
-import { canPreview, mediaTypeOf, sizeText } from '../../content/documentFormats'
+import { canPreview, mediaTypeOf } from '../../content/documentFormats'
 import { Icon } from '../Icon/Icon'
 
 type AttachedFile = {
@@ -105,7 +105,8 @@ function DocumentContent({ procedureId, file }: { procedureId: string; file: Att
   }
 }
 
-// DocumentFile names an attached file and offers to download it. When the
+// DocumentFile names an attached file, after the attachment icon, and offers
+// to download it, without its size, which says nothing to the person. When the
 // browser can show it, the name itself opens it in the page. Where files of
 // several procedures share a page, procedureName tells their actions apart.
 export function DocumentFile({
@@ -124,6 +125,9 @@ export function DocumentFile({
   return (
     <>
       <Group gap="xs" wrap="wrap">
+        <Text component="span" c="gray.7" display="flex" aria-hidden>
+          <Icon name="paperclip" size={16} />
+        </Text>
         {previewable ? (
           <Anchor
             component="button"
@@ -138,11 +142,6 @@ export function DocumentFile({
         ) : (
           <Text size="sm" miw={0}>
             {file.file_name}
-          </Text>
-        )}
-        {file.size !== undefined && (
-          <Text size="sm" c="dimmed">
-            {sizeText(file.size)}
           </Text>
         )}
         <Tooltip label="Descargar">

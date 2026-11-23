@@ -1,6 +1,5 @@
-import { Alert, Anchor, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core'
+import { Alert, SimpleGrid, Skeleton, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import { EmptyState } from '../components/EmptyState/EmptyState'
 import { PageHeader } from '../components/PageHeader/PageHeader'
@@ -8,8 +7,7 @@ import { Reveal } from '../components/Reveal/Reveal'
 import { StartCard } from '../components/StartCard/StartCard'
 
 // NewProcedurePage is the gallery of the procedures to start: every type of
-// the catalog as a card, by name, in rows of three that close. What each one
-// is in more detail is in the catalog.
+// the catalog as a card, by name, in rows of three that close.
 export function NewProcedurePage() {
   const catalog = useQuery(catalogQuery)
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
@@ -37,13 +35,6 @@ export function NewProcedurePage() {
           ))}
         </SimpleGrid>
       )}
-      <Text size="sm" c="gray.7">
-        Qué es cada trámite y quién puede pedirlo, en el{' '}
-        <Anchor component={Link} to="/catalog" inherit fw={600}>
-          catálogo de trámites
-        </Anchor>
-        .
-      </Text>
     </Stack>
   )
 }

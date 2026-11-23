@@ -151,12 +151,9 @@ export function InboxPage() {
 
   return (
     <Stack gap="xl">
-      <Stack gap="xs">
-        <Title order={1} variant="display" c="fiuba.9">
-          Bandeja de trámites
-        </Title>
-        <Text c="gray.7">Los trámites en curso que ve esta cuenta, con el paso en que está cada uno.</Text>
-      </Stack>
+      <Title order={1} variant="display" c="fiuba.9">
+        Bandeja de trámites
+      </Title>
 
       {procedures.isPending && (
         <Stack gap="sm" aria-label="Cargando los trámites">

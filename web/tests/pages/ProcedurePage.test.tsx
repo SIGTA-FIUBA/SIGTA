@@ -152,7 +152,7 @@ describe('ProcedurePage', () => {
 
     const link = await screen.findByRole('link', { name: 'Descargar constancia.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-1/content')
-    expect(screen.getByText(/^2\sKB$/)).toBeDefined()
+    expect(screen.queryByText(/KB$/)).toBeNull()
     expect(screen.queryByText('Anexo')).toBeNull()
   })
 
