@@ -333,6 +333,49 @@ describe('ProcedureTypeDraftPage', () => {
     expect(again.body.definition.steps[2].name).toBe('Final')
   })
 
+  it('shows what it saved while the draft is read again, and proposes on the saved revision', async () => {
+    const fetch = stubApi(draft({ problems: [] }))
+    renderPage()
+    await userEvent.click(await step(/^Paso 3: Resolución/))
+    const name = panel().getByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Fin')
+    // The draft read again after saving takes long to come.
+    let latest = draft({ problems: [] })
+    let answerRead = () => {}
+    fetch.mockImplementation(async (request: Request) => {
+      const path = new URL(request.url).pathname.replace(/^\/api/, '')
+      if (request.method === 'PUT') {
+        const body = await request.clone().json()
+        latest = draft({ revision: body.revision + 1, definition: body.definition, problems: [] })
+        return Response.json(latest)
+      }
+      if (request.method === 'POST') {
+        return new Response(null, { status: 204 })
+      }
+      if (path === '/editable-procedure-types') {
+        return Response.json(editable)
+      }
+      await new Promise<void>((resolve) => (answerRead = resolve))
+      return Response.json(latest)
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await vi.waitFor(() => expect(screen.queryByText(/Hay cambios sin guardar/)).not.toBeInTheDocument())
+    expect(name).toHaveValue('Fin')
+    expect(screen.queryByText('Otra persona guardó este borrador mientras lo editabas')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Proponer' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Proponer' }))
+
+    await vi.waitFor(async () =>
+      expect((await sent(fetch)).at(-1)).toEqual({
+        request: 'POST /procedure-types/1/draft/proposal',
+        body: { revision: 8 },
+      }),
+    )
+    answerRead()
+  })
+
   it('shows the reviewer the problems a proposal has with the areas of today', async () => {
     stubApi(draft({ status: 'proposed', proposed_by: ana, can_edit: false, can_review: true }))
     renderPage()
