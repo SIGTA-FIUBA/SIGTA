@@ -2518,6 +2518,10 @@ components:
         step_name:
           type: string
           description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+        area:
+          description: Área del paso abierto; ausente si lo hace el titular o si el trámite está cerrado
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
         state:
           $ref: "#/components/schemas/ProcedureState"
         correction_pending:

@@ -7,6 +7,7 @@ import (
 
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/domain/inbox"
 	"backend/src/procedure/domain/submission"
 )
 
@@ -63,9 +64,12 @@ type Receipt struct {
 // is, not what happened inside each area, and once it closes, the documents
 // that resolve it.
 type MyProcedure struct {
-	Procedure   domain.Procedure
-	Name        string
-	StepName    string // empty once the procedure is closed
+	Procedure domain.Procedure
+	Name      string
+	StepName  string // empty once the procedure is closed
+	// Area is the area of the open step, nil on the steps of the applicant
+	// and once the procedure is closed.
+	Area        *inbox.Option[string]
 	State       domain.State
 	Resolutions []detail.ResolutionFile
 }

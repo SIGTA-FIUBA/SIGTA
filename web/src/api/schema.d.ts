@@ -1276,6 +1276,8 @@ export interface components {
             procedure_type_name: string;
             /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name?: string;
+            /** @description Área del paso abierto; ausente si lo hace el titular o si el trámite está cerrado */
+            area?: components["schemas"]["NamedOption"];
             state: components["schemas"]["ProcedureState"];
             /** @description Si el titular tiene una subsanación pendiente */
             correction_pending: boolean;

@@ -16,6 +16,7 @@ import (
 	"backend/src/procedure/domain"
 	"backend/src/procedure/domain/definition"
 	"backend/src/procedure/domain/detail"
+	"backend/src/procedure/domain/inbox"
 	"backend/src/procedure/ports/input"
 )
 
@@ -378,6 +379,7 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		Procedure: domain.Procedure{ID: "P-1", ProcedureType: 7, Applicant: "ana", OpenStep: "check", StartedAt: started, MovedAt: moved},
 		Name:      "Equivalencias",
 		StepName:  "Revisión",
+		Area:      &inbox.Option[string]{ID: "office", Name: "Secretaría"},
 		State:     domain.StateInOffice,
 	}, {
 		Procedure: domain.Procedure{ID: "P-2", ProcedureType: 7, Applicant: "ana", StartedAt: started, MovedAt: moved},
@@ -409,7 +411,7 @@ func TestListMyProceduresShowsWhereEachOneIs(t *testing.T) {
 		t.Errorf("correction pending = %t, %t; want only the third one", got[0].CorrectionPending, got[2].CorrectionPending)
 	}
 	step := "Revisión"
-	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, State: api.InOffice, StartedAt: started, LastMovedAt: moved, Resolutions: []api.ResolutionFile{}}
+	open := api.MyProcedure{Id: "P-1", ProcedureType: 7, ProcedureTypeName: "Equivalencias", StepName: &step, Area: &api.NamedOption{Id: "office", Name: "Secretaría"}, State: api.InOffice, StartedAt: started, LastMovedAt: moved, Resolutions: []api.ResolutionFile{}}
 	if !reflect.DeepEqual(got[0], open) {
 		t.Errorf("open procedure = %+v, want %+v", got[0], open)
 	}

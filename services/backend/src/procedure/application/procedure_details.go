@@ -122,7 +122,8 @@ func (s *ProcedureDetailService) Mine(ctx context.Context, userID string) ([]inp
 			m.Resolutions = detail.ForApplicant(content, p).Resolutions(documents)
 		} else {
 			// StateOf already found the open step in the definition.
-			m.StepName = content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })].Name
+			step := content.Definition.Steps[slices.IndexFunc(content.Definition.Steps, func(st definition.Step) bool { return st.ID == p.OpenStep })]
+			m.StepName, m.Area = step.Name, areaOf(step, content.Areas)
 		}
 		mine = append(mine, m)
 	}

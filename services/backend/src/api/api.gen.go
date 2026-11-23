@@ -523,6 +523,9 @@ type MembershipPermissions struct {
 
 // MyProcedure defines model for MyProcedure.
 type MyProcedure struct {
+	// Area Área del paso abierto; ausente si lo hace el titular o si el trámite está cerrado
+	Area *NamedOption `json:"area,omitempty"`
+
 	// CorrectionPending Si el titular tiene una subsanación pendiente
 	CorrectionPending bool   `json:"correction_pending"`
 	Id                string `json:"id"`

@@ -217,10 +217,15 @@ func TestMineListsTheProceduresOfTheApplicantMostRecentlyMovedFirst(t *testing.T
 	}
 	var got []string
 	for _, m := range mine {
-		got = append(got, m.Procedure.ID+" "+m.StepName+" "+string(m.State))
+		area := ""
+		if m.Area != nil {
+			area = m.Area.Name
+		}
+		got = append(got, m.Procedure.ID+" "+m.StepName+" "+area+" "+string(m.State))
 	}
-	// P-1 is the fixture's own procedure, never moved.
-	want := []string{"P-closed  closed", "P-new Documentación with_applicant", "P-old Revisión in_office", "P-1 Documentación with_applicant"}
+	// P-1 is the fixture's own procedure, never moved. The steps of the
+	// applicant and a closed procedure have no area.
+	want := []string{"P-closed   closed", "P-new Documentación  with_applicant", "P-old Revisión Secretaría in_office", "P-1 Documentación  with_applicant"}
 	if !slices.Equal(got, want) {
 		t.Errorf("mine = %v, want %v", got, want)
 	}
