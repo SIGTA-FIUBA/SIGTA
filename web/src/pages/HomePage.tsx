@@ -127,8 +127,10 @@ function NewProcedure() {
       id="new"
       title="Nuevo trámite"
       action={
+        // On a phone the top bar has the search already.
         <Button
           variant="default"
+          visibleFrom="sm"
           leftSection={<Icon name="search" size={16} />}
           rightSection={<SearchShortcut />}
           onClick={openSearch}
@@ -151,7 +153,7 @@ function NewProcedure() {
         <EmptyState title="Sin trámites publicados" text="Cuando se publique un tipo de trámite, aparece acá." />
       ) : (
         <Stack gap="md" align="flex-start">
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} w="100%">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 'xs', sm: 'md' }} w="100%">
             {entries.map((entry, index) => (
               <Reveal key={entry.id} index={index}>
                 <StartCard
@@ -187,6 +189,7 @@ function Recent() {
           component={Link}
           to="/my-procedures"
           variant="subtle"
+          size="compact-sm"
           rightSection={<Icon name="arrow-right" size={16} />}
         >
           Ver mis trámites
@@ -217,7 +220,13 @@ function StaffPending({ list }: { list: ProcedureList }) {
       count={items.length > 0 ? String(items.length) : undefined}
       action={
         items.length > pendingCount && (
-          <Button component={Link} to="/inbox" variant="subtle" rightSection={<Icon name="arrow-right" size={16} />}>
+          <Button
+            component={Link}
+            to="/inbox"
+            variant="subtle"
+            size="compact-sm"
+            rightSection={<Icon name="arrow-right" size={16} />}
+          >
             Ver todos
           </Button>
         )
@@ -284,8 +293,9 @@ function Activity({ list }: { list: ProcedureList }) {
   )
 }
 
-// StaffHome is the work of the staff: what needs action and, beside it on a
-// wide screen, the latest moves.
+// StaffHome is the work of the staff: what needs action and, beside it from
+// breakpoint.xl, the latest moves; narrower, the moves go below, since beside
+// the pending ones they would wrap every few words.
 function StaffHome() {
   const procedures = useInboxProcedures()
   if (procedures.isError) {
@@ -297,10 +307,10 @@ function StaffHome() {
   }
   return (
     <Grid gap="xxl">
-      <Grid.Col span={{ base: 12, lg: 8 }}>
+      <Grid.Col span={{ base: 12, xl: 8 }}>
         <StaffPending list={list} />
       </Grid.Col>
-      <Grid.Col span={{ base: 12, lg: 4 }}>
+      <Grid.Col span={{ base: 12, xl: 4 }}>
         <Activity list={list} />
       </Grid.Col>
     </Grid>
@@ -316,16 +326,16 @@ export function HomePage() {
   const staff = user?.staff === true
 
   return (
-    <Stack gap="xxxl">
+    <Stack gap="xl">
       <Title order={1}>Inicio</Title>
       {staff ? (
         <StaffHome />
       ) : (
-        <>
+        <Stack gap="xxl">
           <ApplicantPending />
           <NewProcedure />
           <Recent />
-        </>
+        </Stack>
       )}
     </Stack>
   )

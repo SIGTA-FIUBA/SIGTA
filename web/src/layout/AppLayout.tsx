@@ -51,7 +51,7 @@ const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc
 
 // AppLayout frames every page. With a session, a dark side navigation runs
 // from top to bottom: the SIGTA logo, the search (Ctrl K), the menu, and at
-// the foot the page about SIGTA and the account. From breakpoint.md it is 240 wide; on a tablet
+// the foot the page about SIGTA and the account. From breakpoint.md it is 256 wide; on a tablet
 // it narrows to its icons; on a phone it folds behind a button in a white top
 // bar. A visitor without a session, who can only read the catalog, gets the
 // top bar with a way to log in and no menu.
@@ -219,7 +219,7 @@ export function AppLayout() {
         />
       </AppShell.Header>
       <AppShell.Navbar p={compact ? 'xs' : 'sm'} aria-label="Menú principal">
-        <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="xl">
+        <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="lg">
           <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
             <Image
               src={compact ? '/brand/sigta-isotipo-color-dark.svg' : '/brand/sigta-horizontal-color-dark.svg'}

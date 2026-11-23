@@ -16,7 +16,8 @@ function count(value: number, one: string, many: string) {
 }
 
 // StartCard offers to start one procedure type: its name, what it is in two
-// lines at most, and what it asks for. The whole card is one link, a panel
+// lines at most, and what it asks for; on a phone, where the cards go one
+// under the other, only the name and what it asks for. The whole card is one link, a panel
 // that answers the pointer (Paper variant="interactive").
 export function StartCard({ to, name, description, fields, documents }: StartCardProps) {
   return (
@@ -25,7 +26,7 @@ export function StartCard({ to, name, description, fields, documents }: StartCar
       to={to}
       variant="interactive"
       withBorder
-      p="lg"
+      p={{ base: 'sm', sm: 'lg' }}
       td="none"
       c="inherit"
       display="flex"
@@ -35,7 +36,7 @@ export function StartCard({ to, name, description, fields, documents }: StartCar
         <Stack gap="xxs">
           <Text fw={600}>{name}</Text>
           {description && (
-            <Text size="sm" c="gray.7" lineClamp={2}>
+            <Text size="sm" c="gray.7" lineClamp={2} visibleFrom="sm">
               {description}
             </Text>
           )}

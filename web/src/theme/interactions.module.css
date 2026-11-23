@@ -529,7 +529,7 @@
   white-space: nowrap;
   font-size: var(--mantine-font-size-sm);
   line-height: var(--mantine-line-height-sm);
-  font-weight: var(--mantine-font-weight-medium);
+  font-weight: var(--mantine-font-weight-regular);
 }
 
 /* The search of the menu (variant="menu-search") is not a page, so it does
@@ -547,7 +547,7 @@
 }
 
 .navSearch .navLabel {
-  font-weight: var(--mantine-font-weight-normal);
+  font-weight: var(--mantine-font-weight-regular);
 }
 
 /* The search (Spotlight): a tall field with room on its sides, results with
