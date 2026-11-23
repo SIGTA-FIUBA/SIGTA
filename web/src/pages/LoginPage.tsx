@@ -1,10 +1,11 @@
 import { Alert, Button, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
-import { Fragment } from 'react'
+import { Fragment, useRef, type MouseEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { components } from '../api/schema'
 import { loginUrl } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
 import { principles, staffHowTo } from '../content/platform'
+import { glide, isPlainClick } from '../layout/glide'
 
 type LoginError = components['schemas']['LoginError']
 
@@ -86,9 +87,18 @@ const twoLines = (text: string, words: number) => {
 // The first lines of the titles of the steps, as the design breaks them.
 const stepLines = [1, 2, 1]
 
+// The whole card is its way in, as it looks: "Ver más", in its notch, only
+// says so.
 function OfferCard({ offer }: { offer: Offer }) {
   return (
-    <Paper variant="landing-card" mod={{ tone: offer.tone }}>
+    <Paper
+      component={Link}
+      to={offer.to}
+      reloadDocument={offer.to === loginUrl}
+      variant="landing-card"
+      mod={{ tone: offer.tone }}
+      aria-label={`Ver más sobre ${offer.title}`}
+    >
       <Paper variant="landing-card-icon" aria-hidden>
         <Icon name={offer.icon} size="fill" weight={1.6} />
       </Paper>
@@ -96,34 +106,32 @@ function OfferCard({ offer }: { offer: Offer }) {
         <Lines lines={twoLines(offer.title, offer.lines)} />
       </Title>
       <Text variant="landing-card-text">{offer.text}</Text>
-      <Button
-        component={Link}
-        to={offer.to}
-        reloadDocument={offer.to === loginUrl}
-        variant="landing-more"
-        aria-label={`Ver más sobre ${offer.title}`}
-      >
+      <Text component="span" variant="landing-more">
         Ver más
-      </Button>
+      </Text>
     </Paper>
   )
 }
 
-// The photographs of the hero, among the shapes of the brand. It only
-// decorates: the headline says what the page is about.
+// The photographs of the hero, among the shapes of the brand. The headline
+// says what the page is about, so a screen reader skips it; the three round
+// shapes look like buttons, and for the pointer they are: the plus opens the
+// catalog, where a procedure starts, the arrow the login and the cap the page
+// about SIGTA. The keyboard has those links already, so they are not tab
+// stops.
 function Collage() {
   return (
     <Paper variant="landing-collage" aria-hidden>
       <Image variant="landing-hall" src="/photos/portada-pasillo.webp" alt="" />
       <Paper variant="landing-square" />
-      <Paper variant="landing-cap">
+      <Paper component={Link} to="/about" variant="landing-cap" tabIndex={-1} title="Sobre SIGTA">
         <Icon name="school" size="fill" weight={1.75} />
       </Paper>
-      <Paper variant="landing-plus">
+      <Paper component={Link} to="/catalog" variant="landing-plus" tabIndex={-1} title="Catálogo de trámites">
         <Icon name="plus" size="fill" weight={2.5} />
       </Paper>
       <Image variant="landing-mate" src="/photos/portada-mate.webp" alt="" />
-      <Paper variant="landing-arrow">
+      <Paper component="a" href={loginUrl} variant="landing-arrow" tabIndex={-1} title="Iniciar sesión">
         <Icon name="arrow-right" size="fill" weight={2} />
       </Paper>
     </Paper>
@@ -139,6 +147,15 @@ function Collage() {
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = loginErrorText(params.get('error'))
+  // What SIGTA offers: "Conocé SIGTA" and the band glide to it, the band
+  // under the header.
+  const offersSection = useRef<HTMLDivElement>(null)
+  const toOffers = (event: MouseEvent) => {
+    if (isPlainClick(event)) {
+      event.preventDefault()
+      glide(offersSection.current)
+    }
+  }
 
   return (
     <>
@@ -160,19 +177,27 @@ export function LoginPage() {
               <Alert color="red">{message}</Alert>
             </Stack>
           )}
-          <Button component="a" href="#que-podes-hacer" variant="landing-discover">
+          <Button component="a" href="#que-podes-hacer" variant="landing-discover" onClick={toOffers}>
             Conocé SIGTA
           </Button>
         </Stack>
         <Collage />
       </Stack>
 
-      <Stack component="section" gap={0} aria-labelledby="que-podes-hacer">
+      <Stack ref={offersSection} component="section" gap={0} variant="landing-offers" aria-labelledby="que-podes-hacer">
+        {/* The band looks like it leads below, and does: its arrow is a link to
+            the cards, and the click anywhere on the band is the arrow's. */}
         <Paper variant="landing-banner">
           <Title order={2} id="que-podes-hacer" variant="landing-banner-title">
             ¿Qué podés hacer con SIGTA?
           </Title>
-          <Paper variant="landing-chevron" aria-hidden>
+          <Paper
+            component="a"
+            href="#que-podes-hacer"
+            variant="landing-chevron"
+            aria-label="Ver qué podés hacer con SIGTA"
+            onClick={toOffers}
+          >
             <Icon name="chevron-down" size="fill" weight={2.5} />
           </Paper>
         </Paper>

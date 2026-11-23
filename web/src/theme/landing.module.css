@@ -286,6 +286,18 @@
   align-items: center;
   justify-content: center;
   color: var(--mantine-color-white);
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+/* The three shapes are links: under the pointer they grow a little, and the
+ * arrow moves forward. */
+.cap:hover,
+.plus:hover {
+  transform: scale(1.08);
+}
+
+.arrow:hover {
+  transform: translateX(0.25rem);
 }
 
 .cap {
@@ -330,7 +342,15 @@
   padding: 1rem 1rem 1rem 1.25rem;
   border-radius: 1rem;
   background: var(--sigta-landing-banner);
-  scroll-margin-top: 1.5rem;
+  position: relative;
+  cursor: pointer;
+}
+
+/* What SIGTA offers, reached from "Conocé SIGTA" and from its band: it stops
+ * below the header that stays on top (about 5.6rem high on a phone, 3.5rem
+ * from 64em), with some air. */
+.offers {
+  scroll-margin-top: 6.5rem;
 }
 
 .bannerTitle {
@@ -350,6 +370,24 @@
   background: var(--sigta-landing-mist);
   color: var(--mantine-color-white);
   display: flex;
+}
+
+/* The arrow's link covers the whole band, so the band takes the click. Under
+ * the pointer the arrow moves down, the drawing and not its link: a transform
+ * on the link would shrink what it covers to itself. */
+.chevron::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.chevron > * {
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+.banner:hover .chevron > * {
+  transform: translateY(0.1875rem);
 }
 
 /* The three cards, each with a notch at its bottom left where its link sits.
@@ -375,6 +413,14 @@
   border-radius: var(--radius);
   background: var(--bg);
   color: var(--ink);
+  text-decoration: none;
+  transition: transform var(--sigta-duration-base) var(--sigta-ease-out);
+}
+
+/* The whole card is a link: under the pointer it rises a little and its
+ * "Ver más" lights up. */
+.card:hover {
+  transform: translateY(-0.25rem);
 }
 
 .card[data-tone='outline'] {
@@ -462,13 +508,11 @@
   font-weight: 700;
 }
 
-.more:hover {
-  background: var(--bg);
-  color: var(--ink);
+.card:hover .more {
   filter: brightness(1.15);
 }
 
-.card[data-tone='outline'] .more:hover {
+.card[data-tone='outline']:hover .more {
   background: var(--sigta-landing-navy);
   color: var(--mantine-color-white);
   filter: none;
@@ -702,6 +746,10 @@
     width: calc(542 * var(--u));
     max-width: none;
     margin: 0;
+  }
+
+  .offers {
+    scroll-margin-top: 4.5rem;
   }
 
   .banner {

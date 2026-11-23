@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
 import { LoginPage } from '../../src/pages/LoginPage'
 
@@ -8,7 +8,7 @@ function renderAt(path: string) {
   const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
     initialEntries: [path],
   })
-  render(<RouterProvider router={router} />)
+  return render(<RouterProvider router={router} />)
 }
 
 describe('LoginPage', () => {
@@ -42,6 +42,25 @@ describe('LoginPage', () => {
       'href',
       '/about',
     )
+  })
+
+  it('glides to what SIGTA offers from "Conocé SIGTA" and from its band', () => {
+    renderAt('/login')
+    const section = screen.getByRole('region', { name: '¿Qué podés hacer con SIGTA?' })
+    const scroll = vi.spyOn(section, 'scrollIntoView')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Conocé SIGTA' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Ver qué podés hacer con SIGTA' }))
+
+    expect(scroll).toHaveBeenCalledTimes(2)
+  })
+
+  it('makes the round shapes of the collage links for the pointer, out of the tab order', () => {
+    const { container } = renderAt('/login')
+
+    const shapes = [...container.querySelectorAll('[aria-hidden] a')]
+    expect(shapes.map((shape) => shape.getAttribute('href'))).toEqual(['/about', '/catalog', '/api/auth/login'])
+    expect(shapes.every((shape) => shape.getAttribute('tabindex') === '-1')).toBe(true)
   })
 
   it('says how SIGTA is used and the criteria it follows, in order', () => {
