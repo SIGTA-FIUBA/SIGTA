@@ -1,0 +1,48 @@
+package catalog
+
+import (
+	"backend/src/procedure/domain/definition"
+	"backend/src/procedure/domain/version"
+)
+
+// ApplicantRequirements returns what the applicant has to provide, in the order
+// the definition declares it. What staff steps record is left out. Something
+// mandatory in any applicant step is mandatory, even if another makes it
+// optional.
+func ApplicantRequirements(c version.Content) ([]definition.FieldRequirement, []definition.DocumentRequirement) {
+	// Fields and documents keep separate ids, so they are tracked apart.
+	fields, documents := mandatoryByID{}, mandatoryByID{}
+	for _, step := range c.Definition.Steps {
+		if step.Role == definition.RoleApplicant {
+			fields.add(step.Fields, step.OptionalFields)
+			documents.add(step.Documents, step.OptionalDocuments)
+		}
+	}
+
+	var fieldRequirements []definition.FieldRequirement
+	for _, field := range c.Definition.Fields {
+		if required, asked := fields[field.ID]; asked {
+			fieldRequirements = append(fieldRequirements, definition.FieldRequirement{Field: field, Required: required})
+		}
+	}
+	var documentRequirements []definition.DocumentRequirement
+	for _, document := range c.Definition.Documents {
+		if required, asked := documents[document.ID]; asked {
+			documentRequirements = append(documentRequirements, definition.DocumentRequirement{Document: document, Required: required})
+		}
+	}
+	return fieldRequirements, documentRequirements
+}
+
+type mandatoryByID map[string]bool
+
+func (requirements mandatoryByID) add(mandatory, optional []string) {
+	for _, id := range optional {
+		if _, asked := requirements[id]; !asked {
+			requirements[id] = false
+		}
+	}
+	for _, id := range mandatory {
+		requirements[id] = true
+	}
+}

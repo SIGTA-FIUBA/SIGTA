@@ -13,7 +13,7 @@ Trabajo Profesional de Ingeniería en Informática, Facultad de Ingeniería de l
 </div>
 
 > [!NOTE]
-> SIGTA es un trabajo académico en etapa de diseño: este repositorio todavía no tiene código. No es un sistema oficial de la FIUBA ni está en uso.
+> SIGTA es un trabajo académico en desarrollo. No es un sistema oficial de la FIUBA ni está en uso.
 
 **Abstract.** SIGTA (Integrated Academic Procedures Management System) is a web platform for starting, managing and tracking the administrative procedures of the Academic Affairs Office of the School of Engineering, University of Buenos Aires (FIUBA). It adds three artificial intelligence components with bounded autonomy: an assistant that answers applicants' questions with cited sources, assisted validation of submitted documents, and generation of draft records. None of them makes decisions on a procedure. The technical contribution is the design and experimental evaluation of these components against predefined test sets that include ambiguous, contradictory and malicious documents. SIGTA is a Computer Engineering capstone project at FIUBA.
 
@@ -46,7 +46,7 @@ Sobre esa base se agregan tres componentes de inteligencia artificial, en este o
 | Pase de universidad extranjera |
 | Pase de universidad dentro de la UBA |
 
-Cada tipo de trámite se define como configuración versionada; incorporar uno nuevo no requiere cambios en el motor.
+Cada tipo de trámite es una configuración que se va a editar desde la interfaz, y cada publicación es una versión nueva; incorporar uno no requiere cambios en el motor.
 
 - Toda decisión sobre un trámite la toma una persona; los componentes de inteligencia artificial solo proponen.
 - Todos los entornos usan datos sintéticos o anonimizados.
@@ -60,12 +60,12 @@ Cada operación sobre un trámite es una acción que un actor ejecuta sobre un p
 
 | Acción | Qué registra | Efecto |
 | --- | --- | --- |
-| Cargar dato | Un valor tipado: texto, número, fecha u opción | Completa una entrada del paso |
+| Cargar dato | Un valor tipado: texto, texto largo, número, fecha, opción, carrera o lista de materias | Completa una entrada del paso |
 | Cargar documento | Un documento asociado al requisito que cubre | Queda disponible para la validación asistida |
 | Confirmar hecho externo | Algo ocurrido fuera de SIGTA, con quién lo declaró y cuándo | Abre o cierra un paso externo, como una derivación |
-| Decidir | La salida elegida para cerrar el paso | Continuar, devolver, pedir información al titular, derivar o aprobar |
+| Decidir | La salida elegida, con los datos y documentos que la fundamentan | Lleva al paso de esa salida: continuar, devolver, pedir información al titular o derivar |
 
-Los actores son el titular, el personal de la Secretaría (por área y perfil), las autoridades que firman y los evaluadores externos, como las comisiones curriculares, cuyos pasos registra el personal de la Secretaría. El estado de un trámite se calcula a partir de su paso abierto:
+Los actores son el titular, el personal, organizado en áreas con sus propios permisos, las autoridades que firman y los evaluadores externos, como las comisiones curriculares, cuyos pasos registra el personal de la Secretaría. El estado de un trámite se calcula a partir de su paso abierto:
 
 ```mermaid
 stateDiagram-v2
@@ -75,12 +75,12 @@ stateDiagram-v2
     state "Derivado" as Derivado
     state "Cerrado" as Cerrado
 
-    [*] --> Area: el titular envía la solicitud
+    [*] --> Titular: el titular inicia la solicitud
+    Titular --> Area: el titular envía
     Area --> Titular: pide información
-    Titular --> Area: el titular completa
     Area --> Derivado: deriva a evaluación
     Derivado --> Area: vuelve con el dictamen
-    Derivado --> Cerrado: archivado
+    Area --> Cerrado: archivado
     Cerrado --> [*]
 ```
 
@@ -93,7 +93,7 @@ SIGTA se entrega como un monolito modular en Go con un único servicio aparte, e
 ```mermaid
 flowchart LR
     U(["Titular y personal<br/>de la Secretaría"])
-    IDP["Ingreso institucional<br/>OpenID Connect"]
+    IDP["Cuenta de Google<br/>de la UBA"]
 
     subgraph SIGTA["SIGTA"]
         PX["Proxy inverso"]
@@ -125,7 +125,7 @@ flowchart LR
 | Frontend | Interfaz del titular y bandeja de la Secretaría, con un cliente tipado generado desde OpenAPI | React, TypeScript, Vite |
 | Servicio de trámites | Dominio, motor de pasos, permisos, historial, cola de trabajos y avisos por correo; única API pública | Go |
 | Servicio de inteligencia artificial | Asistente, validación asistida y borradores de actas, con su base de conocimiento y sus evaluaciones | Python |
-| Base de datos | Estado e historial de los trámites, cola de trabajos, búsqueda de texto completo y vectores | PostgreSQL con pgvector |
+| Base de datos | Versiones de los tipos de trámite, estado e historial de los trámites, cola de trabajos, búsqueda de texto completo y vectores. El esquema de cada servicio se crea con sus migraciones | PostgreSQL con pgvector |
 | Almacenamiento de documentos | Documentos de los trámites, que se descargan siempre a través del servicio de trámites | Sistema de archivos detrás de un puerto |
 | Modelos | Clasificación y generación de texto | Reglas en código, Laya, Claude u otro modelo, detrás de puertos |
 
@@ -136,8 +136,7 @@ Cada componente de esta tabla queda fuera de la defensa salvo que se cumpla su d
 | Componente | Se suma cuando | Hasta entonces |
 | --- | --- | --- |
 | Bus de eventos (NATS JetStream) | La cola en PostgreSQL no sostiene la carga medida, o un segundo servicio necesita consumir los mismos eventos | Cola de trabajos en PostgreSQL |
-| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos |
-| Proveedor de identidad propio (Keycloak o Zitadel) | La Subsecretaría de TICs no habilita el ingreso institucional para SIGTA | Ingreso institucional, y enlace por correo para titulares sin cuenta institucional |
+| Almacenamiento compatible con S3 | La infraestructura de destino ofrece almacenamiento de objetos | Sistema de archivos. Al sumarlo, cada archivo se reserva antes de subirse y se confirma o se compensa con una saga (ADR-024) |
 | Observabilidad completa (OpenTelemetry, Prometheus, Grafana) | El sistema pasa a operar en la infraestructura de destino | Logs estructurados y registro de cada llamada a un modelo |
 | API gateway | Hay más de un servicio expuesto al público | El proxy inverso |
 
@@ -148,12 +147,11 @@ Con todos los disparadores cumplidos, los componentes nuevos (con borde punteado
 ```mermaid
 flowchart LR
     U(["Titular y personal<br/>de la Secretaría"])
-    INST["Ingreso institucional"]
+    INST["Cuenta de Google<br/>de la UBA"]
 
     subgraph SIGTA["SIGTA"]
         GW["API gateway"]
         SPA["Frontend<br/>React y TypeScript"]
-        IDP["Proveedor de identidad<br/>OpenID Connect"]
         CORE["Servicio de trámites<br/>Go"]
         BUS{{"Bus de eventos<br/>NATS JetStream"}}
         AI["Servicio de inteligencia<br/>artificial, Python"]
@@ -167,8 +165,7 @@ flowchart LR
     U --> GW
     GW --> SPA
     GW --> CORE
-    INST -.->|federación| IDP
-    IDP -.->|tokens| GW
+    INST -.->|tokens| GW
     CORE --> DB
     CORE --> OBJ
     CORE --> SMTP
@@ -178,20 +175,24 @@ flowchart LR
     AI --> MOD
 
     classDef nuevo stroke-dasharray: 5 5
-    class GW,IDP,BUS,OBJ nuevo
+    class GW,BUS,OBJ nuevo
 ```
 
 ### Datos y comunicación
 
 - **Historial de acciones.** Cada acción sobre un trámite se guarda en una tabla que solo crece, en la misma transacción que actualiza su estado. El historial alcanza para auditar sin reconstruir el estado a partir de eventos.
 - **Cola de trabajos en PostgreSQL.** El trabajo asincrónico (validaciones, avisos por correo, recordatorios) se encola en la misma transacción que el cambio que lo origina, así ningún trabajo se pierde ni se encola sin que el cambio haya ocurrido. Un worker del servicio de trámites toma cada trabajo con `FOR UPDATE SKIP LOCKED`. Un trabajo puede ejecutarse más de una vez, así que cada uno es idempotente.
+- **Tablas de un rol de migraciones.** Las tablas del servicio de trámites son del rol `backend_migrations`, que solo usa el comando de migraciones. El servidor se conecta con otro rol, que solo tiene los permisos que le otorga cada migración: hoy solo leer y agregar filas, sin modificar ni borrar ninguna. Si su rol puede modificar las versiones de los tipos de trámite o los eventos de los trámites, el servidor no arranca. Las migraciones son archivos `.sql` dentro del binario, que corren en orden y una sola vez (ADR-022).
+- **Documentos por su hash.** Cada documento se guarda en disco con el nombre de su hash SHA-256, que calcula el servidor. Primero se escribe en un archivo temporal, se fuerza a disco y se renombra; recién después se guarda el registro del documento que lo nombra, así ningún registro apunta a un archivo que no existe. El registro se guarda en PostgreSQL, junto con su evento en el historial.
 - **Cada servicio es dueño de sus datos.** Los dos servicios comparten la instancia de PostgreSQL, no los esquemas: el de trámites es dueño de los trámites, el historial y la cola; el de inteligencia artificial, de la base de conocimiento y sus vectores. Ninguno lee las tablas del otro.
 - **Contrato primero.** La API pública y la API interna del servicio de inteligencia artificial se describen con OpenAPI, y el código de los dos lados se genera desde esa especificación.
 
 ### Autenticación y autorización
 
-- **OpenID Connect.** El inicio de sesión se delega en el ingreso institucional, si la Subsecretaría de TICs lo habilita para SIGTA. Los titulares sin cuenta institucional, como los de un pase desde otra universidad, ingresan con un enlace de un solo uso enviado por correo.
-- **El servicio de trámites valida el token** en cada pedido y autoriza según rol, área y perfil, que se administran en SIGTA: el titular ve solo sus trámites; el personal trabaja según su área y su perfil (operativo o de aprobación); las autoridades firman. Los intentos sin permiso quedan registrados.
+- **Cuenta de Google de la UBA.** El inicio de sesión se delega en el ingreso con la cuenta de Google de la UBA, confirmado con la Subsecretaría de TICs. Todos los titulares tienen cuenta UBA, así que no hay otra forma de ingresar ni contraseñas guardadas en SIGTA. Solo las pruebas usan un adaptador de identidad falso: en el entorno local también se ingresa con Google (ADR-027).
+- **OpenID Connect con PKCE.** El adaptador de Google (`services/backend/src/auth/adapters/google`) usa el flujo de código de autorización con PKCE y verifica el ID token: firma, emisor, audiencia, vencimiento, el `nonce` del ingreso pendiente, que el correo esté verificado y que el claim `hd` sea el dominio institucional. El dominio se controla en el token y no solo en el texto del correo, porque una cuenta de Google puede tener un correo del dominio sin pertenecer a su Google Workspace. Si el ingreso falla, el navegador vuelve a la página de ingreso con el motivo (`LoginError` en el contrato), y la página muestra su propio texto.
+- **Quién puede ingresar.** Cualquier cuenta del dominio institucional. La primera vez que ingresa una cuenta que SIGTA no conoce, se registra con el nombre que informa el proveedor y puede iniciar trámites; las membresías del personal se asignan en SIGTA. Los usuarios, sus sesiones, las áreas, las membresías y quién es administrador se guardan en PostgreSQL. Nadie se carga desde la configuración: las personas se registran al ingresar y solo un administrador les da membresías, desde SIGTA (ADR-027). No hay usuarios de prueba ni datos de ejemplo: un entorno nuevo, también el local, arranca solo con la Secretaría y sin administradores, y el primero se da con `backend grant-admin <correo>` (ver "Configuración del servicio de trámites"). Las pruebas cargan sus propios datos.
+- **El servicio de trámites valida el token** en cada pedido y autoriza según las membresías, que se administran en SIGTA (ADR-020). Nada de eso se guarda como un tipo de persona: cualquiera que ingresa puede iniciar trámites y es titular de los que inicia, y es personal quien tiene al menos una membresía vigente. Una misma persona puede ser las dos cosas, pero nadie actúa como personal en los pasos de sus propios trámites. Cada persona ve los trámites que inició; a quien no puede ver un trámite se le responde como si no existiera. Cada área tiene su grupo de permisos y sus roles, que agrupan permisos, y el administrador crea unos y otros a gusto; cada paso del personal declara su área y los permisos de esa área que exige. Una membresía pone a una persona en un área con algunos de sus roles y permisos, con alcance opcional por tipo de trámite y vigencia; si cambian los permisos de un rol, cambia lo que puede hacer cada persona que lo tiene. El personal ve además los trámites que pasan por sus áreas y actúa en los pasos para los que tiene todos los permisos. La **Secretaría** (`secretariat`) es la única área fija: la crea una migración (`0007_secretariat.sql`), porque el código la necesita, y el servidor no arranca si falta, está dada de baja, o ella o alguno de sus permisos de plataforma perdió la marca de sistema o se dio de baja (ADR-027); sin base, en desarrollo, la agrega el servidor. No se da de baja, y trae los permisos de plataforma `edit_procedure_types` y `publish_procedure_types`, cuyos identificadores ningún área puede usar para otro permiso, que exige la publicación de una versión a quien la propone y a quien la aprueba. El administrador es una marca que permite crear áreas, permisos y roles, y otorgar y dar de baja membresías, y no da acceso a los trámites. Las áreas, los roles, las membresías y la marca de administrador viven en el módulo `auth` (`services/backend/src/auth/application/`). El administrador crea áreas (`POST /api/areas`), sus permisos (`POST /api/areas/{id}/permissions`) y sus roles (`POST /api/areas/{id}/roles`), cambia los permisos de un rol (`PUT /api/areas/{id}/roles/{roleId}/permissions`), otorga membresías (`POST /api/memberships`), cambia sus permisos (`PUT /api/memberships/{id}/permissions`, que la termina y abre otra) y las termina, da de baja áreas, permisos y roles, y da y quita la administración a otras personas (`/api/administrators`), sin dejar a SIGTA sin administradores. Cada cambio guarda quién y cuándo, del usuario de la sesión. Una baja no borra el área, que sigue nombrada en el historial, no se permite mientras tenga membresías sin terminar y su identificador no se reusa. `/me` informa si la persona es personal (`staff`) y si es administradora. Las reglas sobre los trámites y su publicación se aplican en los casos de uso de `procedure` (`services/backend/src/procedure/application/`), que le pregunta a `auth`, por su API pública, en qué áreas está la persona y si tiene los permisos que pide un paso o una publicación (ADR-021). Los intentos sin permiso se rechazan pero no se registran: su registro queda para una historia de auditoría.
 - **Documentos con acceso controlado:** se descargan a través del servicio de trámites, que verifica el permiso sobre el trámite en cada descarga.
 
 ### Diseño interno de cada servicio
@@ -229,13 +230,27 @@ flowchart LR
 
 | Puerto de salida | Adaptadores | Estado |
 | --- | --- | --- |
-| Definiciones de trámites | Archivos de configuración versionados; a futuro, un editor dentro de la aplicación | Elegido |
+| Versiones de tipos de trámite | Tablas en PostgreSQL, con versiones que no se modifican (ADR-012) y que el rol de la aplicación solo puede leer y agregar (ADR-022); en desarrollo sin base, un adaptador en memoria | Elegido |
+| Borradores de tipos de trámite | Una tabla en PostgreSQL, con un borrador por tipo de trámite y un número de revisión para que dos ediciones no se pisen; en desarrollo sin base, un adaptador en memoria | Elegido |
+| Personas, sesiones, áreas y membresías | Tablas en PostgreSQL; dar de baja un área, un permiso o una membresía cierra su vigencia y no borra la fila (ADR-020); en desarrollo sin base, adaptadores en memoria | Elegido |
+| Trámites, historial y registro de documentos | Tablas en PostgreSQL; iniciar un trámite y adjuntar un documento se guardan cada uno en una transacción del repositorio (ADR-024), y el rol de la aplicación no puede borrar eventos ni documentos (ADR-022); en desarrollo sin base, adaptadores en memoria | Elegido |
 | Persistencia y búsqueda | PostgreSQL con texto completo | Elegido |
 | Cola de trabajos | Tabla en PostgreSQL; NATS JetStream si se cumple su disparador | Elegido |
-| Documentos | Sistema de archivos; almacenamiento compatible con S3 si la infraestructura lo ofrece | Elegido |
+| Documentos | Sistema de archivos, con cada documento nombrado por el hash SHA-256 que calcula el servidor; almacenamiento compatible con S3 si la infraestructura lo ofrece. Hoy se usa el adaptador de disco, sobre un volumen del backend | Elegido |
 | Inteligencia artificial | El servicio de inteligencia artificial, a través de su API interna | Elegido |
-| Identidad | Ingreso institucional por OpenID Connect y enlace por correo; un proveedor propio si no se habilita el ingreso institucional | A acordar con la Subsecretaría de TICs |
+| Identidad | Cuenta de Google de la UBA, también en local; un adaptador falso en las pruebas | Elegido |
 | Correo | El servidor de correo de la infraestructura de destino | Propuesto |
+
+En el código, el servicio de trámites se divide primero por módulo y, dentro de cada módulo, por componente (ADR-014):
+
+| Ruta en `services/backend/src/` | Contenido |
+| --- | --- |
+| `auth/` | Ingreso y sesiones, áreas, membresías y administradores: `domain/`, `application/`, `ports/input/`, `ports/output/` y `adapters/` (`rest/`, `memory/`, `dev/`, `google/`) |
+| `procedure/` | Tipos de trámite, sus versiones y la autorización sobre los trámites, con los mismos componentes. Su `domain/` se divide en `definition/`, `version/`, `catalog/`, `detail/`, lo que muestra el detalle de un trámite, `engine/`, que lo avanza cuando se confirma su paso abierto, `submission/`, lo que se envía para iniciarlo, y `draft/`, el borrador de un tipo de trámite que una persona propone y otra, que no lo editó, aprueba (ADR-013, ADR-016, ADR-023). Sus adaptadores son `rest/`, `memory/`, `postgres/`, `disk/`, donde se guardan los archivos, y `pdf/`, que escribe el comprobante de un trámite. Usa la API pública de `auth` (`auth/ports/input/`) para las áreas, la autorización del personal y los nombres de las personas que muestra |
+| `api/` | Código generado desde el contrato y el montaje de la API, compartido por los adaptadores REST de todos los módulos |
+| `cmd/` | Arranque y configuración: arma cada módulo con sus adaptadores |
+
+Un módulo usa a otro solo por su API pública, `ports/input/`, y la recibe por constructor; nunca importa su `domain/`, `application/` ni `adapters/`, y lo controla `depguard` (ADR-021). Los puertos de salida quedan para lo que está fuera del servicio: base de datos, identidad, correo y modelos. Un módulo nuevo (por ejemplo, el de trámites iniciados) suma su carpeta con los mismos componentes.
 
 El servicio de inteligencia artificial sigue la misma estructura. Sus puertos de salida son la clasificación y la generación de texto, con adaptadores para reglas en código, modelos de pesos abiertos como Laya y modelos por API como Claude; los conjuntos de evaluación son uno más de sus adaptadores de entrada.
 
@@ -244,9 +259,27 @@ Las pruebas del dominio usan adaptadores en memoria, sin base de datos ni servic
 ### Despliegue
 
 - Todos los componentes corren en contenedores, autoalojables y sin depender de una nube en particular. En desarrollo, el sistema completo se levanta con Docker Compose.
-- La integración continua corre en GitHub Actions. Hoy valida el título de cada pull request; con el código suma lint, pruebas y escenarios Gherkin en cada pull request, y la construcción de imágenes al integrar en `main`.
+- La integración continua corre en GitHub Actions. En cada pull request corre lint, pruebas (incluidos los escenarios Gherkin), la verificación de que el código generado coincide con el contrato y un arranque del sistema completo con Docker Compose.
+- Cada push a `main` o a `develop` construye las imágenes, las publica en Artifact Registry y las despliega en su entorno de prueba: `main` en https://sigta.lopeztancredi.com.ar y `develop` en https://sigta-dev.lopeztancredi.com.ar. Los dos corren en Cloud Run, con PostgreSQL en Cloud SQL. Detalle en [docs/15-despliegue.md](docs/15-despliegue.md).
 - Los conjuntos de evaluación no corren en cada pull request, porque los modelos reales tienen costo y los runners no tienen GPU. En el pull request se usan adaptadores deterministas, y la evaluación completa corre en forma programada o a pedido.
 - Si la red de destino no acepta conexiones entrantes, el servidor baja las imágenes nuevas por su cuenta.
+
+#### Configuración del servicio de trámites
+
+| Variable | Valor | Si falta |
+| --- | --- | --- |
+| `SIGTA_ENV` | `development` o `production`. `development` solo pone los valores por defecto de esta tabla, para arrancar en local; los entornos desplegados corren con `production` | No arranca |
+| `SIGTA_PUBLIC_URL` | La API como la ve el navegador, por ejemplo `https://<host>/api`. Tiene que ser `https` (o `localhost`), y `<SIGTA_PUBLIC_URL>/auth/callback` tiene que estar registrada en el cliente de Google | `http://localhost:8080` en desarrollo; en producción no arranca |
+| `SIGTA_APP_URL` | El frontend, terminado en `/`. El ingreso fallido vuelve a `<SIGTA_APP_URL>login` | `http://localhost:5173/` en desarrollo; en producción no arranca |
+| `SIGTA_ALLOWED_DOMAIN` | Dominio de los correos y del claim `hd` | `fi.uba.ar` en desarrollo; en producción no arranca |
+| `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` | Credenciales del cliente OAuth de tipo "aplicación web". Son secretos del despliegue: nunca van al repositorio | No arranca |
+| `SIGTA_DATABASE_URL` | Conexión a PostgreSQL con el rol de la aplicación (`backend`). El servidor no arranca si falta aplicar alguna migración | En desarrollo, todo lo que guarda SIGTA queda en memoria y se pierde al reiniciar; en producción no arranca |
+| `SIGTA_MIGRATIONS_DATABASE_URL` | Solo para los comandos `migrate` y `grant-admin`: conexión con el rol dueño de las tablas (`backend_migrations`). Es un secreto del despliegue y el servidor no la usa | `migrate` y `grant-admin` no corren |
+| `SIGTA_DOCUMENTS_DIR` | Carpeta donde se guardan los archivos que se adjuntan a los trámites, fuera de la base y de lo que sirve el proxy. Tiene que existir y el servidor tiene que poder escribir en ella. Es la carpeta que hay que respaldar | En la imagen, `/var/lib/sigta/documents`. Fuera de ella, en desarrollo sin base una carpeta temporal, y lo avisa en el log; con base o en producción no arranca |
+
+Las migraciones de la base (ADR-022) se aplican con el mismo binario, `backend migrate`, antes de arrancar el servidor. Con la misma conexión, `backend grant-admin <correo>` hace administradora a la persona registrada con ese correo, como alta inicial del sistema, sin nadie que la haya dado; si nadie está registrado con ese correo, falla. Quién corrió el comando no lo guarda SIGTA: queda a cargo del entorno donde se despliegue, en su registro de quién opera la consola, a confirmar con la Subsecretaría de TICs (ADR-027). Así se da el primer administrador de un entorno desplegado: si ya hay uno vigente, el comando falla, porque los demás se dan desde SIGTA, con quién los dio. El rol de la base con el que corre el servidor no puede dar el alta inicial: solo agrega administradores dados por otro y cierra períodos abiertos. Un comando que el binario no conoce falla en vez de arrancar el servidor. Cómo se aplican y qué roles crea `deploy/postgres/sql/roles.sql` está en "Base de datos" en [CONTRIBUTING.md](CONTRIBUTING.md).
+
+En local también se ingresa con Google. Hace falta un cliente de tipo "aplicación web", con sus credenciales en `SIGTA_GOOGLE_CLIENT_ID` y `SIGTA_GOOGLE_CLIENT_SECRET` (en el shell o en un `.env` que no se versiona), y red hacia Google: el backend lo consulta al arrancar, y sin el cliente no arranca. El cliente tiene que tener registrada la dirección de vuelta de cada forma de levantarlo: `http://localhost:8000/api/auth/callback` con `docker compose up` (`compose.yaml` le pasa las credenciales al backend), y `http://localhost:8080/auth/callback` con el backend por su cuenta (`cd services/backend && go run ./src/cmd`, con `SIGTA_ENV=development`) y la web con `npm run dev`. Quien ingresa es un titular, con el catálogo vacío hasta que alguien publique un tipo de trámite. El recorrido a mano es: ingresar con Google, darse el primer administrador (con `docker compose up`, `docker compose run --rm migrate grant-admin <correo>`; sin base no hay cómo, porque la marca se guarda en ella), dar las membresías del personal y publicar un tipo de trámite. Las membresías se dan desde la pantalla de administración.
 
 ## Inteligencia artificial
 
@@ -295,14 +328,14 @@ Cada llamada a un modelo registra costo, latencia y versión del prompt desde el
 | --- | --- |
 | Lenguajes | Go (servicio de trámites), Python (servicio de inteligencia artificial), TypeScript (frontend) |
 | Contratos | OpenAPI, con código generado para el servidor y los clientes |
-| Frontend | React, Vite, TanStack Query, React Router |
+| Frontend | React, Vite, Mantine, TanStack Query, React Router |
 | Datos | PostgreSQL con pgvector |
 | Trabajo asincrónico | Cola de trabajos en PostgreSQL |
 | Documentos | Sistema de archivos detrás de un puerto |
-| Identidad | OpenID Connect contra el ingreso institucional |
+| Identidad | Cuenta de Google de la UBA |
 | Entrada | Proxy inverso de la infraestructura de destino; nginx en desarrollo |
 | Modelos | Reglas en código, Laya, Claude u otro modelo, local o por API, detrás de puertos |
-| Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog en las reglas del motor |
+| Pruebas | go test, pytest, Vitest, Playwright; escenarios Gherkin como criterios de aceptación, automatizados con godog |
 | Observabilidad | Logs estructurados y registro de cada llamada a un modelo |
 | Infraestructura | Contenedores, Docker Compose |
 | Integración continua | GitHub Actions |
@@ -322,8 +355,8 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 | AsyncAPI con código generado | Los generadores para Go todavía son inmaduros, y con una cola interna alcanza con OpenAPI |
 | MinIO | En 2025 la edición comunitaria perdió la consola de administración y dejó de publicar imágenes, y en 2026 el repositorio quedó archivado |
 | Amazon S3 u otra nube | Costo en dólares y documentos con datos personales fuera de la institución |
-| Keycloak o Zitadel desde el inicio | Es lo más pesado de operar para la Subsecretaría de TICs; queda como evolución si no se habilita el ingreso institucional |
-| Usuarios y contraseñas propios | Guardar credenciales es un riesgo evitable, y el personal ya tiene cuenta institucional |
+| Keycloak o Zitadel | Es lo más pesado de operar para la Subsecretaría de TICs, y la cuenta de la UBA ya cubre a todos los usuarios |
+| Usuarios y contraseñas propios | Guardar credenciales es un riesgo evitable, y todos los usuarios ya tienen cuenta UBA |
 | API gateway (Traefik, KrakenD, Kong) | Con una sola API pública no agrega nada que no haga el proxy inverso |
 | Kubernetes | Sobra para un solo servidor, y no se sabe si la infraestructura de destino lo ofrece |
 | Prometheus y Grafana desde el inicio | Tres servicios más sin usuarios ni carga que observar |
@@ -332,32 +365,39 @@ Los criterios son los del anteproyecto: costo para la institución, integración
 ## Decisiones de diseño
 
 - **Puertos y adaptadores:** el almacenamiento, los modelos, la identidad y el lugar de despliegue pueden cambiar; el dominio no tiene que enterarse.
-- **Trámites como configuración versionada:** los cinco trámites comparten estructura, y un editor de flujos para personal no técnico sería un producto aparte. Sumar un trámite es un cambio de configuración por pull request.
+- **Trámites como configuración:** los cinco trámites comparten estructura, así que un tipo de trámite es una configuración que se va a editar desde la interfaz de SIGTA, sin cambiar el código. Cada versión la propone una persona y la aprueba otra (ADR-013).
+- **Un trámite en curso conserva su versión:** cada vez que se publica un cambio en un tipo de trámite, el servicio crea una versión nueva, la guarda completa con su hash, quién la propuso, quién la aprobó y cuándo, y no la modifica más. Cada trámite termina con la versión con la que empezó y los nuevos toman la última, así que un cambio de circuito no deja a un trámite a mitad de camino en un paso que ya no existe, y queda constancia de qué versión exacta siguió cada uno.
 - **La inteligencia artificial propone y una persona decide:** un error en un trámite afecta la situación académica de alguien.
+- **Derivar es cambiar de área:** confirmar un paso que lleva a otra área deriva el trámite, y volver al área de la que salió es el retorno, sin configurar nada en cada tipo de trámite (ADR-023).
+- **La subsanación no se configura:** quien puede hacer el paso abierto del personal le pide al titular datos o documentos de sus pasos con un motivo, en cualquier tipo de trámite. El trámite no cambia de paso, pero queda con el titular hasta que responda: carga de nuevo lo pedido en sus pasos y envía la respuesta, y el trámite vuelve al personal en el mismo paso (ADR-026).
 - **Los sistemas institucionales se registran, no se integran:** el personal confirma en SIGTA lo que hace en SIU Guaraní o en el expediente electrónico, y queda registrado quién lo declaró.
 - **El resultado de un trámite se comunica sin interpretarlo:** un reconocimiento total, uno parcial y un rechazo son el mismo evento, un dictamen que se adjunta y se comunica.
 - **Monolito modular y un solo servicio aparte:** el de inteligencia artificial se separa desde el inicio porque usa otro lenguaje y tiene su propio ciclo de evaluación. Cualquier otra separación espera a que se cumpla su disparador.
 - **Historial de acciones sin event sourcing:** un trámite se audita, no solo se consulta. El historial se escribe en la misma transacción que el estado, y eso alcanza para auditar.
+- **Un trámite se registra en una transacción:** el trámite, sus datos y sus documentos se guardan juntos, así un inicio que falla no deja documentos de un trámite que no existe, y un documento adjuntado se guarda con su evento en el historial. Si los archivos pasan a un storage aparte, se reservan antes de subirse y se confirman o se compensan con una saga (ADR-024).
 - **Cola en PostgreSQL:** encolar en la misma transacción que el cambio garantiza que ningún trabajo se pierda, sin otro servicio que operar.
 - **Una sola base relacional:** PostgreSQL con pgvector cubre estado, historial, cola, búsqueda de texto en español y vectores.
 - **Contrato primero:** el frontend, el servicio de trámites y el de inteligencia artificial están en lenguajes distintos; OpenAPI genera el código de cada lado para que no se desfasen.
-- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución. Usar un modelo por API externa depende de cómo se resuelva el tratamiento de esos datos.
+- **Autoalojable:** el sistema puede terminar en la infraestructura de la UBA, y los documentos contienen datos personales que conviene que no salgan de la institución. Por eso a un modelo por API externa solo llega contenido académico, después de quitar los datos identificatorios dentro de SIGTA (ADR-018).
 
 ## Decisiones abiertas
 
 | Tema | Qué falta definir | Depende de |
 | --- | --- | --- |
-| Dónde corren los modelos | Si la infraestructura de destino tiene GPU para un modelo de pesos abiertos, o si se usa un modelo por API y con qué datos | Subsecretaría de TICs y datos personales |
-| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento, cómo se ejercen la rectificación y la supresión, y si un documento puede salir de la institución hacia un modelo por API (Ley 25.326) | Secretaría y área legal de la facultad |
+| Modelo | Qué proveedor por API cumple las condiciones de ADR-018 (que no entrene con los datos y que su retención sea nula o acotada), y si conviene un modelo propio según el flujo de cada trámite y los costos de cada opción | Equipo y Subsecretaría de TICs |
+| Datos personales | Base legal y finalidad, inscripción de la base, retención de cada documento (D-09) y cómo se ejercen la rectificación y la supresión (Ley 25.326). A confirmar cómo se suprimen datos de los eventos de un trámite, que el rol de la aplicación no puede modificar ni borrar (ADR-022) | Secretaría y área legal de la facultad |
 | Etiquetado de la evaluación | Quién ajeno al equipo etiqueta las respuestas esperadas, cuántos casos y cómo se mide el acuerdo entre etiquetadores | Equipo y Secretaría |
 | Extracción de texto | Cómo se extrae el texto de un documento escaneado antes de clasificarlo | Pruebas con documentos de ejemplo |
 | Documentos cargados | Tamaño y tipos admitidos, y análisis de malware | Equipo |
-| Integridad del historial | Si alcanzan los permisos de la base o hace falta encadenar hashes para que una modificación quede en evidencia | Equipo |
-| Cambios de configuración | Qué pasa con un trámite en curso cuando cambia la versión de su configuración | Equipo |
-| Desistimiento y vencimiento | Cómo se cierra un trámite si el titular desiste o no responde a tiempo | Secretaría |
+| Integridad del historial | Si alcanzan los permisos de la base, que ya impiden a la aplicación modificar versiones y eventos (ADR-022), o hace falta encadenar hashes para que una modificación del dueño de las tablas quede en evidencia | Equipo |
+| Desistimiento y vencimiento | Los plazos de cada paso, y cuándo un trámite se cierra por desistimiento o por vencimiento | Secretaría |
+| Pases y derivaciones | Si un pase entre dos áreas del personal es siempre una derivación, o si hay pases internos que no cuentan días sin retorno (D-13) | Secretaría |
+| Área de un paso según el trámite | Si el área de un paso se resuelve en cada trámite, por ejemplo la Comisión Curricular de la carrera del titular, y a partir de qué dato | Secretaría |
+| Alcance del personal | Qué ve el personal (D-10), quién da de alta al personal de cada área (D-11) y si se usa el alcance por tipo de trámite (D-12) | Secretaría |
+| Quién publica tipos de trámite | A quién de la Secretaría, y si también al equipo, se le dan los permisos para proponer y aprobar versiones (D-08) | Equipo y Secretaría |
 | Respaldo | Cuántos datos se pueden perder y en cuánto tiempo se recupera el servicio, con simulacros de restauración | Subsecretaría de TICs |
 | Accesibilidad | Qué nivel de las pautas WCAG se cumple (Ley 26.653) y cómo se verifica en la integración continua | Equipo |
-| Hosting, costo e identidad | Infraestructura de destino, costo mensual estimado e ingreso institucional | Subsecretaría de TICs |
+| Hosting, costo e ingreso | Infraestructura de destino, costo mensual estimado, y cómo se registra SIGTA en el ingreso con la cuenta de la UBA | Subsecretaría de TICs |
 | Operación posterior | Quién opera el sistema y mantiene la base de conocimiento del asistente cuando termine el proyecto | Secretaría y Subsecretaría de TICs |
 
 ## Estado del proyecto

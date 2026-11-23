@@ -1,0 +1,84 @@
+package memory
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"slices"
+	"strings"
+	"sync"
+
+	"backend/src/auth/domain"
+)
+
+type UserRepository struct {
+	mu    sync.RWMutex
+	users map[string]domain.User
+}
+
+func NewUserRepository(users ...domain.User) *UserRepository {
+	r := &UserRepository{users: make(map[string]domain.User)}
+	for _, u := range users {
+		r.Add(u)
+	}
+	return r
+}
+
+func (r *UserRepository) Add(user domain.User) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user.Email = domain.NormalizeEmail(user.Email)
+	r.users[user.ID] = user
+}
+
+func (r *UserRepository) Register(_ context.Context, user domain.User) (domain.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user.Email = domain.NormalizeEmail(user.Email)
+	for _, u := range r.users {
+		if u.Email == user.Email {
+			return u, nil
+		}
+	}
+	if _, taken := r.users[user.ID]; taken {
+		return domain.User{}, fmt.Errorf("register user %s: id %s is taken", user.Email, user.ID)
+	}
+	r.users[user.ID] = user
+	return user, nil
+}
+
+func (r *UserRepository) GetByEmail(_ context.Context, email string) (domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, u := range r.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return domain.User{}, domain.ErrUserNotFound
+}
+
+func (r *UserRepository) Get(_ context.Context, id string) (domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	u, ok := r.users[id]
+	if !ok {
+		return domain.User{}, domain.ErrUserNotFound
+	}
+	return u, nil
+}
+
+func (r *UserRepository) Search(_ context.Context, text string, limit int) ([]domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var found []domain.User
+	for _, u := range r.users {
+		if strings.Contains(domain.FoldForSearch(u.Name), text) || strings.Contains(domain.FoldForSearch(u.Email), text) {
+			found = append(found, u)
+		}
+	}
+	slices.SortFunc(found, func(a, b domain.User) int {
+		return cmp.Or(cmp.Compare(domain.FoldForSearch(a.Name), domain.FoldForSearch(b.Name)), cmp.Compare(a.Email, b.Email))
+	})
+	return found[:min(limit, len(found))], nil
+}

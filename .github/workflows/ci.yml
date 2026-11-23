@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/backend/go.mod
+          cache-dependency-path: services/backend/go.sum
+      - name: Lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          working-directory: services/backend
+      - name: Check that there is no dead code
+        # deadcode lists the functions no program nor test reaches, and always
+        # exits with 0.
+        run: |
+          dead=$(go run golang.org/x/tools/cmd/deadcode@v0.52.0 -test ./...)
+          echo "$dead"
+          test -z "$dead"
+      - name: Start PostgreSQL
+        working-directory: .
+        run: docker compose up --detach --wait --wait-timeout 120 db
+      - name: Test
+        # -count=1: the cache of go test does not see roles.sql nor the image of
+        # PostgreSQL change.
+        run: go test -race -count=1 ./...
+        env:
+          SIGTA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/sigta?sslmode=disable
+      - name: Check that the generated code matches the contract
+        working-directory: .
+        run: |
+          make contracts-backend
+          git diff --exit-code -- services/backend
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: |
+          npm run lint
+          npm run format:check
+      - name: Check that there are no unused files, exports or dependencies
+        run: npm run unused
+      - name: Type check
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Check that the generated client matches the contract
+        run: |
+          npm run generate
+          git diff --exit-code -- src/api
+
+  test-layout:
+    name: Test layout
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check that each test is named after what it tests
+        run: scripts/check-test-layout.sh
+
+  compose:
+    name: Compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A client that does not exist: the check only follows the API up to
+      # the redirect to Google.
+      - name: Start the stack
+        env:
+          SIGTA_GOOGLE_CLIENT_ID: ci
+          SIGTA_GOOGLE_CLIENT_SECRET: ci
+        run: docker compose up --detach --build --wait --wait-timeout 120
+      - name: Load the frontend through the proxy
+        run: curl --fail --silent --show-error http://localhost:8000/ | grep --quiet '<div id="root">'
+      - name: Call the API through the proxy
+        run: curl --fail --silent --show-error --output /dev/null --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/api/auth/login
+      - name: Show the logs
+        if: failure()
+        run: docker compose logs
+
+  # Single check to require in the ruleset of main, so adding or renaming a job
+  # does not require changing the ruleset.
+  ci:
+    name: CI
+    if: always()
+    needs: [backend, frontend, test-layout, compose]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
