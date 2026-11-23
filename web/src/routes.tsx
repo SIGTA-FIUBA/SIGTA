@@ -16,19 +16,19 @@ import { StartProcedurePreview } from './dev/StartProcedurePreview'
 import { AdministrationPreview } from './dev/AdministrationPreview'
 import { HomePreview } from './dev/HomePreview'
 import { ProcedureTypeDraftPreview } from './dev/ProcedureTypeDraftPreview'
-import { optionalSession, requireSession, skipLoginWithSession } from './api/session'
+import { publicSession, requireSession } from './api/session'
 
 export const routes: RouteObject[] = [
   // The landing, the catalog and the page about SIGTA ask for no session, so
   // they can be read before logging in. A visitor reads them under one header
   // that stays from one to another; whoever has a session gets the catalog
   // and the page about SIGTA with the menu, and the home page instead of the
-  // landing.
+  // landing. If the API fails, they open for a visitor.
   {
-    loader: optionalSession,
+    loader: publicSession,
     element: <AppLayout />,
     children: [
-      { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },
+      { path: '/login', element: <LoginPage /> },
       { path: '/catalog', element: <CatalogPage /> },
       { path: '/about', element: <AboutPage /> },
     ],

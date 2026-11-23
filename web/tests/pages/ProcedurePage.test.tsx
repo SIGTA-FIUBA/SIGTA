@@ -474,6 +474,15 @@ describe('ProcedurePage', () => {
 
     expect((await screen.findByRole('link', { name: 'Volver al inicio' })).getAttribute('href')).toBe('/')
   })
+
+  it('names the page it leads back to', async () => {
+    stubApi(200, detail)
+    renderPage({ from: '/my-procedures' })
+
+    expect((await screen.findByRole('link', { name: 'Volver a Mis trámites' })).getAttribute('href')).toBe(
+      '/my-procedures',
+    )
+  })
 })
 
 describe('ProcedurePage confirmation', () => {

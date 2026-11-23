@@ -56,23 +56,30 @@ const dateTime = new Intl.DateTimeFormat('es-AR', {
   timeZone: 'America/Argentina/Buenos_Aires',
 })
 
+// backTo names the page a procedure was opened from, for the link back to it.
+// Without one, the link goes to the home page.
+function backTo(from: string | undefined) {
+  if (from?.startsWith('/inbox')) {
+    return { to: from, label: 'Volver a la bandeja de trámites' }
+  }
+  if (from?.startsWith('/my-procedures')) {
+    return { to: from, label: 'Volver a Mis trámites' }
+  }
+  return { to: '/', label: 'Volver al inicio' }
+}
+
 function BackLink() {
   const state: unknown = useLocation().state
-  if (typeof state === 'object' && state !== null && 'from' in state && typeof state.from === 'string') {
-    return (
-      <Anchor component={Link} to={state.from} size="sm" c="gray.7">
-        <Group component="span" gap="xxs" wrap="nowrap">
-          <Icon name="chevron-left" size={16} />
-          Volver a la bandeja de trámites
-        </Group>
-      </Anchor>
-    )
-  }
+  const from =
+    typeof state === 'object' && state !== null && 'from' in state && typeof state.from === 'string'
+      ? state.from
+      : undefined
+  const back = backTo(from)
   return (
-    <Anchor component={Link} to="/" size="sm" c="gray.7">
+    <Anchor component={Link} to={back.to} size="sm" c="gray.7">
       <Group component="span" gap="xxs" wrap="nowrap">
         <Icon name="chevron-left" size={16} />
-        Volver al inicio
+        {back.label}
       </Group>
     </Anchor>
   )

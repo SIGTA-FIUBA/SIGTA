@@ -6,7 +6,7 @@ import { Figure } from '../components/Figure/Figure'
 import { Figures } from '../components/Figures/Figures'
 import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
-import { movedText, procedurePath, stateNames, standing } from '../content/procedures'
+import { applicantName, movedText, procedurePath, stateNames, standing } from '../content/procedures'
 
 type ProcedureListItem = components['schemas']['ProcedureListItem']
 type ProcedureState = components['schemas']['ProcedureState']
@@ -89,7 +89,7 @@ function ProcedureList({ items, from, showAction }: { items: ProcedureListItem[]
           to={procedurePath(item.id)}
           state={{ from }}
           type={item.procedure_type_name}
-          applicant={item.applicant.name || 'Titular sin nombre registrado'}
+          applicant={applicantName(item)}
           note={showAction && item.actionable ? 'Acción requerida' : undefined}
           step={{ name: item.step_name }}
           standing={standing(item)}

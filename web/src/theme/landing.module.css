@@ -74,7 +74,6 @@
   top: 0;
   z-index: 10;
   background: var(--mantine-color-white);
-  border-bottom: 1px solid var(--sigta-landing-rule);
   padding-block: 0.625rem 0;
   padding-inline: max(1.25rem, calc((100% - var(--sigta-landing-content) * var(--w)) / 2));
   display: grid;
@@ -387,6 +386,18 @@
 
 .banner:hover .chevron > * {
   transform: translateY(0.1875rem);
+}
+
+/* Mantine draws its focus ring only on its own controls: the band and the
+ * cards, links of their own, draw it here. */
+.chevron:focus-visible {
+  outline: none;
+}
+
+.banner:has(.chevron:focus-visible),
+.card:focus-visible {
+  outline: var(--sigta-focus-width) solid var(--mantine-primary-color-filled);
+  outline-offset: var(--sigta-focus-offset);
 }
 
 /* The three cards, each with a notch at its bottom left where its link sits.

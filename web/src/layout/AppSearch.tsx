@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { catalogQuery } from '../api/catalog'
 import { useApplicantTasks, useInboxProcedures, useMyProcedures } from '../api/procedures'
 import { Search, type SearchGroup, type SearchItem } from '../components/Search/Search'
-import { procedurePath, procedureStates } from '../content/procedures'
+import { applicantName, procedurePath, procedureStates } from '../content/procedures'
 
 // AppSearch fills the search with what the person has at hand: what they have
 // to do, their procedures (or, for the staff, the procedures in progress, also
@@ -18,7 +18,7 @@ export function AppSearch({ staff, pages }: { staff: boolean; pages: SearchItem[
     ? actionable.map((item) => ({
         id: `pending-${item.id}`,
         label: item.step_name,
-        description: `${item.procedure_type_name}, ${item.applicant.name}`,
+        description: `${item.procedure_type_name}, ${applicantName(item)}`,
         to: procedurePath(item.id),
       }))
     : tasks.tasks.map((task) => ({
@@ -31,7 +31,7 @@ export function AppSearch({ staff, pages }: { staff: boolean; pages: SearchItem[
     ? (inbox.data?.items ?? []).map((item) => ({
         id: `procedure-${item.id}`,
         label: item.procedure_type_name,
-        description: `${item.applicant.name}, ${item.step_name}`,
+        description: `${applicantName(item)}, ${item.step_name}`,
         to: procedurePath(item.id),
       }))
     : (mine.data ?? []).map((procedure) => ({

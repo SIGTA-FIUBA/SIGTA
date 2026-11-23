@@ -14,7 +14,7 @@ import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
 import { openSearch } from '../components/Search/openSearch'
 import { SearchShortcut } from '../components/SearchShortcut/SearchShortcut'
 import { StartCard } from '../components/StartCard/StartCard'
-import { byLastMove, movedText, procedurePath } from '../content/procedures'
+import { applicantName, byLastMove, movedText, procedurePath } from '../content/procedures'
 
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
@@ -242,7 +242,7 @@ function StaffPending({ list }: { list: ProcedureList }) {
               to={procedurePath(item.id)}
               state={{ from: '/' }}
               task={item.step_name}
-              context={`${item.procedure_type_name}, ${item.applicant.name}`}
+              context={`${item.procedure_type_name}, ${applicantName(item)}`}
             />
           ))}
         </ProcedureRows>
@@ -276,7 +276,7 @@ function Activity({ list }: { list: ProcedureList }) {
                       fw={600}
                       inherit
                     >
-                      {item.procedure_type_name} de {item.applicant.name}
+                      {item.procedure_type_name} de {applicantName(item)}
                     </Anchor>{' '}
                     está en {item.step_name}
                   </Text>

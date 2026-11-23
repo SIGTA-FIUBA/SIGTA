@@ -24,13 +24,16 @@ export async function optionalSession() {
   return data
 }
 
-// skipLoginWithSession sends whoever already has a session to the home page.
-export async function skipLoginWithSession() {
-  const { response } = await api.GET('/me')
-  if (response.ok) {
+// publicSession is the session of the pages anyone can read: the landing, the
+// catalog and the page about SIGTA. If the API cannot say who is there, they
+// still open, for a visitor. Whoever has a session goes from the landing to the
+// home page.
+export async function publicSession({ request }: { request: Request }) {
+  const user = await optionalSession().catch(() => null)
+  if (user !== null && new URL(request.url).pathname === '/login') {
     throw redirect('/')
   }
-  return null
+  return user
 }
 
 // loginUrl is where the login starts: a page of the backend, so its link

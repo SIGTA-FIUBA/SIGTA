@@ -77,4 +77,14 @@ describe('routes', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
   })
+  it('opens the landing for a visitor when the API cannot say who is there', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ message: 'Bad gateway' }, { status: 502 })),
+    )
+    const router = renderAt('/login')
+
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/login')
+  })
 })

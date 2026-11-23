@@ -40,6 +40,10 @@ export function movedText(timestamp: string) {
 
 type Item = components['schemas']['ProcedureListItem']
 
+// applicantName is the name of the applicant of a procedure of the inbox,
+// or says it has none, so a sentence that names them never breaks.
+export const applicantName = (item: Item) => item.applicant.name || 'Titular sin nombre registrado'
+
 // standing says who acts now on a procedure of the inbox, for the third
 // column of its row. One waiting on its applicant is in no area's hands, even
 // if its open step belongs to one; one referred says so after the area.

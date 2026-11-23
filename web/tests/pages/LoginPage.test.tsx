@@ -33,15 +33,9 @@ describe('LoginPage', () => {
   it('offers the inbox, the catalog and the administration, each with its way in', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Ver más sobre Bandeja de trámites' })).toHaveAttribute(
-      'href',
-      '/api/auth/login',
-    )
-    expect(screen.getByRole('link', { name: 'Ver más sobre Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
-    expect(screen.getByRole('link', { name: 'Ver más sobre Administración de SIGTA' })).toHaveAttribute(
-      'href',
-      '/about',
-    )
+    expect(screen.getByRole('link', { name: 'Bandeja de trámites' })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('link', { name: 'Administración de SIGTA' })).toHaveAttribute('href', '/about')
   })
 
   it('glides to what SIGTA offers from "Conocé SIGTA" and from its band', () => {

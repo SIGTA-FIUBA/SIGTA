@@ -1,5 +1,5 @@
 import { Alert, Button, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
-import { Fragment, useRef, type MouseEvent } from 'react'
+import { Fragment, useId, useRef, type MouseEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { components } from '../api/schema'
 import { loginUrl } from '../api/session'
@@ -88,8 +88,10 @@ const twoLines = (text: string, words: number) => {
 const stepLines = [1, 2, 1]
 
 // The whole card is its way in, as it looks: "Ver más", in its notch, only
-// says so.
+// says so. The link is named by its title and described by its text, as they
+// read.
 function OfferCard({ offer }: { offer: Offer }) {
+  const id = useId()
   return (
     <Paper
       component={Link}
@@ -97,16 +99,19 @@ function OfferCard({ offer }: { offer: Offer }) {
       reloadDocument={offer.to === loginUrl}
       variant="landing-card"
       mod={{ tone: offer.tone }}
-      aria-label={`Ver más sobre ${offer.title}`}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-text`}
     >
       <Paper variant="landing-card-icon" aria-hidden>
         <Icon name={offer.icon} size="fill" weight={1.6} />
       </Paper>
-      <Title order={3} variant="landing-card-title">
+      <Title order={3} variant="landing-card-title" id={`${id}-title`}>
         <Lines lines={twoLines(offer.title, offer.lines)} />
       </Title>
-      <Text variant="landing-card-text">{offer.text}</Text>
-      <Text component="span" variant="landing-more">
+      <Text variant="landing-card-text" id={`${id}-text`}>
+        {offer.text}
+      </Text>
+      <Text component="span" variant="landing-more" aria-hidden>
         Ver más
       </Text>
     </Paper>

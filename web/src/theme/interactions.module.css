@@ -106,15 +106,18 @@
   transform: none;
 }
 
-/* The cells of a row (ProcedureRow). On a phone, two lines: what it is with
- * its date at the right, then where it is and who has it, side by side and
- * wrapping when they do not fit. From md on, the four columns of the list. */
+/* The cells of a row (ProcedureRow). On a phone: what it is, whole, with its
+ * date at the right; then where it is and who has it, side by side and
+ * wrapping when they do not fit; then its age, when the list says it. The
+ * arrow, which appears under the pointer, does not take room there. From md
+ * on, the four columns of the list, the name cut to one line. */
 .row [data-cells] {
   display: grid;
   flex: 1;
   grid-template-areas:
-    'what when'
-    'where where';
+    'what date'
+    'where where'
+    'age age';
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   gap: var(--mantine-spacing-xxs) var(--mantine-spacing-md);
@@ -126,8 +129,17 @@
 }
 
 .row [data-cell='when'] {
-  grid-area: when;
+  display: contents;
+}
+
+.row [data-cell='date'] {
+  grid-area: date;
+  text-align: right;
   white-space: nowrap;
+}
+
+.row [data-cell='age'] {
+  grid-area: age;
 }
 
 .row [data-cell='where'] {
@@ -137,11 +149,27 @@
   gap: 0 var(--mantine-spacing-md);
 }
 
+@media (max-width: 63.99em) {
+  .row [data-chevron] {
+    display: none;
+  }
+}
+
 @media (min-width: 64em) {
   .row [data-cells] {
     display: flex;
     align-items: baseline;
     gap: var(--mantine-spacing-lg);
+  }
+
+  .row [data-cell='what'] > :first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row [data-cell='when'] {
+    display: flex;
   }
 
   .row [data-cell='where'] {

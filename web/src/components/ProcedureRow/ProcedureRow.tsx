@@ -49,13 +49,13 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
       display="block"
     >
       <Group wrap="nowrap" gap="md">
-        {/* On a phone the row is two lines: what it is with its
-            date at the right, then where it is and who has it, side by side.
-            From md on the four columns share the row (interactions.module.css). */}
+        {/* On a phone, what it is with its date at the right, then where it
+            is and who has it, side by side. From md on the four columns share
+            the row (interactions.module.css). */}
         <Box data-cells>
           <Stack data-cell="what" gap="xxs" miw={0} flex={{ md: rowColumns[0] }}>
-            {/* A cut name stays readable on hover. */}
-            <Text fw={600} truncate title={type} data-transition-title={opening || undefined}>
+            {/* Cut from md on, the name stays readable on hover. */}
+            <Text fw={600} title={type} data-transition-title={opening || undefined}>
               {type}
             </Text>
             {applicant && (
@@ -83,11 +83,11 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
             </Text>
           </Box>
           <Stack data-cell="when" gap="xxs" ta="right" flex={{ md: rowColumns[3] }}>
-            <Text size="sm" c="gray.7">
+            <Text size="sm" c="gray.7" data-cell="date">
               {date}
             </Text>
             {age && (
-              <Text size="xs" c="gray.7">
+              <Text size="xs" c="gray.7" data-cell="age">
                 {age}
               </Text>
             )}
