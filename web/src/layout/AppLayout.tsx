@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Anchor,
   AppShell,
@@ -22,9 +23,12 @@ import { useInboxProcedures } from '../api/procedures'
 import { useEditableProcedureTypes } from '../api/procedureTypes'
 import { logout, type optionalSession } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
+import { openSearch } from '../components/Search/openSearch'
+import { SearchShortcut } from '../components/SearchShortcut/SearchShortcut'
 import { move } from '../theme/motion'
 import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
+import { AppSearch } from './AppSearch'
 import { UserMenu } from './UserMenu'
 
 type MenuLink = { to: string; label: string; icon: IconName; active: boolean; actionableCount?: number }
@@ -45,9 +49,9 @@ function CurrentMark() {
 // Between breakpoint.sm and breakpoint.md the menu shows only its icons.
 const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
 
-// AppLayout frames every page. With a session, a white side navigation runs
-// from top to bottom: the SIGTA logo, the menu, and at the foot the page
-// about SIGTA and the account. From breakpoint.md it is 240 wide; on a tablet
+// AppLayout frames every page. With a session, a dark side navigation runs
+// from top to bottom: the SIGTA logo, the search (Ctrl K), the menu, and at
+// the foot the page about SIGTA and the account. From breakpoint.md it is 240 wide; on a tablet
 // it narrows to its icons; on a phone it folds behind a button in a white top
 // bar. A visitor without a session, who can only read the catalog, gets the
 // top bar with a way to log in and no menu.
@@ -78,6 +82,7 @@ export function AppLayout() {
 
   const links: MenuLink[] = [
     { to: '/', label: 'Inicio', icon: 'home', active: pathname === '/' },
+    { to: '/my-procedures', label: 'Mis trámites', icon: 'files', active: pathname.startsWith('/my-procedures') },
     ...(staff
       ? [
           {
@@ -206,19 +211,49 @@ export function AppLayout() {
               aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
             />
           }
+          end={
+            <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
+              <Icon name="search" />
+            </ActionIcon>
+          }
         />
       </AppShell.Header>
       <AppShell.Navbar p={compact ? 'xs' : 'sm'} aria-label="Menú principal">
         <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="xl">
           <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
             <Image
-              src={compact ? '/brand/sigta-isotipo-color.svg' : '/brand/sigta-horizontal-color.svg'}
+              src={compact ? '/brand/sigta-isotipo-color-dark.svg' : '/brand/sigta-horizontal-color-dark.svg'}
               alt=""
               h="var(--sigta-logo-height)"
               w="auto"
               mx={compact ? 'auto' : 0}
             />
           </Anchor>
+        </AppShell.Section>
+        <AppShell.Section pb="md">
+          {compact ? (
+            <Tooltip label="Buscar" position="right">
+              <NavLink
+                component="button"
+                variant="menu-icon"
+                aria-label="Buscar"
+                leftSection={<Icon name="search" />}
+                onClick={openSearch}
+              />
+            </Tooltip>
+          ) : (
+            <NavLink
+              component="button"
+              variant="menu-search"
+              label="Buscar"
+              leftSection={<Icon name="search" />}
+              rightSection={<SearchShortcut />}
+              onClick={() => {
+                closeMenu()
+                openSearch()
+              }}
+            />
+          )}
         </AppShell.Section>
         <AppShell.Section grow>
           <Stack gap={0}>{links.map(menuItem)}</Stack>
@@ -230,6 +265,10 @@ export function AppLayout() {
           </Stack>
         </AppShell.Section>
       </AppShell.Navbar>
+      <AppSearch
+        staff={staff}
+        pages={[...links, about].map((link) => ({ id: link.to, label: link.label, to: link.to }))}
+      />
       <AppShell.Main>
         <Container px={0}>
           {logoutFailed && (

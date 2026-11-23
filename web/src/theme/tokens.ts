@@ -56,7 +56,10 @@ export const tokens = {
     nav: {
       background: text('color.nav.background'),
       text: text('color.nav.text'),
+      muted: text('color.nav.muted'),
       hover: text('color.nav.hover'),
+      searchBackground: text('color.nav.searchBackground'),
+      searchBorder: text('color.nav.searchBorder'),
       activeBackground: text('color.nav.activeBackground'),
       activeText: text('color.nav.activeText'),
       activeBar: text('color.nav.activeBar'),

@@ -41,6 +41,9 @@ function stubApi({
     if (new URL(request.url).pathname === '/api/procedures') {
       return Response.json({ items: [] })
     }
+    if (new URL(request.url).pathname === '/api/procedure-types') {
+      return Response.json([])
+    }
     return Response.json(request.url.endsWith('/me/procedures') ? [] : account)
   })
   vi.stubGlobal('fetch', fetch)
@@ -67,11 +70,13 @@ describe('AppLayout', () => {
     stubApi({ session: true })
     renderAt('/')
 
-    await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })
+    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/my-procedures')
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
+    expect(within(menu).getByRole('button', { name: 'Buscar' })).toBeVisible()
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
     expect(within(menu).getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
     // The applicant has no inbox, and the account closes the menu.

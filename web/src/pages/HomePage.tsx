@@ -1,372 +1,331 @@
-import { Alert, Anchor, Box, Container, Group, List, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
-import { useInView } from 'motion/react'
-import { useRef } from 'react'
+import { Alert, Anchor, Button, Grid, Group, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
-import { useInboxProcedures, useMyProcedures } from '../api/procedures'
+import { catalogQuery } from '../api/catalog'
+import { useApplicantTasks, useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { Figure } from '../components/Figure/Figure'
-import { Figures } from '../components/Figures/Figures'
-import { DocumentFile } from '../components/DocumentFile/DocumentFile'
 import { EmptyState } from '../components/EmptyState/EmptyState'
-import { ProcedureRow } from '../components/ProcedureRow/ProcedureRow'
+import { Icon } from '../components/Icon/Icon'
+import { PendingRow } from '../components/PendingRow/PendingRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
-import { PageSection } from '../components/PageSection/PageSection'
-import { StepList } from '../components/StepList/StepList'
-import { applicantHowTo, staffHowTo } from '../content/platform'
-import { closedWithoutResolution, movedText, procedurePath, procedureStates, standing } from '../content/procedures'
+import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
+import { openSearch } from '../components/Search/openSearch'
+import { SearchShortcut } from '../components/SearchShortcut/SearchShortcut'
+import { StartCard } from '../components/StartCard/StartCard'
+import { byLastMove, movedText, procedurePath } from '../content/procedures'
 
 type User = components['schemas']['User']
-type Item = components['schemas']['ProcedureListItem']
 type ProcedureList = components['schemas']['ProcedureList']
-type MyProcedure = components['schemas']['MyProcedure']
 
-// The home page shows the latest procedures that need action and the latest
-// news, no more: the rest is in the inbox.
-const recentCount = 5
+// The home page shows the latest of each list, no more: the rest is in the
+// inbox, in "Mis trámites" and in the catalog.
+const pendingCount = 5
+const recentCount = 3
+const startCount = 6
 
-const dateFormat = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
-
-// todayText writes today's date for the greeting: "Sábado, 14 de noviembre".
-function todayText() {
-  const text = dateFormat.format(new Date())
-  return text.charAt(0).toUpperCase() + text.slice(1)
+function plural(value: number, one: string, many: string) {
+  return `${value} ${value === 1 ? one : many}`
 }
 
-function byLastMove(a: Item, b: Item) {
-  return Date.parse(b.last_moved_at) - Date.parse(a.last_moved_at)
-}
-
-// figures are what the staff has in hand: what needs action and what is in
-// progress, the two figures the inbox gives.
-function figures(list: ProcedureList) {
-  return [
-    { value: list.items.filter((item) => item.actionable).length, label: 'Requieren acción', to: '/inbox' },
-    { value: list.items.length, label: 'En curso', to: '/inbox?view=all' },
-  ]
-}
-
-// Summary is the row of figures under the greeting, as wide as the page, in
-// two cells that close the row. While the list loads, it keeps its place.
-function Summary() {
-  const procedures = useInboxProcedures()
-  if (procedures.isError) {
-    return null
-  }
-  const list = procedures.data
-  if (!list) {
-    return <Skeleton h="var(--sigta-figures-height)" />
-  }
+// Section is a part of the home page: its title, a count in gray after it,
+// what it offers on the right, and its content below.
+function Section({
+  id,
+  title,
+  count,
+  action,
+  children,
+}: {
+  id: string
+  title: string
+  count?: string
+  action?: ReactNode
+  children: ReactNode
+}) {
   return (
-    <Figures label="Resumen">
-      {figures(list).map((figure) => (
-        <Figure key={figure.to} {...figure} />
-      ))}
-    </Figures>
-  )
-}
-
-// Condensed takes the place of the greeting and the figures once they leave
-// the screen: a thin bar fixed on top with the name and the two figures, so
-// the staff keeps them in sight while reading down the page. Hidden, it is out
-// of reach of the keyboard and of screen readers, which have the figures
-// above.
-function Condensed({ shown, greeting }: { shown: boolean; greeting: string }) {
-  const procedures = useInboxProcedures()
-  const list = procedures.data
-  return (
-    <Paper variant="condensed" radius={0} data-shown={shown || undefined} aria-hidden={!shown} inert={!shown}>
-      <Container px={0}>
-        <Group justify="space-between" wrap="nowrap" gap="lg" py="sm">
-          <Text fw={600} truncate>
-            {greeting}
-          </Text>
-          {list && (
-            <Group gap="lg" wrap="nowrap">
-              {figures(list).map((figure) => (
-                <Anchor key={figure.to} component={Link} to={figure.to} size="sm" c="gray.7">
-                  <Text component="span" fw={700} c="fiuba.9" inherit>
-                    {figure.value}
-                  </Text>{' '}
-                  {figure.label.toLowerCase()}
-                </Anchor>
-              ))}
-            </Group>
-          )}
-        </Group>
-      </Container>
-    </Paper>
-  )
-}
-
-const staffColumns = ['Trámite', 'Paso', 'A cargo de', 'Último movimiento'] as const
-const myColumns = ['Trámite', 'Paso', 'Estado', 'Último movimiento'] as const
-
-function Pending({ list }: { list: ProcedureList }) {
-  const items = list.items.filter((item) => item.actionable).sort(byLastMove)
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        title="No hay trámites pendientes"
-        text="Cuando un trámite requiera acción de la cuenta, aparece acá."
-      />
-    )
-  }
-  return (
-    <ProcedureRows label="Trámites que requieren acción" columns={staffColumns}>
-      {items.slice(0, recentCount).map((item) => (
-        <ProcedureRow
-          key={item.id}
-          to={procedurePath(item.id)}
-          state={{ from: '/' }}
-          type={item.procedure_type_name}
-          applicant={item.applicant.name}
-          step={{ name: item.step_name }}
-          standing={standing(item)}
-          date={movedText(item.last_moved_at)}
-        />
-      ))}
-    </ProcedureRows>
-  )
-}
-
-// Activity lists the latest moves of every visible procedure, one entry each,
-// with the step where it is now: the list does not say what the move was. The
-// entries hang from a line, the newest on top. A long one wraps instead of
-// running past the screen of a phone.
-function Activity({ list }: { list: ProcedureList }) {
-  const items = [...list.items].sort(byLastMove).slice(0, recentCount)
-  if (items.length === 0) {
-    return <Text c="dimmed">Todavía no hay movimientos.</Text>
-  }
-  return (
-    <Reveal>
-      <List variant="timeline" aria-label="Movimientos recientes">
-        {items.map((item) => (
-          <List.Item key={item.id}>
-            <Stack gap="xxs">
-              <Text size="sm">
-                <Anchor
-                  component={Link}
-                  to={procedurePath(item.id)}
-                  state={{ from: '/' }}
-                  viewTransition
-                  c="gray.9"
-                  fw={600}
-                  inherit
-                >
-                  {item.procedure_type_name} de {item.applicant.name}
-                </Anchor>{' '}
-                está en {item.step_name}
-              </Text>
-              <Text size="xs" c="gray.6">
-                {movedText(item.last_moved_at)}
-              </Text>
-            </Stack>
-          </List.Item>
-        ))}
-      </List>
-    </Reveal>
-  )
-}
-
-// StaffHome is the work of the staff below the figures: what needs action
-// and the latest moves. While the list loads, each part shows its shape.
-function StaffHome() {
-  const procedures = useInboxProcedures()
-  if (procedures.isError) {
-    return (
-      <Alert color="red" role="alert">
-        No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
-      </Alert>
-    )
-  }
-  const list = procedures.data
-  return (
-    <>
-      <PageSection
-        id="pending"
-        title="Requieren acción"
-        lead="Los últimos cinco, por su novedad más reciente."
-        action={
-          <Anchor component={Link} to="/inbox" size="sm" fw={600}>
-            Ver todos
-          </Anchor>
-        }
-      >
-        {list ? (
-          <Pending list={list} />
-        ) : (
-          <Stack gap="xs" aria-label="Cargando los trámites">
-            {Array.from({ length: 3 }, (_, index) => (
-              <Skeleton key={index} h="var(--sigta-row-height)" />
-            ))}
-          </Stack>
-        )}
-      </PageSection>
-      <PageSection id="activity" title="Actividad reciente" lead="Dónde quedó cada trámite después de su último paso.">
-        {list ? <Activity list={list} /> : <Skeleton h="var(--sigta-row-height)" />}
-      </PageSection>
-    </>
-  )
-}
-
-const closeFormat = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  timeZone: 'America/Argentina/Buenos_Aires',
-})
-
-function MyProcedureRows({ label, procedures }: { label: string; procedures: MyProcedure[] }) {
-  return (
-    <ProcedureRows label={label} columns={myColumns}>
-      {procedures.map((procedure) => (
-        <ProcedureRow
-          key={procedure.id}
-          to={procedurePath(procedure.id)}
-          state={{ from: '/' }}
-          type={procedure.procedure_type_name}
-          note={procedure.correction_pending ? 'Subsanación pendiente del titular' : undefined}
-          step={{ name: procedure.step_name ?? 'Trámite cerrado' }}
-          standing={{ text: procedureStates[procedure.state].label }}
-          date={
-            procedure.state === 'closed'
-              ? `Cierre: ${closeFormat.format(new Date(procedure.last_moved_at))}`
-              : movedText(procedure.last_moved_at)
-          }
-        />
-      ))}
-    </ProcedureRows>
-  )
-}
-
-// ClosedResolutions goes under the rows of the closed procedures, apart from
-// them because each row is a link as a whole: for each one, the resolution to
-// see or download, or that it closed without one.
-function ClosedResolutions({ procedures }: { procedures: MyProcedure[] }) {
-  return (
-    <Stack gap="lg">
-      {procedures.map((procedure) => (
-        <Stack key={procedure.id} gap="xs">
-          <Text fw={600}>{procedure.procedure_type_name}</Text>
-          {procedure.resolutions.length === 0 ? (
-            <Text size="sm" c="gray.7">
-              {closedWithoutResolution}
+    <Stack component="section" gap="md" aria-labelledby={id}>
+      <Group justify="space-between" align="center" gap="md">
+        <Title order={2} id={id}>
+          {title}
+          {count && (
+            <Text component="span" c="gray.6" fw={500} inherit>
+              {' '}
+              {count}
             </Text>
-          ) : (
-            procedure.resolutions.map((resolution) => (
-              <Stack key={resolution.id} gap="xxs">
-                <Text size="sm" fw={500}>
-                  {resolution.document_name}
-                </Text>
-                <DocumentFile
-                  procedureId={procedure.id}
-                  file={resolution}
-                  procedureName={procedure.procedure_type_name}
-                />
-              </Stack>
-            ))
           )}
-        </Stack>
+        </Title>
+        {action}
+      </Group>
+      {children}
+    </Stack>
+  )
+}
+
+function RowsLoading() {
+  return (
+    <Stack gap="xs" aria-label="Cargando">
+      {Array.from({ length: 3 }, (_, index) => (
+        <Skeleton key={index} h="var(--sigta-row-height)" />
       ))}
     </Stack>
   )
 }
 
-// MyProcedures lists what the person started, staff or not, so that signing
-// in answers where each procedure is. The closed ones go apart, for their
-// applicant to reach the resolution.
-function MyProcedures() {
-  const myProcedures = useMyProcedures()
-  const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []
-  const closed = myProcedures.data?.filter((procedure) => procedure.state === 'closed') ?? []
+function LoadError() {
   return (
-    <>
-      <PageSection id="my-procedures" title="Mis trámites en curso">
-        {myProcedures.isPending && (
-          <Stack gap="xs" aria-label="Cargando los trámites">
-            <Skeleton h="var(--sigta-row-height)" />
-          </Stack>
-        )}
-        {myProcedures.isError && (
-          <Alert color="red" role="alert">
-            No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
-          </Alert>
-        )}
-        {myProcedures.isSuccess && inProgress.length === 0 && (
-          <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
-        )}
-        {inProgress.length > 0 && <MyProcedureRows label="Mis trámites en curso" procedures={inProgress} />}
-      </PageSection>
-      {closed.length > 0 && (
-        <PageSection id="my-closed-procedures" title="Mis trámites cerrados">
-          <Stack gap="xl">
-            <MyProcedureRows label="Mis trámites cerrados" procedures={closed} />
-            <ClosedResolutions procedures={closed} />
-          </Stack>
-        </PageSection>
-      )}
-    </>
+    <Alert color="red" role="alert">
+      No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+    </Alert>
   )
 }
 
-// HomePage greets the person and shows what to do next, on a white page
-// ordered by type, space and rules, without boxes. The staff gets its figures
-// under the greeting, which a thin bar keeps in sight once they leave the
-// screen, the procedures that need action and the latest moves; everyone, the
-// procedures they started, and how SIGTA is used by their profile. The
-// destinations live in the menu, so no button here repeats them.
+// ApplicantPending is what the person has to do on their own procedures: each
+// correction they have not answered, named by what it asks for.
+function ApplicantPending() {
+  const { tasks, procedures, isPending, isError } = useApplicantTasks()
+  const count =
+    tasks.length === 0
+      ? undefined
+      : procedures > 1
+        ? `${tasks.length}, de ${plural(procedures, 'trámite', 'trámites')}`
+        : String(tasks.length)
+  return (
+    <Section id="pending" title="Pendientes" count={count}>
+      {isError ? (
+        <LoadError />
+      ) : isPending ? (
+        <RowsLoading />
+      ) : tasks.length === 0 ? (
+        <EmptyState title="Sin pendientes" text="Cuando un trámite pida algo, aparece acá." />
+      ) : (
+        <ProcedureRows label="Pendientes">
+          {tasks.map((task) => (
+            <PendingRow
+              key={task.id}
+              to={procedurePath(task.procedureId)}
+              state={{ from: '/' }}
+              task={task.task}
+              context={task.context}
+            />
+          ))}
+        </ProcedureRows>
+      )}
+    </Section>
+  )
+}
+
+// NewProcedure gives weight to starting a procedure: the first types of the
+// catalog as cards, in rows of three that close, and the search of the
+// catalog.
+function NewProcedure() {
+  const catalog = useQuery(catalogQuery)
+  const entries = catalog.data?.slice(0, startCount) ?? []
+  return (
+    <Section
+      id="new"
+      title="Nuevo trámite"
+      action={
+        <Button
+          variant="default"
+          leftSection={<Icon name="search" size={16} />}
+          rightSection={<SearchShortcut />}
+          onClick={openSearch}
+        >
+          Buscar en el catálogo
+        </Button>
+      }
+    >
+      {catalog.isError ? (
+        <Alert color="red" role="alert">
+          No se pudo cargar el catálogo. Volvé a intentarlo más tarde.
+        </Alert>
+      ) : catalog.isPending ? (
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} h="var(--sigta-figures-height)" />
+          ))}
+        </SimpleGrid>
+      ) : entries.length === 0 ? (
+        <EmptyState title="Sin trámites publicados" text="Cuando se publique un tipo de trámite, aparece acá." />
+      ) : (
+        <Stack gap="md" align="flex-start">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} w="100%">
+            {entries.map((entry, index) => (
+              <Reveal key={entry.id} index={index}>
+                <StartCard
+                  to={`/catalog/${entry.id}/start`}
+                  name={entry.name}
+                  description={entry.description}
+                  fields={entry.fields.length}
+                  documents={entry.documents.length}
+                />
+              </Reveal>
+            ))}
+          </SimpleGrid>
+          <Anchor component={Link} to="/catalog" size="sm" fw={600}>
+            Ver el catálogo completo
+          </Anchor>
+        </Stack>
+      )}
+    </Section>
+  )
+}
+
+// Recent is the person's latest procedures, three, by their last move; the
+// rest is in "Mis trámites".
+function Recent() {
+  const myProcedures = useMyProcedures()
+  const recent = [...(myProcedures.data ?? [])].sort(byLastMove).slice(0, recentCount)
+  return (
+    <Section
+      id="recent"
+      title="Trámites recientes"
+      action={
+        <Button
+          component={Link}
+          to="/my-procedures"
+          variant="subtle"
+          rightSection={<Icon name="arrow-right" size={16} />}
+        >
+          Ver mis trámites
+        </Button>
+      }
+    >
+      {myProcedures.isError ? (
+        <LoadError />
+      ) : myProcedures.isPending ? (
+        <RowsLoading />
+      ) : recent.length === 0 ? (
+        <EmptyState title="Sin trámites" text="Los trámites que se inicien aparecen acá." />
+      ) : (
+        <MyProcedureRows label="Trámites recientes" procedures={recent} from="/" />
+      )}
+    </Section>
+  )
+}
+
+// StaffPending is what needs action from the staff, the latest five: on top
+// the step to resolve, below the procedure and its applicant.
+function StaffPending({ list }: { list: ProcedureList }) {
+  const items = list.items.filter((item) => item.actionable).sort(byLastMove)
+  return (
+    <Section
+      id="pending"
+      title="Pendientes"
+      count={items.length > 0 ? String(items.length) : undefined}
+      action={
+        items.length > pendingCount && (
+          <Button component={Link} to="/inbox" variant="subtle" rightSection={<Icon name="arrow-right" size={16} />}>
+            Ver todos
+          </Button>
+        )
+      }
+    >
+      {items.length === 0 ? (
+        <EmptyState title="Sin pendientes" text="Cuando un trámite requiera acción, aparece acá." />
+      ) : (
+        <ProcedureRows label="Pendientes">
+          {items.slice(0, pendingCount).map((item) => (
+            <PendingRow
+              key={item.id}
+              to={procedurePath(item.id)}
+              state={{ from: '/' }}
+              task={item.step_name}
+              context={`${item.procedure_type_name}, ${item.applicant.name}`}
+            />
+          ))}
+        </ProcedureRows>
+      )}
+    </Section>
+  )
+}
+
+// Activity lists the latest moves of every visible procedure, one entry each,
+// with the step where it is now. The entries hang from a line, the newest on
+// top.
+function Activity({ list }: { list: ProcedureList }) {
+  const items = [...list.items].sort(byLastMove).slice(0, pendingCount)
+  return (
+    <Section id="activity" title="Actividad reciente">
+      {items.length === 0 ? (
+        <Text c="dimmed">Todavía no hay movimientos.</Text>
+      ) : (
+        <Reveal>
+          <List variant="timeline" aria-label="Movimientos recientes">
+            {items.map((item) => (
+              <List.Item key={item.id}>
+                <Stack gap="xxs">
+                  <Text size="sm">
+                    <Anchor
+                      component={Link}
+                      to={procedurePath(item.id)}
+                      state={{ from: '/' }}
+                      viewTransition
+                      c="gray.9"
+                      fw={600}
+                      inherit
+                    >
+                      {item.procedure_type_name} de {item.applicant.name}
+                    </Anchor>{' '}
+                    está en {item.step_name}
+                  </Text>
+                  <Text size="xs" c="gray.6">
+                    {movedText(item.last_moved_at)}
+                  </Text>
+                </Stack>
+              </List.Item>
+            ))}
+          </List>
+        </Reveal>
+      )}
+    </Section>
+  )
+}
+
+// StaffHome is the work of the staff: what needs action and, beside it on a
+// wide screen, the latest moves.
+function StaffHome() {
+  const procedures = useInboxProcedures()
+  if (procedures.isError) {
+    return <LoadError />
+  }
+  const list = procedures.data
+  if (!list) {
+    return <RowsLoading />
+  }
+  return (
+    <Grid gap="xxl">
+      <Grid.Col span={{ base: 12, lg: 8 }}>
+        <StaffPending list={list} />
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, lg: 4 }}>
+        <Activity list={list} />
+      </Grid.Col>
+    </Grid>
+  )
+}
+
+// HomePage is what to do next, without a greeting: for the staff, what needs
+// action and the latest moves; for an applicant, what their procedures ask
+// for, the procedures to start and their latest procedures.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
   const staff = user?.staff === true
-  const firstName = user?.name.split(' ')[0]
-  const greeting = firstName ? `Hola, ${firstName}` : 'Inicio'
-  const figuresRef = useRef<HTMLDivElement>(null)
-  const figuresInView = useInView(figuresRef, { initial: true })
 
   return (
     <Stack gap="xxxl">
-      <Stack gap="xl">
-        <Stack component="header" variant="masthead" gap="xs" aria-labelledby="greeting">
-          <Reveal>
-            <Text size="sm" c="gray.7">
-              {todayText()}
-            </Text>
-          </Reveal>
-          <Reveal index={1}>
-            <Title order={1} variant="display" id="greeting" c="fiuba.9">
-              {greeting}
-            </Title>
-          </Reveal>
-          {!staff && (
-            <Reveal index={2}>
-              <Text size="lg" c="gray.7">
-                Acá ves en qué paso está cada trámite que iniciaste.
-              </Text>
-            </Reveal>
-          )}
-        </Stack>
-        {staff && (
-          <Box ref={figuresRef}>
-            <Reveal index={2}>
-              <Summary />
-            </Reveal>
-          </Box>
-        )}
-      </Stack>
-      {staff && <Condensed shown={!figuresInView} greeting={greeting} />}
-      {staff && <StaffHome />}
-      <MyProcedures />
+      <Title order={1}>Inicio</Title>
       {staff ? (
-        <PageSection id="how" title="Cómo se trabaja en SIGTA">
-          <StepList steps={staffHowTo} />
-        </PageSection>
+        <StaffHome />
       ) : (
-        <PageSection id="how" title="Cómo se realiza un trámite">
-          <StepList steps={applicantHowTo} />
-        </PageSection>
+        <>
+          <ApplicantPending />
+          <NewProcedure />
+          <Recent />
+        </>
       )}
     </Stack>
   )

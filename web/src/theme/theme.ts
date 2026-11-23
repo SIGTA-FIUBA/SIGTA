@@ -30,6 +30,7 @@ import {
   Tooltip,
   type VariantColorsResolver,
 } from '@mantine/core'
+import { Spotlight } from '@mantine/spotlight'
 import classes from './interactions.module.css'
 import landing from './landing.module.css'
 import { tokens } from './tokens'
@@ -149,10 +150,29 @@ export const theme = createTheme({
             ? `${classes.touch} ${classes.navItem}`
             : props.variant === 'menu-icon'
               ? `${classes.touch} ${classes.navItem} ${classes.navIcon}`
-              : classes.touch,
-        label: props.variant === 'menu' ? classes.navLabel : '',
+              : props.variant === 'menu-search'
+                ? `${classes.touch} ${classes.navItem} ${classes.navSearch}`
+                : classes.touch,
+        label: props.variant === 'menu' || props.variant === 'menu-search' ? classes.navLabel : '',
         description: props.variant === 'menu' ? classes.navDescription : '',
       }),
+    }),
+    // The search (Spotlight) breathes: a tall field, and room around each
+    // result, each group and the keys of its footer.
+    // The class names go as a default prop, not as classNames of the theme:
+    // only the props reach the modal that holds the search.
+    SpotlightRoot: Spotlight.Root.extend({
+      defaultProps: {
+        classNames: {
+          content: classes.spotlight,
+          search: classes.spotlightSearch,
+          actionsList: classes.spotlightList,
+          actionsGroup: classes.spotlightGroup,
+          action: classes.spotlightAction,
+          empty: classes.spotlightEmpty,
+          footer: classes.spotlightFooter,
+        },
+      },
     }),
     // The side navigation is white with a border on its right; the page is
     // white too, so what is on it is ordered by type, space and rules, not by
@@ -316,7 +336,10 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-nav-item-radius': `var(--mantine-radius-${tokens.component.navItem.radius})`,
     '--sigta-nav-background': tokens.color.nav.background,
     '--sigta-nav-text': tokens.color.nav.text,
+    '--sigta-nav-muted': tokens.color.nav.muted,
     '--sigta-nav-hover': tokens.color.nav.hover,
+    '--sigta-nav-search-background': tokens.color.nav.searchBackground,
+    '--sigta-nav-search-border': tokens.color.nav.searchBorder,
     '--sigta-nav-active-background': tokens.color.nav.activeBackground,
     '--sigta-nav-active-text': tokens.color.nav.activeText,
     '--sigta-nav-active-bar': tokens.color.nav.activeBar,

@@ -31,7 +31,12 @@ import { Facts } from '../components/Facts/Facts'
 import { Icon } from '../components/Icon/Icon'
 import { Part } from '../components/Part/Part'
 import { documentDescription } from '../content/documentFormats'
-import { closedWithoutResolution, procedureStates } from '../content/procedures'
+import {
+  closedWithoutResolution,
+  procedureStates,
+  requestedNames as namesOf,
+  requirementsOf,
+} from '../content/procedures'
 import { emptySubmission, fieldError, fileError, sentValue, valueText, type SubmissionDraft } from '../submission'
 
 type Detail = components['schemas']['ProcedureDetail']
@@ -248,36 +253,12 @@ function areaName(detail: Detail, id: string) {
   return detail.steps.find((step) => step.area?.id === id)?.area?.name ?? id
 }
 
-// requirementsOf names each field and document the steps ask for, once each,
-// in the order of the steps.
-function requirementsOf(steps: Step[]) {
-  const fields = new Map<string, string>()
-  const documents = new Map<string, string>()
-  for (const step of steps) {
-    for (const field of step.fields) {
-      if (!fields.has(field.id)) {
-        fields.set(field.id, field.name)
-      }
-    }
-    for (const document of step.documents) {
-      if (!documents.has(document.id)) {
-        documents.set(document.id, document.name)
-      }
-    }
-  }
-  return { fields, documents }
-}
-
 function documentName(detail: Detail, id: string) {
   return requirementsOf(detail.steps).documents.get(id) ?? id
 }
 
 function requestedNames(detail: Detail, requested: { fields: string[]; documents: string[] }) {
-  const { fields, documents } = requirementsOf(detail.steps)
-  return [
-    ...requested.fields.map((id) => fields.get(id) ?? id),
-    ...requested.documents.map((id) => documents.get(id) ?? id),
-  ].join(', ')
+  return namesOf(detail.steps, requested)
 }
 
 // doneBy names who did a step or, for the applicant, who has the steps of

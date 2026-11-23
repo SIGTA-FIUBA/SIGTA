@@ -436,17 +436,17 @@
 }
 
 /* The side navigation (AppShell navbar), the tablet rail and the phone menu:
- * white, with a border on the right. The panel opens in motion.base. */
+ * dark, in fiuba.9, from top to bottom. The panel opens in motion.base. */
 .sideNav {
   background-color: var(--sigta-nav-background);
   border-inline-end: var(--sigta-border-width) solid var(--sigta-nav-border);
   color: var(--sigta-nav-text);
 }
 
-/* An item of the side navigation (NavLink variant="menu"). At rest, ink.600
- * in the label weight; under the pointer, surface.hover. The current page is
- * the only tinted shape: brand.50 with the text and icon in action.600 at
- * 600, and a 3px bar in brand.500 on its left. */
+/* An item of the side navigation (NavLink variant="menu"). At rest, a very
+ * light blue in the label weight; under the pointer, a white veil. The
+ * current page is the only white shape: its text in fiuba.9 at 600 and its
+ * icon in brand.500. */
 .navItem {
   min-height: var(--sigta-nav-item-height);
   border-radius: var(--sigta-nav-item-radius);
@@ -466,6 +466,18 @@
 .navItem[data-active]:hover {
   color: var(--sigta-nav-active-text);
   background-color: transparent;
+}
+
+.navItem[data-active] :global(.mantine-NavLink-section[data-position='left']) {
+  color: var(--sigta-nav-active-bar);
+}
+
+/* What an item says on its right besides a count, such as the shortcut of
+ * the search ([data-shortcut]), stays secondary. */
+.navItem [data-shortcut] {
+  color: var(--sigta-nav-muted);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: var(--mantine-font-weight-medium);
 }
 
 /* The items sit over the mark of the current page (Paper
@@ -520,8 +532,66 @@
   font-weight: var(--mantine-font-weight-medium);
 }
 
+/* The search of the menu (variant="menu-search") is not a page, so it does
+ * not look like one: a field, with a thin border and a white veil, its label
+ * in the muted text as a placeholder and the shortcut on its right. */
+.navSearch {
+  border: var(--sigta-border-width) solid var(--sigta-nav-search-border);
+  background-color: var(--sigta-nav-search-background);
+  color: var(--sigta-nav-muted);
+}
+
+.navSearch:hover {
+  border-color: var(--sigta-nav-text);
+  color: var(--sigta-nav-text);
+}
+
+.navSearch .navLabel {
+  font-weight: var(--mantine-font-weight-normal);
+}
+
+/* The search (Spotlight): a tall field with room on its sides, results with
+ * room around them and the footer apart. The rules go under .spotlight to
+ * win over the styles of the package, loaded after the theme. */
+.spotlight {
+  overflow: hidden;
+}
+
+.spotlight .spotlightSearch {
+  padding-inline-end: var(--mantine-spacing-xl);
+}
+
+.spotlight .spotlightList {
+  min-height: 0;
+  --spotlight-actions-list-padding: var(--mantine-spacing-sm);
+  padding-block: var(--mantine-spacing-sm);
+}
+
+.spotlight .spotlightGroup {
+  padding-block-end: var(--mantine-spacing-xs);
+}
+
+.spotlight .spotlightGroup::before {
+  display: block;
+  text-transform: none;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md) var(--mantine-spacing-xs);
+}
+
+.spotlight .spotlightAction {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  gap: var(--mantine-spacing-xs);
+}
+
+.spotlight .spotlightEmpty {
+  padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+}
+
+.spotlight .spotlightFooter {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+}
+
 .navDescription {
-  color: var(--mantine-color-gray-6);
+  color: var(--sigta-nav-muted);
 }
 
 .navItem[data-active] .navLabel {

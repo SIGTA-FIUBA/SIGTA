@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
@@ -18,54 +18,86 @@ const item = {
   age_days: 3,
 }
 
-const inOffice = {
-  id: 'P-1',
+const mine = (id: string, name: string, moved: string, extra: object = {}) => ({
+  id,
   procedure_type: 1,
-  procedure_type_name: 'Equivalencia entre asignaturas',
+  procedure_type_name: name,
   step_name: 'Revisión de la solicitud',
   state: 'in_office',
   correction_pending: false,
-  started_at: '2026-11-02T12:00:00Z',
-  last_moved_at: '2026-11-10T15:00:00Z',
-}
-const closed = {
-  id: 'P-3',
+  started_at: '2026-11-01T12:00:00Z',
+  last_moved_at: moved,
+  resolutions: [],
+  ...extra,
+})
+
+const procedureType = (id: number) => ({
+  id,
+  version: 1,
+  name: `Trámite ${id}`,
+  description: 'Una descripción',
+  deadlines: [],
+  admissibility: [],
+  fields: [{ id: 'name', name: 'Nombre', required: true }],
+  documents: [],
+  steps: [],
+})
+
+// The detail of a procedure with a correction that asks for the subjects.
+const awaiting = {
+  id: 'P-2',
   procedure_type: 1,
-  procedure_type_name: 'Pase de carrera',
-  state: 'closed',
-  correction_pending: false,
-  started_at: '2026-10-01T12:00:00Z',
-  last_moved_at: '2026-11-05T15:00:00Z',
-  resolutions: [
+  version: 1,
+  name: 'Reconocimiento de créditos',
+  state: 'with_applicant',
+  applicant: { id: 'u1', name: 'Persona' },
+  open_step: 'review',
+  can_act: false,
+  as_applicant: true,
+  correction_requests: [
+    { step: 'review', at: '2026-11-17T15:00:00Z', reason: 'Falta', fields: ['subjects'], documents: [] },
+  ],
+  steps: [
     {
-      id: 'D-9',
-      document: 'dean_resolution',
-      document_name: 'Resolución de Decano',
-      file_name: 'resolucion.pdf',
-      media_type: 'application/pdf',
-      size: 2048,
+      id: 'data',
+      name: 'Datos',
+      action: 'enter_data',
+      role: 'applicant',
+      fields: [{ id: 'subjects', name: 'Materias aprobadas', required: true }],
+      documents: [],
     },
   ],
 }
-const withApplicant = {
-  ...inOffice,
-  id: 'P-2',
-  procedure_type_name: 'Reconocimiento de créditos',
-  step_name: 'Documentación',
-  state: 'with_applicant',
-}
 
 // stubApi plays the API: /me/procedures answers the procedures the person
-// started, and /procedures, the inbox of the staff.
-function stubApi({ mine = [], inbox = [], status = 200 }: { mine?: unknown[]; inbox?: unknown[]; status?: number }) {
+// started, /procedures the inbox of the staff, /procedure-types the catalog
+// and /procedures/P-2 the detail of a procedure with a correction.
+function stubApi({
+  procedures = [],
+  inbox = [],
+  catalog = [],
+  status = 200,
+}: {
+  procedures?: unknown[]
+  inbox?: unknown[]
+  catalog?: unknown[]
+  status?: number
+}) {
   const fetch = vi.fn(async (request: Request) => {
     if (status !== 200) {
       return Response.json({ message: 'error' }, { status })
     }
-    if (new URL(request.url).pathname === '/api/me/procedures') {
-      return Response.json(mine)
+    const path = new URL(request.url).pathname
+    if (path === '/api/me/procedures') {
+      return Response.json(procedures)
     }
-    return Response.json({ items: inbox, procedure_types: [], areas: [] })
+    if (path === '/api/procedure-types') {
+      return Response.json(catalog)
+    }
+    if (path === '/api/procedures/P-2') {
+      return Response.json(awaiting)
+    }
+    return Response.json({ items: inbox })
   })
   vi.stubGlobal('fetch', fetch)
   return fetch
@@ -91,100 +123,76 @@ describe('HomePage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('greets an applicant and shows how a procedure is done, with no button that repeats the menu', async () => {
+  it('titles the page without a greeting', async () => {
     stubApi({})
     renderAs(false)
 
-    // The greeting fades in with the page.
-    const greeting = screen.getByRole('heading', { level: 1, name: 'Hola, Persona' })
-    await waitFor(() => expect(greeting).toBeVisible())
-    expect(screen.queryByRole('link', { name: 'Iniciar un trámite' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Cómo se realiza un trámite' })).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'Requieren acción' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.queryByText(/Hola/)).not.toBeInTheDocument()
+    expect(await screen.findByText('Sin pendientes')).toBeVisible()
   })
 
-  it('lists the procedures in progress of the person, each with its state and leading to its detail', async () => {
-    const fetch = stubApi({ mine: [inOffice, withApplicant] })
+  it('lists what each correction asks of the applicant, under the procedure', async () => {
+    stubApi({
+      procedures: [
+        mine('P-1', 'Equivalencia entre asignaturas', '2026-11-10T15:00:00Z'),
+        mine('P-2', 'Reconocimiento de créditos', '2026-11-12T15:00:00Z', {
+          state: 'with_applicant',
+          correction_pending: true,
+        }),
+      ],
+    })
     renderAs(false)
 
-    const mine = await screen.findByRole('list', { name: 'Mis trámites en curso' })
-    const first = within(mine).getByRole('link', { name: /Equivalencia entre asignaturas/ })
-    expect(first).toHaveAttribute('href', '/procedures/P-1')
-    expect(within(first).getByText('En un área')).toBeVisible()
-    expect(within(first).getByText('Revisión de la solicitud')).toBeVisible()
-    const second = within(mine).getByRole('link', { name: /Reconocimiento de créditos/ })
-    expect(within(second).getByText('Pendiente del titular')).toBeVisible()
-    expect(new URL(fetch.mock.calls[0]![0].url).pathname).toBe('/api/me/procedures')
+    const pending = await screen.findByRole('list', { name: 'Pendientes' })
+    const row = await within(pending).findByRole('link', { name: /Materias aprobadas/ })
+    expect(row).toHaveAttribute('href', '/procedures/P-2')
+    expect(within(row).getByText('Reconocimiento de créditos')).toBeVisible()
+    expect(within(pending).getAllByRole('link')).toHaveLength(1)
   })
 
-  it('lists the closed procedures apart, leading to their detail', async () => {
-    stubApi({ mine: [inOffice, closed] })
+  it('shows the three latest procedures and leads to all of them', async () => {
+    stubApi({
+      procedures: [
+        mine('P-1', 'Primero', '2026-11-01T15:00:00Z'),
+        mine('P-2b', 'Segundo', '2026-11-02T15:00:00Z'),
+        mine('P-3', 'Tercero', '2026-11-03T15:00:00Z'),
+        mine('P-4', 'Cuarto', '2026-11-04T15:00:00Z'),
+      ],
+    })
     renderAs(false)
 
-    const closedOnes = await screen.findByRole('list', { name: 'Mis trámites cerrados' })
-    const row = within(closedOnes).getByRole('link', { name: /Pase de carrera/ })
-    expect(row).toHaveAttribute('href', '/procedures/P-3')
-    expect(within(row).getByText('Cierre: 05/11/2026')).toBeVisible()
-    expect(within(row).getByText('Cerrado')).toBeVisible()
-    const inProgress = screen.getByRole('list', { name: 'Mis trámites en curso' })
-    expect(within(inProgress).queryByRole('link', { name: /Pase de carrera/ })).not.toBeInTheDocument()
+    const recent = await screen.findByRole('list', { name: 'Trámites recientes' })
+    const links = within(recent).getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/procedures/P-4',
+      '/procedures/P-3',
+      '/procedures/P-2b',
+    ])
+    expect(screen.getByRole('link', { name: 'Ver mis trámites' })).toHaveAttribute('href', '/my-procedures')
   })
 
-  it('offers the resolution of a closed procedure to download without opening its detail', async () => {
-    stubApi({ mine: [closed] })
+  it('offers six procedures of the catalog to start, and the whole catalog', async () => {
+    stubApi({ catalog: Array.from({ length: 8 }, (_, index) => procedureType(index + 1)) })
     renderAs(false)
 
-    const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
-    expect(within(closedOnes).getByText('Resolución de Decano')).toBeVisible()
-    expect(
-      within(closedOnes).getByRole('link', { name: 'Descargar resolucion.pdf de Pase de carrera' }),
-    ).toHaveAttribute('href', '/api/procedures/P-3/documents/D-9/content')
-    expect(within(closedOnes).getByRole('button', { name: 'Ver resolucion.pdf de Pase de carrera' })).toBeVisible()
+    const first = await screen.findByRole('link', { name: /Trámite 1/ })
+    expect(first).toHaveAttribute('href', '/catalog/1/start')
+    expect(within(first).getByText('1 dato, 0 documentos')).toBeVisible()
+    expect(screen.getByRole('link', { name: /Trámite 6/ })).toBeVisible()
+    expect(screen.queryByRole('link', { name: /Trámite 7/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('button', { name: /Buscar en el catálogo/ })).toBeVisible()
   })
 
-  it('says when a closed procedure has no resolution', async () => {
-    stubApi({ mine: [{ ...closed, resolutions: [] }] })
-    renderAs(false)
-
-    const closedOnes = await screen.findByRole('region', { name: 'Mis trámites cerrados' })
-    expect(within(closedOnes).getByText('El trámite se cerró sin un documento resolutivo adjunto.')).toBeVisible()
-    expect(within(closedOnes).queryByRole('link', { name: /Descargar/ })).not.toBeInTheDocument()
-  })
-
-  it('says there is no procedure in progress when all of them are closed', async () => {
-    stubApi({ mine: [closed] })
-    renderAs(false)
-
-    expect(await screen.findByText(/No hay trámites en curso/)).toBeVisible()
-    expect(screen.getByRole('region', { name: 'Mis trámites cerrados' })).toBeVisible()
-  })
-
-  it('leaves out the closed section when no procedure is closed', async () => {
-    stubApi({ mine: [inOffice] })
-    renderAs(false)
-
-    await screen.findByRole('link', { name: /Equivalencia entre asignaturas/ })
-    expect(screen.queryByRole('region', { name: 'Mis trámites cerrados' })).not.toBeInTheDocument()
-  })
-
-  it('says when the applicant has a correction to make', async () => {
-    stubApi({ mine: [{ ...withApplicant, correction_pending: true }, inOffice] })
-    renderAs(false)
-
-    const pending = await screen.findByRole('link', { name: /Reconocimiento de créditos/ })
-    expect(within(pending).getByText('Subsanación pendiente del titular')).toBeVisible()
-    const other = screen.getByRole('link', { name: /Equivalencia entre asignaturas/ })
-    expect(within(other).queryByText(/Subsanación pendiente/)).toBeNull()
-  })
-
-  it('says when the procedures in progress could not be loaded', async () => {
+  it('says when the procedures could not be loaded', async () => {
     stubApi({ status: 500 })
     renderAs(false)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los trámites')
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('No se pudieron cargar los trámites')
   })
 
-  it('lists for the staff the procedures that need action, the latest news first', async () => {
+  it('lists for the staff the step to resolve of the procedures that need action, the latest first', async () => {
     stubApi({
       inbox: [
         { ...item, id: 'old' },
@@ -194,46 +202,21 @@ describe('HomePage', () => {
     })
     renderAs(true)
 
-    expect(screen.queryByRole('link', { name: 'Ir a la bandeja' })).not.toBeInTheDocument()
-    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    const list = await screen.findByRole('list', { name: 'Pendientes' })
     const links = within(list).getAllByRole('link')
     expect(links.map((link) => link.getAttribute('href'))).toEqual(['/procedures/new', '/procedures/old'])
-    expect(within(links[0]!).getByText('Equivalencia')).toBeVisible()
-    expect(within(links[0]!).getByText('Titular Dos')).toBeVisible()
-    expect(within(links[0]!).getByText('Registrar expediente')).toBeVisible()
-    expect(within(links[0]!).getByText('Dirección de Alumnos')).toBeVisible()
-    expect(links[0]).toHaveTextContent('A cargo de Dirección de Alumnos')
-    expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/inbox')
+    expect(within(links[0]!).getByText('Registrar expediente')).toBeInTheDocument()
+    expect(within(links[0]!).getByText('Equivalencia, Titular Dos')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ver todos' })).not.toBeInTheDocument()
   })
 
-  it('shows at most five procedures that need action', async () => {
+  it('shows at most five pending procedures and leads to the inbox for the rest', async () => {
     stubApi({ inbox: Array.from({ length: 7 }, (_, index) => ({ ...item, id: `p${index}` })) })
     renderAs(true)
 
-    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
+    const list = await screen.findByRole('list', { name: 'Pendientes' })
     expect(within(list).getAllByRole('link')).toHaveLength(5)
-  })
-
-  it('sums up what needs action and what is in progress', async () => {
-    stubApi({
-      inbox: [
-        { ...item, id: 'a' },
-        { ...item, id: 'b', actionable: false },
-      ],
-    })
-    renderAs(true)
-
-    const summary = await screen.findByLabelText('Resumen')
-    expect(within(summary).getByRole('link', { name: '1 Requieren acción' })).toHaveAttribute('href', '/inbox')
-    expect(within(summary).getByRole('link', { name: '2 En curso' })).toHaveAttribute('href', '/inbox?view=all')
-  })
-
-  it('keeps the condensed bar out of reach while the figures are on the screen', async () => {
-    stubApi({ inbox: [{ ...item, id: 'a' }] })
-    renderAs(true)
-
-    await screen.findByLabelText('Resumen')
-    expect(screen.getAllByRole('link', { name: /requieren acción/i })).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/inbox')
   })
 
   it('lists the latest moves, one line each', async () => {
@@ -255,32 +238,13 @@ describe('HomePage', () => {
     stubApi({ inbox: [{ ...item, id: 'waiting', actionable: false }] })
     renderAs(true)
 
-    expect(await screen.findByText('No hay trámites pendientes')).toBeVisible()
-  })
-
-  it('shows the staff their own procedures too, and how the staff works', async () => {
-    stubApi({ mine: [inOffice] })
-    renderAs(true)
-
-    expect(await screen.findByRole('link', { name: /Equivalencia entre asignaturas/ })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Cómo se trabaja en SIGTA' })).toBeVisible()
-    expect(screen.getByText('Bandeja de trámites')).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'Cómo se realiza un trámite' })).not.toBeInTheDocument()
-  })
-
-  it('puts no area in charge of a procedure waiting on its applicant', async () => {
-    stubApi({ inbox: [{ ...item, id: 'waiting', state: 'with_applicant' }] })
-    renderAs(true)
-
-    const list = await screen.findByRole('list', { name: 'Trámites que requieren acción' })
-    expect(within(list).getByText('Pendiente del titular')).toBeVisible()
-    expect(within(list).queryByText(/A cargo de/)).toBeNull()
+    expect(await screen.findByText('Sin pendientes')).toBeVisible()
   })
 
   it('says when the inbox of the staff could not be loaded', async () => {
     stubApi({ status: 500 })
     renderAs(true)
 
-    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('No se pudieron cargar los trámites')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los trámites')
   })
 })

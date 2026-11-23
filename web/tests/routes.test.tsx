@@ -56,7 +56,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).toHaveTextContent('AT')
     expect(router.state.location.pathname).toBe('/')
   })
@@ -73,7 +73,7 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Ana' })).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Inicio' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
   })
 })

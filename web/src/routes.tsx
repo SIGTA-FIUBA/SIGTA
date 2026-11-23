@@ -6,6 +6,7 @@ import { CatalogPage } from './pages/CatalogPage'
 import { HomePage } from './pages/HomePage'
 import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
+import { MyProceduresPage } from './pages/MyProceduresPage'
 import { ProcedurePage } from './pages/ProcedurePage'
 import { ProcedureTypeDraftPage } from './pages/ProcedureTypeDraftPage'
 import { ProcedureTypesPage } from './pages/ProcedureTypesPage'
@@ -46,6 +47,7 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/catalog/:procedureTypeId/start', element: <StartProcedurePage /> },
+      { path: '/my-procedures', element: <MyProceduresPage /> },
       { path: '/inbox', element: <InboxPage /> },
       { path: '/procedures/:id', element: <ProcedurePage /> },
       { path: '/administration', element: <AdministrationPage /> },

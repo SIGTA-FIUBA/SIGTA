@@ -16,7 +16,7 @@ const meta: Meta = {
 
 export default meta
 
-const names: IconName[] = ['home', 'inbox', 'catalog', 'chevron-right', 'chevron-down']
+const names: IconName[] = ['home', 'inbox', 'files', 'catalog', 'search', 'chevron-right', 'chevron-down']
 
 // The icons of the landing page, which draws them at the size of their box.
 const landingNames: IconName[] = ['school', 'plus', 'arrow-right', 'search', 'file-pencil', 'settings-check']
