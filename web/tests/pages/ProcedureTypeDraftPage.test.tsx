@@ -333,16 +333,11 @@ describe('ProcedureTypeDraftPage', () => {
     expect(again.body.definition.steps[2].name).toBe('Final')
   })
 
-  it('shows what it saved while the draft is read again, and proposes on the saved revision', async () => {
-    const fetch = stubApi(draft({ problems: [] }))
-    renderPage()
-    await userEvent.click(await step(/^Paso 3: Resolución/))
-    const name = panel().getByRole('textbox', { name: 'Nombre' })
-    await userEvent.clear(name)
-    await userEvent.type(name, 'Fin')
-    // The draft read again after saving takes long to come.
+  // slowReadsAfterSave answers a save at the next revision and holds every
+  // read of the draft after it until release is called.
+  function slowReadsAfterSave(fetch: ReturnType<typeof stubApi>) {
     let latest = draft({ problems: [] })
-    let answerRead = () => {}
+    const pending: (() => void)[] = []
     fetch.mockImplementation(async (request: Request) => {
       const path = new URL(request.url).pathname.replace(/^\/api/, '')
       if (request.method === 'PUT') {
@@ -356,14 +351,29 @@ describe('ProcedureTypeDraftPage', () => {
       if (path === '/editable-procedure-types') {
         return Response.json(editable)
       }
-      await new Promise<void>((resolve) => (answerRead = resolve))
+      await new Promise<void>((resolve) => pending.push(resolve))
       return Response.json(latest)
     })
+    return () => pending.splice(0).forEach((answer) => answer())
+  }
+
+  async function renameLastStep(to: string) {
+    await userEvent.click(await step(/^Paso 3: Resolución/))
+    const name = panel().getByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(name)
+    await userEvent.type(name, to)
+    return name
+  }
+
+  it('shows what it saved while the draft is read again, and proposes on the saved revision', async () => {
+    const fetch = stubApi(draft({ problems: [] }))
+    renderPage()
+    const name = await renameLastStep('Fin')
+    const release = slowReadsAfterSave(fetch)
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await vi.waitFor(() => expect(screen.queryByText(/Hay cambios sin guardar/)).not.toBeInTheDocument())
     expect(name).toHaveValue('Fin')
-    expect(screen.queryByText('Otra persona guardó este borrador mientras lo editabas')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Proponer' }))
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Proponer' }))
 
@@ -373,7 +383,23 @@ describe('ProcedureTypeDraftPage', () => {
         body: { revision: 8 },
       }),
     )
-    answerRead()
+    release()
+  })
+
+  it('keeps what is typed while the draft is read again after saving, with no conflict', async () => {
+    const fetch = stubApi(draft({ problems: [] }))
+    renderPage()
+    const name = await renameLastStep('Fin')
+    const release = slowReadsAfterSave(fetch)
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await vi.waitFor(() => expect(screen.queryByText(/Hay cambios sin guardar/)).not.toBeInTheDocument())
+
+    await userEvent.type(name, 'al')
+    release()
+
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Guardar' })).toBeEnabled())
+    expect(name).toHaveValue('Final')
+    expect(screen.queryByText('Otra persona guardó este borrador mientras lo editabas')).not.toBeInTheDocument()
   })
 
   it('shows the reviewer the problems a proposal has with the areas of today', async () => {

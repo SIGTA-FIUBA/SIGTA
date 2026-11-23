@@ -99,9 +99,9 @@ export function useDraftChange<T, R>(
   })
 }
 
-// useDraftSave saves the definition of a draft on revision. What was saved
-// goes to the cache of the draft before onSaved, so the page takes it as the
-// current draft while it is read again, instead of the one before saving.
+// useDraftSave saves the definition of a draft on revision, and puts what was
+// saved in the cache of the draft: while the draft is read again, the page
+// shows the saved one as current, not the one from before saving.
 export function useDraftSave(
   procedureTypeId: number,
   revision: number,
