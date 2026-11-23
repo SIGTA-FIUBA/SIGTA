@@ -57,7 +57,7 @@ function Loading({ label, rows }: { label: string; rows: number }) {
 const focusOnMount = (node: HTMLElement | null) => node?.focus()
 
 // ConfirmButton asks again before a change that cannot be undone from the
-// screen, like ending a membership. The question stays while the change runs,
+// screen, like ending a membership, in red. The question stays while the change runs,
 // so it cannot be confirmed twice, and after a refusal, next to the reason;
 // onConfirm gets done, to close it when the change goes through.
 function ConfirmButton({
@@ -78,7 +78,7 @@ function ConfirmButton({
   const [asking, setAsking] = useState(false)
   if (!asking) {
     return (
-      <Button variant="subtle" size="xs" flex="none" aria-label={ariaLabel} onClick={() => setAsking(true)}>
+      <Button variant="subtle" color="red" size="xs" flex="none" aria-label={ariaLabel} onClick={() => setAsking(true)}>
         {label}
       </Button>
     )
@@ -86,7 +86,7 @@ function ConfirmButton({
   return (
     <Group gap="xs" justify="flex-end">
       <Text size="sm">{question}</Text>
-      <Button variant="default" size="xs" loading={pending} onClick={() => onConfirm(() => setAsking(false))}>
+      <Button color="red" size="xs" loading={pending} onClick={() => onConfirm(() => setAsking(false))}>
         {confirmLabel}
       </Button>
       <Button variant="subtle" size="xs" ref={focusOnMount} disabled={pending} onClick={() => setAsking(false)}>
