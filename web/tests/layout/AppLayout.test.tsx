@@ -74,7 +74,8 @@ describe('AppLayout', () => {
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
-    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/my-procedures')
+    // The applicant has their procedures on the home page.
+    expect(within(menu).queryByRole('link', { name: 'Mis trámites' })).not.toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
     expect(within(menu).getByRole('button', { name: 'Buscar' })).toBeVisible()
     expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')

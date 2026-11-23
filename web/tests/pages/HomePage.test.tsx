@@ -151,37 +151,46 @@ describe('HomePage', () => {
     expect(within(pending).getAllByRole('link')).toHaveLength(1)
   })
 
-  it('shows the three latest procedures and leads to all of them', async () => {
+  it('offers to start a procedure on top', async () => {
+    stubApi({})
+    renderAs(false)
+
+    expect(await screen.findByRole('link', { name: 'Nuevo trámite' })).toHaveAttribute('href', '/new')
+  })
+
+  it('shows every procedure in progress, the latest first, and leads to the history', async () => {
     stubApi({
       procedures: [
         mine('P-1', 'Primero', '2026-11-01T15:00:00Z'),
         mine('P-2b', 'Segundo', '2026-11-02T15:00:00Z'),
         mine('P-3', 'Tercero', '2026-11-03T15:00:00Z'),
         mine('P-4', 'Cuarto', '2026-11-04T15:00:00Z'),
+        mine('P-5', 'Cerrado', '2026-11-05T15:00:00Z', { state: 'closed' }),
       ],
     })
     renderAs(false)
 
-    const recent = await screen.findByRole('list', { name: 'Trámites recientes' })
-    const links = within(recent).getAllByRole('link')
+    const inProgress = await screen.findByRole('list', { name: 'Trámites en curso' })
+    const links = within(inProgress).getAllByRole('link')
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/procedures/P-4',
       '/procedures/P-3',
       '/procedures/P-2b',
+      '/procedures/P-1',
     ])
-    expect(screen.getByRole('link', { name: 'Ver mis trámites' })).toHaveAttribute('href', '/my-procedures')
+    expect(screen.getByRole('link', { name: 'Historial' })).toHaveAttribute('href', '/my-procedures')
   })
 
-  it('offers six procedures of the catalog to start, and the whole catalog', async () => {
+  it('offers six procedures of the catalog to start, without what they ask for, and all of them', async () => {
     stubApi({ catalog: Array.from({ length: 8 }, (_, index) => procedureType(index + 1)) })
     renderAs(false)
 
     const first = await screen.findByRole('link', { name: /Trámite 1/ })
     expect(first).toHaveAttribute('href', '/catalog/1/start')
-    expect(within(first).getByText('1 dato, 0 documentos')).toBeVisible()
+    expect(within(first).queryByText(/dato/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Trámite 6/ })).toBeVisible()
     expect(screen.queryByRole('link', { name: /Trámite 7/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver el catálogo completo' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('link', { name: 'Ver todos los trámites' })).toHaveAttribute('href', '/new')
     expect(screen.getByRole('button', { name: /Buscar en el catálogo/ })).toBeVisible()
   })
 

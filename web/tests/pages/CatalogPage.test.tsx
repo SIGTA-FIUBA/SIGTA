@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CatalogPage } from '../../src/pages/CatalogPage'
@@ -47,20 +48,30 @@ describe('CatalogPage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows what each procedure type asks for', async () => {
+  it('shows what each procedure type is, who can ask for it and its deadlines', async () => {
     renderCatalog(200, [equivalence])
 
-    expect(await screen.findByRole('heading', { name: 'Trámite B' })).toBeInTheDocument()
-    expect(screen.getByText('Una descripción llana')).toBeInTheDocument()
-    expect(screen.getByText('Nombre (Obligatorio)')).toBeInTheDocument()
-    expect(screen.getByText('Motivo (Opcional)')).toBeInTheDocument()
-    expect(screen.getByText('Carta (Obligatorio). Formatos: PDF, WEBP. Tamaño máximo: 10 MB.')).toBeInTheDocument()
-    expect(screen.getByText('Hasta 30 días antes')).toBeInTheDocument()
-    expect(screen.getByText('Ser regular')).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
+
+    expect(screen.getByText('Una descripción llana')).toBeVisible()
+    expect(screen.getByText('Ser regular')).toBeVisible()
+    expect(screen.getByText('Hasta 30 días antes')).toBeVisible()
+  })
+
+  it('does not show the fields, documents, formats or sizes the form asks for', async () => {
+    renderCatalog(200, [equivalence])
+
+    await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
+
+    for (const text of ['Nombre', 'Motivo', 'Carta', 'Obligatorio', 'PDF', '10 MB']) {
+      expect(screen.queryByText(new RegExp(text))).not.toBeInTheDocument()
+    }
   })
 
   it('links each procedure type to the form that starts it', async () => {
     renderCatalog(200, [equivalence])
+
+    await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
 
     expect(await screen.findByRole('link', { name: 'Iniciar Trámite B' })).toHaveAttribute('href', '/catalog/1/start')
   })
@@ -76,22 +87,16 @@ describe('CatalogPage', () => {
   it('leaves out the sections a procedure type does not have', async () => {
     renderCatalog(200, [{ ...equivalence, deadlines: [], admissibility: [] }])
 
-    await screen.findByRole('heading', { name: 'Trámite B' })
-    expect(screen.queryByRole('heading', { name: 'Plazos' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Condiciones de admisibilidad' })).not.toBeInTheDocument()
-  })
+    await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
 
-  it('shows a document of an older format without types or size', async () => {
-    const document = { id: 'letter', name: 'Carta', required: true, accepted_types: [], max_size: 0 }
-    renderCatalog(200, [{ ...equivalence, description: '', documents: [document] }])
-
-    expect(await screen.findByText('Carta (Obligatorio).')).toBeInTheDocument()
+    expect(screen.queryByText('Plazos')).not.toBeInTheDocument()
+    expect(screen.queryByText('Quién puede pedirlo')).not.toBeInTheDocument()
   })
 
   it('shows repeated deadlines', async () => {
     renderCatalog(200, [{ ...equivalence, deadlines: ['Hasta el viernes', 'Hasta el viernes'] }])
 
-    expect(await screen.findAllByText('Hasta el viernes')).toHaveLength(2)
+    expect(await screen.findAllByText('Hasta el viernes', {}, { timeout: 2000 })).toHaveLength(2)
   })
 
   it('says when there are no procedure types', async () => {

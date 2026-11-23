@@ -6,20 +6,13 @@ export type StartCardProps = {
   to: string
   name: string
   description?: string
-  // fields and documents are how many the procedure asks for at its start.
-  fields: number
-  documents: number
 }
 
-function count(value: number, one: string, many: string) {
-  return `${value} ${value === 1 ? one : many}`
-}
-
-// StartCard offers to start one procedure type: its name, what it is in two
-// lines at most, and what it asks for; on a phone, where the cards go one
-// under the other, only the name and what it asks for. The whole card is one link, a panel
-// that answers the pointer (Paper variant="interactive").
-export function StartCard({ to, name, description, fields, documents }: StartCardProps) {
+// StartCard offers to start one procedure type: its name and what it is in
+// two lines at most; on a phone, where the cards go one under the other, only
+// the name. What the procedure asks for is left to its form. The whole card is
+// one link, a panel that answers the pointer (Paper variant="interactive").
+export function StartCard({ to, name, description }: StartCardProps) {
   return (
     <Paper
       component={Link}
@@ -41,10 +34,7 @@ export function StartCard({ to, name, description, fields, documents }: StartCar
             </Text>
           )}
         </Stack>
-        <Group justify="space-between" wrap="nowrap">
-          <Text size="xs" c="gray.6">
-            {count(fields, 'dato', 'datos')}, {count(documents, 'documento', 'documentos')}
-          </Text>
+        <Group justify="flex-end" wrap="nowrap">
           <Box data-chevron aria-hidden>
             <Icon name="arrow-right" size={16} />
           </Box>

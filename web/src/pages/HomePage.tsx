@@ -1,4 +1,4 @@
-import { Alert, Anchor, Button, Grid, Group, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Alert, Anchor, Box, Button, Grid, Group, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
@@ -7,6 +7,7 @@ import { useApplicantTasks, useInboxProcedures, useMyProcedures } from '../api/p
 import type { components } from '../api/schema'
 import { EmptyState } from '../components/EmptyState/EmptyState'
 import { Icon } from '../components/Icon/Icon'
+import { PendingCard } from '../components/PendingCard/PendingCard'
 import { PendingRow } from '../components/PendingRow/PendingRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
@@ -19,10 +20,11 @@ import { applicantName, byLastMove, movedText, procedurePath } from '../content/
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
 
-// The home page shows the latest of each list, no more: the rest is in the
-// inbox, in "Mis trámites" and in the catalog.
+// The home page shows the latest of each list of the staff, no more: the rest
+// is in the inbox. An applicant sees every procedure in progress; the closed
+// ones are in the history ("Mis trámites"), and the rest of the procedure
+// types in the gallery of a new procedure.
 const pendingCount = 5
-const recentCount = 3
 const startCount = 6
 
 function plural(value: number, one: string, many: string) {
@@ -82,7 +84,8 @@ function LoadError() {
 }
 
 // ApplicantPending is what the person has to do on their own procedures: each
-// correction they have not answered, named by what it asks for.
+// correction they have not answered, named by what it asks for, as a card
+// that cannot be missed.
 function ApplicantPending() {
   const { tasks, procedures, isPending, isError } = useApplicantTasks()
   const count =
@@ -100,25 +103,28 @@ function ApplicantPending() {
       ) : tasks.length === 0 ? (
         <EmptyState title="Sin pendientes" text="Cuando un trámite pida algo, aparece acá." />
       ) : (
-        <ProcedureRows label="Pendientes">
-          {tasks.map((task) => (
-            <PendingRow
-              key={task.id}
-              to={procedurePath(task.procedureId)}
-              state={{ from: '/' }}
-              task={task.task}
-              context={task.context}
-            />
+        <SimpleGrid component="ul" aria-label="Pendientes" cols={{ base: 1, md: 2 }} spacing="md" p={0} m={0}>
+          {tasks.map((task, index) => (
+            <Box component="li" key={task.id} display="block">
+              <Reveal index={index}>
+                <PendingCard
+                  to={procedurePath(task.procedureId)}
+                  state={{ from: '/' }}
+                  task={task.task}
+                  context={task.context}
+                />
+              </Reveal>
+            </Box>
           ))}
-        </ProcedureRows>
+        </SimpleGrid>
       )}
     </Section>
   )
 }
 
 // NewProcedure gives weight to starting a procedure: the first types of the
-// catalog as cards, in rows of three that close, and the search of the
-// catalog.
+// catalog as cards, in rows of three that close, the search of the catalog
+// and the way to the whole gallery.
 function NewProcedure() {
   const catalog = useQuery(catalogQuery)
   const entries = catalog.data?.slice(0, startCount) ?? []
@@ -156,18 +162,12 @@ function NewProcedure() {
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 'xs', sm: 'md' }} w="100%">
             {entries.map((entry, index) => (
               <Reveal key={entry.id} index={index}>
-                <StartCard
-                  to={`/catalog/${entry.id}/start`}
-                  name={entry.name}
-                  description={entry.description}
-                  fields={entry.fields.length}
-                  documents={entry.documents.length}
-                />
+                <StartCard to={`/catalog/${entry.id}/start`} name={entry.name} description={entry.description} />
               </Reveal>
             ))}
           </SimpleGrid>
-          <Anchor component={Link} to="/catalog" size="sm" fw={600}>
-            Ver el catálogo completo
+          <Anchor component={Link} to="/new" size="sm" fw={600}>
+            Ver todos los trámites
           </Anchor>
         </Stack>
       )}
@@ -175,24 +175,25 @@ function NewProcedure() {
   )
 }
 
-// Recent is the person's latest procedures, three, by their last move; the
-// rest is in "Mis trámites".
-function Recent() {
+// InProgress is every procedure of the person that is not closed, by its
+// last move; the closed ones are in the history.
+function InProgress() {
   const myProcedures = useMyProcedures()
-  const recent = [...(myProcedures.data ?? [])].sort(byLastMove).slice(0, recentCount)
+  const inProgress = (myProcedures.data ?? []).filter((procedure) => procedure.state !== 'closed').sort(byLastMove)
   return (
     <Section
-      id="recent"
-      title="Trámites recientes"
+      id="in-progress"
+      title="Trámites en curso"
+      count={inProgress.length > 0 ? String(inProgress.length) : undefined}
       action={
         <Button
           component={Link}
           to="/my-procedures"
-          variant="subtle"
+          variant="default"
           size="compact-sm"
-          rightSection={<Icon name="arrow-right" size={16} />}
+          leftSection={<Icon name="files" size={16} />}
         >
-          Ver mis trámites
+          Historial
         </Button>
       }
     >
@@ -200,10 +201,10 @@ function Recent() {
         <LoadError />
       ) : myProcedures.isPending ? (
         <RowsLoading />
-      ) : recent.length === 0 ? (
-        <EmptyState title="Sin trámites" text="Los trámites que se inicien aparecen acá." />
+      ) : inProgress.length === 0 ? (
+        <EmptyState title="Sin trámites en curso" text="Los trámites que se inicien aparecen acá." />
       ) : (
-        <MyProcedureRows label="Trámites recientes" procedures={recent} from="/" />
+        <MyProcedureRows label="Trámites en curso" procedures={inProgress} from="/" />
       )}
     </Section>
   )
@@ -262,7 +263,7 @@ function Activity({ list }: { list: ProcedureList }) {
         <Text c="dimmed">Todavía no hay movimientos.</Text>
       ) : (
         <Reveal>
-          <List variant="timeline" aria-label="Movimientos recientes">
+          <List variant="timeline" size="sm" aria-label="Movimientos recientes">
             {items.map((item) => (
               <List.Item key={item.id}>
                 <Stack gap="xxs">
@@ -318,8 +319,9 @@ function StaffHome() {
 }
 
 // HomePage is what to do next, without a greeting: for the staff, what needs
-// action and the latest moves; for an applicant, what their procedures ask
-// for, the procedures to start and their latest procedures.
+// action and the latest moves; for an applicant, the way to start a
+// procedure on top, what their procedures ask for, the procedures in
+// progress and the procedures to start.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -327,14 +329,21 @@ export function HomePage() {
 
   return (
     <Stack gap="xl">
-      <Title order={1}>Inicio</Title>
+      <Group justify="space-between" align="center" gap="md">
+        <Title order={1}>Inicio</Title>
+        {!staff && (
+          <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
+            Nuevo trámite
+          </Button>
+        )}
+      </Group>
       {staff ? (
         <StaffHome />
       ) : (
         <Stack gap="xxl">
           <ApplicantPending />
+          <InProgress />
           <NewProcedure />
-          <Recent />
         </Stack>
       )}
     </Stack>

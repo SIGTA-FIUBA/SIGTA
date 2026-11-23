@@ -82,9 +82,16 @@ export function AppLayout() {
 
   const links: MenuLink[] = [
     { to: '/', label: 'Inicio', icon: 'home', active: pathname === '/' },
-    { to: '/my-procedures', label: 'Mis trámites', icon: 'files', active: pathname.startsWith('/my-procedures') },
+    // An applicant has their procedures in progress on the home page, and the
+    // rest behind its "Historial".
     ...(staff
       ? [
+          {
+            to: '/my-procedures',
+            label: 'Mis trámites',
+            icon: 'files' as const,
+            active: pathname.startsWith('/my-procedures'),
+          },
           {
             to: '/inbox',
             label: 'Bandeja de trámites',
