@@ -1,7 +1,6 @@
 import {
   Alert,
   Anchor,
-  Badge,
   Button,
   FileInput,
   Grid,
@@ -1009,13 +1008,9 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Stack gap="md">
               <Facts label="Resumen del trámite">
                 <Fact label="Estado">
-                  {state.attention ? (
-                    <Badge variant="filled" color="attention.7">
-                      {state.text}
-                    </Badge>
-                  ) : (
-                    <Text fw={600}>{state.text}</Text>
-                  )}
+                  <Text fw={state.attention ? 700 : 600} c={state.attention ? 'attention.7' : undefined}>
+                    {state.text}
+                  </Text>
                 </Fact>
                 <Fact label="Titular">
                   <Text>{personName(detail.applicant)}</Text>

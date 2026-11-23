@@ -15,7 +15,7 @@ const closeFormat = new Intl.DateTimeFormat('es-AR', {
 })
 
 // MyProcedureRows lists the person's own procedures: no applicant, and the
-// state in the third column, in an orange badge where something is required of them,
+// state in the third column, in bold orange where something is required of them,
 // so that every row keeps the same height.
 export function MyProcedureRows({
   label,
