@@ -36,6 +36,14 @@ describe('DocumentFile', () => {
     expect(link.getAttribute('download')).toBe('constancia.pdf')
   })
 
+  it('opens the file from its name, with no separate button to see it', () => {
+    render(<DocumentFile procedureId="P-1" file={pdf} />)
+
+    expect(screen.getByRole('button', { name: 'Ver constancia.pdf' }).textContent).toBe('constancia.pdf')
+    expect(screen.queryByText('Ver')).toBeNull()
+    expect(screen.queryByText('Descargar')).toBeNull()
+  })
+
   it('shows in bytes a file smaller than one KB', () => {
     render(<DocumentFile procedureId="P-1" file={{ ...pdf, size: 512 }} />)
 

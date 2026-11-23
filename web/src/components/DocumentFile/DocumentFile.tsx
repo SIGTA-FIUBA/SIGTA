@@ -1,6 +1,21 @@
-import { Alert, Box, Button, Group, Image, Loader, Modal, Stack, Text, useMantineTheme } from '@mantine/core'
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Box,
+  Button,
+  Group,
+  Image,
+  Loader,
+  Modal,
+  Stack,
+  Text,
+  Tooltip,
+  useMantineTheme,
+} from '@mantine/core'
 import { useEffect, useState } from 'react'
 import { canPreview, mediaTypeOf, sizeText } from '../../content/documentFormats'
+import { Icon } from '../Icon/Icon'
 
 type AttachedFile = {
   id: string
@@ -90,9 +105,9 @@ function DocumentContent({ procedureId, file }: { procedureId: string; file: Att
   }
 }
 
-// DocumentFile names an attached file and offers to see it in the page, when
-// the browser can show it, and to download it. Where files of several
-// procedures share a page, procedureName tells their buttons apart.
+// DocumentFile names an attached file and offers to download it. When the
+// browser can show it, the name itself opens it in the page. Where files of
+// several procedures share a page, procedureName tells their actions apart.
 export function DocumentFile({
   procedureId,
   file,
@@ -105,41 +120,60 @@ export function DocumentFile({
   const [opened, setOpened] = useState(false)
   const previewable = canPreview(file.media_type ?? mediaTypeOf(file.file_name))
   const label = procedureName === undefined ? file.file_name : `${file.file_name} de ${procedureName}`
-  const download = (
-    <Button
-      component="a"
-      href={contentUrl(procedureId, file.id)}
-      download={file.file_name}
-      variant="subtle"
-      size="compact-sm"
-      aria-label={`Descargar ${label}`}
-    >
-      Descargar
-    </Button>
-  )
+  const href = contentUrl(procedureId, file.id)
   return (
     <>
       <Group gap="xs" wrap="wrap">
-        <Text size="sm" miw={0}>
-          {file.file_name}
-        </Text>
+        {previewable ? (
+          <Anchor
+            component="button"
+            type="button"
+            size="sm"
+            miw={0}
+            aria-label={`Ver ${label}`}
+            onClick={() => setOpened(true)}
+          >
+            {file.file_name}
+          </Anchor>
+        ) : (
+          <Text size="sm" miw={0}>
+            {file.file_name}
+          </Text>
+        )}
         {file.size !== undefined && (
           <Text size="sm" c="dimmed">
             {sizeText(file.size)}
           </Text>
         )}
-        <Group gap={0}>
-          {previewable && (
-            <Button variant="subtle" size="compact-sm" aria-label={`Ver ${label}`} onClick={() => setOpened(true)}>
-              Ver
-            </Button>
-          )}
-          {download}
-        </Group>
+        <Tooltip label="Descargar">
+          <ActionIcon
+            component="a"
+            href={href}
+            download={file.file_name}
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={`Descargar ${label}`}
+          >
+            <Icon name="download" size={16} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
       <Modal opened={opened} onClose={() => setOpened(false)} title={file.file_name} fullScreen>
         <Stack gap="sm">
-          <Group>{download}</Group>
+          <Group>
+            <Button
+              component="a"
+              href={href}
+              download={file.file_name}
+              variant="outline"
+              size="compact-sm"
+              leftSection={<Icon name="download" size={16} />}
+              aria-label={`Descargar ${label}`}
+            >
+              Descargar
+            </Button>
+          </Group>
           <DocumentContent procedureId={procedureId} file={file} />
         </Stack>
       </Modal>
