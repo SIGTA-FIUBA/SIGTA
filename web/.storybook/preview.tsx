@@ -1,4 +1,5 @@
 import '@fontsource-variable/inter/wght.css'
+import '@fontsource-variable/montserrat/wght.css'
 import '@mantine/core/styles.css'
 import { MantineProvider } from '@mantine/core'
 import type { Preview } from '@storybook/react-vite'

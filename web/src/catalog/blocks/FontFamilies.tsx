@@ -10,6 +10,7 @@ export function FontFamilies() {
     { name: 'mono', stack: tokens.font.mono, note: families.mono.$description },
     { name: 'brand', stack: tokens.font.brand, note: families.brand.$description },
     { name: 'logo', stack: tokens.font.logo, note: families.logo.$description },
+    { name: 'landing', stack: tokens.font.landing, note: families.landing.$description },
   ]
   return (
     <Frame>

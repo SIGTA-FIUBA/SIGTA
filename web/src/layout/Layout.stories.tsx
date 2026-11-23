@@ -189,16 +189,10 @@ function Page({ user, path = '/', children }: { user: User | null; path?: string
   )
 }
 
-// The landing page counts the same catalog of three types.
+// The landing page reads nothing from the API.
 function Landing() {
-  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-  client.setQueryData(['procedure-types'], catalog)
   const router = createMemoryRouter([{ path: '*', element: <LoginPage /> }], { initialEntries: ['/login'] })
-  return (
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  )
+  return <RouterProvider router={router} />
 }
 
 const meta: Meta = {
@@ -248,7 +242,7 @@ export const LandingStory: StoryObj = {
     docs: {
       description: {
         story:
-          'La portada pública (`/login`), antes del ingreso: blanca y sin cajas, el título con el botón de Google y la nota de la cuenta de la UBA, y a la derecha el recorrido de un trámite que se traza y un punto recorre (se oculta en el celular). Debajo, en la grilla del inicio, cómo se realiza un trámite, cuántos trámites hay en el catálogo y los criterios, que entran al llegar a ellos.',
+          'La portada pública (`/login`), antes del ingreso, según su diseño (`SIGTA.ai`): el encabezado con los links públicos e "Iniciar sesión", el título con "trámites" en una etiqueta y el collage de fotos, lo que se puede hacer con SIGTA en tres tarjetas, cómo se trabaja y los criterios. Tiene su propio aspecto (`landing.module.css`): Montserrat y el azul marino y el cyan del logo. Desde md mantiene las proporciones del diseño; en el celular los bloques se apilan.',
       },
     },
   },

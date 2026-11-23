@@ -15,22 +15,33 @@ const paths = {
   'chevron-down': 'M6 9l6 6l6 -6',
   selector: 'M8 9l4 -4l4 4 M16 15l-4 4l-4 -4',
   info: 'M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 9h.01 M11 12h1v4h1',
+  // The icons of the landing page.
+  school: 'M22 9l-10 -4l-10 4l10 4l10 -4v6 M6 10.6v5.4a6 3 0 0 0 12 0v-5.4',
+  plus: 'M12 5l0 14 M5 12l14 0',
+  'arrow-right': 'M5 12l14 0 M13 18l6 -6 M13 6l6 6',
+  search: 'M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M21 21l-6 -6',
+  'file-pencil':
+    'M14 3v4a1 1 0 0 0 1 1h4 M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z M8 11h5 M8 14h3 M10 18l5 -5a1.414 1.414 0 0 0 -2 -2l-5 5v2h2z',
+  'settings-check':
+    'M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M10.5 12l1 1l2 -2',
 }
 
 export type IconName = keyof typeof paths
 
-// 20 in the navigation, 16 next to text.
-export type IconSize = 16 | 20
+// 20 in the navigation, 16 next to text. "fill" takes the size of its box,
+// which the theme sets, as the landing page does; its stroke is then weight,
+// on the 24 grid, since there is no size to scale it to.
+export type IconSize = 16 | 20 | 'fill'
 
-export function Icon({ name, size = 20 }: { name: IconName; size?: IconSize }) {
+export function Icon({ name, size = 20, weight = 2 }: { name: IconName; size?: IconSize; weight?: number }) {
   return (
     <svg
-      width={size}
-      height={size}
+      width={size === 'fill' ? '100%' : size}
+      height={size === 'fill' ? '100%' : size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={(tokens.layout.iconStroke * 24) / size}
+      strokeWidth={size === 'fill' ? weight : (tokens.layout.iconStroke * 24) / size}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

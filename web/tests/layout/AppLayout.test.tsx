@@ -154,7 +154,7 @@ describe('AppLayout', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Cuenta de Ana Titular' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }))
 
-    expect(await screen.findByRole('link', { name: 'Ingresar a SIGTA' })).toBeVisible()
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/login')
     expect(fetch).toHaveBeenCalledWith(
       expect.objectContaining({ method: 'POST', url: expect.stringMatching(/\/auth\/logout$/) }),

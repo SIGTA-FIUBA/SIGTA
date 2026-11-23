@@ -1,92 +1,70 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { render } from '../test-utils/render'
 import { LoginPage } from '../../src/pages/LoginPage'
 
-function catalogEntry(id: number, name: string) {
-  return {
-    id,
-    version: 1,
-    name,
-    description: `Descripción de ${name}`,
-    deadlines: [],
-    admissibility: [],
-    fields: [],
-    documents: [],
-    submission: { fields: [], documents: [] },
-  }
-}
-
-function renderAt(path: string, catalog: { status: number; body: unknown } = { status: 200, body: [] }) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => Response.json(catalog.body, { status: catalog.status })),
-  )
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderAt(path: string) {
   const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
     initialEntries: [path],
   })
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  )
+  render(<RouterProvider router={router} />)
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
 describe('LoginPage', () => {
-  it('leaves for the identity provider through the API', async () => {
+  it('leaves for the identity provider through the API', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Ingresar a SIGTA' })).toHaveAttribute('href', '/api/auth/login')
-    expect(screen.getByRole('link', { name: 'Ingresar' })).toHaveAttribute('href', '/api/auth/login')
-    // The first screen arrives with the page, in a frame.
-    await waitFor(() => expect(screen.getByText('Con tu cuenta institucional de la UBA.')).toBeVisible())
+    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('opens with what a visitor can do and leads to the requirements', () => {
+  it('leads to the public pages from its header, on the current one', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Tus trámites académicos')
-    expect(screen.getByRole('link', { name: 'Consultar requisitos' })).toHaveAttribute('href', '/catalog')
-    expect(
-      screen.getByRole('img', { name: 'Dos estudiantes repasan un apunte en un pasillo de la facultad.' }),
-    ).toBeInTheDocument()
-    // What SIGTA is and its criteria are in "Acerca de SIGTA", not here.
-    expect(screen.queryByRole('heading', { name: 'Cómo trabaja la plataforma' })).not.toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'SIGTA' })
+    expect(within(nav).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Trámites' })).toHaveAttribute('href', '/catalog')
+    expect(within(nav).getByRole('link', { name: 'Sobre SIGTA' })).toHaveAttribute('href', '/about')
   })
 
-  it('lists the available procedures by name, in alphabetical order', async () => {
-    const names = ['Readmisión', 'Equivalencia de asignaturas', 'Constancia de alumno regular']
-    renderAt('/login', { status: 200, body: names.map((name, index) => catalogEntry(index + 1, name)) })
-
-    const list = await screen.findByRole('list')
-    expect(
-      within(list)
-        .getAllByRole('listitem')
-        .map((item) => item.firstChild?.textContent),
-    ).toEqual(['Constancia de alumno regular', 'Equivalencia de asignaturas', 'Readmisión'])
-    expect(screen.getByText('Descripción de Readmisión')).toBeVisible()
-  })
-
-  it('says it once when the catalog is still empty', async () => {
+  it('opens with the headline and leads to what SIGTA offers', () => {
     renderAt('/login')
 
-    expect(await screen.findByText('Todavía no hay trámites publicados.')).toBeVisible()
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Una nueva forma de hacer trámites')
+    expect(screen.getByRole('link', { name: 'Conocé SIGTA' })).toHaveAttribute('href', '#que-podes-hacer')
+    expect(screen.getByRole('heading', { level: 2, name: '¿Qué podés hacer con SIGTA?' })).toHaveAttribute(
+      'id',
+      'que-podes-hacer',
+    )
   })
 
-  it('says it when the catalog does not load', async () => {
-    renderAt('/login', { status: 500, body: {} })
+  it('offers the inbox, the catalog and the administration, each with its way in', () => {
+    renderAt('/login')
 
-    expect(await screen.findByText('No se pudieron cargar los trámites. Volvé a intentarlo más tarde.')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ver más sobre Bandeja de trámites' })).toHaveAttribute(
+      'href',
+      '/api/auth/login',
+    )
+    expect(screen.getByRole('link', { name: 'Ver más sobre Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('link', { name: 'Ver más sobre Administración de SIGTA' })).toHaveAttribute(
+      'href',
+      '/about',
+    )
+  })
+
+  it('says how SIGTA is used and the criteria it follows, in order', () => {
+    renderAt('/login')
+
+    const steps = screen.getByRole('heading', { name: '¿Cómo se trabaja en SIGTA?' }).closest('section')
+    expect(
+      within(steps as HTMLElement)
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Bandeja de trámites', 'Registro de lo actuado', 'Seguimiento de derivaciones'])
+    const criteria = screen.getByRole('heading', { name: 'Criterios de la plataforma' }).closest('section')
+    expect(within(criteria as HTMLElement).getAllByRole('listitem')).toHaveLength(3)
   })
 
   it.each([
@@ -105,9 +83,13 @@ describe('LoginPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('El ingreso no se pudo completar.')
   })
 
-  it('signs with FIUBA in the top bar and in the footer', () => {
+  it('signs with SIGTA in the footer', () => {
     renderAt('/login')
 
-    expect(screen.getAllByRole('img', { name: 'Facultad de Ingeniería, Universidad de Buenos Aires' })).toHaveLength(2)
+    expect(
+      within(screen.getByRole('contentinfo')).getByRole('img', {
+        name: 'SIGTA, Sistema Integral de Gestión de Trámites Académicos',
+      }),
+    ).toBeInTheDocument()
   })
 })

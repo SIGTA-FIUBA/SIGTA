@@ -68,6 +68,19 @@ export const tokens = {
       MantineColorsTuple
     >,
     white: text('color.white'),
+    landing: {
+      navy: text('color.landing.navy'),
+      cyan: text('color.landing.cyan'),
+      card: text('color.landing.card'),
+      mist: text('color.landing.mist'),
+    },
+  },
+  gradient: {
+    login: text('gradient.login'),
+    pill: text('gradient.pill'),
+    banner: text('gradient.banner'),
+    plus: text('gradient.plus'),
+    veil: text('gradient.veil'),
   },
   primaryColor: text('theme.primaryColor'),
   primaryShade: value('theme.primaryShade') as 7,
@@ -77,6 +90,7 @@ export const tokens = {
     mono: stack('font.family.mono'),
     brand: stack('font.family.brand'),
     logo: stack('font.family.logo'),
+    landing: stack('font.family.landing'),
     // Mantine's bold is the semibold: no component draws a 700.
     weights: {
       regular: text('font.weight.regular'),
@@ -141,6 +155,7 @@ export const tokens = {
     signature: scaled('layout.signature'),
     measure: text('layout.measure'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
+    landing: { canvas: value('layout.landing.canvas') as number, content: value('layout.landing.content') as number },
   },
   component: {
     button: { radius: text('component.button.radius'), height: scaled('component.button.height') },

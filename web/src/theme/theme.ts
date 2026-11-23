@@ -1,5 +1,6 @@
 import {
   Alert,
+  Anchor,
   AppShell,
   Avatar,
   Badge,
@@ -8,6 +9,8 @@ import {
   type CSSVariablesResolver,
   createTheme,
   defaultVariantColorsResolver,
+  Group,
+  Image,
   Input,
   List,
   Menu,
@@ -28,6 +31,7 @@ import {
   type VariantColorsResolver,
 } from '@mantine/core'
 import classes from './interactions.module.css'
+import landing from './landing.module.css'
 import { tokens } from './tokens'
 import typography from './typography.module.css'
 
@@ -69,6 +73,14 @@ const controlHeight = (size: unknown, height: string, variable: string) =>
 // where it has to instead of running past its box. break-word, unlike
 // anywhere, does not narrow the box to fit the word broken up.
 const breakLongWords = { root: { overflowWrap: 'break-word' as const } }
+
+// The public landing page has a look of its own (landing.module.css): a
+// component with variant="landing-<name>" takes the class of that name, and
+// nothing else of the theme.
+const landingClass = (variant: string | undefined): string | undefined =>
+  variant?.startsWith('landing-')
+    ? (landing[variant.slice('landing-'.length).replace(/-(\w)/g, (_m, c: string) => c.toUpperCase())] ?? '')
+    : undefined
 
 const paperVariants: Record<string, string> = {
   interactive: classes.interactive,
@@ -161,18 +173,24 @@ export const theme = createTheme({
     // step is a variant="step" box, marked with data-selected or data-problem.
     Paper: Paper.extend({
       defaultProps: { radius: tokens.component.card.radius },
-      classNames: (_theme, props) => ({ root: paperVariants[props.variant ?? ''] ?? '' }),
+      classNames: (_theme, props) => ({
+        root: landingClass(props.variant) ?? paperVariants[props.variant ?? ''] ?? '',
+      }),
     }),
     // The greeting of the home page, which recedes on scroll
     // (variant="masthead"); a list of facts between rules (variant="facts");
     // a part of a page under a rule (variant="part"); a column that stays in
     // sight (variant="sticky").
     Stack: Stack.extend({
-      classNames: (_theme, props) => ({ root: stackVariants[props.variant ?? ''] ?? '' }),
+      classNames: (_theme, props) => ({
+        root: landingClass(props.variant) ?? stackVariants[props.variant ?? ''] ?? '',
+      }),
     }),
     // The figures of the home page, between rules (variant="figures").
     SimpleGrid: SimpleGrid.extend({
-      classNames: (_theme, props) => ({ root: props.variant === 'figures' ? classes.figures : '' }),
+      classNames: (_theme, props) => ({
+        root: landingClass(props.variant) ?? (props.variant === 'figures' ? classes.figures : ''),
+      }),
     }),
     // The steps of a procedure: an ordered list in columns (StepList). The
     // latest moves: a list on a vertical line, one mark per move
@@ -201,7 +219,7 @@ export const theme = createTheme({
       vars: (_theme, props) => ({
         root: controlHeight(props.size, tokens.component.button.height, '--button-height'),
       }),
-      classNames: { root: `${classes.touch} ${classes.control}` },
+      classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? `${classes.touch} ${classes.control}` }),
     }),
     // A state reads in its text: no capitals, caption at 600, 700 on 50.
     // variant="counter" is the count of the inbox in the menu.
@@ -257,19 +275,24 @@ export const theme = createTheme({
     // those of the home header and the size of the catalog.
     Text: Text.extend({
       styles: breakLongWords,
-      classNames: (_theme, props) => ({ root: textVariants[props.variant ?? ''] ?? '' }),
+      classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? textVariants[props.variant ?? ''] ?? '' }),
     }),
     Title: Title.extend({
       styles: breakLongWords,
       classNames: (_theme, props) => ({
         root:
-          props.variant === 'display'
+          landingClass(props.variant) ??
+          (props.variant === 'display'
             ? `${typography.title} ${typography.display}`
             : props.variant === 'section'
               ? `${typography.title} ${typography.section}`
-              : typography.title,
+              : typography.title),
       }),
     }),
+    // The links, the groups and the images of the landing page.
+    Anchor: Anchor.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
+    Group: Group.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
+    Image: Image.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
     // A long title, such as the name of a file, breaks instead of pushing the
     // close button out of the screen.
     Modal: Modal.extend({ styles: { title: { ...breakLongWords.root, minWidth: 0 } } }),
@@ -324,6 +347,18 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-focus-width': tokens.focus.width,
     '--sigta-focus-offset': tokens.focus.offset,
     '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),
+    '--sigta-landing-font': tokens.font.landing,
+    '--sigta-landing-canvas': String(tokens.layout.landing.canvas),
+    '--sigta-landing-content': String(tokens.layout.landing.content),
+    '--sigta-landing-navy': tokens.color.landing.navy,
+    '--sigta-landing-cyan': tokens.color.landing.cyan,
+    '--sigta-landing-card': tokens.color.landing.card,
+    '--sigta-landing-mist': tokens.color.landing.mist,
+    '--sigta-landing-login': tokens.gradient.login,
+    '--sigta-landing-pill': tokens.gradient.pill,
+    '--sigta-landing-banner': tokens.gradient.banner,
+    '--sigta-landing-plus': tokens.gradient.plus,
+    '--sigta-landing-veil': tokens.gradient.veil,
   },
   light: {
     '--mantine-color-dimmed': `var(--mantine-color-gray-${tokens.dimmedShade})`,

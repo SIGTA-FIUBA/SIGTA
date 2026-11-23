@@ -1,0 +1,827 @@
+/*
+ * The public landing page (LoginPage), drawn after its design (SIGTA.ai, 1536
+ * wide). It has a look of its own: Montserrat, the navy and cyan of the logo,
+ * rounded blocks. Only theme.ts uses these classes, as landing-* variants.
+ *
+ * From breakpoint.md (64em) the page keeps the proportions of the design: every
+ * measure is the one of the design times --u, a pixel of the design, which is
+ * a pixel at 1536 and shrinks with the screen below it. On a phone the same
+ * blocks stack, with measures of their own. The collage scales with its own
+ * width (--c, a pixel of its 542 wide drawing), on any screen.
+ */
+
+.page {
+  --u: 1px;
+  --radius: calc(24 * var(--u));
+  --mantine-font-family: var(--sigta-landing-font);
+  --mantine-font-family-headings: var(--sigta-landing-font);
+  color: var(--sigta-landing-navy);
+  background: var(--mantine-color-white);
+  min-height: 100dvh;
+  gap: 0;
+  font-family: var(--sigta-landing-font);
+}
+
+/* Mantine writes the font of the interface on each text; here they take the
+ * one of the page. */
+.page :is(p, a, span, li) {
+  font-family: inherit;
+}
+
+/* A title in lines of the design: each line stays whole. */
+.line {
+  display: block;
+}
+
+@media (min-width: 64em) {
+  .line {
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 64em) {
+  .page {
+    --u: min(1px, calc(100vw / var(--sigta-landing-canvas)));
+  }
+}
+
+/* The content, on the width of the design or the screen less its margins. */
+.main {
+  width: min(100% - 2.5rem, calc(var(--sigta-landing-content) * var(--u)));
+  margin-inline: auto;
+  gap: 0;
+}
+
+/* Header: the logo, the links and the login. On a phone the links go to a row
+ * of their own, under the logo and the login. */
+.header {
+  width: min(100% - 2.5rem, calc(var(--sigta-landing-content) * var(--u)));
+  margin-inline: auto;
+  padding-top: 1.25rem;
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  align-items: center;
+  row-gap: 1rem;
+}
+
+.logo {
+  height: 2.5rem;
+  width: auto;
+}
+
+.nav {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  gap: 0;
+}
+
+.navLink {
+  position: relative;
+  color: var(--sigta-landing-navy);
+  font-size: 1rem;
+  font-weight: 400;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  text-decoration: none;
+}
+
+/* The page the person is on is bold, with a short rule under its middle. */
+.navLink[aria-current='page'] {
+  font-weight: 700;
+}
+
+.navLink[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -0.3em;
+  width: 1em;
+  height: 0.12em;
+  border-radius: 1em;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.login,
+.discover,
+.more {
+  height: auto;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sigta-landing-font);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.login {
+  grid-row: 1;
+  grid-column: 2;
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: var(--sigta-landing-login);
+  color: var(--mantine-color-white);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.login:hover {
+  background: var(--sigta-landing-login);
+  filter: brightness(1.1);
+}
+
+/* Hero: the headline and the lead, and the collage. */
+.hero {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.heroText {
+  gap: 0;
+}
+
+.headline {
+  font-size: 2.375rem;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--sigta-landing-navy);
+}
+
+/* The word "trámites" of the headline, white on a tilted gradient tag. */
+.pill {
+  display: inline-block;
+  margin-block: -0.12em;
+  padding: 0.05em 0.22em 0.14em;
+  border-radius: 0.2em;
+  background: var(--sigta-landing-pill);
+  color: var(--mantine-color-white);
+  font: inherit;
+  line-height: 1;
+  transform: rotate(-2.5deg);
+}
+
+.lead {
+  margin-top: 1.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  color: var(--sigta-landing-navy);
+}
+
+/* On a phone the lead wraps where it fits, not where the design breaks it. */
+@media (max-width: 63.99em) {
+  .lead br {
+    display: none;
+  }
+}
+
+.discover {
+  margin-top: 2rem;
+  align-self: flex-start;
+  min-height: 3rem;
+  padding-inline: 1.25rem;
+  border: 2px solid var(--sigta-landing-navy);
+  border-radius: 0.625rem;
+  background: var(--mantine-color-white);
+  color: var(--sigta-landing-navy);
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.discover:hover {
+  background: var(--sigta-landing-navy);
+  color: var(--mantine-color-white);
+}
+
+.notice {
+  margin-top: 1.5rem;
+}
+
+/* The collage: two photographs and four shapes around them, at the places of
+ * the design, measured in pixels of its 542 wide drawing. */
+.collage {
+  --c: calc(100cqw / 542);
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+  aspect-ratio: 542 / 478;
+  flex-shrink: 0;
+  background: none;
+}
+
+.collage > * {
+  position: absolute;
+}
+
+.hall,
+.mate {
+  object-fit: cover;
+  border-radius: calc(24 * var(--c));
+}
+
+.hall {
+  left: calc(82 * var(--c));
+  top: calc(33 * var(--c));
+  width: calc(219 * var(--c));
+  height: calc(236 * var(--c));
+}
+
+.mate {
+  left: calc(45 * var(--c));
+  top: calc(291 * var(--c));
+  width: calc(293 * var(--c));
+  height: calc(186 * var(--c));
+}
+
+.square {
+  left: calc(325 * var(--c));
+  top: calc(91 * var(--c));
+  width: calc(216 * var(--c));
+  height: calc(220 * var(--c));
+  border-radius: calc(24 * var(--c));
+  background: var(--sigta-landing-navy);
+}
+
+.cap,
+.plus,
+.arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-white);
+}
+
+.cap {
+  left: calc(280 * var(--c));
+  top: calc(1.5 * var(--c));
+  width: calc(60 * var(--c));
+  height: calc(60 * var(--c));
+  padding: calc(14 * var(--c));
+  border-radius: 50%;
+  background: var(--sigta-landing-navy);
+  box-shadow: 0 0 0 calc(7 * var(--c)) var(--mantine-color-white);
+}
+
+.plus {
+  left: 0;
+  top: calc(206.5 * var(--c));
+  width: calc(60 * var(--c));
+  height: calc(60 * var(--c));
+  padding: calc(14 * var(--c));
+  border-radius: 50%;
+  background: var(--sigta-landing-plus);
+}
+
+.arrow {
+  left: calc(221 * var(--c));
+  top: calc(298 * var(--c));
+  width: calc(113 * var(--c));
+  height: calc(54 * var(--c));
+  padding: calc(5 * var(--c)) calc(30 * var(--c));
+  border-radius: calc(27 * var(--c));
+  background: var(--sigta-landing-cyan);
+  box-shadow: 0 0 0 calc(10 * var(--c)) var(--mantine-color-white);
+}
+
+/* The band that opens what SIGTA offers, with an arrow down in a circle. */
+.banner {
+  margin-top: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 1rem 1.25rem;
+  border-radius: 1rem;
+  background: var(--sigta-landing-banner);
+  scroll-margin-top: 1.5rem;
+}
+
+.bannerTitle {
+  font-size: 1.375rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--mantine-color-white);
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  background: var(--sigta-landing-mist);
+  color: var(--mantine-color-white);
+  display: flex;
+}
+
+/* The three cards, each with a notch at its bottom left where its link sits.
+ * The notch is white (::before), with a round inner corner; ::after rounds the
+ * two outer corners beside it, drawing the edge of an outlined card along
+ * them. */
+.cards {
+  margin-top: 1.25rem;
+}
+
+.card {
+  --bg: var(--sigta-landing-navy);
+  --edge: var(--bg);
+  --ink: var(--mantine-color-white);
+  --bw: 0px;
+  --nw: 10.4rem;
+  --nh: 3.7rem;
+  --r: 1.375rem;
+  position: relative;
+  min-height: 16rem;
+  padding: 1.75rem 1.5rem calc(var(--nh) + 1.25rem);
+  border: var(--bw) solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.card[data-tone='outline'] {
+  --bg: var(--mantine-color-white);
+  --edge: var(--sigta-landing-navy);
+  --ink: var(--sigta-landing-navy);
+  --bw: 2px;
+}
+
+.card[data-tone='cyan'] {
+  --bg: var(--sigta-landing-card);
+}
+
+.card::before,
+.card::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--bw));
+  bottom: calc(-1 * var(--bw));
+  pointer-events: none;
+}
+
+.card::before {
+  width: var(--nw);
+  height: var(--nh);
+  border-top: var(--bw) solid var(--edge);
+  border-right: var(--bw) solid var(--edge);
+  border-top-right-radius: var(--r);
+  background: var(--mantine-color-white);
+}
+
+.card::after {
+  --corner: radial-gradient(
+    circle at 100% 0,
+    transparent calc(var(--r) - var(--bw)),
+    var(--edge) calc(var(--r) - var(--bw)),
+    var(--edge) var(--r),
+    var(--mantine-color-white) var(--r)
+  );
+  width: calc(var(--nw) - var(--bw) + var(--r));
+  height: calc(var(--nh) + var(--r) - var(--bw));
+  background:
+    var(--corner) 0 0 / var(--r) var(--r) no-repeat,
+    var(--corner) calc(var(--nw) - var(--bw)) 100% / var(--r) var(--r) no-repeat;
+}
+
+.cardIcon {
+  display: block;
+  background: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--ink);
+}
+
+.cardTitle {
+  margin-top: 1rem;
+  font-size: 1.625rem;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.cardText {
+  max-width: 13.5em;
+  margin-top: 0.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+/* "Ver más", in the notch, as a tag of the color of its card. */
+.more {
+  position: absolute;
+  z-index: 1;
+  left: calc(-1 * var(--bw));
+  bottom: calc(-1 * var(--bw));
+  width: calc(var(--nw) - 0.8rem);
+  height: calc(var(--nh) - 0.7rem);
+  border: var(--bw) solid var(--edge);
+  border-radius: 10rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.more:hover {
+  background: var(--bg);
+  color: var(--ink);
+  filter: brightness(1.15);
+}
+
+.card[data-tone='outline'] .more:hover {
+  background: var(--sigta-landing-navy);
+  color: var(--mantine-color-white);
+  filter: none;
+}
+
+/* How SIGTA is used: a photograph under a navy veil with the title, and the
+ * three steps on navy. On a phone the photograph goes on top. */
+.how {
+  margin-top: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.howPhoto {
+  position: relative;
+  z-index: 1;
+  min-height: 11rem;
+  margin: 0 0.4rem -1.5rem;
+  display: flex;
+  align-items: center;
+  padding: 1.5rem 1.75rem;
+  border-radius: var(--radius);
+  background:
+    var(--sigta-landing-veil),
+    url('/photos/portada-mate.webp') 40% 60% / cover;
+  box-shadow: 0 0 0 0.5rem var(--mantine-color-white);
+}
+
+.howTitle {
+  max-width: 12em;
+  font-size: 1.625rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--mantine-color-white);
+}
+
+.howSteps {
+  padding: 3rem 1.5rem 2rem;
+  border-radius: var(--radius);
+  background: var(--sigta-landing-navy);
+  color: var(--mantine-color-white);
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.75rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.75rem;
+}
+
+.stepNumber {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgb(255 255 255 / 0.55);
+  border-radius: 50%;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--mantine-color-white);
+}
+
+.stepTitle {
+  font-size: 1.25rem;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--mantine-color-white);
+}
+
+.stepText {
+  grid-column: 1 / -1;
+  align-self: start;
+  font-size: 1rem;
+  line-height: 1.15;
+  color: var(--mantine-color-white);
+}
+
+/* The criteria: boxes with a navy edge, each one over the bottom of the one
+ * before, as cards in a stack. */
+.criteriaTitle {
+  margin-top: 3.5rem;
+  font-size: 1.625rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--sigta-landing-navy);
+}
+
+.criteria {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  gap: 0;
+}
+
+.criterion {
+  position: relative;
+  padding: 1.25rem 1.25rem calc(1.25rem + var(--radius));
+  border: 2px solid var(--sigta-landing-navy);
+  border-radius: var(--radius);
+  background: var(--mantine-color-white);
+}
+
+.criterion + .criterion {
+  margin-top: calc(-1 * var(--radius));
+}
+
+.criterion:last-child {
+  padding-bottom: 1.5rem;
+}
+
+.criterionTitle {
+  font-size: 1.125rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--sigta-landing-navy);
+}
+
+.criterionText {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--sigta-landing-navy);
+}
+
+.footer {
+  margin-top: 4rem;
+  min-height: 8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: var(--sigta-landing-navy);
+}
+
+.footerLogo {
+  height: 2.75rem;
+  width: auto;
+}
+
+/* From breakpoint.md, the layout of the design, in its measures. */
+@media (min-width: 64em) {
+  .header {
+    padding-top: calc(66 * var(--u));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    height: calc(60 * var(--u));
+  }
+
+  .nav {
+    margin-left: calc(80 * var(--u));
+    gap: calc(112 * var(--u));
+  }
+
+  .navLink {
+    font-size: calc(22.3 * var(--u));
+  }
+
+  .login {
+    width: calc(190 * var(--u));
+    height: calc(57 * var(--u));
+    min-height: 0;
+    padding: 0;
+    border-radius: calc(12 * var(--u));
+    font-size: calc(22.3 * var(--u));
+  }
+
+  .hero {
+    margin-top: calc(49 * var(--u));
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: calc(40 * var(--u));
+  }
+
+  .heroText {
+    padding-top: calc(95 * var(--u));
+  }
+
+  .headline {
+    font-size: calc(59.5 * var(--u));
+    line-height: 1.04;
+  }
+
+  .lead {
+    margin-top: calc(37 * var(--u));
+    font-size: calc(23.2 * var(--u));
+    line-height: 1.15;
+  }
+
+  .discover {
+    margin-top: calc(51 * var(--u));
+    width: calc(218 * var(--u));
+    height: calc(61 * var(--u));
+    min-height: 0;
+    padding: 0;
+    border-width: calc(2 * var(--u));
+    border-radius: calc(12 * var(--u));
+    font-size: calc(23.4 * var(--u));
+  }
+
+  .notice {
+    margin-top: calc(24 * var(--u));
+  }
+
+  .collage {
+    width: calc(542 * var(--u));
+    max-width: none;
+    margin: 0;
+  }
+
+  .banner {
+    margin-top: calc(63 * var(--u));
+    height: calc(96 * var(--u));
+    padding: 0 calc(27 * var(--u)) 0 calc(35 * var(--u));
+    border-radius: var(--radius);
+  }
+
+  .bannerTitle {
+    font-size: calc(37.7 * var(--u));
+  }
+
+  .chevron {
+    width: calc(53 * var(--u));
+    height: calc(53 * var(--u));
+    padding: calc(12 * var(--u));
+  }
+
+  .cards {
+    margin-top: calc(28 * var(--u));
+    gap: calc(31 * var(--u));
+  }
+
+  .card {
+    --nw: calc(166 * var(--u));
+    --nh: calc(59 * var(--u));
+    --r: calc(22 * var(--u));
+    min-height: calc(316 * var(--u));
+    padding: calc(35 * var(--u)) calc(30 * var(--u)) calc(59 * var(--u) + 20 * var(--u));
+  }
+
+  .card[data-tone='outline'] {
+    --bw: calc(2 * var(--u));
+  }
+
+  /* The icon draws on 18 of its 24: its box goes past the 50 of the
+   * design, which its drawing fills. */
+  .cardIcon {
+    width: calc(64 * var(--u));
+    height: calc(64 * var(--u));
+    margin: calc(-7 * var(--u));
+  }
+
+  .cardTitle {
+    margin-top: calc(20 * var(--u));
+    font-size: calc(33.85 * var(--u));
+    line-height: 1.02;
+  }
+
+  .cardText {
+    margin-top: calc(6 * var(--u));
+    font-size: calc(21.46 * var(--u));
+    line-height: 1.05;
+  }
+
+  .more {
+    width: calc(153 * var(--u));
+    height: calc(48 * var(--u));
+    font-size: calc(21 * var(--u));
+  }
+
+  .how {
+    margin-top: calc(70 * var(--u));
+    height: calc(254 * var(--u));
+    flex-direction: row;
+  }
+
+  .howPhoto {
+    flex: 0 0 calc(309 * var(--u));
+    min-height: 0;
+    margin: calc(6 * var(--u)) calc(-24 * var(--u)) calc(6 * var(--u)) 0;
+    padding: 0 calc(30 * var(--u)) 0 calc(47 * var(--u));
+    box-shadow: 0 0 0 calc(8 * var(--u)) var(--mantine-color-white);
+  }
+
+  .howTitle {
+    max-width: calc(210 * var(--u));
+    font-size: calc(37.7 * var(--u));
+    line-height: 0.94;
+  }
+
+  .howSteps {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 calc(58 * var(--u)) 0 calc(99 * var(--u));
+  }
+
+  .steps {
+    width: 100%;
+    grid-template-columns: 205fr 232fr 258fr;
+    column-gap: calc(63 * var(--u));
+  }
+
+  .step {
+    column-gap: calc(11 * var(--u));
+    row-gap: calc(14 * var(--u));
+  }
+
+  .stepNumber {
+    width: calc(44 * var(--u));
+    height: calc(44 * var(--u));
+    font-size: calc(25.5 * var(--u));
+  }
+
+  .stepTitle {
+    font-size: calc(25.5 * var(--u));
+  }
+
+  .stepText {
+    font-size: calc(17.6 * var(--u));
+    line-height: 1.02;
+  }
+
+  .criteriaTitle {
+    margin-top: calc(70 * var(--u));
+    font-size: calc(37.7 * var(--u));
+  }
+
+  .criteria {
+    margin-top: calc(22 * var(--u));
+  }
+
+  .criterion {
+    padding: calc(28 * var(--u)) calc(42 * var(--u)) calc(30 * var(--u) + var(--radius));
+    border-width: calc(2 * var(--u));
+  }
+
+  .criterion:last-child {
+    padding-bottom: calc(34 * var(--u));
+  }
+
+  .criterionTitle {
+    font-size: calc(26.4 * var(--u));
+  }
+
+  .criterionText {
+    margin-top: calc(4 * var(--u));
+    font-size: calc(23.2 * var(--u));
+    line-height: 1.03;
+  }
+
+  .footer {
+    margin-top: calc(85 * var(--u));
+    height: calc(186 * var(--u));
+  }
+
+  .footerLogo {
+    height: calc(59 * var(--u));
+  }
+}

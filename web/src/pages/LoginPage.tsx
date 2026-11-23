@@ -1,28 +1,9 @@
-import {
-  Alert,
-  Anchor,
-  AppShell,
-  Box,
-  Button,
-  Container,
-  Divider,
-  Grid,
-  Group,
-  Image,
-  Skeleton,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { Alert, Anchor, Button, Group, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import { Fragment } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
-import { BrandSignature } from '../components/BrandSignature/BrandSignature'
-import { PageSection } from '../components/PageSection/PageSection'
-import { Reveal } from '../components/Reveal/Reveal'
-import { AppHeader } from '../layout/AppHeader'
-import { tokens } from '../theme/tokens'
+import { Icon, type IconName } from '../components/Icon/Icon'
+import { principles, staffHowTo } from '../content/platform'
 
 type LoginError = components['schemas']['LoginError']
 
@@ -41,132 +22,237 @@ function loginErrorText(error: string | null): string | undefined {
   return Object.hasOwn(loginErrorTexts, error) ? loginErrorTexts[error as LoginError] : loginErrorTexts.rejected
 }
 
-// AvailableProcedures lists the procedures already in SIGTA by name, read
-// from the catalog, right after the opening: it is what a visitor came to
-// find. Their requirements are in the catalog, which the opening leads to.
-function AvailableProcedures() {
-  const catalog = useQuery(catalogQuery)
-  const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
+const loginUrl = '/api/auth/login'
 
+// The login is a page of the backend: its link loads it instead of routing.
+// lines is where the design breaks the title: the number of words of its
+// first line.
+type Offer = {
+  icon: IconName
+  title: string
+  lines: number
+  text: string
+  tone: 'outline' | 'cyan' | 'navy'
+  to: string
+}
+
+// What a visitor can do with SIGTA, each card with its way in: the inbox
+// asks for the login, the catalog is public and the administration is the
+// page about SIGTA, with whom to contact.
+const offers: Offer[] = [
+  {
+    icon: 'file-pencil',
+    title: 'Bandeja de trámites',
+    lines: 1,
+    text: 'Revisá el estado de tus trámites en curso.',
+    tone: 'outline',
+    to: loginUrl,
+  },
+  {
+    icon: 'search',
+    title: 'Catálogo de trámites',
+    lines: 1,
+    text: 'Requisitos y plazos de cada trámite.',
+    tone: 'cyan',
+    to: '/catalog',
+  },
+  {
+    icon: 'settings-check',
+    title: 'Administración de SIGTA',
+    lines: 1,
+    text: 'Comunicate con nosotros para despejar tus dudas.',
+    tone: 'navy',
+    to: '/about',
+  },
+]
+
+// Lines writes a title in the lines of the design, which break it where
+// they end; between them a space keeps the words apart for a screen reader.
+function Lines({ lines }: { lines: string[] }) {
+  return lines.map((line, index) => (
+    <Fragment key={line}>
+      {index > 0 && ' '}
+      <Text component="span" inherit variant="landing-line">
+        {line}
+      </Text>
+    </Fragment>
+  ))
+}
+
+// The title in two lines, the first one of words words.
+const twoLines = (text: string, words: number) => {
+  const all = text.split(' ')
+  return [all.slice(0, words).join(' '), all.slice(words).join(' ')]
+}
+
+// The first lines of the titles of the steps, as the design breaks them.
+const stepLines = [1, 2, 1]
+
+function OfferCard({ offer }: { offer: Offer }) {
   return (
-    <PageSection id="catalog" title="Trámites disponibles">
-      {catalog.isPending && <Skeleton h="var(--sigta-figures-height)" aria-label="Cargando los trámites" />}
-      {catalog.isError && <Text c="gray.7">No se pudieron cargar los trámites. Volvé a intentarlo más tarde.</Text>}
-      {catalog.isSuccess && entries.length === 0 && <Text c="gray.7">Todavía no hay trámites publicados.</Text>}
-      {catalog.isSuccess && entries.length > 0 && (
-        <Stack component="ul" gap="md" p={0} m={0}>
-          {entries.map((entry) => (
-            <Stack key={entry.id} component="li" variant="part" gap="xxs">
-              <Text fw={600}>{entry.name}</Text>
-              {entry.description !== '' && (
-                <Text size="sm" c="gray.7" maw="var(--sigta-measure)" lineClamp={2}>
-                  {entry.description}
-                </Text>
-              )}
-            </Stack>
-          ))}
-        </Stack>
-      )}
-    </PageSection>
+    <Paper variant="landing-card" mod={{ tone: offer.tone }}>
+      <Paper variant="landing-card-icon" aria-hidden>
+        <Icon name={offer.icon} size="fill" weight={1.6} />
+      </Paper>
+      <Title order={3} variant="landing-card-title">
+        <Lines lines={twoLines(offer.title, offer.lines)} />
+      </Title>
+      <Text variant="landing-card-text">{offer.text}</Text>
+      <Button
+        component={Link}
+        to={offer.to}
+        reloadDocument={offer.to === loginUrl}
+        variant="landing-more"
+        aria-label={`Ver más sobre ${offer.title}`}
+      >
+        Ver más
+      </Button>
+    </Paper>
   )
 }
 
-// LoginPage is the public landing page. It answers the two questions a
-// visitor arrives with: what is needed to start a procedure, and what
-// happened to the one already presented. It is white and without boxes, on
-// the width of the content from the top bar to the footer: the headline and
-// the login on the left, a photograph of the faculty on the right, and below,
-// the procedures available by name. What SIGTA is and the criteria it follows
-// are in "Acerca de SIGTA".
+// The photographs of the hero, among the shapes of the brand. It only
+// decorates: the headline says what the page is about.
+function Collage() {
+  return (
+    <Paper variant="landing-collage" aria-hidden>
+      <Image variant="landing-hall" src="/photos/portada-pasillo.webp" alt="" />
+      <Paper variant="landing-square" />
+      <Paper variant="landing-cap">
+        <Icon name="school" size="fill" weight={1.75} />
+      </Paper>
+      <Paper variant="landing-plus">
+        <Icon name="plus" size="fill" weight={2.5} />
+      </Paper>
+      <Image variant="landing-mate" src="/photos/portada-mate.webp" alt="" />
+      <Paper variant="landing-arrow">
+        <Icon name="arrow-right" size="fill" weight={2} />
+      </Paper>
+    </Paper>
+  )
+}
+
+// LoginPage is the public landing page, drawn after its design (SIGTA.ai):
+// a header with the links of the public pages and the login, the headline
+// beside a collage of the faculty, what SIGTA offers in three cards, how the
+// staff works in it and the criteria it follows. Its look is its own
+// (landing.module.css, the landing-* variants): Montserrat, the navy and cyan
+// of the logo, rounded blocks.
 export function LoginPage() {
   const [params] = useSearchParams()
   const message = loginErrorText(params.get('error'))
 
   return (
-    <AppShell header={{ height: tokens.layout.topBar }}>
-      <AppShell.Header>
-        <AppHeader
-          signature
-          contained
-          end={
-            <>
-              <Button component={Link} to="/catalog" variant="subtle" visibleFrom="sm">
-                Catálogo de trámites
-              </Button>
-              <Button component={Link} to="/about" variant="subtle" visibleFrom="sm">
-                Acerca de SIGTA
-              </Button>
-              <Button component="a" href="/api/auth/login" variant="outline">
-                Ingresar
-              </Button>
-            </>
-          }
-        />
-      </AppShell.Header>
+    <Stack variant="landing-page">
+      <Group component="header" variant="landing-header">
+        <Anchor component={Link} to="/login" aria-label="SIGTA, inicio">
+          <Image variant="landing-logo" src="/brand/sigta-horizontal-descriptor-color.svg" alt="" />
+        </Anchor>
+        <Group component="nav" variant="landing-nav" aria-label="SIGTA">
+          <Anchor component={Link} to="/login" variant="landing-nav-link" aria-current="page">
+            Inicio
+          </Anchor>
+          <Anchor component={Link} to="/catalog" variant="landing-nav-link">
+            Trámites
+          </Anchor>
+          <Anchor component={Link} to="/about" variant="landing-nav-link">
+            Sobre SIGTA
+          </Anchor>
+        </Group>
+        <Button component="a" href={loginUrl} variant="landing-login">
+          Iniciar sesión
+        </Button>
+      </Group>
 
-      <AppShell.Main>
-        <Container py={{ base: 'xl', md: 'xxl' }}>
-          <Stack gap="xxxl">
-            <Grid component="section" aria-labelledby="hero" gap={{ base: 'xl', lg: 'xxl' }} align="center">
-              <Grid.Col span={{ base: 12, md: 7 }}>
-                <Stack gap="lg">
-                  <Reveal>
-                    <Title order={1} id="hero" variant="display" c="fiuba.9">
-                      Tus trámites académicos
-                    </Title>
-                  </Reveal>
-                  <Reveal index={1}>
-                    <Text size="lg" c="gray.7" maw="var(--sigta-measure)">
-                      Consultá qué necesitás para iniciar una solicitud. Si ya la presentaste, podés ver qué área la
-                      está revisando y si tenés que completar algo.
-                    </Text>
-                  </Reveal>
-                  {message && <Alert color="red">{message}</Alert>}
-                  <Reveal index={2}>
-                    <Stack gap="xs">
-                      <Group gap="lg">
-                        <Button component="a" href="/api/auth/login" size="lg">
-                          Ingresar a SIGTA
-                        </Button>
-                        <Anchor component={Link} to="/catalog" fw={600}>
-                          Consultar requisitos
-                        </Anchor>
-                      </Group>
-                      <Text size="sm" c="gray.7">
-                        Con tu cuenta institucional de la UBA.
-                      </Text>
-                    </Stack>
-                  </Reveal>
-                </Stack>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, md: 5 }}>
-                <Reveal index={3}>
-                  <Image
-                    src="/photos/portada-pasillo.jpg"
-                    alt="Dos estudiantes repasan un apunte en un pasillo de la facultad."
-                  />
-                </Reveal>
-              </Grid.Col>
-            </Grid>
-
-            <Reveal inView>
-              <AvailableProcedures />
-            </Reveal>
-          </Stack>
-        </Container>
-
-        <Box component="footer" mt="xxl">
-          <Divider />
-          <Container py="lg">
-            <Group justify="space-between" gap="md">
-              <BrandSignature />
-              <Text size="sm" c="gray.7">
-                Secretaría de Gestión Académica, Facultad de Ingeniería, Universidad de Buenos Aires
+      <Stack component="main" variant="landing-main">
+        <Stack component="section" variant="landing-hero" aria-labelledby="hero">
+          <Stack variant="landing-hero-text">
+            <Title order={1} id="hero" variant="landing-headline">
+              Una nueva forma <br />
+              de hacer{' '}
+              <Text component="span" variant="landing-pill">
+                trámites
               </Text>
-            </Group>
-          </Container>
-        </Box>
-      </AppShell.Main>
-    </AppShell>
+            </Title>
+            <Text variant="landing-lead">
+              <strong>SIGTA</strong> nace para que hacer trámites académicos <br />
+              sea más sencillo, desde el inicio hasta su finalización.
+            </Text>
+            {message && (
+              <Stack variant="landing-notice">
+                <Alert color="red">{message}</Alert>
+              </Stack>
+            )}
+            <Button component="a" href="#que-podes-hacer" variant="landing-discover">
+              Conocé SIGTA
+            </Button>
+          </Stack>
+          <Collage />
+        </Stack>
+
+        <Stack component="section" gap={0} aria-labelledby="que-podes-hacer">
+          <Paper variant="landing-banner">
+            <Title order={2} id="que-podes-hacer" variant="landing-banner-title">
+              ¿Qué podés hacer con SIGTA?
+            </Title>
+            <Paper variant="landing-chevron" aria-hidden>
+              <Icon name="chevron-down" size="fill" weight={2.5} />
+            </Paper>
+          </Paper>
+          <SimpleGrid variant="landing-cards" cols={{ base: 1, md: 3 }}>
+            {offers.map((offer) => (
+              <OfferCard key={offer.title} offer={offer} />
+            ))}
+          </SimpleGrid>
+        </Stack>
+
+        <Stack component="section" variant="landing-how" aria-labelledby="como-se-trabaja">
+          <Paper variant="landing-how-photo">
+            <Title order={2} id="como-se-trabaja" variant="landing-how-title">
+              <Lines lines={['¿Cómo', 'se trabaja', 'en SIGTA?']} />
+            </Title>
+          </Paper>
+          <Paper variant="landing-how-steps">
+            <Stack component="ol" variant="landing-steps">
+              {staffHowTo.map((step, index) => (
+                <Stack key={step.title} component="li" variant="landing-step">
+                  <Text component="span" variant="landing-step-number" aria-hidden>
+                    {index + 1}
+                  </Text>
+                  <Title order={3} variant="landing-step-title">
+                    <Lines lines={twoLines(step.title, stepLines[index] ?? 1)} />
+                  </Title>
+                  <Text variant="landing-step-text">{step.text}</Text>
+                </Stack>
+              ))}
+            </Stack>
+          </Paper>
+        </Stack>
+
+        <Stack component="section" gap={0} aria-labelledby="criterios">
+          <Title order={2} id="criterios" variant="landing-criteria-title">
+            Criterios de la plataforma
+          </Title>
+          <Stack component="ul" variant="landing-criteria">
+            {principles.map((principle) => (
+              <Paper key={principle.title} component="li" variant="landing-criterion">
+                <Title order={3} variant="landing-criterion-title">
+                  {principle.title}
+                </Title>
+                <Text variant="landing-criterion-text">{principle.text}</Text>
+              </Paper>
+            ))}
+          </Stack>
+        </Stack>
+      </Stack>
+
+      <Paper component="footer" variant="landing-footer">
+        <Image
+          variant="landing-footer-logo"
+          src="/brand/sigta-horizontal-descriptor-white.svg"
+          alt="SIGTA, Sistema Integral de Gestión de Trámites Académicos"
+        />
+      </Paper>
+    </Stack>
   )
 }

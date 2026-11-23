@@ -36,7 +36,7 @@ describe('routes', () => {
     stubApi({ session: false })
     const router = renderAt('/')
 
-    expect(await screen.findByRole('link', { name: 'Ingresar a SIGTA' })).toBeVisible()
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/login')
   })
 

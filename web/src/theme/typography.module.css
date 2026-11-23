@@ -8,7 +8,7 @@
   letter-spacing: var(--sigta-tracking-title);
 }
 
-/* The headline of the landing page (Title variant="display"). */
+/* The headline of a page (Title variant="display"). */
 .display {
   font-size: var(--sigta-display-size);
   line-height: var(--sigta-display-line-height);
@@ -16,7 +16,7 @@
   text-wrap: balance;
 }
 
-/* The titles of the sections of the landing page (Title variant="section"). */
+/* The titles of the sections of a page (Title variant="section"). */
 .section {
   font-size: var(--sigta-section-size);
   line-height: var(--sigta-section-line-height);
