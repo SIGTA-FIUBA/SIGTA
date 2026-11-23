@@ -1,4 +1,4 @@
-import { Box, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
+import { Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { Link } from 'react-router'
 import { Icon } from '../Icon/Icon'
 
@@ -8,10 +8,10 @@ export type StartCardProps = {
   description?: string
 }
 
-// StartCard offers to start one procedure type: a mark of a form, its name
-// and what it is in three lines at most; on a phone, where the cards go one
-// under the other, only the name. What the procedure asks for is left to its
-// form. The whole card is one link, a panel that answers the pointer (Paper
+// StartCard offers to start one procedure type: its name and what it is in
+// three lines at most; on a phone, where the cards go one under the other,
+// only the name. What the procedure asks for is left to its form. The whole
+// card is one link, a panel that answers the pointer (Paper
 // variant="interactive").
 export function StartCard({ to, name, description }: StartCardProps) {
   return (
@@ -27,20 +27,15 @@ export function StartCard({ to, name, description }: StartCardProps) {
       h="100%"
     >
       <Stack gap="md" flex={1} justify="space-between">
-        <Stack gap="sm">
-          <ThemeIcon variant="light" color="fiuba" size="xl" radius="md" visibleFrom="sm" aria-hidden>
-            <Icon name="file-text" />
-          </ThemeIcon>
-          <Stack gap="xxs">
-            <Text fw={700} size="lg">
-              {name}
+        <Stack gap="xxs">
+          <Text fw={700} size="lg">
+            {name}
+          </Text>
+          {description && (
+            <Text size="sm" c="gray.7" lineClamp={3} visibleFrom="sm">
+              {description}
             </Text>
-            {description && (
-              <Text size="sm" c="gray.7" lineClamp={3} visibleFrom="sm">
-                {description}
-              </Text>
-            )}
-          </Stack>
+          )}
         </Stack>
         <Group justify="flex-end" wrap="nowrap" c="fiuba.7">
           <Box data-chevron aria-hidden>

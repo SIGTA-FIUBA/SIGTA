@@ -10,7 +10,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'Un tipo de trámite para iniciar, en el inicio y en la galería: el icono de documento en la marca (`ThemeIcon` light, desde breakpoint.sm), el nombre en negrita grande y la descripción en tres líneas a lo sumo; lo que pide queda para el formulario. Toda la tarjeta es un enlace (`Paper variant="interactive"`): con el puntero el fondo pasa a `surface-hover` y la flecha avanza en `action-600`. Van en una grilla de tres columnas que cierra las filas.',
+          'Un tipo de trámite para iniciar, en el inicio y en la galería: el nombre, sin icono, en negrita grande y la descripción en tres líneas a lo sumo; lo que pide queda para el formulario. Toda la tarjeta es un enlace (`Paper variant="interactive"`): con el puntero el fondo pasa a `surface-hover` y la flecha avanza en `action-600`. Van en una grilla de tres columnas que cierra las filas.',
       },
     },
   },
