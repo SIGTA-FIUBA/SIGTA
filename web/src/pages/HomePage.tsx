@@ -25,22 +25,16 @@ type ProcedureList = components['schemas']['ProcedureList']
 const pendingCount = 5
 const startCount = 6
 
-function plural(value: number, one: string, many: string) {
-  return `${value} ${value === 1 ? one : many}`
-}
-
-// Section is a part of the home page: its title, a count in gray after it,
-// what it offers on the right, and its content below.
+// Section is a part of the home page: its title, what it offers on the
+// right, and its content below.
 function Section({
   id,
   title,
-  count,
   action,
   children,
 }: {
   id: string
   title: string
-  count?: string
   action?: ReactNode
   children: ReactNode
 }) {
@@ -49,12 +43,6 @@ function Section({
       <Group justify="space-between" align="center" gap="md">
         <Title order={2} id={id}>
           {title}
-          {count && (
-            <Text component="span" c="gray.6" fw={500} inherit>
-              {' '}
-              {count}
-            </Text>
-          )}
         </Title>
         {action}
       </Group>
@@ -85,15 +73,9 @@ function LoadError() {
 // correction they have not answered, named by what it asks for, as a card
 // that cannot be missed.
 function ApplicantPending() {
-  const { tasks, procedures, isPending, isError } = useApplicantTasks()
-  const count =
-    tasks.length === 0
-      ? undefined
-      : procedures > 1
-        ? `${tasks.length}, de ${plural(procedures, 'trámite', 'trámites')}`
-        : String(tasks.length)
+  const { tasks, isPending, isError } = useApplicantTasks()
   return (
-    <Section id="pending" title="Pendientes" count={count}>
+    <Section id="pending" title="Pendientes">
       {isError ? (
         <LoadError />
       ) : isPending ? (
@@ -167,7 +149,6 @@ function InProgress() {
     <Section
       id="in-progress"
       title="Trámites en curso"
-      count={inProgress.length > 0 ? String(inProgress.length) : undefined}
       action={
         <Button component={Link} to="/my-procedures" variant="default" leftSection={<Icon name="history" size={16} />}>
           Historial
@@ -195,7 +176,6 @@ function StaffPending({ list }: { list: ProcedureList }) {
     <Section
       id="pending"
       title="Pendientes"
-      count={items.length > 0 ? String(items.length) : undefined}
       action={
         items.length > pendingCount && (
           <Button

@@ -91,7 +91,6 @@ export function useApplicantTasks() {
   )
   return {
     tasks,
-    procedures: ids.length,
     isPending: mine.isPending || details.some((detail) => detail.isPending),
     isError: mine.isError || details.some((detail) => detail.isError),
   }

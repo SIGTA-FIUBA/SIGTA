@@ -79,7 +79,7 @@ describe('MyProceduresPage', () => {
     expect(within(first).getByText('En Secretaría')).toBeVisible()
     const second = within(list).getByRole('link', { name: /Reconocimiento de créditos/ })
     expect(within(second).getByText('Acción requerida')).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'En curso (2)' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'En curso' })).toBeVisible()
     expect(screen.getByRole('heading', { level: 1, name: 'Historial' })).toBeVisible()
   })
 

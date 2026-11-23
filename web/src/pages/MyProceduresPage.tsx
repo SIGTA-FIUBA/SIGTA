@@ -46,7 +46,7 @@ function ClosedResolutions({ procedures }: { procedures: MyProcedure[] }) {
   )
 }
 
-// Section is a group of the page: its title with the count, and its rows.
+// Section is a group of the page: its title and its rows.
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <Stack component="section" gap="md" aria-labelledby={id}>
@@ -105,12 +105,12 @@ export function MyProceduresPage() {
         <Text c="dimmed">Ningún trámite coincide con “{search}”.</Text>
       )}
       {inProgress.length > 0 && (
-        <Section id="in-progress" title={`En curso (${inProgress.length})`}>
+        <Section id="in-progress" title="En curso">
           <MyProcedureRows label="Trámites en curso" procedures={inProgress} from="/my-procedures" />
         </Section>
       )}
       {closed.length > 0 && (
-        <Section id="closed" title={`Cerrados (${closed.length})`}>
+        <Section id="closed" title="Cerrados">
           <Stack gap="xl">
             <MyProcedureRows label="Trámites cerrados" procedures={closed} from="/my-procedures" />
             <ClosedResolutions procedures={closed} />
