@@ -1,4 +1,4 @@
-import { Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { Link, useViewTransitionState } from 'react-router'
 import { Icon } from '../Icon/Icon'
 import { rowColumns } from './columns'
@@ -16,7 +16,7 @@ export type ProcedureRowProps = {
   // standing is the third column: who acts now in the lists of the staff
   // ("A cargo de" an area), the state in the lists of the person's own
   // procedures. Its label is said on a phone and by the column heading on a
-  // wide screen. attention marks, in the action color, that the person has to act.
+  // wide screen. attention marks, in an orange badge, that the person has to act.
   standing: { label?: string; text: string; attention?: boolean }
   // note is something the person has to do, such as a step to act on.
   note?: string
@@ -64,7 +64,7 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
               </Text>
             )}
             {note && (
-              <Text size="sm" fw={600} c="fiuba.7">
+              <Text size="sm" fw={600} c="attention.7">
                 {note}
               </Text>
             )}
@@ -73,20 +73,22 @@ export function ProcedureRow({ to, state, type, applicant, step, standing, note,
             <Text size="sm" miw={0} flex={{ md: rowColumns[1] }}>
               {step.name}
             </Text>
-            <Text
-              size="sm"
-              c={standing.attention ? 'fiuba.7' : 'gray.7'}
-              fw={standing.attention ? 600 : undefined}
-              miw={0}
-              flex={{ md: rowColumns[2] }}
-            >
-              {standing.label && (
-                <Text component="span" variant="prefix" inherit>
-                  {standing.label}{' '}
-                </Text>
-              )}
-              {standing.text}
-            </Text>
+            {standing.attention ? (
+              <Box miw={0} flex={{ md: rowColumns[2] }}>
+                <Badge variant="filled" color="attention.7">
+                  {standing.text}
+                </Badge>
+              </Box>
+            ) : (
+              <Text size="sm" c="gray.7" miw={0} flex={{ md: rowColumns[2] }}>
+                {standing.label && (
+                  <Text component="span" variant="prefix" inherit>
+                    {standing.label}{' '}
+                  </Text>
+                )}
+                {standing.text}
+              </Text>
+            )}
           </Box>
           <Stack data-cell="when" gap="xxs" ta="right" flex={{ md: rowColumns[3] }}>
             <Text size="sm" c="gray.7" data-cell="date">

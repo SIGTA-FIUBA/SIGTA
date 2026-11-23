@@ -35,7 +35,7 @@ const sizes = (group: string, convert: (path: string) => string = text): Sizes =
   Object.fromEntries(KEYS.map((key) => [key, convert(`${group}.${key}`)])) as Sizes
 const scale = (path: string) =>
   Array.from({ length: 10 }, (_, index) => text(`${path}.${index}`)) as unknown as MantineColorsTuple
-const SCALES = ['fiuba', 'gray', 'green', 'orange', 'red'] as const
+const SCALES = ['fiuba', 'gray', 'green', 'orange', 'attention', 'red'] as const
 const headingFor = (style: string) => ({
   fontSize: scaled(`textStyle.${style}.size`),
   lineHeight: scaled(`textStyle.${style}.lineHeight`),

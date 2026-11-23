@@ -21,6 +21,7 @@ const SCALE_NOTES: Record<string, Record<number, string>> = {
   },
   green: { 0: 'success.50', 7: 'success.700' },
   orange: { 0: 'warning.50', 7: 'warning.700' },
+  attention: { 0: 'required.50', 7: 'required.700' },
   red: { 0: 'danger.50', 7: 'danger.700' },
 }
 

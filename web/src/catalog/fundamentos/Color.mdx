@@ -33,15 +33,18 @@ Cada estado escribe su tono 700 sobre su tinte 50, y siempre con texto: el color
 
 - **Primario**: "En un área", acciones, links, foco.
 - **`orange`**: "Derivado", lo que espera a alguien de afuera.
+- **`attention`**: lo que el titular tiene que hacer ("Acción requerida", sus pendientes, una subsanación). El naranja vivo, complementario del cian, para que llame al ojo.
 - **`gray`**: "Pendiente del titular" y "Cerrado".
 - **`green`**: lo que terminó bien.
 - **`red`**: solo errores (`Alert color="red"`). Si decora, deja de avisar.
 
-<Palette groups={['success', 'warning', 'danger']} />
+<Palette groups={['success', 'warning', 'required', 'danger']} />
 
 <ColorScale name="green" />
 
 <ColorScale name="orange" />
+
+<ColorScale name="attention" />
 
 <ColorScale name="red" />
 
