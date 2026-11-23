@@ -214,16 +214,16 @@ export const theme = createTheme({
     }),
     // The steps of a procedure: an ordered list in columns (StepList). The
     // latest moves: a list on a vertical line, one mark per move
-    // (variant="timeline"). The steps of a procedure on its page: an ordered
-    // list that writes its own numbers (variant="numbered").
+    // (variant="timeline"). The steps of a procedure on its page: numbered
+    // marks on a vertical line (variant="route").
     List: List.extend({
       classNames: (_theme, props) =>
         props.variant === 'steps'
           ? { root: classes.steps, item: classes.stepsItem }
           : props.variant === 'timeline'
             ? { root: classes.timeline, item: classes.timelineItem }
-            : props.variant === 'numbered'
-              ? { root: classes.numbered }
+            : props.variant === 'route'
+              ? { root: classes.route, item: classes.routeItem }
               : {},
       styles: { item: breakLongWords.root },
     }),

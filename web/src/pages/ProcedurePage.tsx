@@ -2,19 +2,21 @@ import {
   Alert,
   Anchor,
   Button,
-  Code,
   FileInput,
   Grid,
   Group,
   List,
   Loader,
+  Paper,
   MultiSelect,
   Select,
   Stack,
   Text,
   Textarea,
   TextInput,
+  ThemeIcon,
   Title,
+  VisuallyHidden,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { useQueryClient } from '@tanstack/react-query'
@@ -93,31 +95,9 @@ function personName(person: { id: string; name: string }) {
   return person.name || person.id
 }
 
-function OpenStep({ step, canAct }: { step: Step | undefined; canAct: boolean }) {
-  if (step === undefined) {
-    return <Text>Sin paso abierto</Text>
-  }
-  return (
-    <Stack gap="xxs">
-      <Text fw={600}>{step.name}</Text>
-      <Text size="sm" c="gray.7">
-        A cargo de {step.area?.name ?? 'el titular'}
-      </Text>
-      {canAct && (
-        <Text size="sm" fw={600} c="fiuba.7">
-          Acción requerida
-        </Text>
-      )}
-    </Stack>
-  )
-}
-
 // expected says, for the applicant, what the procedure waits for now and who
 // has it.
-function expected(detail: Detail, step: Step | undefined) {
-  if (step === undefined) {
-    return 'Nada: el trámite está cerrado.'
-  }
+function expected(detail: Detail, step: Step) {
   if (step.role === 'applicant') {
     return `${step.name}, a cargo del titular.`
   }
@@ -160,62 +140,77 @@ function referralText(referral: NonNullable<Detail['referral']>) {
   return `En ${referral.area.name}, desde ${referral.from.name}. ${days} sin retorno.`
 }
 
-// StepItem is one step of the procedure in the ordered list of its steps:
-// its number, its name, who does it and the documents it asks for. The open
-// one says so in words, in the action color.
-function StepItem({
-  procedureId,
-  step,
-  number,
-  open,
-}: {
-  procedureId: string
-  step: Step
-  number: number
-  open: boolean
-}) {
+// confirmed lists the steps that someone confirmed: the events that are not
+// a document, a value or a correction.
+function confirmed(detail: Detail) {
+  return new Set(
+    detail.history
+      .filter((event) => !event.document && !event.value && !event.correction_request && !event.correction_answer)
+      .map((event) => event.step),
+  )
+}
+
+type RouteState = 'done' | 'current' | 'pending'
+
+// Route draws the steps of the procedure on a vertical line, in the order the
+// type defines them: the confirmed ones filled, the open one ringed in the
+// action color, the rest in gray.
+function Route({ detail, canAct }: { detail: Detail; canAct: boolean }) {
+  const done = confirmed(detail)
   return (
-    <Grid component="li" gap="md" py="md" aria-current={open ? 'step' : undefined}>
-      <Grid.Col span="content">
-        <Text variant="ordinal" c={open ? 'fiuba.7' : 'gray.6'}>
-          {String(number).padStart(2, '0')}
-        </Text>
-      </Grid.Col>
-      <Grid.Col span="auto" miw={0}>
-        <Stack gap="xs">
-          <Stack gap="xxs">
-            <Group gap="sm" wrap="wrap">
-              <Text fw={600}>{step.name}</Text>
-              {open && (
+    <List component="ol" variant="route" aria-label="Pasos del trámite">
+      {detail.steps.map((step) => {
+        const state: RouteState = step.id === detail.open_step ? 'current' : done.has(step.id) ? 'done' : 'pending'
+        return (
+          <List.Item key={step.id} data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+            <Stack gap={0}>
+              <Text fw={600} c={state === 'pending' ? 'gray.7' : undefined}>
+                {step.name}
+                {state === 'done' && <VisuallyHidden>, hecho</VisuallyHidden>}
+              </Text>
+              <Text size="sm" c="gray.7">
+                {responsible(step)}
+              </Text>
+              {state === 'current' && canAct && (
                 <Text size="sm" fw={600} c="fiuba.7">
-                  Paso actual
+                  Acción requerida
                 </Text>
               )}
-            </Group>
-            <Text size="sm" c="gray.7">
-              {responsible(step)}
-            </Text>
-          </Stack>
-          {step.documents.map((requirement) => {
-            const file = step.files.find((candidate) => candidate.document === requirement.id)
-            return (
-              <Stack key={requirement.id} gap={0}>
-                <Text size="sm" fw={500}>
-                  {requirement.name}
-                </Text>
-                {file ? (
-                  <DocumentFile procedureId={procedureId} file={file} />
-                ) : (
-                  <Text size="sm" c="gray.7">
-                    Sin archivo
-                  </Text>
-                )}
-              </Stack>
-            )
-          })}
+            </Stack>
+          </List.Item>
+        )
+      })}
+    </List>
+  )
+}
+
+// stepFiles lists each document of the procedure that has a file, in the
+// order of the steps.
+function stepFiles(detail: Detail) {
+  return detail.steps.flatMap((step) =>
+    step.documents.flatMap((requirement) => {
+      const file = step.files.find((candidate) => candidate.document === requirement.id)
+      return file ? [{ requirement, file }] : []
+    }),
+  )
+}
+
+function Documents({ detail }: { detail: Detail }) {
+  const files = stepFiles(detail)
+  if (files.length === 0) {
+    return <Text c="dimmed">El trámite no tiene documentos.</Text>
+  }
+  return (
+    <Stack gap="md">
+      {files.map(({ requirement, file }) => (
+        <Stack key={file.id} gap="xxs">
+          <Text size="sm" fw={600}>
+            {requirement.name}
+          </Text>
+          <DocumentFile procedureId={detail.id} file={file} />
         </Stack>
-      </Grid.Col>
-    </Grid>
+      ))}
+    </Stack>
   )
 }
 
@@ -423,7 +418,6 @@ function PendingCorrections({ detail }: { detail: Detail }) {
             </Stack>
           )
         })}
-        <Text size="sm">El paso no se confirma hasta que el titular complete lo pedido.</Text>
       </Stack>
     </Alert>
   )
@@ -507,7 +501,7 @@ function EnterValue({ procedureId, field }: { procedureId: string; field: FieldR
   return (
     <form onSubmit={form.onSubmit((values) => void enter(values))} noValidate>
       <Stack gap="xs">
-        <FieldInput form={form} field={required} />
+        <FieldInput form={form} field={required} labelled={false} />
         {failure && (
           <Alert color="red" role="alert">
             {failure}
@@ -523,14 +517,14 @@ function EnterValue({ procedureId, field }: { procedureId: string; field: FieldR
   )
 }
 
+// RequestedItem is one thing a correction asks for: its name, once, whether
+// it was loaded again, and the input to load it.
 function RequestedItem({ name, loaded, children }: { name: string; loaded: boolean; children: ReactNode }) {
   return (
-    <Stack gap="xs">
-      <Group gap="xs">
-        <Text size="sm" fw={500}>
-          {name}
-        </Text>
-        <Text size="sm" fw={600} c={loaded ? 'green.8' : 'gray.7'}>
+    <Stack gap="xs" py="md">
+      <Group justify="space-between" gap="xs" wrap="nowrap">
+        <Text fw={600}>{name}</Text>
+        <Text size="sm" fw={600} c={loaded ? 'green.8' : 'orange.8'}>
           {loaded ? 'Cargado' : 'Pendiente'}
         </Text>
       </Group>
@@ -570,31 +564,45 @@ function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: 
   }
 
   return (
-    <Stack component="section" variant="part" gap={0}>
-      <Stack gap="md">
-        <Title order={2}>Responder la subsanación</Title>
-        <Text size="sm" c="dimmed">
-          Cargá de nuevo cada dato y documento que se pide. Cuando estén todos, enviá la respuesta: el trámite vuelve a
-          quien lo pidió, en el mismo paso.
-        </Text>
-        {fields.map((field) => (
-          <RequestedItem
-            key={`field-${field.id}`}
-            name={field.name}
-            loaded={loadedSinceRequest(detail, 'field', field.id)}
-          >
-            <EnterValue procedureId={detail.id} field={field} />
-          </RequestedItem>
-        ))}
-        {documents.map((document) => (
-          <RequestedItem
-            key={`document-${document.id}`}
-            name={document.name}
-            loaded={loadedSinceRequest(detail, 'document', document.id)}
-          >
-            <AttachDocument procedureId={detail.id} document={{ ...document, required: true }} onAttached={() => {}} />
-          </RequestedItem>
-        ))}
+    <Paper component="section" withBorder p="xl" aria-label="Subsanación pendiente">
+      <Stack gap="lg">
+        <Group wrap="nowrap" gap="md" align="flex-start">
+          <ThemeIcon variant="light" color="orange" radius="xl" size="lg" aria-hidden>
+            <Icon name="file-pencil" size={20} />
+          </ThemeIcon>
+          <Stack gap="xs" miw={0}>
+            <Title order={2}>Subsanación pendiente</Title>
+            {detail.correction_requests.map((request, i) => {
+              const step = detail.steps.find((candidate) => candidate.id === request.step)
+              return (
+                <Stack key={i} gap="xxs">
+                  <LongValue text={request.reason} />
+                  <WhoWhen who={doneBy(request.by, step)} at={request.at} />
+                </Stack>
+              )
+            })}
+          </Stack>
+        </Group>
+        <Stack variant="facts" gap={0}>
+          {fields.map((field) => (
+            <RequestedItem
+              key={`field-${field.id}`}
+              name={field.name}
+              loaded={loadedSinceRequest(detail, 'field', field.id)}
+            >
+              <EnterValue procedureId={detail.id} field={field} />
+            </RequestedItem>
+          ))}
+          {documents.map((document) => (
+            <RequestedItem
+              key={`document-${document.id}`}
+              name={document.name}
+              loaded={loadedSinceRequest(detail, 'document', document.id)}
+            >
+              <AttachDocument procedureId={detail.id} document={document} labelled={false} onAttached={() => {}} />
+            </RequestedItem>
+          ))}
+        </Stack>
         {failure && (
           <Alert color="red" role="alert">
             {failure}
@@ -606,7 +614,7 @@ function CorrectionAnswer({ detail, onAnswered }: { detail: Detail; onAnswered: 
           </Button>
         </Group>
       </Stack>
-    </Stack>
+    </Paper>
   )
 }
 
@@ -618,28 +626,33 @@ function leadsElsewhere(detail: Detail, step: Step, outcome: string | null) {
   return area !== undefined && area.id !== step.area?.id
 }
 
+// AttachDocument attaches the file as soon as it is chosen: the input is the
+// button. Without labelled, the name goes only to assistive technology, since
+// the item that holds it already shows it.
 function AttachDocument({
   procedureId,
   document,
+  labelled = true,
   onAttached,
   onCancel,
 }: {
   procedureId: string
   document: DocumentRequirement
+  labelled?: boolean
   onAttached: () => void
   onCancel?: () => void
 }) {
   const queryClient = useQueryClient()
   const [sending, setSending] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const form = useForm({
-    mode: 'uncontrolled',
-    initialValues: { file: null as File | null },
-    validate: { file: (file) => fileError({ ...document, required: true }, file) },
-  })
 
-  async function attach({ file }: { file: File | null }) {
+  async function attach(file: File | null) {
     if (!file) {
+      return
+    }
+    const invalid = fileError({ ...document, required: true }, file)
+    if (invalid) {
+      setFailure(invalid)
       return
     }
     setFailure(null)
@@ -667,36 +680,27 @@ function AttachDocument({
   }
 
   return (
-    <form onSubmit={form.onSubmit((values) => void attach(values))} noValidate>
-      <Stack gap="xs">
-        <FileInput
-          label={document.name}
-          description={documentDescription(document)}
-          withAsterisk={document.required}
-          accept={document.accepted_types.join(',')}
-          placeholder="Elegí un archivo…"
-          clearable
-          clearButtonProps={{ 'aria-label': `Quitar el archivo de ${document.name}` }}
-          key={form.key('file')}
-          {...form.getInputProps('file')}
-        />
-        {failure && (
-          <Alert color="red" role="alert">
-            {failure}
-          </Alert>
-        )}
+    <Stack gap="xs">
+      <FileInput
+        label={labelled ? document.name : undefined}
+        aria-label={labelled ? undefined : document.name}
+        description={documentDescription(document)}
+        accept={document.accepted_types.join(',')}
+        placeholder="Adjuntar un archivo…"
+        value={null}
+        onChange={(file) => void attach(file)}
+        disabled={sending}
+        rightSection={sending ? <Loader size="xs" aria-label={`Adjuntando ${document.name}`} /> : undefined}
+        error={failure}
+      />
+      {onCancel && (
         <Group>
-          <Button type="submit" variant="default" loading={sending} aria-label={`Adjuntar ${document.name}`}>
-            Adjuntar
+          <Button variant="subtle" onClick={onCancel} aria-label={`No reemplazar ${document.name}`}>
+            Cancelar
           </Button>
-          {onCancel && (
-            <Button variant="subtle" onClick={onCancel} aria-label={`No reemplazar ${document.name}`}>
-              Cancelar
-            </Button>
-          )}
         </Group>
-      </Stack>
-    </form>
+      )}
+    </Stack>
   )
 }
 
@@ -800,7 +804,6 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
   const outcome = form.useWatchValue('outcome')
   const refers = leadsElsewhere(detail, step, outcome)
   const sendBackOutcome = step.outcomes.find((o) => o.id === outcome && o.send_back)
-  const sentTo = sendBackOutcome && detail.steps.find((candidate) => candidate.id === sendBackOutcome.next)
 
   async function confirm(values: typeof form.values) {
     setFailure(null)
@@ -834,17 +837,11 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
       <form onSubmit={form.onSubmit((values) => void confirm(values))} noValidate>
         <Stack gap="md">
           <Title order={2}>Confirmar {step.name}</Title>
-          {step.action === 'confirm_external_fact' && (
-            <Text size="sm" c="dimmed">
-              Se registra que declarás que el paso se hizo fuera de SIGTA.
-            </Text>
-          )}
           {decide && (
             <Select
               label="Salida"
               withAsterisk
               placeholder="Elegí una salida…"
-              description={sentTo ? `Devuelve el trámite a ${sentTo.name}.` : undefined}
               data={step.outcomes.map((o) => ({ value: o.id, label: o.name }))}
               key={form.key('outcome')}
               {...form.getInputProps('outcome')}
@@ -852,7 +849,6 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
           )}
           <Textarea
             label={sendBackOutcome ? 'Motivo de la devolución' : 'Observación'}
-            description={sentTo?.role === 'applicant' ? 'Lo ve el titular.' : undefined}
             withAsterisk
             autosize
             minRows={3}
@@ -862,7 +858,6 @@ function ConfirmStep({ detail, step, onConfirmed }: { detail: Detail; step: Step
           {refers && (
             <TextInput
               label="Número de expediente externo"
-              description="Si el trámite tiene expediente en otro sistema."
               key={form.key('externalFileNumber')}
               {...form.getInputProps('externalFileNumber')}
             />
@@ -951,12 +946,8 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
       <form onSubmit={form.onSubmit((values) => void request(values))} noValidate>
         <Stack gap="md">
           <Title order={2}>Pedir una subsanación</Title>
-          <Text size="sm" c="dimmed">
-            El trámite queda con el titular, sin salir de {step.name}, hasta que complete lo pedido.
-          </Text>
           <MultiSelect
             label="Qué falta"
-            description="Datos o documentos del trámite que el titular tiene que completar o corregir."
             withAsterisk
             searchable
             placeholder="Elegí uno o más…"
@@ -967,7 +958,6 @@ function RequestCorrection({ detail, step, onRequested }: { detail: Detail; step
           />
           <Textarea
             label="Motivo"
-            description="Lo ve el titular."
             withAsterisk
             autosize
             minRows={3}
@@ -1005,66 +995,65 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
   const awaiting = detail.correction_requests.length > 0
   return (
     <Stack gap="xl">
-      <Stack component="header" gap="xs">
-        {/* The type of the procedure in the row that opened it becomes this
-            title (a view transition, global.css). */}
-        <Title order={1} variant="display" c="fiuba.9" data-transition-title>
-          {detail.name}
-        </Title>
-        <Text c="gray.7">
-          Trámite <Code translate="no">{detail.id}</Code>
-        </Text>
-      </Stack>
-      {/* On a wide screen what the procedure is goes in a narrow column on
-          the right, which stays in sight; the work and the record, on the
-          left. On a phone the facts come first. */}
+      {/* The type of the procedure in the row that opened it becomes this
+          title (a view transition, global.css). */}
+      <Title order={1} variant="display" c="fiuba.9" data-transition-title>
+        {detail.name}
+      </Title>
+      {/* On a wide screen what the procedure is and its steps go in a narrow
+          column on the right; the work and the record, on the left. On a
+          phone the facts come first. */}
       <Grid gap={{ base: 'xl', lg: 'xxl' }}>
         <Grid.Col span={{ base: 12, lg: 4 }} order={{ base: 1, lg: 2 }}>
-          <Stack variant="sticky" gap={0}>
-            <Facts label="Resumen del trámite">
-              <Fact label="Estado">
-                <Text fw={600}>{procedureStates[detail.state].label}</Text>
-              </Fact>
-              <Fact label="Titular">
-                <Text>{personName(detail.applicant)}</Text>
-              </Fact>
-              <Fact label="Paso actual">
-                <OpenStep step={open} canAct={detail.can_act && !awaiting} />
-              </Fact>
-              {detail.referral && (
-                <Fact label="Derivación">
-                  <Text>{referralText(detail.referral)}</Text>
+          <Stack gap="xl">
+            <Stack gap="md">
+              <Facts label="Resumen del trámite">
+                <Fact label="Estado">
+                  <Text fw={600}>{procedureStates[detail.state].label}</Text>
                 </Fact>
-              )}
+                <Fact label="Titular">
+                  <Text>{personName(detail.applicant)}</Text>
+                </Fact>
+                {detail.referral && (
+                  <Fact label="Derivación">
+                    <Text>{referralText(detail.referral)}</Text>
+                  </Fact>
+                )}
+                {detail.as_applicant && open && (
+                  <Fact label="Qué se espera ahora">
+                    <Text>{expected(detail, open)}</Text>
+                  </Fact>
+                )}
+              </Facts>
               {detail.as_applicant && (
-                <Fact label="Qué se espera ahora">
-                  <Text>{expected(detail, open)}</Text>
-                </Fact>
+                <Group>
+                  <Button
+                    component="a"
+                    href={receiptUrl(detail.id)}
+                    download={`Comprobante ${detail.name}.pdf`}
+                    variant="default"
+                  >
+                    Descargar comprobante
+                  </Button>
+                </Group>
               )}
-            </Facts>
-            {detail.as_applicant && (
-              <Button
-                component="a"
-                href={receiptUrl(detail.id)}
-                download={`comprobante-${detail.id}.pdf`}
-                variant="default"
-                mt="md"
-              >
-                Descargar comprobante
-              </Button>
-            )}
+            </Stack>
+            <Stack component="section" gap="md" aria-label="Pasos">
+              <Title order={2}>Pasos</Title>
+              <Route detail={detail} canAct={detail.can_act && !awaiting} />
+            </Stack>
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 8 }} order={{ base: 2, lg: 1 }}>
           <Stack gap="xxl">
-            <SentBack detail={detail} />
-            <PendingCorrections detail={detail} />
             {detail.as_applicant && awaiting && (
               <CorrectionAnswer
                 detail={detail}
                 onAnswered={() => setNotice('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')}
               />
             )}
+            <SentBack detail={detail} />
+            {!detail.as_applicant && <PendingCorrections detail={detail} />}
             {detail.state === 'closed' && (
               <Part title="Resolución">
                 <Resolution detail={detail} />
@@ -1104,21 +1093,11 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             <Part title="Datos del trámite">
               <Values detail={detail} />
             </Part>
+            <Part title="Documentos">
+              <Documents detail={detail} />
+            </Part>
             <Part title="Historial">
               <History detail={detail} />
-            </Part>
-            <Part title="Pasos" lead="En el orden en que los define el trámite. No es necesariamente el recorrido.">
-              <List component="ol" variant="numbered" aria-label="Pasos del trámite">
-                {detail.steps.map((step, index) => (
-                  <StepItem
-                    key={step.id}
-                    procedureId={detail.id}
-                    step={step}
-                    number={index + 1}
-                    open={step.id === detail.open_step}
-                  />
-                ))}
-              </List>
             </Part>
           </Stack>
         </Grid.Col>

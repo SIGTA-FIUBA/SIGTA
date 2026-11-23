@@ -71,7 +71,7 @@ export function CatalogPage() {
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
     <Stack gap="xxl">
-      <PageHeader title="Catálogo de trámites" description="Qué es cada trámite, quién puede pedirlo y sus plazos." />
+      <PageHeader title="Catálogo de trámites" />
       {catalog.isPending && (
         <Stack gap="sm" aria-label="Cargando los trámites">
           <Skeleton h="var(--sigta-row-height)" />

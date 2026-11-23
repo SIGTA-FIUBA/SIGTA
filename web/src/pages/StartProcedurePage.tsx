@@ -1,17 +1,4 @@
-import {
-  Alert,
-  Anchor,
-  Button,
-  Code,
-  FileInput,
-  Group,
-  Loader,
-  Modal,
-  Stack,
-  Stepper,
-  Text,
-  Title,
-} from '@mantine/core'
+import { Alert, Anchor, Button, FileInput, Group, Loader, Modal, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -137,12 +124,7 @@ function StartedNotice({ procedure }: { procedure: StartedProcedure }) {
   }, [])
   return (
     <Stack gap="md">
-      <Alert title="Tu trámite quedó iniciado" tabIndex={-1} ref={alert}>
-        <Text>
-          Número de trámite: <Code translate="no">{procedure.id}</Code>
-        </Text>
-        <Text>Guardalo para seguirlo. Ya quedó para que el personal lo revise.</Text>
-      </Alert>
+      <Alert title="Trámite iniciado" tabIndex={-1} ref={alert} />
       <Group>
         <Button component={Link} to={procedurePath(procedure.id)}>
           Ver el trámite

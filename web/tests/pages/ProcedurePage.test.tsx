@@ -123,10 +123,19 @@ describe('ProcedurePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Equivalencia de asignaturas' })).toBeDefined()
     expect(screen.getByText('En un área')).toBeDefined()
     expect(screen.getByText('Titular Uno')).toBeDefined()
-    const summary = screen.getByLabelText('Resumen del trámite')
-    expect(within(summary).getByText('Revisar la solicitud')).toBeDefined()
-    expect(within(summary).getByText('A cargo de Dirección de Alumnos')).toBeDefined()
-    expect(screen.getByText('Acción requerida')).toBeDefined()
+    const open = within(screen.getByRole('list', { name: 'Pasos del trámite' }))
+      .getByText('Revisar la solicitud')
+      .closest('li')!
+    expect(open.getAttribute('aria-current')).toBe('step')
+    expect(within(open).getByText('Acción requerida')).toBeDefined()
+  })
+
+  it('does not show the internal identifier of the procedure', async () => {
+    stubApi(200, detail)
+    renderPage()
+
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByText(detail.id)).toBeNull()
   })
 
   it('does not ask for action from who cannot act', async () => {
@@ -144,7 +153,7 @@ describe('ProcedurePage', () => {
     const link = await screen.findByRole('link', { name: 'Descargar constancia.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P-1/documents/D-1/content')
     expect(screen.getByText(/^2\sKB$/)).toBeDefined()
-    expect(screen.getByText('Anexo').nextElementSibling?.textContent).toBe('Sin archivo')
+    expect(screen.queryByText('Anexo')).toBeNull()
   })
 
   it('shows the data entered once each, as the applicant chose it', async () => {
@@ -219,13 +228,22 @@ describe('ProcedurePage', () => {
     expect(await screen.findByText('El trámite no tiene datos cargados.')).toBeDefined()
   })
 
-  it('marks the open step and says who does each step', async () => {
+  it('marks the open step and the confirmed ones, and says who does each step', async () => {
     stubApi(200, detail)
     renderPage()
 
     await screen.findByRole('heading', { level: 2, name: 'Pasos' })
-    const review = screen.getAllByText('Revisar la solicitud').at(-1)!.closest('li') as HTMLElement
-    expect(within(review).getByText('Paso actual')).toBeDefined()
+    const steps = within(screen.getByRole('list', { name: 'Pasos del trámite' })).getAllByRole('listitem')
+    expect(steps.map((step) => step.dataset.state)).toEqual(
+      detail.steps.map((step) =>
+        step.id === detail.open_step
+          ? 'current'
+          : detail.history.some((event) => event.step === step.id && !event.document)
+            ? 'done'
+            : 'pending',
+      ),
+    )
+    const review = steps.find((step) => step.dataset.state === 'current')!
     expect(within(review).getByText('Dirección de Alumnos')).toBeDefined()
   })
 
@@ -250,7 +268,7 @@ describe('ProcedurePage', () => {
     renderPage()
 
     expect(await screen.findByText('Cerrado')).toBeDefined()
-    expect(screen.getByText('Sin paso abierto')).toBeDefined()
+    expect(screen.queryByRole('listitem', { current: 'step' })).toBeNull()
   })
 
   it.each([
@@ -262,7 +280,7 @@ describe('ProcedurePage', () => {
 
     const link = await screen.findByRole('link', { name: 'Descargar comprobante' })
     expect(link.getAttribute('href')).toBe(`/api/procedures/${detail.id}/receipt`)
-    expect(link.getAttribute('download')).toBe(`comprobante-${detail.id}.pdf`)
+    expect(link.getAttribute('download')).toBe(`Comprobante ${detail.name}.pdf`)
   })
 
   it('does not offer the receipt to staff, since it is the proof of the applicant', async () => {
@@ -313,7 +331,7 @@ describe('ProcedurePage', () => {
     stubApi(200, detail)
     renderPage()
 
-    await screen.findByText('A cargo de Dirección de Alumnos')
+    await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByText('Qué se espera ahora')).toBeNull()
   })
 
@@ -363,7 +381,7 @@ describe('ProcedurePage', () => {
     expect(within(section).getByText('Resolución de Decano')).toBeDefined()
     expect(within(section).getByText('resolucion.pdf')).toBeDefined()
     expect(within(section).queryByText('constancia.pdf')).toBeNull()
-    expect(screen.getByText('Nada: el trámite está cerrado.')).toBeDefined()
+    expect(screen.queryByText('Qué se espera ahora')).toBeNull()
   })
 
   it('says when a closed procedure has no resolution attached', async () => {
@@ -573,14 +591,12 @@ describe('ProcedurePage confirmation', () => {
     expect(reads.length).toBeGreaterThan(1)
   })
 
-  it('asks for the reason of a send back and says who sees it', async () => {
+  it('asks for the reason of a send back', async () => {
     const fetch = stubPost(201, {}, referable)
     renderPage()
 
     await userEvent.click(await screen.findByRole('combobox', { name: /Salida/ }))
     await userEvent.click(screen.getByRole('option', { name: 'Devolver al titular' }))
-    expect(screen.getByText('Devuelve el trámite a Adjuntar documentos.')).toBeDefined()
-    expect(screen.getByText('Lo ve el titular.')).toBeDefined()
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar el paso' }))
     expect(screen.getByText('Escribí el motivo de la devolución.')).toBeDefined()
@@ -659,6 +675,10 @@ describe('ProcedurePage attachment', () => {
     steps: [detail.steps[0]!, { ...asksForRecord.steps[1]!, files: [file] }],
   })
 
+  function attachRecord() {
+    return screen.getByRole('button', { name: 'Acta' })
+  }
+
   function documentsSection() {
     return screen.getByRole('heading', { level: 2, name: 'Documentos del paso' }).parentElement!
   }
@@ -668,7 +688,7 @@ describe('ProcedurePage attachment', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+    expect(attachRecord()).toBeDefined()
   })
 
   it('offers to replace, not to attach, a document attached in the step', async () => {
@@ -678,7 +698,7 @@ describe('ProcedurePage attachment', () => {
     await screen.findByRole('heading', { level: 2, name: 'Documentos del paso' })
     expect(within(documentsSection()).getByRole('link', { name: 'Descargar acta.pdf' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Reemplazar Acta' })).toBeDefined()
-    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Acta' })).toBeNull()
   })
 
   it('does not show the documents of the step to who cannot act', async () => {
@@ -702,7 +722,6 @@ describe('ProcedurePage attachment', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Reemplazar Acta' }))
     await userEvent.upload(fileInput(), pdf('acta-corregida.pdf'))
-    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
 
     expect(await screen.findByText('Documento reemplazado. Quedó en el historial.')).toBeDefined()
     const link = await within(documentsSection()).findByRole('link', { name: 'Descargar acta-corregida.pdf' })
@@ -719,33 +738,33 @@ describe('ProcedurePage attachment', () => {
     await userEvent.click(screen.getByRole('button', { name: 'No reemplazar Acta' }))
 
     expect(within(documentsSection()).getByRole('link', { name: 'Descargar acta.pdf' })).toBeDefined()
-    expect(screen.queryByRole('button', { name: 'Adjuntar Acta' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Acta' })).toBeNull()
   })
 
   it('offers a document whose file was attached in another step', async () => {
     stubApi(200, withRecord({ ...attached, step: 'documents' }))
     renderPage()
 
-    expect(await screen.findByRole('button', { name: 'Adjuntar Acta' })).toBeDefined()
+    expect(await screen.findByRole('button', { name: 'Acta' })).toBeDefined()
   })
 
-  it('asks for a file before sending', async () => {
+  it('does not send a file larger than the document takes', async () => {
     const fetch = stubPost(201, {}, asksForRecord)
     renderPage()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Adjuntar Acta' }))
+    await screen.findByRole('button', { name: 'Acta' })
+    await userEvent.upload(fileInput(), new File(['x'.repeat(2048)], 'acta.pdf', { type: 'application/pdf' }))
 
-    expect(await screen.findByText('Adjuntá este documento.')).toBeDefined()
+    expect(await screen.findByText(/supera el tamaño máximo/)).toBeDefined()
     expect(fetch.mock.calls.some(([request]) => request.method === 'POST')).toBe(false)
   })
 
-  it('sends the file for its document and says it is in the history', async () => {
+  it('sends the file for its document as soon as it is chosen and says it is in the history', async () => {
     const fetch = stubPost(201, {}, asksForRecord)
     renderPage()
 
-    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await screen.findByRole('button', { name: 'Acta' })
     await userEvent.upload(fileInput(), pdf('acta.pdf'))
-    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
 
     expect(await screen.findByText('Documento adjuntado. Quedó en el historial.')).toBeDefined()
     const [post] = fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')
@@ -760,11 +779,10 @@ describe('ProcedurePage attachment', () => {
     stubPost(400, { message: 'El archivo no es de un tipo que acepte ese documento.' }, asksForRecord)
     renderPage()
 
-    await screen.findByRole('button', { name: 'Adjuntar Acta' })
+    await screen.findByRole('button', { name: 'Acta' })
     await userEvent.upload(fileInput(), pdf('acta.pdf'))
-    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar Acta' }))
 
-    expect((await screen.findByRole('alert')).textContent).toBe('El archivo no es de un tipo que acepte ese documento.')
+    expect(await screen.findByText('El archivo no es de un tipo que acepte ese documento.')).toBeDefined()
     expect(screen.queryByText('Documento adjuntado. Quedó en el historial.')).toBeNull()
   })
 
@@ -972,7 +990,7 @@ describe('ProcedurePage correction request', () => {
     stubPost(201, {}, { ...awaiting, as_applicant: true, can_act: false, correction_requests: [withoutWho] })
     renderPage()
 
-    const pending = (await screen.findByText('Subsanación pendiente')).closest('[role="alert"], section') as HTMLElement
+    const pending = await screen.findByRole('region', { name: 'Subsanación pendiente' })
     expect(within(pending).getByText('Dirección de Alumnos', { selector: '[data-who]' })).toBeDefined()
     expect(screen.queryByText(/Operativo Uno/)).toBeNull()
     expect(screen.getByText('Lo que pide la subsanación, a cargo del titular.')).toBeDefined()
@@ -1085,18 +1103,28 @@ describe('ProcedurePage correction answer', () => {
     vi.unstubAllGlobals()
   })
 
+  it('names each thing asked for once, next to its input', async () => {
+    stubPost(201, {}, asked)
+    renderPage()
+
+    const answer = await screen.findByRole('region', { name: 'Subsanación pendiente' })
+    expect(within(answer).getAllByText('Constancia')).toHaveLength(1)
+    expect(within(answer).getByRole('button', { name: 'Constancia' })).toBeDefined()
+    expect(within(answer).queryByRole('button', { name: /^Adjuntar/ })).toBeNull()
+  })
+
   it('is only for the applicant', async () => {
     stubPost(201, {}, { ...asked, as_applicant: false })
     renderPage()
     await screen.findByRole('heading', { level: 1 })
-    expect(screen.queryByRole('heading', { name: 'Responder la subsanación' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Subsanación pendiente' })).toBeNull()
   })
 
   it('shows what is loaded again since the request and what is still pending', async () => {
     stubPost(201, {}, loaded)
     renderPage()
 
-    const answer = (await screen.findByRole('heading', { name: 'Responder la subsanación' })).closest('div')!
+    const answer = await screen.findByRole('region', { name: 'Subsanación pendiente' })
     expect(within(answer).getAllByText('Cargado')).toHaveLength(1)
     expect(within(answer).getAllByText('Pendiente')).toHaveLength(1)
   })

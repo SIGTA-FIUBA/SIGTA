@@ -132,7 +132,6 @@ function PersonSearch({
   return (
     <Select
       label="Persona"
-      description="Escribí parte del nombre o del correo con el que ingresó a SIGTA."
       placeholder="Nombre o correo"
       searchable
       autoComplete="off"
@@ -231,7 +230,6 @@ function PermissionsFields({
       />
       <MultiSelect
         label="Permisos sueltos"
-        description="Además de los que dan los roles."
         placeholder="Elegí uno o más…"
         data={area.permissions.map((permission) => ({ value: permission.id, label: permission.name }))}
         value={permissions}
@@ -268,10 +266,6 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
               onRoles={setRoles}
               onPermissions={setPermissions}
             />
-            <Text size="sm" c="dimmed">
-              La membresía actual termina y empieza otra con los permisos nuevos, para que quede registrado qué tuvo en
-              cada momento.
-            </Text>
             <Group gap="xs">
               <Button
                 variant="default"
@@ -377,7 +371,6 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
           />
           <MultiSelect
             label="Alcance"
-            description="Vacío vale para todos los tipos de trámite, incluidos los que se publiquen después."
             placeholder="Todos los tipos de trámite"
             data={procedureTypes.options}
             value={scope}
@@ -385,7 +378,6 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
           />
           <TextInput
             label="Hasta"
-            description="Opcional. Vale hasta el final de ese día, incluido. Sin fecha, vale hasta que se la termine."
             type="date"
             min={today()}
             value={until}
@@ -704,9 +696,6 @@ function RoleRow({
             onChange={setPermissions}
             ref={focusOnMount}
           />
-          <Text size="sm" c="dimmed">
-            Cambia al instante lo que puede hacer cada persona con este rol.
-          </Text>
           {change.error && (
             <Alert color="red" role="alert">
               {change.error.message}
@@ -943,7 +932,6 @@ function Administrators() {
   }
   return (
     <Stack gap="lg">
-      <Text c="dimmed">Administrar SIGTA no da acceso a los trámites: para eso hace falta una membresía.</Text>
       <Stack component="ul" variant="facts" gap={0} p={0} m={0} aria-label="Personas administradoras">
         {administrators.data.map((administrator) => (
           <AdministratorRow
@@ -986,10 +974,7 @@ export function AdministrationPage() {
   const tab = params.get('tab') === 'administrators' ? 'administrators' : 'areas'
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="Administración"
-        description="Áreas del personal, sus permisos, roles y membresías, y quiénes administran SIGTA."
-      />
+      <PageHeader title="Administración" />
       <Tabs
         value={tab}
         keepMounted={false}

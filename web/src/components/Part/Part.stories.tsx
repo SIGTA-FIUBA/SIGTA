@@ -19,7 +19,7 @@ export default meta
 export const Default: StoryObj = {
   name: 'Part',
   render: () => (
-    <Part title="Historial" lead="Cada acción del trámite, de la más reciente a la primera.">
+    <Part title="Historial">
       <Text>Titular Uno inició el trámite.</Text>
     </Part>
   ),

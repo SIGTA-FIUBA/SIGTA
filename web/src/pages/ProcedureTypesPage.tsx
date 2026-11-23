@@ -35,13 +35,7 @@ export function ProcedureTypesPage() {
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Stack gap={0}>
-          <Title order={1}>Tipos de trámite</Title>
-          <Text c="dimmed">
-            Cada tipo de trámite se edita en un borrador. Una persona lo propone y otra lo aprueba para publicarlo como
-            versión nueva.
-          </Text>
-        </Stack>
+        <Title order={1}>Tipos de trámite</Title>
         {editable.data?.can_create && <NewProcedureType />}
       </Group>
       {published && (
@@ -187,7 +181,6 @@ function NewProcedureType() {
           <Stack>
             <TextInput
               label="Nombre"
-              description="Lo ve el titular en el catálogo. Se puede cambiar después."
               value={name}
               onChange={(event) => setName(event.currentTarget.value)}
               data-autofocus

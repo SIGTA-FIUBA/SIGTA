@@ -481,20 +481,78 @@
   }
 }
 
-/* An ordered list without its numbers (List variant="numbered"), whose items
- * write their own; a hairline between them. */
-.numbered.numbered {
+/* The steps of a procedure on its page (List variant="route"): a numbered
+ * mark per step on a vertical line. The confirmed ones filled in the action
+ * color, the open one ringed in it, the rest in gray (data-state). The first
+ * line of each step, in the size of the body, sits on the middle of its mark. */
+.route.route {
   padding: 0;
   margin: 0;
   list-style: none;
+  counter-reset: route;
 }
 
-.numbered > li {
+.routeItem {
+  --mark: var(--mantine-spacing-xl);
+
+  position: relative;
   list-style: none;
+  counter-increment: route;
+  min-height: var(--mark);
+  padding-top: calc((var(--mark) - 1lh) / 2);
+  padding-inline-start: calc(var(--mark) + var(--mantine-spacing-sm));
+  padding-bottom: var(--mantine-spacing-lg);
 }
 
-.numbered > li + li {
-  border-top: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+.routeItem:last-child {
+  padding-bottom: 0;
+}
+
+.routeItem::before {
+  content: counter(route);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mark);
+  height: var(--mark);
+  border-radius: 50%;
+  border: var(--sigta-border-width) solid var(--mantine-color-gray-4);
+  background-color: var(--mantine-color-white);
+  color: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.routeItem[data-state='done']::before {
+  border-color: var(--mantine-primary-color-filled);
+  background-color: var(--mantine-primary-color-filled);
+  color: var(--mantine-color-white);
+}
+
+.routeItem[data-state='current']::before {
+  border-color: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-filled);
+  box-shadow: 0 0 0 var(--sigta-nudge) var(--mantine-color-fiuba-1);
+}
+
+/* The line runs from one mark to the next, with a little air around each;
+ * in the action color after a confirmed step. */
+.routeItem:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--mark) / 2 - var(--sigta-border-width) / 2);
+  top: calc(var(--mark) + var(--sigta-nudge));
+  bottom: var(--sigta-nudge);
+  width: var(--sigta-border-width);
+  background-color: var(--mantine-color-gray-3);
+}
+
+.routeItem[data-state='done']:not(:last-child)::after {
+  background-color: var(--mantine-primary-color-filled);
 }
 
 /* The mark of the selected tile (Paper variant="selection"): a tint, with no
