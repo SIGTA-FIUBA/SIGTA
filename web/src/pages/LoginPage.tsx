@@ -35,15 +35,15 @@ type Offer = {
   to: string
 }
 
-// What a visitor can do with SIGTA, each card with its way in: the inbox
-// asks for the login, the catalog is public and the administration is the
-// page about SIGTA, with whom to contact.
+// What a visitor can do with SIGTA, each card with its way in: the inbox, for
+// the staff, asks for the login, the catalog is public and the administration
+// is the page about SIGTA.
 const offers: Offer[] = [
   {
     icon: 'file-pencil',
     title: 'Bandeja de trámites',
     lines: 1,
-    text: 'Revisá el estado de tus trámites en curso.',
+    text: 'Para el personal: revisá los trámites en curso.',
     tone: 'outline',
     to: loginUrl,
   },
@@ -59,7 +59,7 @@ const offers: Offer[] = [
     icon: 'settings-check',
     title: 'Administración de SIGTA',
     lines: 1,
-    text: 'Comunicate con nosotros para despejar tus dudas.',
+    text: 'A cargo de la Secretaría de Gestión Académica.',
     tone: 'navy',
     to: '/about',
   },

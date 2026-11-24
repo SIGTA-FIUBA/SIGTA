@@ -30,10 +30,12 @@ describe('LoginPage', () => {
     )
   })
 
-  it('offers the inbox, the catalog and the administration, each with its way in', () => {
+  it('offers the inbox, for the staff, the catalog and the administration, each with its way in', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Bandeja de trámites' })).toHaveAttribute('href', '/api/auth/login')
+    const inbox = screen.getByRole('link', { name: 'Bandeja de trámites' })
+    expect(inbox).toHaveAttribute('href', '/api/auth/login')
+    expect(inbox).toHaveAccessibleDescription(/^Para el personal/)
     expect(screen.getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
     expect(screen.getByRole('link', { name: 'Administración de SIGTA' })).toHaveAttribute('href', '/about')
   })
