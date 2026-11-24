@@ -12,7 +12,6 @@ import { PendingRow } from '../components/PendingRow/PendingRow'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
-import { StartCard } from '../components/StartCard/StartCard'
 import { applicantName, byLastMove, movedText, procedurePath } from '../content/procedures'
 import { PageHeader } from '../components/PageHeader/PageHeader'
 
@@ -84,7 +83,7 @@ function ApplicantPending() {
       ) : tasks.length === 0 ? (
         <EmptyState title="Sin pendientes" text="Cuando un trámite pida algo, aparece acá." />
       ) : (
-        <SimpleGrid component="ul" aria-label="Pendientes" cols={{ base: 1, md: 2 }} spacing="md" p={0} m={0}>
+        <SimpleGrid component="ul" aria-label="Pendientes" cols={1} spacing="sm" p={0} m={0}>
           {tasks.map((task, index) => (
             <Box component="li" key={task.id} display="block">
               <Reveal index={index}>
@@ -103,39 +102,47 @@ function ApplicantPending() {
   )
 }
 
-// NewProcedure gives weight to starting a procedure: the first types of the
-// catalog as cards, in rows of three that close, and the way to the whole
-// gallery. The search is fixed at the top right of the page (AppLayout).
+// NewProcedure offers the first types of the catalog, beside the person's
+// procedures: a row each, with what it is in two lines, and the way to all of
+// them. The search and the start are on top of the page (AppLayout).
 function NewProcedure() {
   const catalog = useQuery(catalogQuery)
   const entries = catalog.data?.slice(0, startCount) ?? []
   return (
-    <Section id="new" title="Iniciar trámite">
+    <Section
+      id="new"
+      title="Para iniciar"
+      action={
+        <Button
+          component={Link}
+          to="/new"
+          variant="subtle"
+          size="compact-sm"
+          rightSection={<Icon name="arrow-right" size={16} />}
+        >
+          Ver todos
+        </Button>
+      }
+    >
       {catalog.isError ? (
         <Alert color="red" role="alert">
           No se pudo cargar el catálogo. Volvé a intentarlo más tarde.
         </Alert>
       ) : catalog.isPending ? (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {Array.from({ length: 3 }, (_, index) => (
-            <Skeleton key={index} h="var(--sigta-figures-height)" />
-          ))}
-        </SimpleGrid>
+        <RowsLoading />
       ) : entries.length === 0 ? (
         <EmptyState title="Sin trámites publicados" text="Cuando se publique un tipo de trámite, aparece acá." />
       ) : (
-        <Stack gap="md" align="flex-start">
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 'xs', sm: 'md' }} w="100%">
-            {entries.map((entry, index) => (
-              <Reveal key={entry.id} index={index}>
-                <StartCard to={`/catalog/${entry.id}/start`} name={entry.name} description={entry.description} />
-              </Reveal>
-            ))}
-          </SimpleGrid>
-          <Anchor component={Link} to="/new" size="sm" fw={600}>
-            Ver todos los trámites
-          </Anchor>
-        </Stack>
+        <ProcedureRows label="Trámites para iniciar">
+          {entries.map((entry) => (
+            <PendingRow
+              key={entry.id}
+              to={`/catalog/${entry.id}/start`}
+              task={entry.name}
+              context={entry.description ?? ''}
+            />
+          ))}
+        </ProcedureRows>
       )}
     </Section>
   )
@@ -151,7 +158,13 @@ function InProgress() {
       id="in-progress"
       title="Trámites en curso"
       action={
-        <Button component={Link} to="/my-procedures" variant="default" leftSection={<Icon name="history" size={16} />}>
+        <Button
+          component={Link}
+          to="/my-procedures"
+          variant="subtle"
+          size="compact-sm"
+          rightSection={<Icon name="arrow-right" size={16} />}
+        >
           Historial
         </Button>
       }
@@ -292,11 +305,19 @@ export function HomePage() {
       {staff ? (
         <StaffHome />
       ) : (
-        <Stack gap="xxl">
-          <ApplicantPending />
-          <InProgress />
-          <NewProcedure />
-        </Stack>
+        // As the staff's: the person's procedures and, beside them from
+        // breakpoint.xl, the procedures to start; narrower, below.
+        <Grid gap="xxl">
+          <Grid.Col span={{ base: 12, xl: 9 }}>
+            <Stack gap="xxl">
+              <ApplicantPending />
+              <InProgress />
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, xl: 3 }}>
+            <NewProcedure />
+          </Grid.Col>
+        </Grid>
       )}
     </Stack>
   )

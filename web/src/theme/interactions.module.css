@@ -681,6 +681,32 @@
   font-weight: var(--mantine-font-weight-regular);
 }
 
+/* The way into the search on top of the pages of an applicant (Button
+ * variant="search-field"): a quiet field, gray until the pointer is on it,
+ * its words on the left as a field writes them. */
+.searchField {
+  border: var(--sigta-border-width) solid var(--mantine-color-gray-3);
+  background-color: var(--mantine-color-gray-0);
+  color: var(--mantine-color-gray-6);
+  font-weight: var(--mantine-font-weight-regular);
+  padding-inline: var(--mantine-spacing-md);
+}
+
+.searchField:hover {
+  border-color: var(--mantine-color-gray-4);
+  background-color: var(--mantine-color-white);
+  color: var(--mantine-color-gray-7);
+}
+
+.searchFieldInner {
+  justify-content: flex-start;
+}
+
+.searchFieldLabel {
+  flex: 1;
+  text-align: start;
+}
+
 /* The search (Spotlight): a tall field with room on its sides, results with
  * room around them and the footer apart. The rules go under .spotlight to
  * win over the styles of the package, loaded after the theme. */

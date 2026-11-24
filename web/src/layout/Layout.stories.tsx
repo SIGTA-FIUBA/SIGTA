@@ -276,7 +276,7 @@ export const HomeApplicant: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del titular: el saludo, sus trámites en curso y cerrados, y los pasos de un trámite. El catálogo está en el menú, así que ningún botón lo repite.',
+          'El Inicio del titular, "Mis trámites": arriba el buscador y "Iniciar trámite"; lo que sus trámites le piden, sus trámites en curso con el historial y, al lado, los tipos para iniciar en filas sin caja, como el inicio del personal.',
       },
     },
   },

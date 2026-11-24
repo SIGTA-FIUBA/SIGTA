@@ -14,7 +14,6 @@ import {
   NavLink,
   Paper,
   Stack,
-  Text,
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
@@ -281,21 +280,18 @@ export function AppLayout() {
           {!staff && (
             <Group component="search" visibleFrom="sm" gap="md" wrap="nowrap" mb="xl" aria-label="Buscar e iniciar">
               <Button
-                variant="default"
-                size="lg"
+                variant="search-field"
+                size="md"
                 flex={1}
                 maw="var(--sigta-measure)"
-                justify="space-between"
                 leftSection={<Icon name="search" size={20} />}
                 rightSection={<SearchShortcut />}
                 onClick={openSearch}
               >
-                <Text component="span" c="gray.6" fw={400} inherit>
-                  Buscar un trámite
-                </Text>
+                Buscar un trámite
               </Button>
               {offerStart && (
-                <Button component={Link} to="/new" size="lg" ml="auto" leftSection={<Icon name="plus" size={20} />}>
+                <Button component={Link} to="/new" size="md" ml="auto" leftSection={<Icon name="plus" size={20} />}>
                   Iniciar trámite
                 </Button>
               )}

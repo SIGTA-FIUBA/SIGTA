@@ -183,7 +183,7 @@ describe('HomePage', () => {
     expect(within(first).queryByText(/dato/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Trámite 6/ })).toBeVisible()
     expect(screen.queryByRole('link', { name: /Trámite 7/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver todos los trámites' })).toHaveAttribute('href', '/new')
+    expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/new')
   })
 
   it('says when the procedures could not be loaded', async () => {

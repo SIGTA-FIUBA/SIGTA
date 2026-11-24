@@ -239,7 +239,16 @@ export const theme = createTheme({
       vars: (_theme, props) => ({
         root: controlHeight(props.size, tokens.component.button.height, '--button-height'),
       }),
-      classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? `${classes.touch} ${classes.control}` }),
+      // variant="search-field" looks like the field it opens: the search
+      // (Spotlight), its words on the left and its shortcut on the right.
+      classNames: (_theme, props) =>
+        props.variant === 'search-field'
+          ? {
+              root: `${classes.touch} ${classes.control} ${classes.searchField}`,
+              inner: classes.searchFieldInner,
+              label: classes.searchFieldLabel,
+            }
+          : { root: landingClass(props.variant) ?? `${classes.touch} ${classes.control}` },
     }),
     // A state reads in its text: no capitals, caption at 600, 700 on 50.
     // variant="counter" is the count of the inbox in the menu.

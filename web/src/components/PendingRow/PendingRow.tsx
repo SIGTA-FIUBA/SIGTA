@@ -36,7 +36,7 @@ export function PendingRow({ to, state, task, context, due }: PendingRowProps) {
       <Group wrap="nowrap" gap="md" align="flex-start">
         <Stack gap="xxs" flex={1} miw={0}>
           <Text fw={600}>{task}</Text>
-          <Text size="sm" c="gray.7">
+          <Text size="sm" c="gray.7" lineClamp={2}>
             {context}
           </Text>
         </Stack>
