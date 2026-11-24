@@ -11,6 +11,7 @@ import {
   Group,
   Image,
   Indicator,
+  Input,
   NavLink,
   Paper,
   Stack,
@@ -177,9 +178,9 @@ export function AppLayout() {
     )
   }
 
-  // An applicant has a wide search and the start of a procedure on top of
-  // every page, so the menu does not repeat the search; the start, but on the
-  // pages that start one.
+  // An applicant has the search and the start of a procedure in the top bar
+  // of every page, so the menu does not repeat the search; the start, but on
+  // the pages that start one.
   const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
 
   const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
@@ -189,8 +190,11 @@ export function AppLayout() {
   }
 
   return (
+    // The alt layout keeps the menu from top to bottom, with the top bar
+    // beside it: on a computer only an applicant has one.
     <AppShell
-      header={{ height: { base: tokens.layout.topBar, sm: 0 } }}
+      layout="alt"
+      header={{ height: { base: tokens.layout.topBar, sm: staff ? 0 : tokens.layout.topBar } }}
       navbar={{
         width: { sm: tokens.layout.navCompact, md: tokens.layout.nav },
         breakpoint: 'sm',
@@ -198,29 +202,57 @@ export function AppLayout() {
       }}
       padding={{ base: 'md', sm: tokens.layout.pagePadding }}
     >
-      <AppShell.Header hiddenFrom="sm">
-        <AppHeader
-          start={
-            <Burger
-              opened={menuOpen}
-              onClick={toggleMenu}
-              size="sm"
-              aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
-            />
-          }
-          end={
-            <>
-              <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
-                <Icon name="search" />
-              </ActionIcon>
-              {offerStart && (
-                <ActionIcon component={Link} to="/new" size="lg" aria-label="Iniciar trámite">
-                  <Icon name="plus" />
+      <AppShell.Header hiddenFrom={staff ? 'sm' : undefined}>
+        <Box hiddenFrom="sm" h="100%">
+          <AppHeader
+            start={
+              <Burger
+                opened={menuOpen}
+                onClick={toggleMenu}
+                size="sm"
+                aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
+              />
+            }
+            end={
+              <>
+                <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
+                  <Icon name="search" />
                 </ActionIcon>
-              )}
-            </>
-          }
-        />
+                {offerStart && (
+                  <ActionIcon component={Link} to="/new" size="lg" aria-label="Iniciar trámite">
+                    <Icon name="plus" />
+                  </ActionIcon>
+                )}
+              </>
+            }
+          />
+        </Box>
+        {!staff && (
+          <Box visibleFrom="sm" h="100%" px={tokens.layout.pagePadding}>
+            <Container px={0} h="100%">
+              <Group component="search" h="100%" justify="space-between" wrap="nowrap" aria-label="Buscar e iniciar">
+                <Input
+                  component="button"
+                  pointer
+                  w={tokens.layout.search}
+                  leftSection={<Icon name="search" size={16} />}
+                  leftSectionPointerEvents="none"
+                  rightSection={<SearchShortcut keycap />}
+                  rightSectionWidth={tokens.layout.searchShortcut}
+                  rightSectionPointerEvents="none"
+                  onClick={openSearch}
+                >
+                  <Input.Placeholder>Buscar un trámite</Input.Placeholder>
+                </Input>
+                {offerStart && (
+                  <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
+                    Iniciar trámite
+                  </Button>
+                )}
+              </Group>
+            </Container>
+          </Box>
+        )}
       </AppShell.Header>
       <AppShell.Navbar p={compact ? 'xs' : 'sm'} aria-label="Menú principal">
         <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="lg">
@@ -277,26 +309,6 @@ export function AppLayout() {
       />
       <AppShell.Main>
         <Container px={0}>
-          {!staff && (
-            <Group component="search" visibleFrom="sm" gap="md" wrap="nowrap" mb="xl" aria-label="Buscar e iniciar">
-              <Button
-                variant="search-field"
-                size="md"
-                flex={1}
-                maw="var(--sigta-measure)"
-                leftSection={<Icon name="search" size={20} />}
-                rightSection={<SearchShortcut />}
-                onClick={openSearch}
-              >
-                Buscar un trámite
-              </Button>
-              {offerStart && (
-                <Button component={Link} to="/new" size="md" ml="auto" leftSection={<Icon name="plus" size={20} />}>
-                  Iniciar trámite
-                </Button>
-              )}
-            </Group>
-          )}
           {logoutFailed && (
             <Alert color="red" mb="md">
               No se pudo cerrar la sesión. Volvé a intentarlo.

@@ -574,6 +574,17 @@
   color: var(--sigta-nav-text);
 }
 
+/* The shell has the alt layout (the menu from top to bottom, the top bar
+ * beside it), but on a phone the menu opens under the top bar, as in the
+ * default layout, so the button that closes it stays in sight. 47.99em is
+ * under breakpoint.sm, where the menu folds. */
+@media (max-width: 47.99em) {
+  [data-layout='alt'] .sideNav {
+    top: var(--app-shell-header-offset, 0rem);
+    height: calc(100dvh - var(--app-shell-header-offset, 0rem));
+  }
+}
+
 /* An item of the side navigation (NavLink variant="menu"). At rest, a very
  * light blue in the label weight; under the pointer, a white veil. The
  * current page is the only white shape: its text in fiuba.9 at 600 and its
@@ -679,32 +690,6 @@
 
 .navSearch .navLabel {
   font-weight: var(--mantine-font-weight-regular);
-}
-
-/* The way into the search on top of the pages of an applicant (Button
- * variant="search-field"): a quiet field, gray until the pointer is on it,
- * its words on the left as a field writes them. */
-.searchField {
-  border: var(--sigta-border-width) solid var(--mantine-color-gray-3);
-  background-color: var(--mantine-color-gray-0);
-  color: var(--mantine-color-gray-6);
-  font-weight: var(--mantine-font-weight-regular);
-  padding-inline: var(--mantine-spacing-md);
-}
-
-.searchField:hover {
-  border-color: var(--mantine-color-gray-4);
-  background-color: var(--mantine-color-white);
-  color: var(--mantine-color-gray-7);
-}
-
-.searchFieldInner {
-  justify-content: flex-start;
-}
-
-.searchFieldLabel {
-  flex: 1;
-  text-align: start;
 }
 
 /* The search (Spotlight): a tall field with room on its sides, results with

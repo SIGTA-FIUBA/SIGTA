@@ -154,6 +154,8 @@ export const tokens = {
     logo: scaled('layout.logo'),
     signature: scaled('layout.signature'),
     measure: text('layout.measure'),
+    search: scaled('layout.search'),
+    searchShortcut: scaled('layout.searchShortcut'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
     landing: {
       canvas: value('layout.landing.canvas') as number,

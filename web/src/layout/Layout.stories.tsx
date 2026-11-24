@@ -202,7 +202,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'El marco de todas las páginas (`src/layout/`): con sesión, un menú lateral blanco de 240 de arriba abajo, con un borde a la derecha, con el logo de SIGTA, las opciones y, al pie, Acerca de SIGTA y la cuenta. En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón, en una barra superior blanca. Sin sesión, solo la barra superior con el ingreso.',
+          'El marco de todas las páginas (`src/layout/`), el `AppShell` de Mantine con `layout="alt"`: con sesión, un menú lateral oscuro de 256 de arriba abajo, con el logo de SIGTA, las opciones y, al pie, Acerca de SIGTA y la cuenta. El titular tiene además, al lado del menú, la barra superior con el buscador y "Iniciar trámite". En una tableta el menú queda en íconos con tooltip; en el celular se pliega detrás de un botón, en una barra superior blanca, y se abre debajo de ella. Sin sesión, la portada pública.',
       },
     },
   },
