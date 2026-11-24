@@ -53,6 +53,7 @@ export function PublicLayout() {
                 to={page.to}
                 variant="landing-nav-link"
                 aria-current={current ? 'page' : undefined}
+                data-label={page.label}
                 onClick={toTop(page.to)}
               >
                 {page.label}

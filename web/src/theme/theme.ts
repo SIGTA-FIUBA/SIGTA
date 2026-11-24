@@ -371,7 +371,6 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--sigta-focus-offset': tokens.focus.offset,
     '--sigta-touch-target': rem(tokens.component.touchTarget.minHeight),
     '--sigta-landing-font': tokens.font.landing,
-    '--sigta-landing-canvas': String(tokens.layout.landing.canvas),
     '--sigta-landing-content': String(tokens.layout.landing.content),
     '--sigta-landing-scale': String(tokens.layout.landing.scale),
     '--sigta-landing-navy': tokens.color.landing.navy,

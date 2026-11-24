@@ -3,21 +3,20 @@
  * wide). It has a look of its own, within the FIUBA manual: Helvetica Neue, its
  * blue and cyan, flat, and rounded blocks. Only theme.ts uses these classes, as landing-* variants.
  *
- * From breakpoint.md (64em) the page keeps the proportions of the design. The
- * content is as wide as in the design times --w, a pixel of the design, which
- * is a pixel at 1536 and shrinks with the screen below it. Every other measure
- * is the one of the design times --u, which is --w times
- * layout.landing.scale: the design was drawn large, and a screen reads it
- * smaller. The header is not drawn from the design: it is a bar of the size of
- * a web header, in rem. On a phone the same
- * blocks stack, with measures of their own. The collage scales with its own
- * width (--c, a pixel of its 542 wide drawing), on any screen. The content
- * is not as narrow as the one of the design: it leaves a margin of --gutter
- * on each side, up to --max wide.
+ * The content leaves a margin of --gutter on each side, less than the one of
+ * the design, up to --max wide. From breakpoint.md (64em) the page draws the
+ * design at that width: every measure is the one of the design times --u, a
+ * pixel of the design, which is the width of the content over the one of the
+ * design (layout.landing.content) times layout.landing.scale. At 1536 it is a
+ * pixel, and it grows and shrinks with the screen, so the page keeps the
+ * proportions of the design. The header is not drawn from the design: it is a
+ * bar of the size of a web header, in rem, with the air of the design above
+ * it at the top of the page. On a phone the same blocks stack,
+ * with measures of their own. The collage scales with its own width (--c, a
+ * pixel of its 542 wide drawing), on any screen.
  */
 
 .page {
-  --w: 1px;
   --u: 1px;
   --radius: calc(24 * var(--u));
   --gutter: clamp(1.25rem, 4vw, 4rem);
@@ -50,14 +49,15 @@
 
 @media (min-width: 64em) {
   .page {
-    --w: min(1px, calc(100vw / var(--sigta-landing-canvas)));
-    --u: calc(var(--w) * var(--sigta-landing-scale));
+    --u: calc(min(100vw - 2 * var(--gutter), var(--max)) / var(--sigta-landing-content) * var(--sigta-landing-scale));
   }
 }
 
-/* The content, on the width of the screen less its margins. */
+/* The content, on the width of the screen less its margins. It takes the
+ * height left, so the footer stays at the bottom of a short page. */
 .main,
 .content {
+  flex: 1 0 auto;
   width: min(100% - 2 * var(--gutter), var(--max));
   margin-inline: auto;
   gap: 0;
@@ -72,7 +72,8 @@
 /* Header: the logo, the links and the login, on a white bar that stays on
  * top while the page scrolls under it. Its content lines up with the one of
  * the page. On a phone the links go to a row of their own, under the logo and
- * the login. */
+ * the login. From 64em it has the air of the design above the bar, which
+ * scrolls away: only the bar stays on top. */
 .header {
   position: sticky;
   top: 0;
@@ -104,34 +105,49 @@
 .navLink {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
   min-height: 2.5rem;
   color: var(--sigta-landing-navy);
   font-size: 0.9375rem;
   font-weight: 400;
+  line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
+}
+
+/* An invisible copy of the label in bold keeps the width of the link, so the
+ * links do not move when the current one turns bold. */
+.navLink::after {
+  content: attr(data-label);
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 700;
 }
 
 .navLink:hover {
   text-decoration: none;
 }
 
-/* The page the person is on is semibold, with a rule as wide as its link on
- * the bottom edge of the bar (Paper variant="landing-nav-mark"), which
- * travels to the link opened. Semibold, not bold, so the link barely widens
- * and the others do not move. */
+/* The page the person is on is bold, as in the design, with a short rule
+ * under its label (Paper variant="landing-nav-mark") that travels to the
+ * link opened. */
 .navLink[aria-current='page'] {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .navMark {
   position: absolute;
+  top: calc(50% + 0.6em);
   left: 0;
   right: 0;
-  bottom: -1px;
+  width: 1.2em;
   height: 2px;
-  border-radius: 2px 2px 0 0;
+  margin-inline: auto;
+  border-radius: 1px;
+  font-size: inherit;
   background: currentColor;
 }
 
@@ -349,7 +365,7 @@
 }
 
 /* What SIGTA offers, reached from "Conocé SIGTA" and from its band: it stops
- * below the header that stays on top (about 5.6rem high on a phone, 5rem
+ * below the header that stays on top (about 5.6rem high on a phone, 5.5rem
  * from 64em), with some air. */
 .offers {
   scroll-margin-top: 6.5rem;
@@ -686,40 +702,36 @@
 /* From breakpoint.md, the layout of the design, in its measures. */
 @media (min-width: 64em) {
   .header {
-    height: 5rem;
-    padding-block: 0;
+    --air: calc(52 * var(--u));
+    top: calc(-1 * var(--air));
+    height: calc(5.5rem + var(--air));
+    padding-block: var(--air) 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
 
   .logo {
-    height: 2.5rem;
+    height: 3rem;
   }
 
-  /* The links fill the height of the bar, so the mark sits on its edge. */
+  /* The links, spread out as in the design, between the logo and the login. */
   .nav {
-    align-self: stretch;
     margin-inline: auto;
-    gap: 2.75rem;
+    gap: 6rem;
   }
 
   .navLink {
-    min-height: 0;
-    height: 100%;
-    font-size: 1.1875rem;
-    font-weight: 500;
-  }
-
-  .navMark {
-    height: 3px;
+    min-height: 3rem;
+    font-size: 1.25rem;
   }
 
   .login {
-    min-height: 2.875rem;
-    padding-inline: 1.375rem;
+    min-height: 3rem;
+    padding-inline: 1.5rem;
     border-radius: 0.75rem;
-    font-size: 1.0625rem;
+    font-size: 1.125rem;
+    font-weight: 500;
   }
 
   .content {
@@ -771,7 +783,7 @@
   }
 
   .offers {
-    scroll-margin-top: 6rem;
+    scroll-margin-top: 7rem;
   }
 
   .banner {
@@ -822,9 +834,10 @@
     line-height: 1.02;
   }
 
+  /* The small texts do not go below 14px on a narrow screen. */
   .cardText {
     margin-top: calc(6 * var(--u));
-    font-size: calc(21.46 * var(--u));
+    font-size: max(0.875rem, calc(21.46 * var(--u)));
     line-height: 1.05;
   }
 
@@ -836,7 +849,7 @@
 
   .how {
     margin-top: calc(70 * var(--u));
-    height: calc(254 * var(--u));
+    min-height: calc(254 * var(--u));
     flex-direction: row;
   }
 
@@ -883,7 +896,7 @@
   }
 
   .stepText {
-    font-size: calc(17.6 * var(--u));
+    font-size: max(0.875rem, calc(17.6 * var(--u)));
     line-height: 1.02;
   }
 

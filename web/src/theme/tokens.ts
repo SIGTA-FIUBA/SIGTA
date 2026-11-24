@@ -158,7 +158,6 @@ export const tokens = {
     searchShortcut: scaled('layout.searchShortcut'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
     landing: {
-      canvas: value('layout.landing.canvas') as number,
       content: value('layout.landing.content') as number,
       scale: value('layout.landing.scale') as number,
     },
