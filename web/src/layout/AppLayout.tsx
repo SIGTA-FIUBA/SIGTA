@@ -227,7 +227,7 @@ export function AppLayout() {
         <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="lg">
           <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
             <Image
-              src={compact ? '/brand/sigta-isotipo-color-dark.svg' : '/brand/sigta-horizontal-color-dark.svg'}
+              src={compact ? '/brand/sigta-isotipo-white.svg' : '/brand/sigta-horizontal-white.svg'}
               alt=""
               h="var(--sigta-logo-height)"
               w="auto"

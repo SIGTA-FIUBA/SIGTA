@@ -12,9 +12,13 @@ const PIECES = [
 
 const VARIANTS = [
   { id: 'color', name: 'Color', background: '#ffffff', use: 'Sobre blanco o fondos claros.' },
-  { id: 'color-dark', name: 'Color para fondo oscuro', background: '#003A6A', use: 'Sobre azul oscuro o negro.' },
   { id: 'black', name: 'Negro', background: '#ffffff', use: 'Impresión en un color.' },
-  { id: 'white', name: 'Blanco', background: '#121516', use: 'Sobre fotos o colores oscuros, en un color.' },
+  {
+    id: 'white',
+    name: 'Blanco',
+    background: '#121516',
+    use: 'Sobre fotos o fondos oscuros: todo blanco, también la barra.',
+  },
 ]
 
 // LogoGallery shows every piece of the logo in every variant, with the file
@@ -30,7 +34,7 @@ export function LogoGallery({ piece }: { piece?: string }) {
             <Text size="sm" c="dimmed">
               {p.use}
             </Text>
-            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
               {VARIANTS.map((v) => {
                 const file = `brand/sigta-${p.id}-${v.id}.svg`
                 return (

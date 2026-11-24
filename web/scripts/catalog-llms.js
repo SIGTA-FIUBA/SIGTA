@@ -47,7 +47,7 @@ const lines = [
   '',
   '## Logo',
   '',
-  'Archivos sigta-<pieza>-<versión>.svg. Piezas: isotipo, logotipo, horizontal, horizontal-descriptor, vertical, vertical-descriptor. Versiones: color (fondo claro), color-dark (fondo oscuro), black, white.',
+  'Archivos sigta-<pieza>-<versión>.svg. Piezas: isotipo, logotipo, horizontal, horizontal-descriptor, vertical, vertical-descriptor. Versiones: color (fondo claro), black, white (fondo oscuro, todo blanco: nunca con la barra celeste).',
   '',
   ...logos.map((file) => `- [${file}](brand/${file})`),
   '',
