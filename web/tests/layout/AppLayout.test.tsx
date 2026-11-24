@@ -77,7 +77,6 @@ describe('AppLayout', () => {
     expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/')
     expect(within(menu).queryByRole('link', { name: 'Inicio' })).not.toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
-    expect(within(menu).getByRole('button', { name: 'Buscar' })).toBeVisible()
     expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('aria-current', 'page')
     expect(within(menu).getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
     // The applicant has no inbox, and the account closes the menu.
@@ -153,8 +152,9 @@ describe('AppLayout', () => {
     for (const start of starts) {
       expect(start).toHaveAttribute('href', '/new')
     }
-    const searches = screen.getAllByRole('button', { name: /^Buscar/ }).filter((button) => !menu.contains(button))
-    expect(searches.length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /^Buscar/ }).length).toBeGreaterThan(0)
+    // The search is at the top, so the menu does not repeat it.
+    expect(within(menu).queryByRole('button', { name: /^Buscar/ })).not.toBeInTheDocument()
   })
 
   it('does not offer to start a procedure on the page that starts one', async () => {
@@ -171,6 +171,8 @@ describe('AppLayout', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Inicio' })
     expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
+    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
+    expect(within(menu).getByRole('button', { name: /^Buscar/ })).toBeInTheDocument()
   })
 
   it('shows the name and email in the account menu', async () => {

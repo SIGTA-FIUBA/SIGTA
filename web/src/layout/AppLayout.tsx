@@ -179,7 +179,8 @@ export function AppLayout() {
   }
 
   // An applicant has the search and the start of a procedure fixed at the top
-  // right of every page; the start, but on the pages that start one.
+  // right of every page, so the menu does not repeat the search; the start,
+  // but on the pages that start one.
   const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
 
   const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
@@ -234,31 +235,33 @@ export function AppLayout() {
             />
           </Anchor>
         </AppShell.Section>
-        <AppShell.Section pb="md">
-          {compact ? (
-            <Tooltip label="Buscar" position="right">
+        {staff && (
+          <AppShell.Section pb="md">
+            {compact ? (
+              <Tooltip label="Buscar" position="right">
+                <NavLink
+                  component="button"
+                  variant="menu-icon"
+                  aria-label="Buscar"
+                  leftSection={<Icon name="search" />}
+                  onClick={openSearch}
+                />
+              </Tooltip>
+            ) : (
               <NavLink
                 component="button"
-                variant="menu-icon"
-                aria-label="Buscar"
+                variant="menu-search"
+                label="Buscar"
                 leftSection={<Icon name="search" />}
-                onClick={openSearch}
+                rightSection={<SearchShortcut />}
+                onClick={() => {
+                  closeMenu()
+                  openSearch()
+                }}
               />
-            </Tooltip>
-          ) : (
-            <NavLink
-              component="button"
-              variant="menu-search"
-              label="Buscar"
-              leftSection={<Icon name="search" />}
-              rightSection={<SearchShortcut />}
-              onClick={() => {
-                closeMenu()
-                openSearch()
-              }}
-            />
-          )}
-        </AppShell.Section>
+            )}
+          </AppShell.Section>
+        )}
         <AppShell.Section grow>
           <Stack gap={0}>{links.map(menuItem)}</Stack>
         </AppShell.Section>
