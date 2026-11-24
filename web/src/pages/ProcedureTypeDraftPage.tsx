@@ -210,7 +210,9 @@ function DraftEditor({
               : 'Tipo de trámite nuevo'}
           </Text>
           <Group gap="sm">
-            <Title order={1}>{definition.name || 'Tipo de trámite sin nombre'}</Title>
+            <Title order={1} variant="display" c="fiuba.9">
+              {definition.name || 'Tipo de trámite sin nombre'}
+            </Title>
             <Badge variant="light" color={status.color}>
               {status.label}
             </Badge>

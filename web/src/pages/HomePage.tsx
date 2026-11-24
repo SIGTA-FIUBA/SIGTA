@@ -14,6 +14,7 @@ import { Reveal } from '../components/Reveal/Reveal'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
 import { StartCard } from '../components/StartCard/StartCard'
 import { applicantName, byLastMove, movedText, procedurePath } from '../content/procedures'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type User = components['schemas']['User']
 type ProcedureList = components['schemas']['ProcedureList']
@@ -287,7 +288,7 @@ export function HomePage() {
     <Stack gap="xl">
       {/* An applicant starts a procedure from the top right of every page
           (AppLayout). */}
-      <Title order={1}>{staff ? 'Inicio' : 'Mis trámites'}</Title>
+      <PageHeader title={staff ? 'Inicio' : 'Mis trámites'} />
       {staff ? (
         <StaffHome />
       ) : (

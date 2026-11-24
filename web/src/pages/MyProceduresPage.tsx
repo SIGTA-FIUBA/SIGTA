@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon/Icon'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
 import { byLastMove, closedWithoutResolution } from '../content/procedures'
 import { normalize, searchWords } from '../content/search'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type MyProcedure = components['schemas']['MyProcedure']
 type User = components['schemas']['User']
@@ -77,7 +78,7 @@ export function MyProceduresPage() {
   return (
     <Stack gap="xxl">
       <Stack gap="lg" align="flex-start">
-        <Title order={1}>{user?.staff === true ? 'Mis trámites' : 'Historial'}</Title>
+        <PageHeader title={user?.staff === true ? 'Mis trámites' : 'Historial'} />
         <TextInput
           aria-label="Buscar por nombre"
           placeholder="Buscar por nombre"

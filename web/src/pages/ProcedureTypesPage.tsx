@@ -10,7 +10,6 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
   VisuallyHidden,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -19,6 +18,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { draftActions, useDraftChange, useEditableProcedureTypes } from '../api/procedureTypes'
 import type { components } from '../api/schema'
 import { draftStatus } from '../content/draftStatuses'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type EditableProcedureType = components['schemas']['EditableProcedureType']
 
@@ -34,10 +34,7 @@ export function ProcedureTypesPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Title order={1}>Tipos de trámite</Title>
-        {editable.data?.can_create && <NewProcedureType />}
-      </Group>
+      <PageHeader title="Tipos de trámite" action={editable.data?.can_create && <NewProcedureType />} />
       {published && (
         <Alert color="fiuba" title="Se publicó la versión nueva">
           Se publicó la versión {published}. Los trámites nuevos empiezan con ella; los que están en curso siguen con la

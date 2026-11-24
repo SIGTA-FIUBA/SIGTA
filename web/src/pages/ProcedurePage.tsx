@@ -1119,13 +1119,17 @@ export function ProcedurePage() {
       {procedure.isPending && <Loader aria-label="Cargando el trámite…" />}
       {procedure.error instanceof NotFoundError && (
         <>
-          <Title order={1}>Trámite</Title>
+          <Title order={1} variant="display" c="fiuba.9">
+            Trámite
+          </Title>
           <Text>No existe el trámite, o no forma parte de tus trámites ni de los de tus áreas.</Text>
         </>
       )}
       {procedure.isError && !(procedure.error instanceof NotFoundError) && (
         <>
-          <Title order={1}>Trámite</Title>
+          <Title order={1} variant="display" c="fiuba.9">
+            Trámite
+          </Title>
           <Alert color="red" role="alert">
             No pudimos cargar el trámite. Volvé a intentarlo más tarde.
           </Alert>
