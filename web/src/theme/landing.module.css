@@ -11,13 +11,17 @@
  * smaller. The header is not drawn from the design: it is a bar of the size of
  * a web header, in rem. On a phone the same
  * blocks stack, with measures of their own. The collage scales with its own
- * width (--c, a pixel of its 542 wide drawing), on any screen.
+ * width (--c, a pixel of its 542 wide drawing), on any screen. The content
+ * is not as narrow as the one of the design: it leaves a margin of --gutter
+ * on each side, up to --max wide.
  */
 
 .page {
   --w: 1px;
   --u: 1px;
   --radius: calc(24 * var(--u));
+  --gutter: clamp(1.25rem, 4vw, 4rem);
+  --max: 105rem;
   --mantine-font-family: var(--sigta-landing-font);
   --mantine-font-family-headings: var(--sigta-landing-font);
   color: var(--sigta-landing-navy);
@@ -51,10 +55,10 @@
   }
 }
 
-/* The content, on the width of the design or the screen less its margins. */
+/* The content, on the width of the screen less its margins. */
 .main,
 .content {
-  width: min(100% - 2.5rem, calc(var(--sigta-landing-content) * var(--w)));
+  width: min(100% - 2 * var(--gutter), var(--max));
   margin-inline: auto;
   gap: 0;
 }
@@ -75,7 +79,7 @@
   z-index: 10;
   background: var(--mantine-color-white);
   padding-block: 0.625rem 0;
-  padding-inline: max(1.25rem, calc((100% - var(--sigta-landing-content) * var(--w)) / 2));
+  padding-inline: max(var(--gutter), calc((100% - var(--max)) / 2));
   display: grid;
   grid-template-columns: auto auto;
   justify-content: space-between;
@@ -268,13 +272,13 @@
   height: calc(186 * var(--c));
 }
 
-.square {
+.facade {
   left: calc(325 * var(--c));
   top: calc(91 * var(--c));
   width: calc(216 * var(--c));
   height: calc(220 * var(--c));
+  object-fit: cover;
   border-radius: calc(24 * var(--c));
-  background: var(--sigta-landing-navy);
 }
 
 .cap,
@@ -345,7 +349,7 @@
 }
 
 /* What SIGTA offers, reached from "Conocé SIGTA" and from its band: it stops
- * below the header that stays on top (about 5.6rem high on a phone, 3.5rem
+ * below the header that stays on top (about 5.6rem high on a phone, 5rem
  * from 64em), with some air. */
 .offers {
   scroll-margin-top: 6.5rem;
@@ -682,7 +686,7 @@
 /* From breakpoint.md, the layout of the design, in its measures. */
 @media (min-width: 64em) {
   .header {
-    height: 3.5rem;
+    height: 5rem;
     padding-block: 0;
     display: flex;
     justify-content: space-between;
@@ -690,24 +694,32 @@
   }
 
   .logo {
-    height: 2rem;
+    height: 2.5rem;
   }
 
   /* The links fill the height of the bar, so the mark sits on its edge. */
   .nav {
     align-self: stretch;
     margin-inline: auto;
-    gap: 2rem;
+    gap: 2.75rem;
   }
 
   .navLink {
     min-height: 0;
     height: 100%;
+    font-size: 1.1875rem;
+    font-weight: 500;
+  }
+
+  .navMark {
+    height: 3px;
   }
 
   .login {
-    min-height: 2.25rem;
-    padding-inline: 1rem;
+    min-height: 2.875rem;
+    padding-inline: 1.375rem;
+    border-radius: 0.75rem;
+    font-size: 1.0625rem;
   }
 
   .content {
@@ -759,7 +771,7 @@
   }
 
   .offers {
-    scroll-margin-top: 4.5rem;
+    scroll-margin-top: 6rem;
   }
 
   .banner {

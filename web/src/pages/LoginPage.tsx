@@ -128,7 +128,7 @@ function Collage() {
   return (
     <Paper variant="landing-collage" aria-hidden>
       <Image variant="landing-hall" src="/photos/portada-pasillo.webp" alt="" />
-      <Paper variant="landing-square" />
+      <Image variant="landing-facade" src="/photos/portada-fachada.webp" alt="" />
       <Paper component={Link} to="/about" variant="landing-cap" tabIndex={-1} title="Sobre SIGTA">
         <Icon name="school" size="fill" weight={1.75} />
       </Paper>
