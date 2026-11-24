@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Affix,
   Alert,
   Anchor,
   AppShell,
@@ -15,6 +14,7 @@ import {
   NavLink,
   Paper,
   Stack,
+  Text,
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
@@ -178,9 +178,9 @@ export function AppLayout() {
     )
   }
 
-  // An applicant has the search and the start of a procedure fixed at the top
-  // right of every page, so the menu does not repeat the search; the start,
-  // but on the pages that start one.
+  // An applicant has a wide search and the start of a procedure on top of
+  // every page, so the menu does not repeat the search; the start, but on the
+  // pages that start one.
   const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
 
   const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
@@ -276,27 +276,31 @@ export function AppLayout() {
         staff={staff}
         pages={[...links, about].map((link) => ({ id: link.to, label: link.label, to: link.to }))}
       />
-      {!staff && (
-        <Affix position={{ top: tokens.layout.pagePadding, right: tokens.layout.pagePadding }} visibleFrom="sm">
-          <Group gap="sm" wrap="nowrap">
-            <Button
-              variant="default"
-              leftSection={<Icon name="search" size={16} />}
-              rightSection={<SearchShortcut />}
-              onClick={openSearch}
-            >
-              Buscar
-            </Button>
-            {offerStart && (
-              <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
-                Iniciar trámite
-              </Button>
-            )}
-          </Group>
-        </Affix>
-      )}
       <AppShell.Main>
         <Container px={0}>
+          {!staff && (
+            <Group component="search" visibleFrom="sm" gap="md" wrap="nowrap" mb="xl" aria-label="Buscar e iniciar">
+              <Button
+                variant="default"
+                size="lg"
+                flex={1}
+                maw="var(--sigta-measure)"
+                justify="space-between"
+                leftSection={<Icon name="search" size={20} />}
+                rightSection={<SearchShortcut />}
+                onClick={openSearch}
+              >
+                <Text component="span" c="gray.6" fw={400} inherit>
+                  Buscar un trámite
+                </Text>
+              </Button>
+              {offerStart && (
+                <Button component={Link} to="/new" size="lg" ml="auto" leftSection={<Icon name="plus" size={20} />}>
+                  Iniciar trámite
+                </Button>
+              )}
+            </Group>
+          )}
           {logoutFailed && (
             <Alert color="red" mb="md">
               No se pudo cerrar la sesión. Volvé a intentarlo.
