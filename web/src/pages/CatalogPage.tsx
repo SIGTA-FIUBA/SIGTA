@@ -1,13 +1,15 @@
 import { Accordion, Alert, Button, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { Link, useOutletContext } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
+import { loginUrlTo } from '../api/session'
 import { Fact } from '../components/Fact/Fact'
 import { Facts } from '../components/Facts/Facts'
 import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
+type User = components['schemas']['User']
 
 // Lines is what goes in a fact of the catalog: one line each, with no bullet.
 function Lines({ items }: { items: string[] }) {
@@ -26,7 +28,8 @@ function Lines({ items }: { items: string[] }) {
 // it says who can ask for it and its deadlines, and offers to start it. What
 // the form asks for (fields, documents, formats and sizes) is left to the form
 // itself: the catalog is for understanding what each procedure is.
-function CatalogItem({ entry }: { entry: CatalogEntry }) {
+function CatalogItem({ entry, visitor }: { entry: CatalogEntry; visitor: boolean }) {
+  const start = `/catalog/${entry.id}/start`
   const facts = [
     { label: 'Quién puede pedirlo', items: entry.admissibility },
     { label: 'Plazos', items: entry.deadlines },
@@ -56,7 +59,13 @@ function CatalogItem({ entry }: { entry: CatalogEntry }) {
               ))}
             </Facts>
           )}
-          <Button component={Link} to={`/catalog/${entry.id}/start`} aria-label={`Iniciar ${entry.name}`}>
+          {/* A visitor goes through the login, which comes back to the form. */}
+          <Button
+            component={Link}
+            to={visitor ? loginUrlTo(start) : start}
+            reloadDocument={visitor}
+            aria-label={`Iniciar ${entry.name}`}
+          >
             Iniciar trámite
           </Button>
         </Stack>
@@ -66,6 +75,9 @@ function CatalogItem({ entry }: { entry: CatalogEntry }) {
 }
 
 export function CatalogPage() {
+  // The layout passes the person with the session; the one of the landing,
+  // null for a visitor.
+  const visitor = useOutletContext<User | null | undefined>() === null
   const catalog = useQuery(catalogQuery)
 
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
@@ -87,7 +99,7 @@ export function CatalogPage() {
       {entries.length > 0 && (
         <Accordion variant="separated" chevronPosition="right">
           {entries.map((entry) => (
-            <CatalogItem key={entry.id} entry={entry} />
+            <CatalogItem key={entry.id} entry={entry} visitor={visitor} />
           ))}
         </Accordion>
       )}

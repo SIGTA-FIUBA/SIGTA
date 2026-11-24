@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CatalogPage } from '../../src/pages/CatalogPage'
 import { render } from '../test-utils/render'
@@ -28,7 +28,11 @@ const equivalence = {
   ],
 }
 
-function renderCatalog(status: number, body: unknown) {
+const person = { id: 'u1', email: 'u@fi.uba.ar', name: 'Persona', staff: false, administrator: false }
+
+// renderCatalog shows the catalog under a layout that passes the person with
+// the session, or null for a visitor, as the one of the landing does.
+function renderCatalog(status: number, body: unknown, user: typeof person | null = person) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => Response.json(body, { status })),
@@ -37,7 +41,11 @@ function renderCatalog(status: number, body: unknown) {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <CatalogPage />
+        <Routes>
+          <Route element={<Outlet context={user} />}>
+            <Route path="/" element={<CatalogPage />} />
+          </Route>
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -74,6 +82,17 @@ describe('CatalogPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
 
     expect(await screen.findByRole('link', { name: 'Iniciar Trámite B' })).toHaveAttribute('href', '/catalog/1/start')
+  })
+
+  it('sends a visitor to the login, which comes back to the form', async () => {
+    renderCatalog(200, [equivalence], null)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Trámite B/ }))
+
+    expect(await screen.findByRole('link', { name: 'Iniciar Trámite B' })).toHaveAttribute(
+      'href',
+      '/api/auth/login?return_to=%2Fcatalog%2F1%2Fstart',
+    )
   })
 
   it('sorts the procedure types by name', async () => {

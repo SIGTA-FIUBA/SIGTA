@@ -40,6 +40,12 @@ export async function publicSession({ request }: { request: Request }) {
 // loads it instead of routing.
 export const loginUrl = '/api/auth/login'
 
+// loginUrlTo is the login that comes back to a page of the application, such
+// as the form of the procedure a visitor asked to start.
+export function loginUrlTo(page: string) {
+  return `${loginUrl}?${new URLSearchParams({ return_to: page })}`
+}
+
 // logout closes the session and reports whether the API did.
 export async function logout(): Promise<boolean> {
   const { response } = await api.POST('/auth/logout')

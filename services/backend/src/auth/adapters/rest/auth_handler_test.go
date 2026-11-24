@@ -212,6 +212,55 @@ func TestPendingLoginWorksOnce(t *testing.T) {
 	}
 }
 
+func TestLoginReturnsToThePageThatAskedForIt(t *testing.T) {
+	srv := newServer(t)
+	home := srv.URL + "/me"
+	longest := "/" + strings.Repeat("a", 511)
+
+	tests := []struct {
+		name     string
+		returnTo string
+		want     string
+	}{
+		{"a page of the application", "/catalog/3/start?draft=2", srv.URL + "/catalog/3/start?draft=2"},
+		{"the longest page", longest, srv.URL + longest},
+		{"an empty page", "", home},
+		{"a page too long", longest + "a", home},
+		{"a relative path", "catalog/3/start", home},
+		{"another site", "https://evil.example/x", home},
+		{"another site without a scheme", "//evil.example/x", home},
+		{"another site behind a backslash", `/\evil.example/x`, home},
+		{"not a path", "/%zz", home},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := withoutRedirects(newClient(t))
+			query := url.Values{"login_hint": {"operativo@fi.uba.ar"}, "return_to": {tt.returnTo}}
+			res, err := get(t, client, srv.URL+"/auth/login?"+query.Encode())
+			expectStatus(t, res, err, http.StatusFound)
+
+			res, err = get(t, client, res.Header.Get("Location"))
+			expectStatus(t, res, err, http.StatusFound)
+			if got := res.Header.Get("Location"); got != tt.want {
+				t.Fatalf("return_to %q: redirected to %s, want %s", tt.returnTo, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFailedLoginDoesNotReturnToThePage(t *testing.T) {
+	srv := newServer(t)
+	client := withoutRedirects(newClient(t))
+
+	res, err := get(t, client, srv.URL+"/auth/login?login_hint=titular@example.com&return_to=/catalog/3/start")
+	expectStatus(t, res, err, http.StatusFound)
+
+	res, err = get(t, client, res.Header.Get("Location"))
+	if reason := expectLoginError(t, srv, res, err); reason != "domain_not_allowed" {
+		t.Fatalf("reason = %q, want %q", reason, "domain_not_allowed")
+	}
+}
+
 func TestFailedCallbackExpiresThePendingLogin(t *testing.T) {
 	srv := newServer(t)
 	client := withoutRedirects(newClient(t))

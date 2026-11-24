@@ -1175,6 +1175,9 @@ type CompleteLoginParams struct {
 type BeginLoginParams struct {
 	// LoginHint Correo sugerido al proveedor de identidad
 	LoginHint *string `form:"login_hint,omitempty" json:"login_hint,omitempty"`
+
+	// ReturnTo Página de la aplicación a la que se vuelve si se abre la sesión, como la escribe la aplicación: una ruta de hasta 512 caracteres que empieza con una sola barra y no tiene barras invertidas, por ejemplo /catalog/3/start. Cualquier otro valor se ignora y se vuelve al inicio, para que el ingreso no lleve a otro sitio.
+	ReturnTo *string `form:"return_to,omitempty" json:"return_to,omitempty"`
 }
 
 // LogoutParams defines parameters for Logout.
@@ -2152,6 +2155,19 @@ func (siw *ServerInterfaceWrapper) BeginLogin(w http.ResponseWriter, r *http.Req
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "login_hint"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "login_hint", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "return_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "return_to", r.URL.Query(), &params.ReturnTo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "return_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "return_to", Err: err})
 		}
 		return
 	}
