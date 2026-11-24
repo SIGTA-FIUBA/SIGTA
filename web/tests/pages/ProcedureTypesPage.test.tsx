@@ -96,18 +96,18 @@ describe('ProcedureTypesPage', () => {
     })
     renderPage()
 
-    const equivalence = (await screen.findByText('Equivalencia entre asignaturas')).closest('tr')!
-    expect(within(equivalence).getByText('Versión 3 · 2/11/26')).toBeVisible()
+    const equivalence = (await screen.findByText('Equivalencia entre asignaturas')).closest('li')!
+    expect(within(equivalence).getByText('Versión 3, publicada el 2/11/26')).toBeVisible()
     expect(within(equivalence).getByText('Sin borrador')).toBeVisible()
     expect(within(equivalence).getByRole('button', { name: 'Editar versión nueva' })).toBeVisible()
-    const foreign = screen.getByText('Pase de universidad extranjera').closest('tr')!
+    const foreign = screen.getByText('Pase de universidad extranjera').closest('li')!
     expect(within(foreign).getByText('Sin publicar')).toBeVisible()
     expect(within(foreign).getByText('En edición')).toBeVisible()
     expect(within(foreign).getByRole('link', { name: 'Abrir borrador' })).toHaveAttribute(
       'href',
       '/procedure-types/7/draft',
     )
-    const credits = screen.getByText('Reconocimiento de créditos').closest('tr')!
+    const credits = screen.getByText('Reconocimiento de créditos').closest('li')!
     expect(within(credits).getByText('Propuesto')).toBeVisible()
     expect(within(credits).getByText('Pendiente de aprobación')).toBeVisible()
     expect(within(credits).getByRole('link', { name: 'Revisar propuesta' })).toBeVisible()
