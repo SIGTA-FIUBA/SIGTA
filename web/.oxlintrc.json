@@ -42,6 +42,14 @@
       }
     },
     {
+      "files": ["src/vendor/**"],
+      "rules": {
+        "react/forbid-component-props": ["error", { "forbid": ["styles", "classNames", "vars"] }],
+        "react/forbid-dom-props": "off",
+        "sigta-naming/file-name": "off"
+      }
+    },
+    {
       "files": ["**/*.stories.tsx"],
       "rules": { "sigta-naming/file-name": "off" }
     }

@@ -1,0 +1,157 @@
+/*
+ * Tailwind, only for the open source components copied into src/vendor
+ * (ADR-028). The screens keep using Mantine and the theme.
+ *
+ * Only the utilities. Mantine already resets the page, so there is no
+ * preflight; and there is no cascade layer, so Mantine and the modules of this
+ * folder keep the order they had, and a utility still beats the element rules
+ * of Mantine's reset (input, button) by specificity.
+ *
+ * The scales are the tokens, through the CSS variables of the Mantine theme.
+ * Nothing of Tailwind's own palette, sizes or fonts is left: a vendored
+ * component writes bg-fiuba-6, text-dimmed, p-md or rounded-lg, and a color or
+ * a measure outside the theme (bg-violet-500, text-2xl) does not exist.
+ */
+@import 'tailwindcss/utilities.css' source(none);
+
+@source '../vendor/**/*.tsx';
+
+@theme inline {
+  --*: initial;
+
+  /* The numbers (p-4, gap-2) count steps of spacing.xxs, the 4px grid. */
+  --spacing: var(--mantine-spacing-xxs);
+  --spacing-xxs: var(--mantine-spacing-xxs);
+  --spacing-xs: var(--mantine-spacing-xs);
+  --spacing-sm: var(--mantine-spacing-sm);
+  --spacing-md: var(--mantine-spacing-md);
+  --spacing-lg: var(--mantine-spacing-lg);
+  --spacing-xl: var(--mantine-spacing-xl);
+  --spacing-xxl: var(--mantine-spacing-xxl);
+  --spacing-xxxl: var(--mantine-spacing-xxxl);
+
+  /* A media query cannot read a variable: these are breakpoint.* of
+     tokens.json, and a test checks that they still are. */
+  --breakpoint-xs: 36em;
+  --breakpoint-sm: 48em;
+  --breakpoint-md: 64em;
+  --breakpoint-lg: 75em;
+  --breakpoint-xl: 90em;
+
+  --container-content: var(--container-size-content);
+  --container-measure: var(--sigta-measure);
+
+  --color-white: var(--mantine-color-white);
+  --color-black: var(--mantine-color-black);
+  --color-body: var(--mantine-color-body);
+  --color-text: var(--mantine-color-text);
+  --color-dimmed: var(--mantine-color-dimmed);
+  --color-border: var(--mantine-color-default-border);
+
+  --color-fiuba-0: var(--mantine-color-fiuba-0);
+  --color-fiuba-1: var(--mantine-color-fiuba-1);
+  --color-fiuba-2: var(--mantine-color-fiuba-2);
+  --color-fiuba-3: var(--mantine-color-fiuba-3);
+  --color-fiuba-4: var(--mantine-color-fiuba-4);
+  --color-fiuba-5: var(--mantine-color-fiuba-5);
+  --color-fiuba-6: var(--mantine-color-fiuba-6);
+  --color-fiuba-7: var(--mantine-color-fiuba-7);
+  --color-fiuba-8: var(--mantine-color-fiuba-8);
+  --color-fiuba-9: var(--mantine-color-fiuba-9);
+
+  --color-gray-0: var(--mantine-color-gray-0);
+  --color-gray-1: var(--mantine-color-gray-1);
+  --color-gray-2: var(--mantine-color-gray-2);
+  --color-gray-3: var(--mantine-color-gray-3);
+  --color-gray-4: var(--mantine-color-gray-4);
+  --color-gray-5: var(--mantine-color-gray-5);
+  --color-gray-6: var(--mantine-color-gray-6);
+  --color-gray-7: var(--mantine-color-gray-7);
+  --color-gray-8: var(--mantine-color-gray-8);
+  --color-gray-9: var(--mantine-color-gray-9);
+
+  --color-green-0: var(--mantine-color-green-0);
+  --color-green-1: var(--mantine-color-green-1);
+  --color-green-2: var(--mantine-color-green-2);
+  --color-green-3: var(--mantine-color-green-3);
+  --color-green-4: var(--mantine-color-green-4);
+  --color-green-5: var(--mantine-color-green-5);
+  --color-green-6: var(--mantine-color-green-6);
+  --color-green-7: var(--mantine-color-green-7);
+  --color-green-8: var(--mantine-color-green-8);
+  --color-green-9: var(--mantine-color-green-9);
+
+  --color-orange-0: var(--mantine-color-orange-0);
+  --color-orange-1: var(--mantine-color-orange-1);
+  --color-orange-2: var(--mantine-color-orange-2);
+  --color-orange-3: var(--mantine-color-orange-3);
+  --color-orange-4: var(--mantine-color-orange-4);
+  --color-orange-5: var(--mantine-color-orange-5);
+  --color-orange-6: var(--mantine-color-orange-6);
+  --color-orange-7: var(--mantine-color-orange-7);
+  --color-orange-8: var(--mantine-color-orange-8);
+  --color-orange-9: var(--mantine-color-orange-9);
+
+  --color-attention-0: var(--mantine-color-attention-0);
+  --color-attention-1: var(--mantine-color-attention-1);
+  --color-attention-2: var(--mantine-color-attention-2);
+  --color-attention-3: var(--mantine-color-attention-3);
+  --color-attention-4: var(--mantine-color-attention-4);
+  --color-attention-5: var(--mantine-color-attention-5);
+  --color-attention-6: var(--mantine-color-attention-6);
+  --color-attention-7: var(--mantine-color-attention-7);
+  --color-attention-8: var(--mantine-color-attention-8);
+  --color-attention-9: var(--mantine-color-attention-9);
+
+  --color-red-0: var(--mantine-color-red-0);
+  --color-red-1: var(--mantine-color-red-1);
+  --color-red-2: var(--mantine-color-red-2);
+  --color-red-3: var(--mantine-color-red-3);
+  --color-red-4: var(--mantine-color-red-4);
+  --color-red-5: var(--mantine-color-red-5);
+  --color-red-6: var(--mantine-color-red-6);
+  --color-red-7: var(--mantine-color-red-7);
+  --color-red-8: var(--mantine-color-red-8);
+  --color-red-9: var(--mantine-color-red-9);
+
+  --font-sans: var(--mantine-font-family);
+  --font-mono: var(--mantine-font-family-monospace);
+
+  /* font.weight: no 700, as in the rest of the interface. */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --text-xs: var(--mantine-font-size-xs);
+  --text-xs--line-height: var(--mantine-line-height-xs);
+  --text-sm: var(--mantine-font-size-sm);
+  --text-sm--line-height: var(--mantine-line-height-sm);
+  --text-md: var(--mantine-font-size-md);
+  --text-md--line-height: var(--mantine-line-height-md);
+  --text-lg: var(--mantine-font-size-lg);
+  --text-lg--line-height: var(--mantine-line-height-lg);
+  --text-xl: var(--mantine-font-size-xl);
+  --text-xl--line-height: var(--mantine-line-height-xl);
+
+  --leading-xs: var(--mantine-line-height-xs);
+  --leading-sm: var(--mantine-line-height-sm);
+  --leading-md: var(--mantine-line-height-md);
+  --leading-lg: var(--mantine-line-height-lg);
+  --leading-xl: var(--mantine-line-height-xl);
+
+  --radius-xs: var(--mantine-radius-xs);
+  --radius-sm: var(--mantine-radius-sm);
+  --radius-md: var(--mantine-radius-md);
+  --radius-lg: var(--mantine-radius-lg);
+  --radius-xl: var(--mantine-radius-xl);
+
+  --shadow-xs: var(--mantine-shadow-xs);
+  --shadow-sm: var(--mantine-shadow-sm);
+  --shadow-md: var(--mantine-shadow-md);
+  --shadow-lg: var(--mantine-shadow-lg);
+  --shadow-xl: var(--mantine-shadow-xl);
+
+  --ease-out: var(--sigta-ease-out);
+  --default-transition-duration: var(--sigta-duration-fast);
+  --default-transition-timing-function: var(--sigta-ease);
+}

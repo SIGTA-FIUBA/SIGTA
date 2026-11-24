@@ -328,7 +328,7 @@ Cada llamada a un modelo registra costo, latencia y versión del prompt desde el
 | --- | --- |
 | Lenguajes | Go (servicio de trámites), Python (servicio de inteligencia artificial), TypeScript (frontend) |
 | Contratos | OpenAPI, con código generado para el servidor y los clientes |
-| Frontend | React, Vite, Mantine, TanStack Query, React Router |
+| Frontend | React, Vite, Mantine, TanStack Query, React Router; Tailwind solo para los componentes de código abierto copiados (ADR-028) |
 | Datos | PostgreSQL con pgvector |
 | Trabajo asincrónico | Cola de trabajos en PostgreSQL |
 | Documentos | Sistema de archivos detrás de un puerto |

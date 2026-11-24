@@ -5,6 +5,7 @@ import { MantineProvider } from '@mantine/core'
 import type { Preview } from '@storybook/react-vite'
 import { MotionConfig } from 'motion/react'
 import { cssVariablesResolver, theme } from '../src/theme/theme'
+import '../src/theme/tailwind.css'
 import '../src/theme/global.css'
 
 const preview: Preview = {
