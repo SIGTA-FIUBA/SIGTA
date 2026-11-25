@@ -174,15 +174,15 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'Historial' })).toHaveAttribute('href', '/my-procedures')
   })
 
-  it('offers six procedures of the catalog to start, without what they ask for, and all of them', async () => {
+  it('offers three procedures of the catalog to start, without what they ask for, and all of them', async () => {
     stubApi({ catalog: Array.from({ length: 8 }, (_, index) => procedureType(index + 1)) })
     renderAs(false)
 
     const first = await screen.findByRole('link', { name: /Trámite 1/ })
     expect(first).toHaveAttribute('href', '/catalog/1/start')
     expect(within(first).queryByText(/dato/)).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Trámite 6/ })).toBeVisible()
-    expect(screen.queryByRole('link', { name: /Trámite 7/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Trámite 3/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Trámite 4/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/new')
   })
 
@@ -190,7 +190,20 @@ describe('HomePage', () => {
     stubApi({ status: 500 })
     renderAs(false)
 
-    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('No se pudieron cargar los trámites')
+    const [message] = await screen.findAllByText(/No se pudieron cargar los trámites/)
+    expect(message.closest('[role="alert"]')).not.toBeNull()
+  })
+
+  it('puts on top the procedures to start, then what is pending and then those in progress', async () => {
+    stubApi({ catalog: [procedureType(1)] })
+    renderAs(false)
+
+    await screen.findByRole('link', { name: /Trámite 1/ })
+    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
+      'Nuevo trámite',
+      'Pendientes',
+      'Trámites en curso',
+    ])
   })
 
   it('lists for the staff the step to resolve of the procedures that need action, the latest first', async () => {
