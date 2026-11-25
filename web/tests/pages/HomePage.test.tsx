@@ -31,18 +31,6 @@ const mine = (id: string, name: string, moved: string, extra: object = {}) => ({
   ...extra,
 })
 
-const procedureType = (id: number) => ({
-  id,
-  version: 1,
-  name: `Trámite ${id}`,
-  description: 'Una descripción',
-  deadlines: [],
-  admissibility: [],
-  fields: [{ id: 'name', name: 'Nombre', required: true }],
-  documents: [],
-  steps: [],
-})
-
 // The detail of a procedure with a correction that asks for the subjects.
 const awaiting = {
   id: 'P-2',
@@ -70,17 +58,15 @@ const awaiting = {
 }
 
 // stubApi plays the API: /me/procedures answers the procedures the person
-// started, /procedures the inbox of the staff, /procedure-types the catalog
-// and /procedures/P-2 the detail of a procedure with a correction.
+// started, /procedures the inbox of the staff and /procedures/P-2 the detail
+// of a procedure with a correction.
 function stubApi({
   procedures = [],
   inbox = [],
-  catalog = [],
   status = 200,
 }: {
   procedures?: unknown[]
   inbox?: unknown[]
-  catalog?: unknown[]
   status?: number
 }) {
   const fetch = vi.fn(async (request: Request) => {
@@ -90,9 +76,6 @@ function stubApi({
     const path = new URL(request.url).pathname
     if (path === '/api/me/procedures') {
       return Response.json(procedures)
-    }
-    if (path === '/api/procedure-types') {
-      return Response.json(catalog)
     }
     if (path === '/api/procedures/P-2') {
       return Response.json(awaiting)
@@ -188,35 +171,6 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'Historial' })).toHaveAttribute('href', '/my-procedures')
   })
 
-  it('offers three procedures of the catalog to start, without what they ask for, and all of them', async () => {
-    stubApi({ catalog: Array.from({ length: 8 }, (_, index) => procedureType(index + 1)) })
-    renderAs(false)
-
-    const first = await screen.findByRole('link', { name: /Trámite 1/ })
-    expect(first).toHaveAttribute('href', '/catalog/1/start')
-    expect(within(first).queryByText(/dato/)).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Trámite 3/ })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Trámite 4/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/new')
-  })
-
-  it('offers the first procedures in the order of the gallery, by name', async () => {
-    stubApi({
-      catalog: ['Pase', 'Equivalencia', 'Constancia', 'Beca'].map((name, index) => ({
-        ...procedureType(index + 1),
-        name,
-      })),
-    })
-    renderAs(false)
-
-    const list = await screen.findByRole('list', { name: 'Trámites para iniciar' })
-    expect(
-      within(list)
-        .getAllByRole('link')
-        .map((link) => link.getAttribute('href')),
-    ).toEqual(['/catalog/4/start', '/catalog/3/start', '/catalog/2/start'])
-  })
-
   it('says when the procedures could not be loaded', async () => {
     stubApi({ status: 500 })
     renderAs(false)
@@ -225,13 +179,12 @@ describe('HomePage', () => {
     expect(message.closest('[role="alert"]')).not.toBeNull()
   })
 
-  it('puts on top the procedures to start, then what is pending and then those in progress', async () => {
-    stubApi({ catalog: [procedureType(1)] })
+  it('puts on top what is pending and then those in progress', async () => {
+    stubApi({})
     renderAs(false)
 
-    await screen.findByRole('link', { name: /Trámite 1/ })
+    await screen.findByText('Sin trámites en curso')
     expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      'Nuevo trámite',
       'Pendientes',
       'Trámites en curso',
     ])

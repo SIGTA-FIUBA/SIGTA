@@ -1,15 +1,12 @@
 import { Alert, Anchor, Box, Button, Grid, Group, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
-import { catalogQuery } from '../api/catalog'
 import { useApplicantTasks, useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
 import { EmptyState } from '../components/EmptyState/EmptyState'
 import { Icon } from '../components/Icon/Icon'
 import { PendingCard } from '../components/PendingCard/PendingCard'
 import { PendingRow } from '../components/PendingRow/PendingRow'
-import { StartCard } from '../components/StartCard/StartCard'
 import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
 import { Reveal } from '../components/Reveal/Reveal'
 import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
@@ -21,10 +18,8 @@ type ProcedureList = components['schemas']['ProcedureList']
 
 // The home page shows the latest of each list of the staff, no more: the rest
 // is in the inbox. An applicant sees every procedure in progress; the closed
-// ones are in the history ("Mis trámites"), and the rest of the procedure
-// types in the gallery of a new procedure: one row of cards.
+// ones are in the history ("Mis trámites").
 const pendingCount = 5
-const startCount = 3
 
 // Section is a part of the home page: its title, what it offers on the
 // right, and its content below.
@@ -94,60 +89,6 @@ function ApplicantPending() {
                   task={task.task}
                   context={task.context}
                 />
-              </Reveal>
-            </Box>
-          ))}
-        </SimpleGrid>
-      )}
-    </Section>
-  )
-}
-
-// NewProcedure offers the first types of the catalog, on top of the person's
-// procedures: a card each, as in the gallery of a new procedure, and the way
-// to all of them. The search and the start are on top of every page too
-// (AppLayout).
-function NewProcedure() {
-  const catalog = useQuery(catalogQuery)
-  // In the order of the gallery of /new, so its first cards are these.
-  const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')).slice(0, startCount)
-  return (
-    <Section
-      id="new"
-      title="Nuevo trámite"
-      action={
-        <Button
-          component={Link}
-          to="/new"
-          variant="subtle"
-          size="compact-sm"
-          rightSection={<Icon name="arrow-right" size={16} />}
-        >
-          Ver todos
-        </Button>
-      }
-    >
-      {catalog.isError ? (
-        <Alert color="red" role="alert">
-          No se pudo cargar el catálogo. Volvé a intentarlo más tarde.
-        </Alert>
-      ) : catalog.isPending ? (
-        <RowsLoading />
-      ) : entries.length === 0 ? (
-        <EmptyState title="Sin trámites publicados" text="Cuando se publique un tipo de trámite, aparece acá." />
-      ) : (
-        <SimpleGrid
-          component="ul"
-          aria-label="Trámites para iniciar"
-          cols={{ base: 1, md: startCount }}
-          spacing={{ base: 'xs', sm: 'md' }}
-          p={0}
-          m={0}
-        >
-          {entries.map((entry, index) => (
-            <Box component="li" key={entry.id} display="block">
-              <Reveal index={index}>
-                <StartCard to={`/catalog/${entry.id}/start`} name={entry.name} description={entry.description} />
               </Reveal>
             </Box>
           ))}
@@ -299,8 +240,8 @@ function StaffHome() {
 }
 
 // HomePage is what to do next, without a greeting: for the staff, what needs
-// action and the latest moves; for an applicant, the procedures to start and
-// their own: what they ask for and those in progress.
+// action and the latest moves; for an applicant, their own procedures: what
+// they ask for and those in progress.
 export function HomePage() {
   // The layout passes the person with the session; outside it there is none.
   const user = useOutletContext<User | null | undefined>()
@@ -314,10 +255,9 @@ export function HomePage() {
       {staff ? (
         <StaffHome />
       ) : (
-        // One column, in the order of what the person comes for: start a
-        // procedure, answer what one asks for, follow the rest.
+        // One column, in the order of what the person comes for: answer what
+        // a procedure asks for, follow the rest.
         <Stack gap="xxl">
-          <NewProcedure />
           <ApplicantPending />
           <InProgress />
         </Stack>
