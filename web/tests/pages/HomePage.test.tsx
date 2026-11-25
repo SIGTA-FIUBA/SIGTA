@@ -151,6 +151,20 @@ describe('HomePage', () => {
     expect(within(pending).getAllByRole('link')).toHaveLength(1)
   })
 
+  it('lists a procedure waiting on the applicant for a step of theirs, by that step', async () => {
+    stubApi({
+      procedures: [
+        mine('P-9', 'Pase de carrera', '2026-11-12T15:00:00Z', { state: 'with_applicant', step_name: 'Aceptar' }),
+      ],
+    })
+    renderAs(false)
+
+    const pending = await screen.findByRole('list', { name: 'Pendientes' })
+    const row = await within(pending).findByRole('link', { name: /Aceptar/ })
+    expect(row).toHaveAttribute('href', '/procedures/P-9')
+    expect(within(row).getByText('Pase de carrera')).toBeVisible()
+  })
+
   it('shows every procedure in progress, the latest first, and leads to the history', async () => {
     stubApi({
       procedures: [

@@ -156,6 +156,7 @@ export const tokens = {
     measure: text('layout.measure'),
     search: scaled('layout.search'),
     searchShortcut: scaled('layout.searchShortcut'),
+    notifications: scaled('layout.notifications'),
     iconStroke: Number.parseFloat(text('layout.iconStroke')),
     landing: {
       content: value('layout.landing.content') as number,

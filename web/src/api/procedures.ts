@@ -74,12 +74,14 @@ type Task = { id: string; procedureId: string; task: string; context: string }
 
 // useApplicantTasks is what the person has to do on their own procedures:
 // one task for each correction they have not answered, named by what it asks
-// for, under the procedure it belongs to.
+// for, under the procedure it belongs to, and one for each procedure waiting
+// on them for another reason, named by its step.
 export function useApplicantTasks() {
   const mine = useMyProcedures()
-  const ids = (mine.data ?? []).filter((procedure) => procedure.correction_pending).map((procedure) => procedure.id)
+  const waiting = (mine.data ?? []).filter((procedure) => procedure.state === 'with_applicant')
+  const ids = waiting.filter((procedure) => procedure.correction_pending).map((procedure) => procedure.id)
   const details = useCorrections(ids)
-  const tasks: Task[] = details.flatMap((detail) =>
+  const corrections: Task[] = details.flatMap((detail) =>
     detail.data
       ? detail.data.correction_requests.map((request, index) => ({
           id: `${detail.data.id}-${index}`,
@@ -89,6 +91,15 @@ export function useApplicantTasks() {
         }))
       : [],
   )
+  const steps: Task[] = waiting
+    .filter((procedure) => !procedure.correction_pending)
+    .map((procedure) => ({
+      id: procedure.id,
+      procedureId: procedure.id,
+      task: procedure.step_name ?? procedure.procedure_type_name,
+      context: procedure.procedure_type_name,
+    }))
+  const tasks = [...corrections, ...steps]
   return {
     tasks,
     isPending: mine.isPending || details.some((detail) => detail.isPending),

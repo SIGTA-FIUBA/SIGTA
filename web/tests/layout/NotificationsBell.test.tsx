@@ -48,10 +48,13 @@ const awaiting = {
 
 // stubApi plays the API: /me/procedures answers the procedures the person
 // started and /procedures/P-2 the detail of the one with a correction.
-function stubApi(procedures: unknown[]) {
+function stubApi(procedures: unknown[], status = 200) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (request: Request) => {
+      if (status !== 200) {
+        return Response.json({ message: 'error' }, { status })
+      }
       const path = new URL(request.url).pathname
       if (path === '/api/me/procedures') {
         return Response.json(procedures)
@@ -125,5 +128,46 @@ describe('NotificationsBell', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Equivalencia entre asignaturas' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('marks a procedure waiting on the person for a step of theirs, by that step', async () => {
+    stubApi([
+      mine('P-4', 'Pase de carrera', '2026-11-18T10:00:00Z', {
+        state: 'with_applicant',
+        step_name: 'Aceptar la resolución',
+      }),
+    ])
+    renderBell()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Notificaciones, con acción requerida' }))
+
+    const dropdown = await screen.findByRole('dialog')
+    expect(within(dropdown).getAllByRole('link', { name: 'Aceptar la resolución' })[0]).toHaveAttribute(
+      'href',
+      '/procedures/P-4',
+    )
+  })
+
+  it('says when the news could not be loaded instead of saying there are none', async () => {
+    stubApi([], 500)
+    renderBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Notificaciones' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las novedades.')
+    expect(screen.queryByText('Sin novedades')).not.toBeInTheDocument()
+  })
+
+  it('closes with Escape and gives the focus back to the bell', async () => {
+    stubApi([])
+    renderBell()
+    const bell = await screen.findByRole('button', { name: 'Notificaciones' })
+
+    await userEvent.click(bell)
+    expect(bell).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.keyboard('{Escape}')
+
+    expect(bell).toHaveAttribute('aria-expanded', 'false')
+    expect(bell).toHaveFocus()
   })
 })
