@@ -26,20 +26,22 @@ describe('DocumentFile', () => {
     revoke.mockClear()
   })
 
-  it('names the file and its size and downloads it from the server', () => {
+  it('names the file without its size and downloads it from the server', () => {
     render(<DocumentFile procedureId="P 1" file={pdf} />)
 
     expect(screen.getByText('constancia.pdf')).toBeDefined()
-    expect(screen.getByText(/^2\sKB$/)).toBeDefined()
+    expect(screen.queryByText(/KB$/)).toBeNull()
     const link = screen.getByRole('link', { name: 'Descargar constancia.pdf' })
     expect(link.getAttribute('href')).toBe('/api/procedures/P%201/documents/D-1/content')
     expect(link.getAttribute('download')).toBe('constancia.pdf')
   })
 
-  it('shows in bytes a file smaller than one KB', () => {
-    render(<DocumentFile procedureId="P-1" file={{ ...pdf, size: 512 }} />)
+  it('opens the file from its name, with no separate button to see it', () => {
+    render(<DocumentFile procedureId="P-1" file={pdf} />)
 
-    expect(screen.getByText(/^512\sB$/)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Ver constancia.pdf' }).textContent).toBe('constancia.pdf')
+    expect(screen.queryByText('Ver')).toBeNull()
+    expect(screen.queryByText('Descargar')).toBeNull()
   })
 
   it('names the procedure in its buttons, where files of several procedures share a page', () => {

@@ -1,0 +1,69 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { ColorScale } from '../blocks/ColorScale'
+import { Palette } from '../blocks/Palette'
+import { TokenTable } from '../blocks/TokenTable'
+
+<Meta title="Fundamentos/Color" />
+
+# Color
+
+La paleta sale del Manual de Identidad Visual de la FIUBA (Res. CD 3477/20): el cian institucional, el negro institucional y el gris claro. Cada muestra indica su contraste sobre blanco. El texto necesita al menos 4,5:1 (marca "texto"); los íconos y bordes, 3:1 (marca "gráficos").
+
+## Colores con nombre
+
+Cada color tiene un uso. En las pantallas se nombra por la escala de Mantine que lo lleva (`c="dimmed"`, `bg="gray.0"`, el primario), nunca con el hexadecimal.
+
+<Palette groups={['brand', 'action', 'ink', 'surface', 'border']} />
+
+## Primario: `fiuba`
+
+El tono 5 es el cian institucional: sobre blanco no alcanza el contraste del texto, así que es solo una firma (la barra del ítem seleccionado). Botones, links, selección y foco usan el tono 7 (`action.600`) y el hover el 8 (`action.700`). El tinte 0 (`brand.50`) es el fondo del ítem seleccionado y del avatar.
+
+<ColorScale name="fiuba" />
+
+## Grises
+
+Los neutros de la interfaz: el fondo de la app es `gray.0`, los bordes `gray.3`, el texto atenuado (`c="dimmed"`) `gray.7` y los metadatos (fechas, roles) `gray.6`.
+
+<ColorScale name="gray" />
+
+## Estados
+
+Cada estado escribe su tono 700 sobre su tinte 50, y siempre con texto: el color nunca es la única señal.
+
+- **Primario**: "En un área", acciones, links, foco.
+- **`orange`**: "Derivado", lo que espera a alguien de afuera.
+- **`attention`**: lo que el titular tiene que hacer ("Acción requerida", sus pendientes, una subsanación). El naranja vivo, complementario del cian, para que llame al ojo.
+- **`gray`**: "Pendiente del titular" y "Cerrado".
+- **`green`**: lo que terminó bien.
+- **`red`**: solo errores (`Alert color="red"`). Si decora, deja de avisar.
+
+<Palette groups={['success', 'warning', 'required', 'danger']} />
+
+<ColorScale name="green" />
+
+<ColorScale name="orange" />
+
+<ColorScale name="attention" />
+
+<ColorScale name="red" />
+
+## Logo
+
+Los colores del logo actual de SIGTA, solo para el logo. Quedan pendientes: el logo todavía no se decidió.
+
+<Palette groups={['logo']} />
+
+## Portada pública
+
+La portada pública (`LoginPage`) tiene su propio diseño: el azul del logo de SIGTA y el cian del manual de la FIUBA, en colores lisos, sin degradados. Solo los usa `landing.module.css`.
+
+<Palette groups={['landing']} />
+
+<TokenTable path="gradient" />
+
+## Tokens
+
+<TokenTable path="color" />
+
+<TokenTable path="theme" />

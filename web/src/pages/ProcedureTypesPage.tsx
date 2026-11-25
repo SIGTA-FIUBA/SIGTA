@@ -1,24 +1,11 @@
-import {
-  Alert,
-  Badge,
-  Button,
-  Group,
-  Loader,
-  Modal,
-  Paper,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-  Title,
-  VisuallyHidden,
-} from '@mantine/core'
+import { Alert, Badge, Button, Flex, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { draftActions, useDraftChange, useEditableProcedureTypes } from '../api/procedureTypes'
 import type { components } from '../api/schema'
 import { draftStatus } from '../content/draftStatuses'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type EditableProcedureType = components['schemas']['EditableProcedureType']
 
@@ -34,16 +21,7 @@ export function ProcedureTypesPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Stack gap={0}>
-          <Title order={1}>Tipos de trámite</Title>
-          <Text c="dimmed">
-            Cada tipo de trámite se edita en un borrador. Una persona lo propone y otra lo aprueba para publicarlo como
-            versión nueva.
-          </Text>
-        </Stack>
-        {editable.data?.can_create && <NewProcedureType />}
-      </Group>
+      <PageHeader title="Tipos de trámite" action={editable.data?.can_create && <NewProcedureType />} />
       {published && (
         <Alert color="fiuba" title="Se publicó la versión nueva">
           Se publicó la versión {published}. Los trámites nuevos empiezan con ella; los que están en curso siguen con la
@@ -62,32 +40,19 @@ export function ProcedureTypesPage() {
         </Text>
       )}
       {editable.data && editable.data.procedure_types.length > 0 && (
-        <Paper withBorder shadow="xs">
-          <Table.ScrollContainer minWidth={640}>
-            <Table verticalSpacing="sm" horizontalSpacing="md">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Tipo de trámite</Table.Th>
-                  <Table.Th>Versión publicada</Table.Th>
-                  <Table.Th>Borrador</Table.Th>
-                  <Table.Th>
-                    <VisuallyHidden>Acción</VisuallyHidden>
-                  </Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {editable.data.procedure_types.map((type) => (
-                  <ProcedureTypeRow key={type.procedure_type_id} type={type} />
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
-        </Paper>
+        <Stack component="ul" variant="facts" gap={0} p={0} m={0} aria-label="Tipos de trámite">
+          {editable.data.procedure_types.map((type) => (
+            <ProcedureTypeRow key={type.procedure_type_id} type={type} />
+          ))}
+        </Stack>
       )}
     </Stack>
   )
 }
 
+// ProcedureTypeRow is one procedure type, in a row like the ones of the
+// administration: its name, its published version and its draft, with what
+// the person can do on the right, or under them on a phone.
 function ProcedureTypeRow({ type }: { type: EditableProcedureType }) {
   const navigate = useNavigate()
   const open = useDraftChange(draftActions.open)
@@ -97,59 +62,58 @@ function ProcedureTypeRow({ type }: { type: EditableProcedureType }) {
   const draftPath = `/procedure-types/${type.procedure_type_id}/draft`
 
   return (
-    <Table.Tr>
-      <Table.Td>
-        <Text fw={600}>{type.name}</Text>
-      </Table.Td>
-      <Table.Td>
-        {type.version > 0 && type.published_at ? (
-          <Text>
-            Versión {type.version} · {dateFormat.format(new Date(type.published_at))}
-          </Text>
-        ) : (
-          <Text c="dimmed">Sin publicar</Text>
-        )}
-      </Table.Td>
-      <Table.Td>
-        {draft && status ? (
-          <Group gap="xs">
-            <Badge variant="light" color={status.color}>
-              {status.label}
-            </Badge>
-            {awaitsReview && (
-              <Text size="sm" fw={600} c="fiuba.7">
-                Pendiente de aprobación
+    <Stack component="li" gap="xs" py="md">
+      <Flex direction={{ base: 'column', sm: 'row' }} justify="space-between" align="flex-start" gap="sm">
+        <Stack gap="xxs" flex={{ sm: 1 }} miw={0}>
+          <Text fw={600}>{type.name}</Text>
+          <Flex wrap="wrap" align="center" rowGap="xxs" columnGap="md">
+            <Text size="sm" c="gray.7">
+              {type.version > 0 && type.published_at
+                ? `Versión ${type.version}, publicada el ${dateFormat.format(new Date(type.published_at))}`
+                : 'Sin publicar'}
+            </Text>
+            {draft && status ? (
+              <Group gap="xs">
+                <Text size="sm" c="gray.7">
+                  Borrador
+                </Text>
+                <Badge variant="light" color={status.color}>
+                  {status.label}
+                </Badge>
+              </Group>
+            ) : (
+              <Text size="sm" c="gray.7">
+                Sin borrador
               </Text>
             )}
-          </Group>
-        ) : (
-          <Text c="dimmed">Sin borrador</Text>
-        )}
-      </Table.Td>
-      <Table.Td ta="right">
+          </Flex>
+          {awaitsReview && (
+            <Text size="sm" fw={600} c="attention.7">
+              Pendiente de aprobación
+            </Text>
+          )}
+        </Stack>
         {draft && (
           <Button component={Link} to={draftPath} variant={awaitsReview ? 'light' : 'default'}>
             {awaitsReview ? 'Revisar propuesta' : draft.can_edit ? 'Abrir borrador' : 'Ver borrador'}
           </Button>
         )}
         {!draft && type.can_open_draft && (
-          <Stack gap="xs" align="flex-end">
-            <Button
-              variant="default"
-              loading={open.isPending}
-              onClick={() => open.mutate(type.procedure_type_id, { onSuccess: () => void navigate(draftPath) })}
-            >
-              Editar versión nueva
-            </Button>
-            {open.isError && (
-              <Text size="sm" c="red">
-                {open.error.message}
-              </Text>
-            )}
-          </Stack>
+          <Button
+            variant="default"
+            loading={open.isPending}
+            onClick={() => open.mutate(type.procedure_type_id, { onSuccess: () => void navigate(draftPath) })}
+          >
+            Editar versión nueva
+          </Button>
         )}
-      </Table.Td>
-    </Table.Tr>
+      </Flex>
+      {open.isError && (
+        <Alert color="red" role="alert">
+          {open.error.message}
+        </Alert>
+      )}
+    </Stack>
   )
 }
 
@@ -187,7 +151,6 @@ function NewProcedureType() {
           <Stack>
             <TextInput
               label="Nombre"
-              description="Lo ve el titular en el catálogo. Se puede cambiar después."
               value={name}
               onChange={(event) => setName(event.currentTarget.value)}
               data-autofocus

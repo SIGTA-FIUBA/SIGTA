@@ -164,11 +164,16 @@ func (h *ProcedureHandler) ListMyProcedures(ctx context.Context, req api.ListMyP
 	}
 	response := make(api.ListMyProcedures200JSONResponse, 0, len(mine))
 	for _, m := range mine {
+		var area *api.NamedOption
+		if m.Area != nil {
+			area = &api.NamedOption{Id: m.Area.ID, Name: m.Area.Name}
+		}
 		response = append(response, api.MyProcedure{
 			Id:                m.Procedure.ID,
 			ProcedureType:     m.Procedure.ProcedureType,
 			ProcedureTypeName: m.Name,
 			StepName:          stringIfAny(m.StepName),
+			Area:              area,
 			State:             api.ProcedureState(m.State),
 			CorrectionPending: m.Procedure.AwaitingApplicant(),
 			StartedAt:         m.Procedure.StartedAt,

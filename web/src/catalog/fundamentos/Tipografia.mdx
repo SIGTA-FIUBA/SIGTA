@@ -1,0 +1,35 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { FontFamilies } from '../blocks/FontFamilies'
+import { Headings } from '../blocks/Headings'
+import { TextStyles } from '../blocks/TextStyles'
+import { TokenTable } from '../blocks/TokenTable'
+
+<Meta title="Fundamentos/Tipografía" />
+
+# Tipografía
+
+## Familias
+
+La interfaz usa Inter en su versión variable, servida desde el propio sitio (`@fontsource-variable/inter`): se ve igual en cualquier sistema y no se descarga nada de terceros. Las cifras son tabulares en toda la interfaz, así que las fechas y los contadores se alinean. Helvetica Neue, la tipografía institucional de la FIUBA (Manual de Identidad Visual, A.6), queda para la firma de marca y las piezas institucionales (`font.family.brand`). Montserrat queda solo en el logo, ya convertida en curvas.
+
+Usar Inter en la interfaz es una excepción al manual que falta acordar con Comunicación Institucional; la alternativa es licenciar Helvetica Neue para la web.
+
+<FontFamilies />
+
+## Estilos de texto
+
+Hay siete estilos y no hay otros. Tres pesos: regular (400) para el texto, medio (500) para etiquetas y el menú, y semibold (600) para títulos, estados y lo que se destaca. El 700 no se usa: entre 12 y 16 se lee pesado. Los títulos de 20 o más llevan un espaciado de -0,01em.
+
+<TextStyles />
+
+## Títulos
+
+Cada página tiene un solo `Title order={1}` y los demás bajan de nivel sin saltear: los lectores de pantalla navegan por títulos.
+
+<Headings />
+
+## Tokens
+
+<TokenTable path="font" />
+
+<TokenTable path="textStyle" />

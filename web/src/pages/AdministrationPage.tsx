@@ -1,18 +1,18 @@
 import {
   Alert,
-  Badge,
   Button,
-  Divider,
   Group,
   Loader,
   MultiSelect,
-  Paper,
   Select,
+  Skeleton,
+  SimpleGrid,
   Stack,
   Tabs,
   Text,
   TextInput,
   Title,
+  VisuallyHidden,
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -30,6 +30,8 @@ import {
 import { catalogQuery } from '../api/catalog'
 import { ForbiddenError } from '../api/procedures'
 import type { components } from '../api/schema'
+import { EmptyState } from '../components/EmptyState/EmptyState'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type Area = components['schemas']['Area']
 type AreaMembership = components['schemas']['AreaMembership']
@@ -37,13 +39,25 @@ type Administrator = components['schemas']['Administrator']
 type Role = components['schemas']['Role']
 type RegisteredPerson = components['schemas']['RegisteredPerson']
 
+// Loading holds the place of what is coming, with the shape of its rows.
+function Loading({ label, rows }: { label: string; rows: number }) {
+  return (
+    <Stack gap="sm" aria-busy>
+      <VisuallyHidden>{label}</VisuallyHidden>
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} h="var(--sigta-row-height)" />
+      ))}
+    </Stack>
+  )
+}
+
 // focusOnMount moves the focus to what appears in place of what was clicked,
 // so the keyboard does not lose its place. It is stable, so it runs only when
 // the element mounts.
 const focusOnMount = (node: HTMLElement | null) => node?.focus()
 
 // ConfirmButton asks again before a change that cannot be undone from the
-// screen, like ending a membership. The question stays while the change runs,
+// screen, like ending a membership, in red. The question stays while the change runs,
 // so it cannot be confirmed twice, and after a refusal, next to the reason;
 // onConfirm gets done, to close it when the change goes through.
 function ConfirmButton({
@@ -64,7 +78,7 @@ function ConfirmButton({
   const [asking, setAsking] = useState(false)
   if (!asking) {
     return (
-      <Button variant="subtle" size="xs" flex="none" aria-label={ariaLabel} onClick={() => setAsking(true)}>
+      <Button variant="subtle" color="red" size="xs" flex="none" aria-label={ariaLabel} onClick={() => setAsking(true)}>
         {label}
       </Button>
     )
@@ -72,7 +86,7 @@ function ConfirmButton({
   return (
     <Group gap="xs" justify="flex-end">
       <Text size="sm">{question}</Text>
-      <Button variant="default" size="xs" loading={pending} onClick={() => onConfirm(() => setAsking(false))}>
+      <Button color="red" size="xs" loading={pending} onClick={() => onConfirm(() => setAsking(false))}>
         {confirmLabel}
       </Button>
       <Button variant="subtle" size="xs" ref={focusOnMount} disabled={pending} onClick={() => setAsking(false)}>
@@ -118,7 +132,6 @@ function PersonSearch({
   return (
     <Select
       label="Persona"
-      description="Escribí parte del nombre o del correo con el que ingresó a SIGTA."
       placeholder="Nombre o correo"
       searchable
       autoComplete="off"
@@ -217,7 +230,6 @@ function PermissionsFields({
       />
       <MultiSelect
         label="Permisos sueltos"
-        description="Además de los que dan los roles."
         placeholder="Elegí uno o más…"
         data={area.permissions.map((permission) => ({ value: permission.id, label: permission.name }))}
         value={permissions}
@@ -237,7 +249,7 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
   const person = membership.person.name || membership.person.id
 
   return (
-    <Paper withBorder p="sm">
+    <Stack component="li" gap="xs" py="md">
       <Stack gap="xs">
         <Stack gap={0}>
           <Text fw={600}>{person}</Text>
@@ -254,10 +266,6 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
               onRoles={setRoles}
               onPermissions={setPermissions}
             />
-            <Text size="sm" c="dimmed">
-              La membresía actual termina y empieza otra con los permisos nuevos, para que quede registrado qué tuvo en
-              cada momento.
-            </Text>
             <Group gap="xs">
               <Button
                 variant="default"
@@ -326,7 +334,7 @@ function MembershipCard({ area, membership }: { area: Area; membership: AreaMemb
           </Alert>
         )}
       </Stack>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -363,7 +371,6 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
           />
           <MultiSelect
             label="Alcance"
-            description="Vacío vale para todos los tipos de trámite, incluidos los que se publiquen después."
             placeholder="Todos los tipos de trámite"
             data={procedureTypes.options}
             value={scope}
@@ -371,7 +378,6 @@ function GrantMembership({ area, onDone }: { area: Area; onDone: () => void }) {
           />
           <TextInput
             label="Hasta"
-            description="Opcional. Vale hasta el final de ese día, incluido. Sin fecha, vale hasta que se la termine."
             type="date"
             min={today()}
             value={until}
@@ -409,18 +415,22 @@ function MembershipsSection({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Membresías</Title>
-      {memberships.isPending && <Loader aria-label={`Cargando las membresías de ${area.name}…`} />}
+      {memberships.isPending && <Loading label={`Cargando las membresías de ${area.name}…`} rows={1} />}
       {memberships.isError && (
         <Alert color="red" role="alert">
           No pudimos cargar las membresías. Volvé a intentarlo más tarde.
         </Alert>
       )}
       {memberships.isSuccess && memberships.data.length === 0 && (
-        <Text c="dimmed">Nadie tiene una membresía en esta área.</Text>
+        <EmptyState title="Sin membresías" text="Nadie tiene una membresía en esta área." />
       )}
-      {memberships.data?.map((membership) => (
-        <MembershipCard key={membership.id} area={area} membership={membership} />
-      ))}
+      {memberships.isSuccess && memberships.data.length > 0 && (
+        <Stack component="ul" variant="facts" gap={0} p={0} m={0} aria-label={`Membresías de ${area.name}`}>
+          {memberships.data.map((membership) => (
+            <MembershipCard key={membership.id} area={area} membership={membership} />
+          ))}
+        </Stack>
+      )}
       {/* GrantMembership holds its own change, so closing it forgets a refusal. */}
       <Reveal label="Otorgar una membresía">{(close) => <GrantMembership area={area} onDone={close} />}</Reveal>
     </Stack>
@@ -458,9 +468,9 @@ function Reveal({
     )
   }
   return (
-    <Paper withBorder p="sm">
+    <Stack variant="part" gap={0}>
       {children(close)}
-    </Paper>
+    </Stack>
   )
 }
 
@@ -478,7 +488,7 @@ function EntryRow({
   action?: ReactNode
 }) {
   return (
-    <Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+    <Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap" py="sm">
       <Stack gap={0} miw={0}>
         <Text>{name}</Text>
         <Text size="xs" c="dimmed" translate="no">
@@ -568,7 +578,7 @@ function Permissions({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Permisos</Title>
-      {area.permissions.length === 0 && <Text c="dimmed">El área todavía no tiene permisos.</Text>}
+      {area.permissions.length === 0 && <EmptyState title="Sin permisos" text="El área todavía no tiene permisos." />}
       {area.permissions.map((permission) => (
         <EntryRow
           key={permission.id}
@@ -588,9 +598,9 @@ function Permissions({ area }: { area: Area }) {
           }
         >
           {permission.system && (
-            <Group>
-              <Badge variant="light">De plataforma</Badge>
-            </Group>
+            <Text size="sm" c="gray.7">
+              De plataforma
+            </Text>
           )}
         </EntryRow>
       ))}
@@ -686,9 +696,6 @@ function RoleRow({
             onChange={setPermissions}
             ref={focusOnMount}
           />
-          <Text size="sm" c="dimmed">
-            Cambia al instante lo que puede hacer cada persona con este rol.
-          </Text>
           {change.error && (
             <Alert color="red" role="alert">
               {change.error.message}
@@ -721,7 +728,7 @@ function Roles({ area }: { area: Area }) {
   return (
     <Stack gap="sm">
       <Title order={3}>Roles</Title>
-      {area.roles.length === 0 && <Text c="dimmed">El área todavía no tiene roles.</Text>}
+      {area.roles.length === 0 && <EmptyState title="Sin roles" text="El área todavía no tiene roles." />}
       {area.roles.map((role) => (
         <RoleRow
           key={role.id}
@@ -775,15 +782,15 @@ function Roles({ area }: { area: Area }) {
 function AreaPanel({ area }: { area: Area }) {
   const remove = useAdministrationChange(() => actions.deleteArea(area.id))
   return (
-    <Paper withBorder p="md" component="section" aria-label={area.name}>
+    <Stack component="section" variant="part" gap="xl" aria-label={area.name}>
       <Stack gap="md">
-        <Stack gap={0}>
-          <Group gap="xs">
-            <Title order={2}>{area.name}</Title>
-            {area.system && <Badge variant="light">Viene con SIGTA</Badge>}
-          </Group>
-          <Text size="sm" c="dimmed" translate="no">
-            {area.id}
+        <Stack gap="xxs">
+          <Title order={2}>{area.name}</Title>
+          <Text size="sm" c="gray.7">
+            <Text component="span" inherit translate="no">
+              {area.id}
+            </Text>
+            {area.system && ', viene con SIGTA'}
           </Text>
         </Stack>
         {!area.system && (
@@ -803,13 +810,13 @@ function AreaPanel({ area }: { area: Area }) {
             {remove.error.message}
           </Alert>
         )}
-        <Permissions area={area} />
-        <Divider />
-        <Roles area={area} />
-        <Divider />
-        <MembershipsSection area={area} />
       </Stack>
-    </Paper>
+      <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="xl" verticalSpacing="xl">
+        <Permissions area={area} />
+        <Roles area={area} />
+        <MembershipsSection area={area} />
+      </SimpleGrid>
+    </Stack>
   )
 }
 
@@ -819,7 +826,7 @@ function Areas() {
   const areas = useAreas()
   const create = useAdministrationChange(actions.createArea)
   if (areas.isPending) {
-    return <Loader aria-label="Cargando las áreas…" />
+    return <Loading label="Cargando las áreas…" rows={3} />
   }
   if (areas.isError) {
     return (
@@ -831,7 +838,7 @@ function Areas() {
     )
   }
   return (
-    <Stack gap="lg">
+    <Stack gap="xxl">
       {areas.data.map((area) => (
         <AreaPanel key={area.id} area={area} />
       ))}
@@ -860,7 +867,7 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
   const revalidator = useRevalidator()
   const person = administrator.person.name || administrator.person.id
   return (
-    <Paper withBorder p="sm">
+    <Stack component="li" gap="xs" py="md">
       <Stack gap="xs">
         <Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
           <Stack gap={0} miw={0}>
@@ -876,7 +883,9 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
             </Text>
           </Stack>
           {last ? (
-            <Badge variant="light">Única persona administradora</Badge>
+            <Text size="sm" c="gray.7" ta="right">
+              Única persona administradora
+            </Text>
           ) : (
             <ConfirmButton
               label="Quitar"
@@ -901,7 +910,7 @@ function AdministratorRow({ administrator, last }: { administrator: Administrato
           </Alert>
         )}
       </Stack>
-    </Paper>
+    </Stack>
   )
 }
 
@@ -910,7 +919,7 @@ function Administrators() {
   const [person, setPerson] = useState<RegisteredPerson | null>(null)
   const grant = useAdministrationChange(actions.grantAdministrator)
   if (administrators.isPending) {
-    return <Loader aria-label="Cargando las personas administradoras…" />
+    return <Loading label="Cargando las personas administradoras…" rows={2} />
   }
   if (administrators.isError) {
     return (
@@ -923,8 +932,7 @@ function Administrators() {
   }
   return (
     <Stack gap="lg">
-      <Text c="dimmed">Administrar SIGTA no da acceso a los trámites: para eso hace falta una membresía.</Text>
-      <Stack gap="sm">
+      <Stack component="ul" variant="facts" gap={0} p={0} m={0} aria-label="Personas administradoras">
         {administrators.data.map((administrator) => (
           <AdministratorRow
             key={administrator.id}
@@ -933,7 +941,7 @@ function Administrators() {
           />
         ))}
       </Stack>
-      <Paper withBorder p="md">
+      <Stack component="section" variant="part" gap="xs" aria-label="Agregar una persona administradora">
         <Stack gap="xs">
           <Title order={2}>Agregar una persona administradora</Title>
           <PersonSearch person={person} onChange={setPerson} />
@@ -953,7 +961,7 @@ function Administrators() {
             </Group>
           )}
         </Stack>
-      </Paper>
+      </Stack>
     </Stack>
   )
 }
@@ -966,10 +974,7 @@ export function AdministrationPage() {
   const tab = params.get('tab') === 'administrators' ? 'administrators' : 'areas'
   return (
     <Stack gap="lg">
-      <Stack gap={0}>
-        <Title order={1}>Administración</Title>
-        <Text c="dimmed">Áreas del personal, sus permisos, roles y membresías, y quiénes administran SIGTA.</Text>
-      </Stack>
+      <PageHeader title="Administración" />
       <Tabs
         value={tab}
         keepMounted={false}

@@ -18,7 +18,7 @@
   },
   "overrides": [
     {
-      "files": ["src/main.tsx", "src/theme/theme.ts"],
+      "files": ["src/main.tsx", "src/theme/theme.ts", ".storybook/preview.tsx"],
       "rules": { "no-restricted-imports": "off" }
     },
     {
@@ -32,6 +32,26 @@
         "react/forbid-dom-props": "off",
         "sigta-design/no-raw-design-values": "off"
       }
+    },
+    {
+      "files": ["src/catalog/blocks/**"],
+      "rules": {
+        "react/forbid-component-props": "off",
+        "react/forbid-dom-props": "off",
+        "sigta-design/no-raw-design-values": "off"
+      }
+    },
+    {
+      "files": ["src/vendor/**"],
+      "rules": {
+        "react/forbid-component-props": ["error", { "forbid": ["styles", "classNames", "vars"] }],
+        "react/forbid-dom-props": "off",
+        "sigta-naming/file-name": "off"
+      }
+    },
+    {
+      "files": ["**/*.stories.tsx"],
+      "rules": { "sigta-naming/file-name": "off" }
     }
   ]
 }

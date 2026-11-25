@@ -1,0 +1,140 @@
+/*
+ * What applies to the whole document. main.tsx and the catalog import it with
+ * the Inter files; screens never import CSS.
+ */
+
+/* Helvetica Neue, the typeface of the FIUBA manual (A.6), for the public
+ * landing page (font.family.landing): Roman, Medium and Bold, cut to Latin in
+ * public/fonts/helvetica-neue/. Helvetica and Arial, the replacement the
+ * manual accepts, are the fallback while they load. */
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Roman.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Helvetica Neue Web';
+  font-weight: 600 700;
+  font-display: swap;
+  src: url('/fonts/helvetica-neue/HelveticaNeue-Bold.woff2') format('woff2');
+}
+
+/* Dates and counters line up: Inter's tabular figures everywhere. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* With reduced motion every transition takes 0ms. The selector repeats :root
+ * to win over the variables Mantine writes. */
+@media (prefers-reduced-motion: reduce) {
+  :root:root {
+    --sigta-duration-fast: 0ms;
+    --sigta-duration-base: 0ms;
+    --sigta-duration-slow: 0ms;
+  }
+}
+
+/* Going from a row to its procedure (a view transition of React Router): the
+ * page cross-fades in motion.route and the type of the procedure travels from
+ * the row to the title of the page, in motion.slow. Only the element that
+ * takes part has the attribute at a time, since a name has to be unique. */
+[data-transition-title] {
+  view-transition-name: procedure-title;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--sigta-duration-route);
+}
+
+::view-transition-group(procedure-title) {
+  animation-duration: var(--sigta-duration-slow);
+  animation-timing-function: var(--sigta-ease-out);
+}
+
+/* The text changes size on the way: both pictures keep their proportions
+ * instead of stretching. */
+::view-transition-old(procedure-title),
+::view-transition-new(procedure-title) {
+  height: 100%;
+  width: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
+/* The route of a procedure on the landing page (ProcedureFlow, [data-flow]),
+ * on white: a dashed gray line under the drawn one, the stops as rings of the
+ * brand, the last one filled, and the dot that travels the route. */
+[data-flow] {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+[data-flow] [data-line] {
+  fill: none;
+  stroke-width: var(--sigta-border-width);
+  stroke-linejoin: round;
+}
+
+[data-flow] [data-line='base'] {
+  stroke: var(--mantine-color-gray-3);
+  stroke-dasharray: 4 4;
+}
+
+[data-flow] [data-line='drawn'] {
+  stroke: var(--mantine-color-fiuba-7);
+}
+
+[data-flow] [data-node] {
+  fill: var(--mantine-color-white);
+  stroke: var(--mantine-color-fiuba-7);
+  stroke-width: var(--sigta-border-width);
+}
+
+[data-flow] [data-node='end'] {
+  fill: var(--mantine-color-fiuba-7);
+}
+
+[data-flow] [data-ring] {
+  fill: none;
+  stroke: var(--mantine-color-fiuba-6);
+  stroke-width: var(--sigta-border-width);
+}
+
+[data-flow] [data-dot] {
+  fill: var(--mantine-color-fiuba-6);
+}
+
+[data-flow] [data-label] {
+  fill: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-md);
+  font-weight: 600;
+}
+
+[data-flow] [data-caption] {
+  fill: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+[data-flow] [data-note] {
+  fill: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+}

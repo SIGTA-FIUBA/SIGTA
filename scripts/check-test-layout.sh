@@ -14,8 +14,9 @@ for test in $(find services/backend/src -name '*_test.go' ! -name export_test.go
   fi
 done
 
-# Web: tests/<path>.test.ts(x) tests src/<path>.ts(x).
-for test in $(find web/tests -name '*.test.ts' -o -name '*.test.tsx' | sort); do
+# Web: tests/<path>.test.ts(x) tests src/<path>.ts(x). tests/catalog/stories
+# renders every story of the design catalog, which has no file of its own.
+for test in $(find web/tests \( -name '*.test.ts' -o -name '*.test.tsx' \) ! -path web/tests/catalog/stories.test.tsx | sort); do
   source="web/src/${test#web/tests/}"
   source="${source%.test.*}"
   if [ ! -f "$source.ts" ] && [ ! -f "$source.tsx" ]; then

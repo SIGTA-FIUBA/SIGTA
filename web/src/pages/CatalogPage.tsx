@@ -1,79 +1,108 @@
-import { Alert, Button, Group, List, Loader, Stack, Text, Title } from '@mantine/core'
+import { Accordion, Alert, Button, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { Link, useOutletContext } from 'react-router'
 import { catalogQuery } from '../api/catalog'
 import type { components } from '../api/schema'
-import { documentDescription } from '../content/documentFormats'
+import { loginUrlTo } from '../api/session'
+import { Fact } from '../components/Fact/Fact'
+import { Facts } from '../components/Facts/Facts'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type CatalogEntry = components['schemas']['CatalogEntry']
-type DocumentRequirement = components['schemas']['DocumentRequirement']
+type User = components['schemas']['User']
 
-function requiredText(required: boolean) {
-  return required ? 'Obligatorio' : 'Opcional'
-}
-
-// A version of an older format has no accepted types or size, so each part is
-// shown only when it is known.
-function documentText(document: DocumentRequirement) {
-  return [`${document.name} (${requiredText(document.required)}).`, documentDescription(document)]
-    .filter(Boolean)
-    .join(' ')
-}
-
-function Section({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) {
-    return null
-  }
+// Lines is what goes in a fact of the catalog: one line each, with no bullet.
+function Lines({ items }: { items: string[] }) {
   return (
-    <Stack gap="xs">
-      <Title order={3}>{title}</Title>
-      <List>
-        {items.map((item, index) => (
-          <List.Item key={index}>{item}</List.Item>
-        ))}
-      </List>
+    <Stack gap="xxs">
+      {items.map((item, index) => (
+        <Text key={index} size="sm">
+          {item}
+        </Text>
+      ))}
     </Stack>
   )
 }
 
-function CatalogItem({ entry }: { entry: CatalogEntry }) {
+// CatalogItem is one procedure type, folded: the name and what it is. Unfolded
+// it says who can ask for it and its deadlines, and offers to start it. What
+// the form asks for (fields, documents, formats and sizes) is left to the form
+// itself: the catalog is for understanding what each procedure is.
+function CatalogItem({ entry, visitor }: { entry: CatalogEntry; visitor: boolean }) {
+  const start = `/catalog/${entry.id}/start`
+  const facts = [
+    { label: 'Quién puede pedirlo', items: entry.admissibility },
+    { label: 'Plazos', items: entry.deadlines },
+  ].filter((fact) => fact.items.length > 0)
   return (
-    <Stack component="article" gap="sm">
-      <Title order={2}>{entry.name}</Title>
-      {entry.description !== '' && <Text>{entry.description}</Text>}
-      <Section title="Datos" items={entry.fields.map((field) => `${field.name} (${requiredText(field.required)})`)} />
-      <Section title="Documentos" items={entry.documents.map(documentText)} />
-      <Section title="Plazos" items={entry.deadlines} />
-      <Section title="Condiciones de admisibilidad" items={entry.admissibility} />
-      <Group>
-        <Button component={Link} to={`/catalog/${entry.id}/start`} variant="light" aria-label={`Iniciar ${entry.name}`}>
-          Iniciar trámite
-        </Button>
-      </Group>
-    </Stack>
+    <Accordion.Item value={String(entry.id)}>
+      <Accordion.Control>
+        <Stack gap="xxs">
+          <Title order={2} size="h4">
+            {entry.name}
+          </Title>
+          {entry.description !== '' && (
+            <Text size="sm" c="gray.7" maw="var(--sigta-measure)">
+              {entry.description}
+            </Text>
+          )}
+        </Stack>
+      </Accordion.Control>
+      <Accordion.Panel>
+        <Stack gap="lg" align="flex-start">
+          {facts.length > 0 && (
+            <Facts label={`Sobre ${entry.name}`}>
+              {facts.map((fact) => (
+                <Fact key={fact.label} label={fact.label} split>
+                  <Lines items={fact.items} />
+                </Fact>
+              ))}
+            </Facts>
+          )}
+          {/* A visitor goes through the login, which comes back to the form. */}
+          <Button
+            component={Link}
+            to={visitor ? loginUrlTo(start) : start}
+            reloadDocument={visitor}
+            aria-label={`Iniciar ${entry.name}`}
+          >
+            Iniciar trámite
+          </Button>
+        </Stack>
+      </Accordion.Panel>
+    </Accordion.Item>
   )
 }
 
 export function CatalogPage() {
+  // The layout passes the person with the session; the one of the landing,
+  // null for a visitor.
+  const visitor = useOutletContext<User | null | undefined>() === null
   const catalog = useQuery(catalogQuery)
 
   const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
-    <Stack gap="lg">
-      <Stack gap={0}>
-        <Title order={1}>Catálogo de trámites</Title>
-        <Text c="dimmed">Requisitos, plazos y documentación de cada trámite disponible.</Text>
-      </Stack>
-      {catalog.isPending && <Loader aria-label="Cargando los trámites" />}
+    <Stack gap="xxl">
+      <PageHeader title="Catálogo de trámites" />
+      {catalog.isPending && (
+        <Stack gap="sm" aria-label="Cargando los trámites">
+          <Skeleton h="var(--sigta-row-height)" />
+          <Skeleton h="var(--sigta-row-height)" />
+        </Stack>
+      )}
       {catalog.isError && (
         <Alert color="red" role="alert">
           No pudimos cargar los trámites. Volvé a intentarlo más tarde.
         </Alert>
       )}
       {catalog.isSuccess && entries.length === 0 && <Text c="dimmed">Todavía no hay trámites disponibles.</Text>}
-      {entries.map((entry) => (
-        <CatalogItem key={entry.id} entry={entry} />
-      ))}
+      {entries.length > 0 && (
+        <Accordion variant="separated" chevronPosition="right">
+          {entries.map((entry) => (
+            <CatalogItem key={entry.id} entry={entry} visitor={visitor} />
+          ))}
+        </Accordion>
+      )}
     </Stack>
   )
 }

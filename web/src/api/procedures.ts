@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { api } from './client'
+import { requestedNames } from '../content/procedures'
 
 // ForbiddenError means the person is not part of the staff.
 export class ForbiddenError extends Error {}
@@ -27,8 +28,8 @@ export function useInboxProcedures(enabled = true) {
 // the API answers both the same.
 export class NotFoundError extends Error {}
 
-export function useProcedure(id: string) {
-  return useQuery({
+function procedureQuery(id: string) {
+  return {
     queryKey: ['procedure', id],
     queryFn: async () => {
       const { data, response } = await api.GET('/procedures/{procedureId}', { params: { path: { procedureId: id } } })
@@ -40,7 +41,11 @@ export function useProcedure(id: string) {
       }
       return data
     },
-  })
+  }
+}
+
+export function useProcedure(id: string) {
+  return useQuery(procedureQuery(id))
 }
 
 // useMyProcedures asks for the procedures that the person started, staff or
@@ -56,4 +61,48 @@ export function useMyProcedures() {
       return data
     },
   })
+}
+
+// useCorrections asks for the detail of each of the person's own procedures
+// with a correction pending, the only ones where the applicant has something
+// to do: the list says that there is one, the detail what it asks for.
+function useCorrections(ids: string[]) {
+  return useQueries({ queries: ids.map(procedureQuery) })
+}
+
+type Task = { id: string; procedureId: string; task: string; context: string }
+
+// useApplicantTasks is what the person has to do on their own procedures:
+// one task for each correction they have not answered, named by what it asks
+// for, under the procedure it belongs to, and one for each procedure waiting
+// on them for another reason, named by its step.
+export function useApplicantTasks() {
+  const mine = useMyProcedures()
+  const waiting = (mine.data ?? []).filter((procedure) => procedure.state === 'with_applicant')
+  const ids = waiting.filter((procedure) => procedure.correction_pending).map((procedure) => procedure.id)
+  const details = useCorrections(ids)
+  const corrections: Task[] = details.flatMap((detail) =>
+    detail.data
+      ? detail.data.correction_requests.map((request, index) => ({
+          id: `${detail.data.id}-${index}`,
+          procedureId: detail.data.id,
+          task: requestedNames(detail.data.steps, request) || 'Subsanación pendiente',
+          context: detail.data.name,
+        }))
+      : [],
+  )
+  const steps: Task[] = waiting
+    .filter((procedure) => !procedure.correction_pending)
+    .map((procedure) => ({
+      id: procedure.id,
+      procedureId: procedure.id,
+      task: procedure.step_name ?? procedure.procedure_type_name,
+      context: procedure.procedure_type_name,
+    }))
+  const tasks = [...corrections, ...steps]
+  return {
+    tasks,
+    isPending: mine.isPending || details.some((detail) => detail.isPending),
+    isError: mine.isError || details.some((detail) => detail.isError),
+  }
 }

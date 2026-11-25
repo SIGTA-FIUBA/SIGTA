@@ -1,262 +1,267 @@
-import { Alert, Anchor, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import { Alert, Anchor, Box, Button, Grid, Group, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core'
+import type { ReactNode } from 'react'
 import { Link, useOutletContext } from 'react-router'
-import { useMyProcedures } from '../api/procedures'
+import { useApplicantTasks, useInboxProcedures, useMyProcedures } from '../api/procedures'
 import type { components } from '../api/schema'
-import { DocumentFile } from '../components/DocumentFile/DocumentFile'
-import { applicantHowTo, principles, staffHowTo } from '../content/platform'
-import { closedWithoutResolution, stateColors, stateNames } from '../content/procedureStates'
+import { EmptyState } from '../components/EmptyState/EmptyState'
+import { Icon } from '../components/Icon/Icon'
+import { PendingCard } from '../components/PendingCard/PendingCard'
+import { PendingRow } from '../components/PendingRow/PendingRow'
+import { ProcedureRows } from '../components/ProcedureRows/ProcedureRows'
+import { Reveal } from '../components/Reveal/Reveal'
+import { MyProcedureRows } from '../components/MyProcedureRows/MyProcedureRows'
+import { applicantName, byLastMove, movedText, procedurePath } from '../content/procedures'
+import { PageHeader } from '../components/PageHeader/PageHeader'
 
 type User = components['schemas']['User']
-type MyProcedure = components['schemas']['MyProcedure']
+type ProcedureList = components['schemas']['ProcedureList']
 
-const dateFormat = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  timeZone: 'America/Argentina/Buenos_Aires',
-})
+// The home page shows the latest of each list of the staff, no more: the rest
+// is in the inbox. An applicant sees every procedure in progress; the closed
+// ones are in the history ("Mis trámites").
+const pendingCount = 5
 
-function MyProcedureCard({ procedure }: { procedure: MyProcedure }) {
+// Section is a part of the home page: its title, what it offers on the
+// right, and its content below.
+function Section({
+  id,
+  title,
+  action,
+  children,
+}: {
+  id: string
+  title: string
+  action?: ReactNode
+  children: ReactNode
+}) {
   return (
-    <Paper
-      component={Link}
-      to={`/procedures/${encodeURIComponent(procedure.id)}`}
-      variant="interactive"
-      withBorder
-      p="md"
-      h="fit-content"
-      td="none"
-      c="inherit"
-    >
-      <Stack gap="xs">
-        <Group justify="space-between" gap="xs" align="flex-start">
-          <Text fw={600} c="fiuba.7">
-            {procedure.procedure_type_name}
-          </Text>
-          <Badge variant="light" color={stateColors[procedure.state]}>
-            {stateNames[procedure.state]}
-          </Badge>
-        </Group>
-        {procedure.correction_pending && (
-          <Text size="sm" fw={600} c="fiuba.7">
-            Subsanación pendiente del titular
-          </Text>
-        )}
-        <Text size="sm">Paso actual: {procedure.step_name}</Text>
-        <Text size="sm" c="dimmed">
-          Último movimiento: {dateFormat.format(new Date(procedure.last_moved_at))}
-        </Text>
-      </Stack>
-    </Paper>
+    <Stack component="section" gap="md" aria-labelledby={id}>
+      <Group justify="space-between" align="center" gap="md">
+        <Title order={2} id={id}>
+          {title}
+        </Title>
+        {action}
+      </Group>
+      {children}
+    </Stack>
   )
 }
 
-// ClosedProcedureCard is not a link as a whole, as MyProcedureCard is, because
-// it holds the buttons to see and download the resolution: its name leads to
-// the detail. It has no state badge, which would repeat the title of its
-// section.
-function ClosedProcedureCard({ procedure }: { procedure: MyProcedure }) {
+function RowsLoading() {
   return (
-    <Paper withBorder p="md" h="fit-content">
-      <Stack gap="xs">
-        <Anchor component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`} fw={600}>
-          {procedure.procedure_type_name}
-        </Anchor>
-        <Text size="sm" c="dimmed">
-          Cierre: {dateFormat.format(new Date(procedure.last_moved_at))}
-        </Text>
-        {procedure.resolutions.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            {closedWithoutResolution}
-          </Text>
-        ) : (
-          procedure.resolutions.map((resolution) => (
-            <Stack key={resolution.id} gap={0}>
-              <Text size="sm" fw={500}>
-                {resolution.document_name}
-              </Text>
-              <DocumentFile
-                procedureId={procedure.id}
-                file={resolution}
-                procedureName={procedure.procedure_type_name}
-              />
-            </Stack>
-          ))
-        )}
-      </Stack>
-    </Paper>
+    <Stack gap="xs" aria-label="Cargando">
+      {Array.from({ length: 3 }, (_, index) => (
+        <Skeleton key={index} h="var(--sigta-row-height)" />
+      ))}
+    </Stack>
   )
 }
 
-// MyProcedureGrid keeps each card as tall as its content (h="fit-content" on
-// the cards), so that a short card does not stretch to the tallest one of its
-// row.
-function MyProcedureGrid({ procedures }: { procedures: MyProcedure[] }) {
+function LoadError() {
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-      {procedures.map((procedure) =>
-        procedure.state === 'closed' ? (
-          <ClosedProcedureCard key={procedure.id} procedure={procedure} />
-        ) : (
-          <MyProcedureCard key={procedure.id} procedure={procedure} />
-        ),
+    <Alert color="red" role="alert">
+      No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
+    </Alert>
+  )
+}
+
+// ApplicantPending is what the person has to do on their own procedures: each
+// correction they have not answered, named by what it asks for, as a card
+// that cannot be missed.
+function ApplicantPending() {
+  const { tasks, isPending, isError } = useApplicantTasks()
+  return (
+    <Section id="pending" title="Pendientes">
+      {isError ? (
+        <LoadError />
+      ) : isPending ? (
+        <RowsLoading />
+      ) : tasks.length === 0 ? (
+        <EmptyState title="Sin pendientes" text="Cuando un trámite pida algo, aparece acá." />
+      ) : (
+        <SimpleGrid component="ul" aria-label="Pendientes" cols={1} spacing="sm" p={0} m={0}>
+          {tasks.map((task, index) => (
+            <Box component="li" key={task.id} display="block">
+              <Reveal index={index}>
+                <PendingCard
+                  to={procedurePath(task.procedureId)}
+                  state={{ from: '/' }}
+                  task={task.task}
+                  context={task.context}
+                />
+              </Reveal>
+            </Box>
+          ))}
+        </SimpleGrid>
       )}
-    </SimpleGrid>
+    </Section>
   )
 }
 
-// MyProceduresSection lists what the person started, so that signing in
-// answers where each procedure is. The closed ones go apart, with their
-// resolution.
-function MyProceduresSection() {
+// InProgress is every procedure of the person that is not closed, by its
+// last move; the closed ones are in the history.
+function InProgress() {
   const myProcedures = useMyProcedures()
-  const inProgress = myProcedures.data?.filter((procedure) => procedure.state !== 'closed') ?? []
-  const closed = myProcedures.data?.filter((procedure) => procedure.state === 'closed') ?? []
+  const inProgress = (myProcedures.data ?? []).filter((procedure) => procedure.state !== 'closed').sort(byLastMove)
   return (
-    <>
-      <section aria-labelledby="my-procedures">
-        <Stack gap="sm">
-          <Title order={2} id="my-procedures" size="h4">
-            Mis trámites en curso
-          </Title>
-          {myProcedures.isPending && <Loader aria-label="Cargando los trámites" />}
-          {myProcedures.isError && (
-            <Alert color="red" role="alert">
-              No se pudieron cargar los trámites. Volvé a intentarlo más tarde.
-            </Alert>
-          )}
-          {myProcedures.isSuccess && inProgress.length === 0 && (
-            <Text c="dimmed">No hay trámites en curso. Los trámites se inician desde el catálogo.</Text>
-          )}
-          {inProgress.length > 0 && <MyProcedureGrid procedures={inProgress} />}
-        </Stack>
-      </section>
-      {closed.length > 0 && (
-        <section aria-labelledby="my-closed-procedures">
-          <Stack gap="sm">
-            <Title order={2} id="my-closed-procedures" size="h4">
-              Mis trámites cerrados
-            </Title>
-            <MyProcedureGrid procedures={closed} />
-          </Stack>
-        </section>
+    <Section
+      id="in-progress"
+      title="Trámites en curso"
+      action={
+        <Button
+          component={Link}
+          to="/my-procedures"
+          variant="subtle"
+          size="compact-sm"
+          rightSection={<Icon name="arrow-right" size={16} />}
+        >
+          Historial
+        </Button>
+      }
+    >
+      {myProcedures.isError ? (
+        <LoadError />
+      ) : myProcedures.isPending ? (
+        <RowsLoading />
+      ) : inProgress.length === 0 ? (
+        <EmptyState title="Sin trámites en curso" text="Los trámites que se inicien aparecen acá." />
+      ) : (
+        <MyProcedureRows label="Trámites en curso" procedures={inProgress} from="/" />
       )}
-    </>
+    </Section>
   )
 }
 
-type Shortcut = { to: string; title: string; text: string }
-
-function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
+// StaffPending is what needs action from the staff, the latest five: on top
+// the step to resolve, below the procedure and its applicant.
+function StaffPending({ list }: { list: ProcedureList }) {
+  const items = list.items.filter((item) => item.actionable).sort(byLastMove)
   return (
-    <Paper component={Link} to={shortcut.to} variant="interactive" withBorder p="lg" td="none" c="inherit">
-      <Stack gap="xs">
-        <Text fw={600} c="fiuba.7">
-          {shortcut.title}
-        </Text>
-        <Text size="sm" c="dimmed">
-          {shortcut.text}
-        </Text>
-      </Stack>
-    </Paper>
+    <Section
+      id="pending"
+      title="Pendientes"
+      action={
+        items.length > pendingCount && (
+          <Button
+            component={Link}
+            to="/inbox"
+            variant="subtle"
+            size="compact-sm"
+            rightSection={<Icon name="arrow-right" size={16} />}
+          >
+            Ver todos
+          </Button>
+        )
+      }
+    >
+      {items.length === 0 ? (
+        <EmptyState title="Sin pendientes" text="Cuando un trámite requiera acción, aparece acá." />
+      ) : (
+        <ProcedureRows label="Pendientes">
+          {items.slice(0, pendingCount).map((item) => (
+            <PendingRow
+              key={item.id}
+              to={procedurePath(item.id)}
+              state={{ from: '/' }}
+              task={item.step_name}
+              context={`${item.procedure_type_name}, ${applicantName(item)}`}
+            />
+          ))}
+        </ProcedureRows>
+      )}
+    </Section>
   )
 }
 
-export function HomePage() {
-  const { staff } = useOutletContext<User>()
+// Activity lists the latest moves of every visible procedure, one entry each,
+// with the step where it is now. The entries hang from a line, the newest on
+// top.
+function Activity({ list }: { list: ProcedureList }) {
+  const items = [...list.items].sort(byLastMove).slice(0, pendingCount)
+  return (
+    <Section id="activity" title="Actividad reciente">
+      {items.length === 0 ? (
+        <Text c="dimmed">Todavía no hay movimientos.</Text>
+      ) : (
+        <Reveal>
+          <List variant="timeline" size="sm" aria-label="Movimientos recientes">
+            {items.map((item) => (
+              <List.Item key={item.id}>
+                <Stack gap="xxs">
+                  <Text size="sm">
+                    <Anchor
+                      component={Link}
+                      to={procedurePath(item.id)}
+                      state={{ from: '/' }}
+                      viewTransition
+                      c="gray.9"
+                      fw={600}
+                      inherit
+                    >
+                      {item.procedure_type_name} de {applicantName(item)}
+                    </Anchor>{' '}
+                    está en {item.step_name}
+                  </Text>
+                  <Text size="xs" c="gray.6">
+                    {movedText(item.last_moved_at)}
+                  </Text>
+                </Stack>
+              </List.Item>
+            ))}
+          </List>
+        </Reveal>
+      )}
+    </Section>
+  )
+}
 
-  const shortcuts: Shortcut[] = [
-    ...(staff
-      ? [
-          {
-            to: '/inbox',
-            title: 'Bandeja de trámites',
-            text: 'Trámites en curso y acciones pendientes de la cuenta.',
-          },
-        ]
-      : []),
-    {
-      to: '/catalog',
-      title: 'Catálogo de trámites',
-      text: 'Requisitos, plazos y documentación de cada trámite.',
-    },
-  ]
-  const howTo = staff ? staffHowTo : applicantHowTo
+// StaffHome is the work of the staff: what needs action and, beside it from
+// breakpoint.xl, the latest moves; narrower, the moves go below, since beside
+// the pending ones they would wrap every few words.
+function StaffHome() {
+  const procedures = useInboxProcedures()
+  if (procedures.isError) {
+    return <LoadError />
+  }
+  const list = procedures.data
+  if (!list) {
+    return <RowsLoading />
+  }
+  return (
+    <Grid gap="xxl">
+      <Grid.Col span={{ base: 12, xl: 8 }}>
+        <StaffPending list={list} />
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, xl: 4 }}>
+        <Activity list={list} />
+      </Grid.Col>
+    </Grid>
+  )
+}
+
+// HomePage is what to do next, without a greeting: for the staff, what needs
+// action and the latest moves; for an applicant, their own procedures: what
+// they ask for and those in progress.
+export function HomePage() {
+  // The layout passes the person with the session; outside it there is none.
+  const user = useOutletContext<User | null | undefined>()
+  const staff = user?.staff === true
 
   return (
     <Stack gap="xl">
-      <Stack gap="xs">
-        <Text size="sm" fw={600} c="fiuba.7">
-          Secretaría de Gestión Académica · Facultad de Ingeniería
-        </Text>
-        <Title order={1}>Sistema Integral de Gestión de Trámites Académicos</Title>
-        <Text c="dimmed">
-          SIGTA es la plataforma de la Secretaría de Gestión Académica para iniciar, gestionar y seguir los trámites
-          académicos de la facultad, del inicio a la resolución.
-        </Text>
-      </Stack>
-
-      <MyProceduresSection />
-
-      <section aria-labelledby="shortcuts">
-        <Stack gap="sm">
-          <Title order={2} id="shortcuts" size="h4">
-            Accesos
-          </Title>
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-            {shortcuts.map((shortcut) => (
-              <ShortcutCard key={shortcut.to} shortcut={shortcut} />
-            ))}
-          </SimpleGrid>
+      {/* An applicant starts a procedure from the top right of every page
+          (AppLayout). */}
+      <PageHeader title={staff ? 'Inicio' : 'Mis trámites'} />
+      {staff ? (
+        <StaffHome />
+      ) : (
+        // One column, in the order of what the person comes for: answer what
+        // a procedure asks for, follow the rest.
+        <Stack gap="xxl">
+          <ApplicantPending />
+          <InProgress />
         </Stack>
-      </section>
-
-      <section aria-labelledby="how">
-        <Stack gap="sm">
-          <Title order={2} id="how" size="h4">
-            {staff ? 'Cómo se trabaja en SIGTA' : 'Cómo se realiza un trámite'}
-          </Title>
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
-            {howTo.map((item, index) => (
-              <Paper key={item.title} withBorder p="lg">
-                <Stack gap="sm">
-                  <ThemeIcon variant="light" radius="xl" aria-hidden>
-                    <Text size="sm" fw={700}>
-                      {index + 1}
-                    </Text>
-                  </ThemeIcon>
-                  <Title order={3} size="h5">
-                    {item.title}
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    {item.text}
-                  </Text>
-                </Stack>
-              </Paper>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </section>
-
-      <section aria-labelledby="principles">
-        <Stack gap="sm">
-          <Title order={2} id="principles" size="h4">
-            Criterios de la plataforma
-          </Title>
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-            {principles.map((principle) => (
-              <Stack key={principle.title} gap="xs">
-                <Title order={3} size="h5">
-                  {principle.title}
-                </Title>
-                <Text size="sm" c="dimmed">
-                  {principle.text}
-                </Text>
-              </Stack>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </section>
+      )}
     </Stack>
   )
 }

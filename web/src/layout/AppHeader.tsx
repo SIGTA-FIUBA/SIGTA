@@ -1,44 +1,31 @@
-import { Anchor, Divider, Group, Image, Text } from '@mantine/core'
+import { Anchor, Group, Image } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import logo from '../assets/fiuba-logo.png'
 
 type AppHeaderProps = {
   // start goes before the logo, such as the button that opens the menu.
   start?: ReactNode
-  // end goes on the right, such as the account menu or the login.
-  end: ReactNode
+  // end goes on the right, such as the login.
+  end?: ReactNode
 }
 
-// AppHeader is the same top bar on every screen: the faculty's logo and the
-// system's name on the left, as a link to the start page, and the actions on
-// the right.
+// AppHeader is the white top bar of the screens without the side navigation:
+// the SIGTA logo on the left, as a link to the start page, and the actions on
+// the right. With a session it only shows on a phone, to open the menu.
 export function AppHeader({ start, end }: AppHeaderProps) {
   return (
-    <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+    <Group h="100%" px={{ base: 'md', sm: 'lg' }} justify="space-between" wrap="nowrap">
       <Group h="100%" gap="sm" wrap="nowrap">
         {start}
-        <Anchor
-          component={Link}
-          to="/"
-          h="100%"
-          display="flex"
-          underline="never"
-          c="inherit"
-          aria-label="SIGTA, ir al inicio"
-        >
-          <Group h="100%" gap="sm" wrap="nowrap">
-            <Image src={logo} alt="" h="70%" w="auto" fit="contain" />
-            <Divider orientation="vertical" my="md" visibleFrom="xs" />
-            <Text fw={700} size="lg" visibleFrom="xs">
-              SIGTA
-            </Text>
-          </Group>
+        <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
+          <Image src="/brand/sigta-horizontal-color.svg" alt="" h="var(--sigta-logo-height)" w="auto" />
         </Anchor>
       </Group>
-      <Group gap="sm" wrap="nowrap">
-        {end}
-      </Group>
+      {end && (
+        <Group gap="sm" wrap="nowrap">
+          {end}
+        </Group>
+      )}
     </Group>
   )
 }

@@ -41,6 +41,9 @@ function stubApi({
     if (new URL(request.url).pathname === '/api/procedures') {
       return Response.json({ items: [] })
     }
+    if (new URL(request.url).pathname === '/api/procedure-types') {
+      return Response.json([])
+    }
     return Response.json(request.url.endsWith('/me/procedures') ? [] : account)
   })
   vi.stubGlobal('fetch', fetch)
@@ -63,18 +66,24 @@ describe('AppLayout', () => {
     vi.unstubAllGlobals()
   })
 
-  it('frames the pages with the faculty logo and the main menu', async () => {
+  it('frames the pages with the SIGTA logo and the main menu', async () => {
     stubApi({ session: true })
     renderAt('/')
 
-    await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' })
-    expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
+    await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    expect(within(menu).getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
+    // The applicant has their procedures on the home page, named after them.
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/')
+    expect(within(menu).queryByRole('link', { name: 'Inicio' })).not.toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
-    // The applicant has no inbox, and the menu says who has the session.
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('aria-current', 'page')
+    expect(within(menu).getByRole('link', { name: 'Acerca de SIGTA' })).toHaveAttribute('href', '/about')
+    // The applicant has no inbox, and the account closes the menu.
     expect(within(menu).queryByRole('link', { name: /Bandeja de trámites/ })).not.toBeInTheDocument()
-    expect(within(menu).getByText('Titular')).toBeVisible()
+    expect(
+      within(within(menu).getByRole('button', { name: 'Cuenta de Ana Titular' })).getByText('Titular'),
+    ).toBeVisible()
     expect(within(menu).queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument()
   })
 
@@ -128,8 +137,44 @@ describe('AppLayout', () => {
 
     await screen.findByRole('heading', { name: 'Catálogo de trámites' })
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-    expect(within(menu).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/')
+    expect(within(menu).getByRole('link', { name: 'Mis trámites' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('data-active', 'true')
+  })
+
+  it('fixes the search, the bell and the start of a procedure at the top for an applicant', async () => {
+    stubApi({ session: true })
+    renderAt('/catalog')
+
+    await screen.findByRole('heading', { name: 'Catálogo de trámites' })
+    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
+    const starts = screen.getAllByRole('link', { name: 'Iniciar trámite' })
+    expect(starts.length).toBeGreaterThan(0)
+    for (const start of starts) {
+      expect(start).toHaveAttribute('href', '/new')
+    }
+    expect(screen.getAllByRole('button', { name: /^Buscar/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /^Notificaciones/ }).length).toBeGreaterThan(0)
+    // The search is at the top, so the menu does not repeat it.
+    expect(within(menu).queryByRole('button', { name: /^Buscar/ })).not.toBeInTheDocument()
+  })
+
+  it('does not offer to start a procedure on the page that starts one', async () => {
+    stubApi({ session: true })
+    renderAt('/new')
+
+    await screen.findByRole('heading', { level: 1, name: 'Iniciar trámite' })
+    expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
+  })
+
+  it('leaves the start of a procedure and the bell out of the pages of the staff', async () => {
+    stubApi({ session: true, account: { ...user, staff: true } })
+    renderAt('/')
+
+    await screen.findByRole('heading', { level: 1, name: 'Inicio' })
+    expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Notificaciones/ })).not.toBeInTheDocument()
+    const menu = screen.getByRole('navigation', { name: 'Menú principal' })
+    expect(within(menu).getByRole('button', { name: /^Buscar/ })).toBeInTheDocument()
   })
 
   it('shows the name and email in the account menu', async () => {
@@ -150,7 +195,7 @@ describe('AppLayout', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Cuenta de Ana Titular' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }))
 
-    expect(await screen.findByRole('link', { name: 'Iniciar sesión con Google' })).toBeVisible()
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/login')
     expect(fetch).toHaveBeenCalledWith(
       expect.objectContaining({ method: 'POST', url: expect.stringMatching(/\/auth\/logout$/) }),

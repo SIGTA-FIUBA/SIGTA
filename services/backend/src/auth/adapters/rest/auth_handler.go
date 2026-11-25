@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
@@ -19,6 +20,9 @@ const (
 	sessionCookie    = "sigta_session"
 	loginStateCookie = "sigta_login_state"
 	loginStateMaxAge = 10 * time.Minute
+	// maxReturnTo keeps the cookie of the pending login small: no page of the
+	// application has a longer path.
+	maxReturnTo = 512
 )
 
 type AuthHandler struct {
@@ -35,14 +39,19 @@ func NewAuthHandler(auth input.Authenticator, memberships input.Memberships, aft
 
 func (h *AuthHandler) BeginLogin(ctx context.Context, req api.BeginLoginRequestObject) (api.BeginLoginResponseObject, error) {
 	location, pending := h.auth.BeginLogin(valueOf(req.Params.LoginHint))
-	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending), int(loginStateMaxAge.Seconds()))
+	returnTo := valueOf(req.Params.ReturnTo)
+	if _, ok := appPage(returnTo); !ok {
+		returnTo = ""
+	}
+	cookie := h.cookie(loginStateCookie, encodePendingLogin(pending, returnTo), int(loginStateMaxAge.Seconds()))
 	return api.BeginLogin302Response{Headers: api.BeginLogin302ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
 }
 
 // CompleteLogin is a browser navigation, so it always redirects: to the app
 // with a session, or to the login page with the reason it failed.
 func (h *AuthHandler) CompleteLogin(ctx context.Context, req api.CompleteLoginRequestObject) (api.CompleteLoginResponseObject, error) {
-	token, err := h.completeLogin(ctx, req.Params)
+	pending, returnTo := decodePendingLogin(valueOf(req.Params.SigtaLoginState))
+	token, err := h.completeLogin(ctx, req.Params, pending)
 
 	// A pending login is good for one attempt, whatever its outcome.
 	expiredState := h.expiredCookie(loginStateCookie)
@@ -54,19 +63,30 @@ func (h *AuthHandler) CompleteLogin(ctx context.Context, req api.CompleteLoginRe
 	if err != nil {
 		return nil, err
 	}
-	redirect := api.CompleteLogin302Response{Headers: api.CompleteLogin302ResponseHeaders{Location: &h.afterLoginURL}}
+	location := h.afterLogin(returnTo)
+	redirect := api.CompleteLogin302Response{Headers: api.CompleteLogin302ResponseHeaders{Location: &location}}
 	return withCookies{response: redirect, cookies: []string{h.sessionCookie(token), expiredState}}, nil
 }
 
-func (h *AuthHandler) completeLogin(ctx context.Context, params api.CompleteLoginParams) (string, error) {
+func (h *AuthHandler) completeLogin(ctx context.Context, params api.CompleteLoginParams, pending domain.PendingLogin) (string, error) {
 	// The provider answers with error instead of code when the person cancels
 	// or it refuses the login.
 	code := valueOf(params.Code)
 	if params.Error != nil || code == "" {
 		return "", domain.ErrLoginRejected
 	}
-	pending := decodePendingLogin(valueOf(params.SigtaLoginState))
 	return h.auth.CompleteLogin(ctx, code, params.State, pending)
+}
+
+// afterLogin is where a login leads: back to the page of the application that
+// asked for it, or to the home of the application.
+func (h *AuthHandler) afterLogin(returnTo string) string {
+	home, err := url.Parse(h.afterLoginURL)
+	page, ok := appPage(returnTo)
+	if err != nil || !ok {
+		return h.afterLoginURL
+	}
+	return home.ResolveReference(page).String()
 }
 
 // withCookies adds cookies to a response. The generated responses hold a single
@@ -162,16 +182,41 @@ func valueOf(s *string) string {
 	return *s
 }
 
-// The pending login travels in an HttpOnly cookie between leaving for the
-// provider and coming back. Its values are base64url, so a dot separates them.
-func encodePendingLogin(p domain.PendingLogin) string {
-	return strings.Join([]string{p.State, p.Nonce, p.CodeVerifier}, ".")
+// appPage reads returnTo as a page of the application, as the application
+// writes it: a path with a single slash in front and no backslash, which
+// browsers take for a slash. The page is relative to the home of the
+// application, so whatever it says, the login cannot lead to another site.
+func appPage(returnTo string) (*url.URL, bool) {
+	if len(returnTo) > maxReturnTo || !strings.HasPrefix(returnTo, "/") || strings.HasPrefix(returnTo, "//") || strings.Contains(returnTo, `\`) {
+		return nil, false
+	}
+	page, err := url.Parse("." + returnTo)
+	return page, err == nil
 }
 
-func decodePendingLogin(cookie string) domain.PendingLogin {
-	parts := strings.Split(cookie, ".")
-	if len(parts) != 3 {
-		return domain.PendingLogin{}
+// The pending login travels in an HttpOnly cookie between leaving for the
+// provider and coming back, with the page to return to, if there is one, at
+// the end. Its values are base64url, so a dot separates them.
+func encodePendingLogin(p domain.PendingLogin, returnTo string) string {
+	parts := []string{p.State, p.Nonce, p.CodeVerifier}
+	if returnTo != "" {
+		parts = append(parts, base64.RawURLEncoding.EncodeToString([]byte(returnTo)))
 	}
-	return domain.PendingLogin{State: parts[0], Nonce: parts[1], CodeVerifier: parts[2]}
+	return strings.Join(parts, ".")
+}
+
+func decodePendingLogin(cookie string) (domain.PendingLogin, string) {
+	parts := strings.Split(cookie, ".")
+	if len(parts) != 3 && len(parts) != 4 {
+		return domain.PendingLogin{}, ""
+	}
+	pending := domain.PendingLogin{State: parts[0], Nonce: parts[1], CodeVerifier: parts[2]}
+	if len(parts) == 3 {
+		return pending, ""
+	}
+	returnTo, err := base64.RawURLEncoding.DecodeString(parts[3])
+	if err != nil {
+		return pending, ""
+	}
+	return pending, string(returnTo)
 }

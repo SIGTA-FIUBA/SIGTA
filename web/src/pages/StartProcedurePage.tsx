@@ -1,17 +1,4 @@
-import {
-  Alert,
-  Anchor,
-  Button,
-  Code,
-  FileInput,
-  Group,
-  Loader,
-  Modal,
-  Stack,
-  Stepper,
-  Text,
-  Title,
-} from '@mantine/core'
+import { Alert, Anchor, Button, FileInput, Group, Loader, Modal, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -22,6 +9,7 @@ import type { components } from '../api/schema'
 import { FieldInput } from '../components/FieldInput/FieldInput'
 import { LongValue } from '../components/LongValue/LongValue'
 import { documentDescription } from '../content/documentFormats'
+import { procedurePath } from '../content/procedures'
 import {
   emptySubmission,
   fieldError,
@@ -136,14 +124,9 @@ function StartedNotice({ procedure }: { procedure: StartedProcedure }) {
   }, [])
   return (
     <Stack gap="md">
-      <Alert title="Tu trámite quedó iniciado" tabIndex={-1} ref={alert}>
-        <Text>
-          Número de trámite: <Code translate="no">{procedure.id}</Code>
-        </Text>
-        <Text>Guardalo para seguirlo. Ya quedó para que el personal lo revise.</Text>
-      </Alert>
+      <Alert title="Trámite iniciado" tabIndex={-1} ref={alert} />
       <Group>
-        <Button component={Link} to={`/procedures/${encodeURIComponent(procedure.id)}`}>
+        <Button component={Link} to={procedurePath(procedure.id)}>
           Ver el trámite
         </Button>
         <Button component={Link} to="/" variant="default">
@@ -368,7 +351,9 @@ export function StartProcedurePage() {
 
   return (
     <Stack gap="lg">
-      <Title order={1}>{entry ? entry.name : 'Iniciar un trámite'}</Title>
+      <Title order={1} variant="display" c="fiuba.9">
+        {entry ? entry.name : 'Iniciar un trámite'}
+      </Title>
       {catalog.isPending && <Loader aria-label="Cargando el trámite…" />}
       {catalog.isError && (
         <Alert color="red" role="alert">

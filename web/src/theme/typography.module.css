@@ -3,10 +3,62 @@
  * inline. Only theme.ts uses these classes.
  */
 
-/* The headline of the landing page (Title variant="display"). */
+/* Titles of 20px or more (order 1 and 2) are set a little tighter. */
+.title:where([data-order='1'], [data-order='2']) {
+  letter-spacing: var(--sigta-tracking-title);
+}
+
+/* The headline of a page (Title variant="display"). */
 .display {
-  font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  font-size: var(--sigta-display-size);
+  line-height: var(--sigta-display-line-height);
+  letter-spacing: var(--sigta-tracking-display);
   text-wrap: balance;
+}
+
+/* The titles of the sections of a page (Title variant="section"). */
+.section {
+  font-size: var(--sigta-section-size);
+  line-height: var(--sigta-section-line-height);
+  letter-spacing: var(--sigta-tracking-section);
+  text-wrap: balance;
+}
+
+/* A large figure (Text variant="figure"), such as those of the home header:
+ * tabular, tight and without line height of its own. */
+.figure {
+  font-size: var(--sigta-figure-size);
+  line-height: var(--sigta-figure-line-height);
+  letter-spacing: var(--sigta-tracking-figure);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A label that a row of a list says on a phone, where its columns stack, and
+ * that the column heading says from md on (Text variant="prefix"): there it
+ * stays only for screen readers. */
+@media (min-width: 64em) {
+  .prefix {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* A column heading of a list without a box (Text variant="column"). */
+.column {
+  white-space: nowrap;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-7);
+}
+
+/* The number of an item that writes its own (Text variant="ordinal"):
+ * tabular, so the numbers line up. */
+.ordinal {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: var(--mantine-font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }

@@ -1276,6 +1276,8 @@ export interface components {
             procedure_type_name: string;
             /** @description Paso abierto, el que se espera ahora; ausente si el trámite está cerrado */
             step_name?: string;
+            /** @description Área del paso abierto; ausente si lo hace el titular o si el trámite está cerrado */
+            area?: components["schemas"]["NamedOption"];
             state: components["schemas"]["ProcedureState"];
             /** @description Si el titular tiene una subsanación pendiente */
             correction_pending: boolean;
@@ -1482,6 +1484,8 @@ export interface operations {
             query?: {
                 /** @description Correo sugerido al proveedor de identidad */
                 login_hint?: string;
+                /** @description Página de la aplicación a la que se vuelve si se abre la sesión, como la escribe la aplicación: una ruta de hasta 512 caracteres que empieza con una sola barra y no tiene barras invertidas, por ejemplo /catalog/3/start. Cualquier otro valor se ignora y se vuelve al inicio, para que el ingreso no lleve a otro sitio. */
+                return_to?: string;
             };
             header?: never;
             path?: never;

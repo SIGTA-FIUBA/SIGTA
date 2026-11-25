@@ -1,0 +1,38 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { LogoGallery } from '../blocks/LogoGallery'
+
+<Meta title="Marca/Logo" />
+
+# Logo
+
+Un edificio de columnas con el techo en pendiente, sobre una barra celeste. Al lado, la palabra SIGTA y, en las versiones con descriptor, el nombre completo: Sistema Integral de Gestión de Trámites Académicos.
+
+Los archivos están en `web/public/brand/` y la aplicación los sirve en `/brand/`. Son SVG con el texto convertido en curvas: no hace falta instalar la tipografía.
+
+## Piezas y versiones
+
+Cada pieza tiene cuatro versiones de color. El nombre del archivo es `sigta-<pieza>-<versión>.svg`.
+
+<LogoGallery />
+
+## Favicon
+
+En `web/public/`: `favicon.svg` (en el modo oscuro del navegador, todo blanco), `favicon.ico` (16, 32 y 48 px) y `apple-touch-icon.png` (180 px). A 16 y 32 px el isotipo se simplifica: las arcadas pasan a ser aberturas rectas, para que se lean.
+
+## Uso (propuesta, a revisar)
+
+- Espacio libre alrededor: como mínimo, el alto de la barra celeste.
+- Tamaño mínimo: el isologo horizontal a 120 px de ancho; por debajo, el isotipo solo.
+- No se deforma, no se rota, no se le cambian los colores ni se le agregan sombras.
+- Sobre fondos oscuros va la versión blanca, toda blanca: la barra celeste nunca acompaña a un logo blanco.
+
+## Firma conjunta con la FIUBA
+
+Donde SIGTA se presenta (la barra superior y el pie de la portada pública, y "Acerca de SIGTA"), el isologo horizontal va junto al logo de la FIUBA, separados por un divisor vertical (`BrandSignature`). Siempre sobre blanco. El logo de la FIUBA es un PNG provisorio hasta tener el SVG oficial.
+
+## A confirmar
+
+- La firma conjunta y el logo de SIGTA los tiene que validar la Dirección de Comunicación Institucional.
+
+- La tipografía del logo es Montserrat (Bold en la palabra, Medium en el descriptor), por similitud con el boceto original.
+- Los colores del logo (`brand.navy` y `brand.cyan`) no son los de la escala de la interfaz (`color.fiuba`). Falta decidir si la interfaz adopta los del logo.

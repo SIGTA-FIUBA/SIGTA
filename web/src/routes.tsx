@@ -1,10 +1,13 @@
 import type { RouteObject } from 'react-router'
 import { AppLayout } from './layout/AppLayout'
+import { AboutPage } from './pages/AboutPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { CatalogPage } from './pages/CatalogPage'
 import { HomePage } from './pages/HomePage'
 import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
+import { MyProceduresPage } from './pages/MyProceduresPage'
+import { NewProcedurePage } from './pages/NewProcedurePage'
 import { ProcedurePage } from './pages/ProcedurePage'
 import { ProcedureTypeDraftPage } from './pages/ProcedureTypeDraftPage'
 import { ProcedureTypesPage } from './pages/ProcedureTypesPage'
@@ -14,13 +17,23 @@ import { StartProcedurePreview } from './dev/StartProcedurePreview'
 import { AdministrationPreview } from './dev/AdministrationPreview'
 import { HomePreview } from './dev/HomePreview'
 import { ProcedureTypeDraftPreview } from './dev/ProcedureTypeDraftPreview'
-import { optionalSession, requireSession, skipLoginWithSession } from './api/session'
+import { publicSession, requireSession } from './api/session'
 
 export const routes: RouteObject[] = [
-  { path: '/login', loader: skipLoginWithSession, element: <LoginPage /> },
-  // The catalog asks for no session, so it can be read before logging in. It
-  // keeps the same frame, with the menu for whoever has a session.
-  { loader: optionalSession, element: <AppLayout />, children: [{ path: '/catalog', element: <CatalogPage /> }] },
+  // The landing, the catalog and the page about SIGTA ask for no session, so
+  // they can be read before logging in. A visitor reads them under one header
+  // that stays from one to another; whoever has a session gets the catalog
+  // and the page about SIGTA with the menu, and the home page instead of the
+  // landing. If the API fails, they open for a visitor.
+  {
+    loader: publicSession,
+    element: <AppLayout />,
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      { path: '/catalog', element: <CatalogPage /> },
+      { path: '/about', element: <AboutPage /> },
+    ],
+  },
   // Only the dev server has the preview with worst-case data.
   ...(import.meta.env.DEV
     ? [
@@ -36,7 +49,9 @@ export const routes: RouteObject[] = [
     element: <AppLayout />,
     children: [
       { path: '/', element: <HomePage /> },
+      { path: '/new', element: <NewProcedurePage /> },
       { path: '/catalog/:procedureTypeId/start', element: <StartProcedurePage /> },
+      { path: '/my-procedures', element: <MyProceduresPage /> },
       { path: '/inbox', element: <InboxPage /> },
       { path: '/procedures/:id', element: <ProcedurePage /> },
       { path: '/administration', element: <AdministrationPage /> },

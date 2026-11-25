@@ -1,12 +1,13 @@
 /* Google's standard sign-in button, light theme, which Google requires with these exact
    colors and type: https://developers.google.com/identity/branding-guidelines
-   It is the only component styled outside the theme. */
+   The guidelines allow the rectangular shape with a small radius, which goes
+   with the square corners of the rest of the interface. It is the only component styled outside the theme. */
 .button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 16px 0 12px;
   border: 1px solid #747775;
   border-radius: 4px;
   background: #fff;

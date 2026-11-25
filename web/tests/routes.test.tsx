@@ -36,7 +36,18 @@ describe('routes', () => {
     stubApi({ session: false })
     const router = renderAt('/')
 
-    expect(await screen.findByRole('link', { name: 'Iniciar sesión con Google' })).toBeVisible()
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/login')
+  })
+
+  it('brings a visitor back to the page they asked for after the login', async () => {
+    stubApi({ session: false })
+    const router = renderAt('/procedures/P-7?tab=history')
+
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute(
+      'href',
+      '/api/auth/login?return_to=%2Fprocedures%2FP-7%3Ftab%3Dhistory',
+    )
     expect(router.state.location.pathname).toBe('/login')
   })
 
@@ -46,10 +57,10 @@ describe('routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Catálogo de trámites' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/catalog')
-    // A visitor gets the frame with a way to log in, and no menu.
-    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/login')
-    expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/login')
-    expect(screen.getByRole('link', { name: 'SIGTA, ir al inicio' })).toHaveAttribute('href', '/')
+    // A visitor gets the header of the public pages, with a way to log in,
+    // and no menu.
+    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.getByRole('link', { name: 'Trámites' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
   })
 
@@ -57,20 +68,34 @@ describe('routes', () => {
     stubApi({ session: true })
     const router = renderAt('/')
 
-    expect(
-      await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' }),
-    ).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cuenta de Ana Titular' })).toHaveTextContent('AT')
     expect(router.state.location.pathname).toBe('/')
+  })
+
+  it('shows the page about SIGTA to a visitor without a session', async () => {
+    stubApi({ session: false })
+    const router = renderAt('/about')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Acerca de SIGTA' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/about')
   })
 
   it('sends someone with a session from the login page to the home page', async () => {
     stubApi({ session: true })
     const router = renderAt('/login')
 
-    expect(
-      await screen.findByRole('heading', { name: 'Sistema Integral de Gestión de Trámites Académicos' }),
-    ).toBeVisible()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis trámites' })).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
+  })
+  it('opens the landing for a visitor when the API cannot say who is there', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ message: 'Bad gateway' }, { status: 502 })),
+    )
+    const router = renderAt('/login')
+
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeVisible()
+    expect(router.state.location.pathname).toBe('/login')
   })
 })

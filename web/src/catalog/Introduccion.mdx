@@ -1,0 +1,36 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Introducción" />
+
+# Catálogo de SIGTA
+
+La identidad visual y todos los componentes de la interfaz, en un solo lugar y desde el mismo código que usa la aplicación. No es un manual aparte que se desactualiza: cada página de este catálogo lee los mismos valores que las pantallas.
+
+## Qué hay
+
+- **Marca**: el logo en todas sus versiones y colores, con los archivos SVG para descargar, y el favicon.
+- **Fundamentos**: colores, tipografías, tamaños de texto, títulos, espaciado, radios, sombras y anchos de pantalla.
+- **Componentes**: cada componente de Mantine que puede usar la interfaz, con el aspecto de SIGTA.
+- **SIGTA**: los componentes propios (`src/components/`) y el marco de las páginas: encabezado, menú lateral y menú de la cuenta (`src/layout/`).
+
+## Una sola fuente de verdad
+
+Todas las decisiones de diseño están en `web/src/theme/tokens.json`, en el formato de design tokens del W3C. `theme.ts` arma el tema de Mantine con esos valores, y cada componente los toma del tema. Por eso, para cambiar algo en toda la interfaz se cambia un token y nada más:
+
+- El radio de todos los botones: `component.button.radius` (hoy apunta a `radius.default`).
+- El radio de todo: `radius.default`.
+- El color primario: la escala `color.fiuba` y `theme.primaryShade`.
+
+Las pantallas no escriben colores ni medidas sueltas: lo impiden las reglas de lint (`web/DESIGN.md`).
+
+## Para agentes
+
+- `llms.txt` (en esta misma dirección): índice en texto plano con las reglas, los tokens, los archivos del logo y la lista de componentes con el enlace a cada uno.
+- `tokens.json`: los tokens, tal como están en el repositorio.
+- `index.json`: el índice de Storybook, con cada historia y su identificador.
+
+## Cómo se usa
+
+- Verlo mientras se desarrolla: `npm run catalog` en `web/`.
+- Publicado junto con la aplicación, en `/design/`.
+- Un componente nuevo entra con su historia en el mismo PR (`*.stories.tsx` junto al componente).

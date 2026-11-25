@@ -1,6 +1,6 @@
-import { screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render } from '../test-utils/render'
 import { LoginPage } from '../../src/pages/LoginPage'
 
@@ -8,25 +8,75 @@ function renderAt(path: string) {
   const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
     initialEntries: [path],
   })
-  render(<RouterProvider router={router} />)
+  return render(<RouterProvider router={router} />)
 }
 
 describe('LoginPage', () => {
-  it('leaves for the identity provider through the API', () => {
+  it('asks for nothing: the login is the one of the identity provider', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('link', { name: 'Iniciar sesión con Google' })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('presents the platform, its core and the catalog', () => {
+  it('opens with the headline and leads to what SIGTA offers', () => {
     renderAt('/login')
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Los trámites académicos de la facultad')
-    expect(screen.getByRole('heading', { name: 'Qué resuelve SIGTA' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Trámites configurables' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Consultar el catálogo' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Una nueva forma de hacer trámites')
+    expect(screen.getByRole('link', { name: 'Conocé SIGTA' })).toHaveAttribute('href', '#que-podes-hacer')
+    expect(screen.getByRole('heading', { level: 2, name: '¿Qué podés hacer con SIGTA?' })).toHaveAttribute(
+      'id',
+      'que-podes-hacer',
+    )
+  })
+
+  it('offers the inbox, for the staff, the catalog and the administration, each with its way in', () => {
+    renderAt('/login')
+
+    const inbox = screen.getByRole('link', { name: 'Bandeja de trámites' })
+    expect(inbox).toHaveAttribute('href', '/api/auth/login?return_to=%2Finbox')
+    expect(inbox).toHaveAccessibleDescription(/^Para el personal/)
+    expect(screen.getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
+    expect(screen.getByRole('link', { name: 'Administración de SIGTA' })).toHaveAttribute('href', '/about')
+  })
+
+  it('logs in back to the page that sent the visitor here', () => {
+    const { container } = renderAt('/login?return_to=%2Fmy-procedures')
+
+    const arrow = container.querySelector('[aria-hidden] a[title="Iniciar sesión"]')
+    expect(arrow).toHaveAttribute('href', '/api/auth/login?return_to=%2Fmy-procedures')
+  })
+
+  it('glides to what SIGTA offers from "Conocé SIGTA" and from its band', () => {
+    renderAt('/login')
+    const section = screen.getByRole('region', { name: '¿Qué podés hacer con SIGTA?' })
+    const scroll = vi.spyOn(section, 'scrollIntoView')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Conocé SIGTA' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Ver qué podés hacer con SIGTA' }))
+
+    expect(scroll).toHaveBeenCalledTimes(2)
+  })
+
+  it('makes the round shapes of the collage links for the pointer, out of the tab order', () => {
+    const { container } = renderAt('/login')
+
+    const shapes = [...container.querySelectorAll('[aria-hidden] a')]
+    expect(shapes.map((shape) => shape.getAttribute('href'))).toEqual(['/about', '/catalog', '/api/auth/login'])
+    expect(shapes.every((shape) => shape.getAttribute('tabindex') === '-1')).toBe(true)
+  })
+
+  it('says how SIGTA is used and the criteria it follows, in order', () => {
+    renderAt('/login')
+
+    const steps = screen.getByRole('heading', { name: '¿Cómo se trabaja en SIGTA?' }).closest('section')
+    expect(
+      within(steps as HTMLElement)
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Bandeja de trámites', 'Registro de lo actuado', 'Seguimiento de derivaciones'])
+    const criteria = screen.getByRole('heading', { name: 'Criterios de la plataforma' }).closest('section')
+    expect(within(criteria as HTMLElement).getAllByRole('listitem')).toHaveLength(3)
   })
 
   it.each([

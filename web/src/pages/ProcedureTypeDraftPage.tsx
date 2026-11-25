@@ -210,7 +210,9 @@ function DraftEditor({
               : 'Tipo de trámite nuevo'}
           </Text>
           <Group gap="sm">
-            <Title order={1}>{definition.name || 'Tipo de trámite sin nombre'}</Title>
+            <Title order={1} variant="display" c="fiuba.9">
+              {definition.name || 'Tipo de trámite sin nombre'}
+            </Title>
             <Badge variant="light" color={status.color}>
               {status.label}
             </Badge>
@@ -280,12 +282,7 @@ function DraftEditor({
       />
       {!readOnly && dirty && !conflict && (
         <Text size="sm" c="dimmed">
-          Hay cambios sin guardar. Los problemas que se marcan son los de la última vez que se guardó.
-        </Text>
-      )}
-      {!readOnly && !dirty && problems.length === 0 && (
-        <Text size="sm" c="dimmed">
-          La definición no tiene problemas con las áreas actuales: se puede proponer.
+          Hay cambios sin guardar.
         </Text>
       )}
       {problems.length > 0 && (
@@ -522,7 +519,6 @@ function StepPanel({
     <Stack gap="md">
       <Text size="sm" c="dimmed" fw={600}>
         Paso {index + 1}
-        {index === 0 && ' · el trámite empieza acá'}
       </Text>
       {problems.length > 0 && (
         <Alert color="red" p="sm">
@@ -568,7 +564,6 @@ function StepPanel({
           />
           <MultiSelect
             label="Permisos que exige"
-            description="Los del área elegida. Para hacer el paso hay que tenerlos todos."
             data={(area?.permissions ?? []).map((p) => ({ value: p.id, label: p.name }))}
             value={step.permissions ?? []}
             disabled={readOnly || !area}
@@ -795,7 +790,6 @@ function RequirementsSection({
             {field.type === 'option' && (
               <TagsInput
                 label="Opciones"
-                description="Escribí cada opción y apretá Enter."
                 value={(field.options ?? []).map((option) => option.name)}
                 disabled={readOnly}
                 onChange={(options) => onChange(updateField(definition, field.id, setOptions(field, options)))}
@@ -924,7 +918,6 @@ function GeneralSection({
         />
         <Textarea
           label="Descripción"
-          description="La muestra el catálogo al titular, antes de iniciar el trámite."
           autosize
           minRows={3}
           value={definition.description ?? ''}
@@ -1143,10 +1136,8 @@ function RejectAction({
       </Button>
       <Modal opened={opened} onClose={close} title="Rechazar la propuesta">
         <Stack>
-          <Text size="sm">El borrador vuelve a edición con el motivo, para que se corrija y se vuelva a proponer.</Text>
           <Textarea
             label="Motivo"
-            description="Lo ve quien editó el borrador, hasta que lo vuelva a proponer."
             autosize
             minRows={3}
             value={reason}

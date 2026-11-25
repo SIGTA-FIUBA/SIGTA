@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { Radii } from '../blocks/Radii'
+import { Shadows } from '../blocks/Shadows'
+import { Spacing } from '../blocks/Spacing'
+import { TokenTable } from '../blocks/TokenTable'
+
+<Meta title="Fundamentos/Medidas" />
+
+# Medidas
+
+Todas las medidas son una escala con nombre. En las pantallas se escribe el nombre (`p="md"`, `gap="sm"`), nunca un número: un valor suelto es una decisión de diseño que nadie tomó.
+
+## Espaciado
+
+Una sola escala de base 4: 4, 8, 12, 16, 24, 32, 48 y 64. No hay valores intermedios. Sirve para márgenes, rellenos y separaciones (`m`, `p`, `gap`, `spacing`).
+
+<Spacing />
+
+## Radios
+
+Los controles usan 6 (`sm`, el radio por defecto) y las tarjetas 10 (`md`). Cada componente apunta a un token propio (`component.button.radius`, por ejemplo), así que se puede cambiar el de uno solo sin tocar el resto.
+
+<Radii />
+
+## Sombra
+
+Hay una sola, y es para lo que flota: menús, recuadros y diálogos. Un panel normal no tiene sombra, tiene borde (`Paper withBorder`), y el panel interactivo cambia de fondo y de borde con el puntero, sin elevarse.
+
+<Shadows />
+
+## Marco
+
+La barra superior mide 64 de alto (con el buscador del titular de 360 de ancho, sin estirarse), el menú lateral 256 de ancho y el contenido 1120 como máximo (`Container`, que ya lo trae por defecto), con un relleno de página de 32 (16 en el celular).
+
+<TokenTable path="layout" />
+
+## Anchos de pantalla
+
+Desde `md` (64em) el menú lateral mide 256. Entre `sm` (48em) y `md` queda en íconos con tooltip. Por debajo de `sm` la interfaz es la del celular: el menú se pliega detrás de un botón y los controles miden al menos 44 de alto.
+
+<TokenTable path="breakpoint" />
+
+## Tokens
+
+<TokenTable path="spacing" />
+
+<TokenTable path="radius" />
+
+<TokenTable path="focus" />
+
+<TokenTable path="component" />

@@ -9,13 +9,23 @@ type FieldRequirement = components['schemas']['FieldRequirement']
 const searchableOptions = 7
 
 // FieldInput is the input of a field of a procedure type, by its type, bound
-// to the value of the field in a form of a submission.
-export function FieldInput({ form, field }: { form: UseFormReturnType<SubmissionDraft>; field: FieldRequirement }) {
+// to the value of the field in a form of a submission. Without labelled, the
+// name goes only to assistive technology, for where it is already shown.
+export function FieldInput({
+  form,
+  field,
+  labelled = true,
+}: {
+  form: UseFormReturnType<SubmissionDraft>
+  field: FieldRequirement
+  labelled?: boolean
+}) {
   const path = `values.${field.id}`
   const common = {
-    label: field.name,
+    label: labelled ? field.name : undefined,
+    'aria-label': labelled ? undefined : field.name,
     name: field.id,
-    withAsterisk: field.required,
+    withAsterisk: labelled && field.required,
     key: form.key(path),
     ...form.getInputProps(path),
   }
@@ -23,7 +33,7 @@ export function FieldInput({ form, field }: { form: UseFormReturnType<Submission
     case 'long_text':
       return <Textarea {...common} autosize minRows={3} maxRows={12} />
     case 'number':
-      return <TextInput {...common} inputMode="decimal" description="Con coma o punto para los decimales." />
+      return <TextInput {...common} inputMode="decimal" />
     case 'date':
       return <TextInput {...common} type="date" />
     case 'option':

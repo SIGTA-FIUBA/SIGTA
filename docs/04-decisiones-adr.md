@@ -302,19 +302,21 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 ## ADR-015: La interfaz se arma con Mantine y toma su aspecto de un único tema
 
 **Estado:** propuesta, a acordar con el equipo
+**Modificada por:** ADR-028: Tailwind, solo para los componentes de código abierto copiados en `web/src/vendor/`, la única carpeta con `className` y `style`. Las pantallas siguen sin Tailwind ni CSS propio.
 
 **Contexto.** ADR-011 fijó React, TypeScript y Vite, pero no cómo se construye la interfaz. El equipo revisa con dificultad el código de frontend, y la mayor parte la va a escribir un agente. Las opciones evaluadas en noviembre de 2026 fueron: shadcn/ui, que copia los componentes al repositorio y los estiliza con cadenas largas de clases de Tailwind; Base UI y React Aria, que no traen estilo y dejan todo el CSS a cargo del equipo; Radix Themes, sin versiones nuevas desde enero de 2026; IBM Carbon, pesado y difícil de alejar del aspecto de IBM; y Mantine, una biblioteca completa (formularios, fechas, menús, notificaciones) que se configura con propiedades y un objeto de tema.
 
 **Decisión.**
 - La interfaz se construye con componentes de Mantine 9, sin Tailwind ni CSS propio.
-- El aspecto (colores, tipografía, radios, valores por defecto de cada componente) se define solo en `web/src/theme/theme.ts`.
+- El aspecto (colores, tipografía, radios, medidas) sale de `web/src/theme/tokens.json`, en el formato de design tokens del W3C. `web/src/theme/theme.ts` arma con esos valores el tema de Mantine y los valores por defecto de cada componente, y los pocos estados que Mantine no cubre (hover, foco, el ítem activo del menú) van en los módulos CSS de `web/src/theme/`, con variables del tema.
+- El catálogo de diseño (Storybook, servido en `/design/` con un `llms.txt` para agentes) muestra los tokens, el logo y cada componente. Un componente nuevo entra con su historia.
 - Las pantallas usan valores del tema, nunca colores ni medidas escritos a mano. Lo controla el lint con `react/forbid-component-props`, `react/forbid-dom-props`, `no-restricted-imports` y una regla propia en `web/lint/design-rules.js`.
 - Las reglas de diseño, con su motivo, están en `web/DESIGN.md`.
 - Hay dos excepciones. El botón "Iniciar sesión con Google", que Google exige con colores y tipografía propios. Y la ubicación de los elementos del diagrama del recorrido de un tipo de trámite (SIG-84), que se dibuja en coordenadas calculadas: solo `Placed` (`web/src/components/StepDiagram/Placed.tsx`) escribe un estilo en línea, y solo la posición y el tamaño; las cajas, las etiquetas y el lienzo toman su aspecto del tema.
 
 **Consecuencias.**
-- Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en un solo archivo.
-- La paleta institucional queda a confirmar hasta que se defina la identidad visual. Mientras tanto se usa el azul de Mantine.
+- Revisar una pantalla es revisar qué componentes usa y con qué propiedades. Un cambio de aspecto se revisa en `tokens.json` y llega a la aplicación y al catálogo a la vez.
+- La paleta institucional queda a confirmar con la facultad (SIG-79).
 - El frontend depende de Mantine: cambiar de biblioteca implica reescribir las pantallas.
 - El frontend compilado pesa 533 kB sin comprimir (166 kB comprimido), por encima del aviso de 500 kB de Vite. A revisar con división por rutas cuando crezca la cantidad de pantallas.
 
@@ -684,3 +686,34 @@ Los cinco entran al producto final. Se implementan de forma incremental: un trá
 - Ya no hay un archivo con datos personales entre los secretos del despliegue.
 - Las únicas personas que guarda la base son las cuentas reales que ingresan con Google (su correo, su nombre y sus sesiones), como ya pasaba en los entornos desplegados. Los trámites y los documentos siguen siendo sintéticos, cargados por quien prueba. Es una excepción a ADR-005, que pedía datos sintéticos en todos los entornos: las cuentas se guardan porque ingresar con Google es la única forma de entrar.
 - El despliegue en Google Cloud pasa a `SIGTA_ENV=production`, que exige la base y la carpeta de documentos que ya tenía.
+
+---
+
+## ADR-028: Los componentes de código abierto escritos con Tailwind se copian en `web/src/vendor/` y toman las escalas del tema
+
+**Estado:** propuesta, a acordar con el equipo
+**Modifica:** ADR-015, que armaba la interfaz sin Tailwind: lo suma solo para los componentes copiados de bibliotecas de código abierto, en la única carpeta donde se permiten `className` y `style`
+
+**Contexto.** ADR-015 arma la interfaz con Mantine, sin Tailwind ni CSS propio. Lo que Mantine no trae, como los efectos y las animaciones de la portada, se venía escribiendo a mano en el tema, imitando componentes que ya existen armados y probados en bibliotecas de código abierto como Magic UI, Aceternity UI y los ejemplos de motion.dev. Esas bibliotecas no se instalan como paquete: el componente se copia al repositorio, y viene escrito con clases de Tailwind. Sin Tailwind, usar uno obliga a reescribirlo con la Styles API de Mantine, que es volver a hacerlo a mano.
+
+**Decisión.**
+- Se suma Tailwind 4 (`tailwindcss` y `@tailwindcss/vite`), solo para los componentes copiados en `web/src/vendor/`. Las pantallas siguen armándose con Mantine y el tema (ADR-015).
+- Se importan solo sus utilidades (`tailwindcss/utilities.css`), sin su reset ni capas de cascada. Mantine ya resetea la página, y sin capas, Mantine y los módulos de `web/src/theme/` mantienen el orden que tenían.
+- Las escalas son las del tema. `web/src/theme/tailwind.css` borra las de Tailwind (`--*: initial`) y define colores, espaciados, tamaños de letra, pesos, radios, sombras y transiciones con las variables de CSS que Mantine arma desde `tokens.json`. Un componente copiado escribe `bg-fiuba-6`, `text-dimmed` o `p-md`, y una clase fuera del tema (`bg-violet-500`, `text-2xl`, `font-bold`) no genera nada.
+- Los puntos de quiebre van con su valor, porque una media query no lee variables. Un test controla que sigan siendo los de `tokens.json`, y que estén todos los colores y espaciados del tema.
+- Tailwind lee clases solo de `web/src/vendor/`, la única carpeta donde el lint permite `className` y `style`. La regla de los valores de diseño sigue activa ahí, así que tampoco pasan colores ni medidas escritos a mano (`w-[13px]`, `bg-[#fff]`).
+- Cada componente copiado va en su carpeta, con su licencia y un `SOURCE.md` con el repositorio, la ruta y el commit de origen, como las rutinas de terceros de `.claude/skills/`. Se copia como viene, con su estructura, su comportamiento y su animación; solo se cambian sus clases de color y tamaño por las del tema, y cada cambio queda en `SOURCE.md`. Entra con su historia en el catálogo, y las pantallas lo usan como a cualquier otro componente.
+
+**Alternativas descartadas.**
+- Importar Mantine en una capa de cascada (`styles.layer.css`), como suele combinarse con Tailwind: los módulos de `web/src/theme/`, que no están en una capa, le ganarían siempre a Mantine, también en sus estados de hover y foco, y cambiaría el aspecto de las pantallas.
+- Sumar el reset de Tailwind: cambia imágenes, listas, títulos y bordes que hoy resuelve Mantine.
+- Dejar la paleta y las medidas de Tailwind: un componente copiado traería colores y tamaños que no son los del tema.
+- Reescribir cada componente con la Styles API de Mantine: es volver a hacerlo a mano.
+- Usar Tailwind también en las pantallas: habría dos maneras de escribir el aspecto, y revisar una pantalla dejaría de ser revisar qué componentes usa y con qué propiedades.
+
+**Consecuencias.**
+- Lo que Mantine no trae se busca primero armado en una biblioteca de código abierto y se copia, en vez de imitarlo a mano.
+- Mientras `web/src/vendor/` no tenga componentes, Tailwind no agrega nada al CSS compilado, y sumarlo no cambia ninguna pantalla.
+- Un componente copiado no se actualiza solo: se actualiza a mano desde su origen, con lo que dice `SOURCE.md`.
+- Si cambian en `tokens.json` los puntos de quiebre, los colores o los espaciados, un test pide el mismo cambio en `tailwind.css`.
+- El frontend depende también de Tailwind, pero solo en `web/src/vendor/`.

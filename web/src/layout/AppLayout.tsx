@@ -1,39 +1,71 @@
 import {
+  ActionIcon,
   Alert,
+  Anchor,
   AppShell,
-  Avatar,
   Badge,
+  Box,
   Burger,
   Button,
   Container,
   Group,
+  Image,
+  Indicator,
+  Input,
   NavLink,
   Paper,
   Stack,
-  Text,
+  Tooltip,
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useMediaQuery } from '@mantine/hooks'
+import { motion } from 'motion/react'
 import { useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { useInboxProcedures } from '../api/procedures'
 import { useEditableProcedureTypes } from '../api/procedureTypes'
 import { logout, type optionalSession } from '../api/session'
+import { Icon, type IconName } from '../components/Icon/Icon'
+import { openSearch } from '../components/Search/openSearch'
+import { SearchShortcut } from '../components/SearchShortcut/SearchShortcut'
+import { move } from '../theme/motion'
+import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
-import { MenuIcon, type MenuIconName } from './MenuIcon'
+import { AppSearch } from './AppSearch'
+import { NotificationsBell } from './NotificationsBell'
+import { PublicLayout } from './PublicLayout'
 import { UserMenu } from './UserMenu'
 
-type MenuLink = { to: string; label: string; icon: MenuIconName; active: boolean; actionableCount?: number }
+type MenuLink = { to: string; label: string; icon: IconName; active: boolean; actionableCount?: number }
 
-// AppLayout frames every page: the faculty's logo and the account menu on
-// top, the menu on the left in the faculty's light blue, and the page beside
-// it. On a phone the menu folds behind a button. A visitor without a session,
-// who can only read the catalog, gets no menu and a way to log in.
+// CurrentMark is the mark of the current page in the menu, behind its item.
+// There is one: going to another page, it travels from the item left to the
+// one opened, so the menu shows the move and not only where the person is.
+function CurrentMark() {
+  return (
+    <Paper
+      variant="nav-current"
+      aria-hidden
+      renderRoot={(props) => <motion.div {...props} layoutId="nav-current" transition={move} />}
+    />
+  )
+}
+
+// Between breakpoint.sm and breakpoint.md the menu shows only its icons.
+const compactQuery = `(min-width: ${tokens.breakpoints.sm}) and (max-width: calc(${tokens.breakpoints.md} - 0.1px))`
+
+// AppLayout frames every page. With a session, a dark side navigation runs
+// from top to bottom: the SIGTA logo, the search (Ctrl K), the menu, and at
+// the foot the page about SIGTA and the account. From breakpoint.md it is 256 wide; on a tablet
+// it narrows to its icons; on a phone it folds behind a button in a white top
+// bar. A visitor without a session, who can only read the public pages, gets
+// them under the header of the landing (PublicLayout).
 export function AppLayout() {
   const user = useLoaderData<typeof optionalSession>()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [menuOpen, { toggle: toggleMenu, close: closeMenu }] = useDisclosure(false)
   const [logoutFailed, setLogoutFailed] = useState(false)
+  const compact = useMediaQuery(compactQuery) ?? false
   const staff = user?.staff === true
   // The menu shows how many procedures need action; the inbox shares the
   // request, so it costs nothing more.
@@ -53,9 +85,17 @@ export function AppLayout() {
   }
 
   const links: MenuLink[] = [
-    { to: '/', label: 'Inicio', icon: 'home', active: pathname === '/' },
+    // An applicant has their procedures in progress on the home page, and the
+    // rest behind its "Historial".
+    { to: '/', label: staff ? 'Inicio' : 'Mis trámites', icon: staff ? 'home' : 'files', active: pathname === '/' },
     ...(staff
       ? [
+          {
+            to: '/my-procedures',
+            label: 'Mis trámites',
+            icon: 'files' as const,
+            active: pathname.startsWith('/my-procedures'),
+          },
           {
             to: '/inbox',
             label: 'Bandeja de trámites',
@@ -88,91 +128,192 @@ export function AppLayout() {
       : []),
   ]
 
-  return (
-    <AppShell
-      header={{ height: 64 }}
-      navbar={user === null ? undefined : { width: 272, breakpoint: 'sm', collapsed: { mobile: !menuOpen } }}
-      padding="lg"
-    >
-      <AppShell.Header>
-        <AppHeader
-          start={
-            user !== null && (
-              <Burger
-                opened={menuOpen}
-                onClick={toggleMenu}
-                hiddenFrom="sm"
-                size="sm"
-                aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
-              />
-            )
-          }
-          end={
-            user !== null ? (
-              <UserMenu user={user} onLogout={() => void handleLogout()} />
-            ) : (
-              <>
-                <Button component={Link} to="/login" variant="subtle">
-                  Volver al inicio
-                </Button>
-                <Button component={Link} to="/login">
-                  Iniciar sesión
-                </Button>
-              </>
+  function menuItem(link: MenuLink) {
+    const count = link.actionableCount !== undefined && link.actionableCount > 0 ? link.actionableCount : undefined
+    const label = count === undefined ? link.label : `${link.label}, ${count} con acción requerida`
+    const common = {
+      component: Link,
+      to: link.to,
+      active: link.active,
+      'aria-current': link.active ? ('page' as const) : undefined,
+      'aria-label': label,
+      onClick: closeMenu,
+    }
+    if (compact) {
+      return (
+        <Box key={link.to} pos="relative">
+          {link.active && <CurrentMark />}
+          <Tooltip label={label} position="right">
+            <NavLink
+              {...common}
+              variant="menu-icon"
+              leftSection={
+                <Indicator disabled={count === undefined} size={tokens.component.navItem.dot} color="fiuba.5">
+                  <Icon name={link.icon} />
+                </Indicator>
+              }
+            />
+          </Tooltip>
+        </Box>
+      )
+    }
+    return (
+      <Box key={link.to} pos="relative">
+        {link.active && <CurrentMark />}
+        <NavLink
+          {...common}
+          variant="menu"
+          label={link.label}
+          leftSection={<Icon name={link.icon} />}
+          rightSection={
+            count !== undefined && (
+              // A long count would widen the badge past the menu; the label
+              // keeps the exact number.
+              <Badge variant="counter" aria-hidden>
+                {count > 99 ? '99+' : count}
+              </Badge>
             )
           }
         />
-      </AppShell.Header>
-      {user !== null && (
-        <AppShell.Navbar p="sm" bg="fiuba.5" aria-label="Menú principal">
-          <AppShell.Section grow>
-            <Stack gap="xs">
-              {links.map((link) => (
-                <NavLink
-                  key={link.to}
-                  component={Link}
-                  to={link.to}
-                  label={link.label}
-                  leftSection={<MenuIcon name={link.icon} />}
-                  rightSection={
-                    link.actionableCount ? (
-                      <Badge
-                        variant={link.active ? 'white' : 'filled'}
-                        size="sm"
-                        circle
-                        aria-label={`${link.actionableCount} con acción requerida`}
-                      >
-                        {link.actionableCount}
-                      </Badge>
-                    ) : undefined
-                  }
-                  active={link.active}
-                  variant="menu"
-                  fw={600}
-                  onClick={closeMenu}
-                />
-              ))}
-            </Stack>
-          </AppShell.Section>
-          <AppShell.Section>
-            <Paper p="sm" radius="md" shadow="xs">
-              <Group gap="sm" wrap="nowrap">
-                <Avatar name={user.name} color="fiuba" aria-hidden />
-                <Stack gap={0} miw={0}>
-                  <Text size="sm" fw={600} truncate="end">
-                    {user.name}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {user.staff ? 'Personal' : 'Titular'}
-                  </Text>
-                </Stack>
+      </Box>
+    )
+  }
+
+  // An applicant has the search, the bell and the start of a procedure in the
+  // top bar of every page, so the menu does not repeat the search; the start, but on
+  // the pages that start one.
+  const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
+
+  const about: MenuLink = { to: '/about', label: 'Acerca de SIGTA', icon: 'info', active: pathname === '/about' }
+
+  if (user === null) {
+    return <PublicLayout />
+  }
+
+  return (
+    // The alt layout keeps the menu from top to bottom, with the top bar
+    // beside it: on a computer only an applicant has one.
+    <AppShell
+      layout="alt"
+      header={{ height: { base: tokens.layout.topBar, sm: staff ? 0 : tokens.layout.topBar } }}
+      navbar={{
+        width: { sm: tokens.layout.navCompact, md: tokens.layout.nav },
+        breakpoint: 'sm',
+        collapsed: { mobile: !menuOpen },
+      }}
+      padding={{ base: 'md', sm: tokens.layout.pagePadding }}
+    >
+      <AppShell.Header hiddenFrom={staff ? 'sm' : undefined}>
+        <Box hiddenFrom="sm" h="100%">
+          <AppHeader
+            start={
+              <Burger
+                opened={menuOpen}
+                onClick={toggleMenu}
+                size="sm"
+                aria-label={menuOpen ? 'Cerrar el menú' : 'Abrir el menú'}
+              />
+            }
+            end={
+              <>
+                <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
+                  <Icon name="search" />
+                </ActionIcon>
+                {!staff && <NotificationsBell />}
+                {offerStart && (
+                  <ActionIcon component={Link} to="/new" size="lg" aria-label="Iniciar trámite">
+                    <Icon name="plus" />
+                  </ActionIcon>
+                )}
+              </>
+            }
+          />
+        </Box>
+        {!staff && (
+          <Box visibleFrom="sm" h="100%" px={tokens.layout.pagePadding}>
+            <Container px={0} h="100%">
+              <Group h="100%" justify="space-between" wrap="nowrap">
+                <Input
+                  component="button"
+                  pointer
+                  w={tokens.layout.search}
+                  leftSection={<Icon name="search" size={16} />}
+                  leftSectionPointerEvents="none"
+                  rightSection={<SearchShortcut keycap />}
+                  rightSectionWidth={tokens.layout.searchShortcut}
+                  rightSectionPointerEvents="none"
+                  onClick={openSearch}
+                >
+                  <Input.Placeholder>Buscar un trámite</Input.Placeholder>
+                </Input>
+                <Group gap="sm" wrap="nowrap">
+                  <NotificationsBell />
+                  {offerStart && (
+                    <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
+                      Iniciar trámite
+                    </Button>
+                  )}
+                </Group>
               </Group>
-            </Paper>
+            </Container>
+          </Box>
+        )}
+      </AppShell.Header>
+      <AppShell.Navbar p={compact ? 'xs' : 'sm'} aria-label="Menú principal">
+        <AppShell.Section visibleFrom="sm" px={compact ? 0 : 'xs'} pt="xs" pb="lg">
+          <Anchor component={Link} to="/" display="flex" aria-label="SIGTA, ir al inicio">
+            <Image
+              src={compact ? '/brand/sigta-isotipo-white.svg' : '/brand/sigta-horizontal-white.svg'}
+              alt=""
+              h="var(--sigta-logo-height)"
+              w="auto"
+              mx={compact ? 'auto' : 0}
+            />
+          </Anchor>
+        </AppShell.Section>
+        {staff && (
+          <AppShell.Section pb="md">
+            {compact ? (
+              <Tooltip label="Buscar" position="right">
+                <NavLink
+                  component="button"
+                  variant="menu-icon"
+                  aria-label="Buscar"
+                  leftSection={<Icon name="search" />}
+                  onClick={openSearch}
+                />
+              </Tooltip>
+            ) : (
+              <NavLink
+                component="button"
+                variant="menu-search"
+                label="Buscar"
+                leftSection={<Icon name="search" />}
+                rightSection={<SearchShortcut />}
+                onClick={() => {
+                  closeMenu()
+                  openSearch()
+                }}
+              />
+            )}
           </AppShell.Section>
-        </AppShell.Navbar>
-      )}
-      <AppShell.Main bg="gray.0">
-        <Container size="xl" px={0}>
+        )}
+        <AppShell.Section grow>
+          <Stack gap={0}>{links.map(menuItem)}</Stack>
+        </AppShell.Section>
+        <AppShell.Section>
+          <Stack gap="xs">
+            {menuItem(about)}
+            <UserMenu user={user} compact={compact} onLogout={() => void handleLogout()} />
+          </Stack>
+        </AppShell.Section>
+      </AppShell.Navbar>
+      <AppSearch
+        staff={staff}
+        pages={[...links, about].map((link) => ({ id: link.to, label: link.label, to: link.to }))}
+      />
+      <AppShell.Main>
+        <Container px={0}>
           {logoutFailed && (
             <Alert color="red" mb="md">
               No se pudo cerrar la sesión. Volvé a intentarlo.

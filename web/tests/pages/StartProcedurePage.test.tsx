@@ -210,7 +210,7 @@ describe('StartProcedurePage', () => {
     expect(screen.getByText('El archivo supera el tamaño máximo de 1 KB.')).toBeVisible()
   })
 
-  it('shows a summary, sends everything at once and shows the identifier', async () => {
+  it('shows a summary, sends everything at once and leads to the procedure', async () => {
     const sent = stubApi()
     const user = userEvent.setup()
     renderAt('/catalog/7/start')
@@ -234,7 +234,8 @@ describe('StartProcedurePage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Enviar el trámite' }))
 
-    expect(await screen.findByText('P-42')).toBeVisible()
+    expect(await screen.findByText('Trámite iniciado')).toBeVisible()
+    expect(screen.queryByText('P-42')).toBeNull()
     expect(screen.getByRole('link', { name: 'Ver el trámite' })).toHaveAttribute('href', '/procedures/P-42')
     expect(sent).toHaveLength(1)
     const parts = parse(sent[0])

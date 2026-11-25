@@ -14,6 +14,17 @@ paths:
           description: Correo sugerido al proveedor de identidad
           schema:
             type: string
+        - name: return_to
+          in: query
+          required: false
+          description: >
+            Página de la aplicación a la que se vuelve si se abre la sesión,
+            como la escribe la aplicación: una ruta de hasta 512 caracteres que
+            empieza con una sola barra y no tiene barras invertidas, por
+            ejemplo /catalog/3/start. Cualquier otro valor se ignora y se
+            vuelve al inicio, para que el ingreso no lleve a otro sitio.
+          schema:
+            type: string
       responses:
         "302":
           description: Redirección al proveedor de identidad
@@ -2518,6 +2529,10 @@ components:
         step_name:
           type: string
           description: Paso abierto, el que se espera ahora; ausente si el trámite está cerrado
+        area:
+          description: Área del paso abierto; ausente si lo hace el titular o si el trámite está cerrado
+          allOf:
+            - $ref: "#/components/schemas/NamedOption"
         state:
           $ref: "#/components/schemas/ProcedureState"
         correction_pending:
