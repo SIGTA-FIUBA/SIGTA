@@ -109,7 +109,8 @@ function ApplicantPending() {
 // (AppLayout).
 function NewProcedure() {
   const catalog = useQuery(catalogQuery)
-  const entries = catalog.data?.slice(0, startCount) ?? []
+  // In the order of the gallery of /new, so its first cards are these.
+  const entries = [...(catalog.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')).slice(0, startCount)
   return (
     <Section
       id="new"

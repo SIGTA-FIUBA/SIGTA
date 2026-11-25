@@ -200,6 +200,23 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'Ver todos' })).toHaveAttribute('href', '/new')
   })
 
+  it('offers the first procedures in the order of the gallery, by name', async () => {
+    stubApi({
+      catalog: ['Pase', 'Equivalencia', 'Constancia', 'Beca'].map((name, index) => ({
+        ...procedureType(index + 1),
+        name,
+      })),
+    })
+    renderAs(false)
+
+    const list = await screen.findByRole('list', { name: 'Trámites para iniciar' })
+    expect(
+      within(list)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href')),
+    ).toEqual(['/catalog/4/start', '/catalog/3/start', '/catalog/2/start'])
+  })
+
   it('says when the procedures could not be loaded', async () => {
     stubApi({ status: 500 })
     renderAs(false)
