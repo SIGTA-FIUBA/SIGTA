@@ -174,9 +174,8 @@ export const theme = createTheme({
         },
       },
     }),
-    // The side navigation is white with a border on its right; the page is
-    // white too, so what is on it is ordered by type, space and rules, not by
-    // boxes.
+    // The side navigation is dark (classes.sideNav); the page is white, so
+    // what is on it is ordered by type, space and rules, not by boxes.
     AppShell: AppShell.extend({
       defaultProps: { transitionDuration: tokens.motion.base, transitionTimingFunction: tokens.motion.easing },
       classNames: { navbar: classes.sideNav },
@@ -310,7 +309,10 @@ export const theme = createTheme({
       }),
     }),
     // The links, the groups and the images of the landing page.
-    Anchor: Anchor.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
+    Anchor: Anchor.extend({
+      styles: breakLongWords,
+      classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }),
+    }),
     Group: Group.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
     Image: Image.extend({ classNames: (_theme, props) => ({ root: landingClass(props.variant) ?? '' }) }),
     // A long title, such as the name of a file, breaks instead of pushing the

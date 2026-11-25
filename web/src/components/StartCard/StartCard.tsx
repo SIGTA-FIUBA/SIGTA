@@ -26,9 +26,9 @@ export function StartCard({ to, name, description }: StartCardProps) {
       display="flex"
       h="100%"
     >
-      <Stack gap="md" flex={1} justify="space-between">
+      <Stack gap="md" flex={1} miw={0} justify="space-between">
         <Stack gap="xxs">
-          <Text fw={700} size="lg">
+          <Text fw={600} size="lg">
             {name}
           </Text>
           {description && (

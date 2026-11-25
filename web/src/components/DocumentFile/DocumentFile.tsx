@@ -134,6 +134,7 @@ export function DocumentFile({
             type="button"
             size="sm"
             miw={0}
+            ta="left"
             aria-label={`Ver ${label}`}
             onClick={() => setOpened(true)}
           >
