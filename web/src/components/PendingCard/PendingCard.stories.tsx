@@ -10,7 +10,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'Algo que el titular tiene que hacer, en el inicio, para que no pase de largo: un panel con la marca naranja (`attention`, `ThemeIcon` light), lo que hay que hacer (body semibold), el trámite (body-sm `ink-600`), y el plazo en naranja si lo hay. Toda la tarjeta es el enlace, sin botón (`Paper variant="interactive"`). Van en una grilla de dos columnas desde breakpoint.md.',
+          'Algo que el titular tiene que hacer, en el inicio, para que no pase de largo: un panel con la marca naranja (`attention`, `ThemeIcon` light), lo que hay que hacer (body semibold), el trámite (body-sm `ink-600`), y el plazo en naranja si lo hay. Toda la tarjeta es el enlace, sin botón (`Paper variant="interactive"`). Van una debajo de la otra.',
       },
     },
   },

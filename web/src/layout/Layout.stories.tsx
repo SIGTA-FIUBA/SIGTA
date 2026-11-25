@@ -276,7 +276,7 @@ export const HomeApplicant: StoryObj = {
     docs: {
       description: {
         story:
-          'El Inicio del titular, "Mis trámites": arriba el buscador y "Iniciar trámite"; lo que sus trámites le piden, sus trámites en curso con el historial y, al lado, los tipos para iniciar en filas sin caja, como el inicio del personal.',
+          'El Inicio del titular, "Mis trámites": arriba el buscador, la campana y "Iniciar trámite"; en una sola columna, tres tipos para iniciar en tarjetas, lo que sus trámites le piden y sus trámites en curso con el historial.',
       },
     },
   },
