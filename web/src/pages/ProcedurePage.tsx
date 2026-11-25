@@ -21,7 +21,7 @@ import {
 import { useForm } from '@mantine/form'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, useLocation, useOutletContext, useParams } from 'react-router'
 import { api } from '../api/client'
 import { NotFoundError, useProcedure } from '../api/procedures'
 import type { components } from '../api/schema'
@@ -42,6 +42,7 @@ type Event = components['schemas']['ProcedureEvent']
 type FieldRequirement = components['schemas']['FieldRequirement']
 type DocumentRequirement = components['schemas']['DocumentRequirement']
 type Value = components['schemas']['ProcedureValue']
+type User = components['schemas']['User']
 
 const dateTime = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
@@ -53,25 +54,27 @@ const dateTime = new Intl.DateTimeFormat('es-AR', {
   timeZone: 'America/Argentina/Buenos_Aires',
 })
 
-// backTo names the page a procedure was opened from, for the link back to it.
-// Without one, the link goes to the home page.
-function backTo(from: string | undefined) {
+// backTo names the page a procedure was opened from, for the link back to it,
+// as the menu names it: an applicant has their home as "Mis trámites" and the
+// whole list as "Historial". Without one, the link goes to the home page.
+function backTo(from: string | undefined, staff: boolean) {
   if (from?.startsWith('/inbox')) {
     return { to: from, label: 'Volver a la bandeja de trámites' }
   }
   if (from?.startsWith('/my-procedures')) {
-    return { to: from, label: 'Volver a Mis trámites' }
+    return { to: from, label: staff ? 'Volver a Mis trámites' : 'Volver al historial' }
   }
-  return { to: '/', label: 'Volver al inicio' }
+  return { to: '/', label: staff ? 'Volver al inicio' : 'Volver a Mis trámites' }
 }
 
 function BackLink() {
+  const staff = useOutletContext<User | null | undefined>()?.staff === true
   const state: unknown = useLocation().state
   const from =
     typeof state === 'object' && state !== null && 'from' in state && typeof state.from === 'string'
       ? state.from
       : undefined
-  const back = backTo(from)
+  const back = backTo(from, staff)
   return (
     <Anchor component={Link} to={back.to} size="sm" c="gray.7">
       <Group component="span" gap="xxs" wrap="nowrap">
@@ -988,6 +991,7 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
   const [notice, setNotice] = useState<string | null>(null)
   const open = detail.steps.find((step) => step.id === detail.open_step)
   const awaiting = detail.correction_requests.length > 0
+  const answering = detail.as_applicant && awaiting
   const state = stateText(detail.state, {
     area: detail.steps.find((step) => step.id === detail.open_step)?.area,
     applicant: detail.as_applicant,
@@ -1001,9 +1005,10 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
       </Title>
       {/* On a wide screen what the procedure is and its steps go in a narrow
           column on the right; the work and the record, on the left. On a
-          phone the facts come first. */}
+          phone the facts come first, but for a correction the applicant has
+          to answer, which goes on top of everything. */}
       <Grid gap={{ base: 'xl', lg: 'xxl' }}>
-        <Grid.Col span={{ base: 12, lg: 4 }} order={{ base: 1, lg: 2 }}>
+        <Grid.Col span={{ base: 12, lg: 4 }} order={{ base: answering ? 2 : 1, lg: 2 }}>
           <Stack gap="xl">
             <Stack gap="md">
               <Facts label="Resumen del trámite">
@@ -1045,9 +1050,9 @@ function ProcedureDetail({ detail }: { detail: Detail }) {
             </Stack>
           </Stack>
         </Grid.Col>
-        <Grid.Col span={{ base: 12, lg: 8 }} order={{ base: 2, lg: 1 }}>
+        <Grid.Col span={{ base: 12, lg: 8 }} order={{ base: answering ? 1 : 2, lg: 1 }}>
           <Stack gap="xxl">
-            {detail.as_applicant && awaiting && (
+            {answering && (
               <CorrectionAnswer
                 detail={detail}
                 onAnswered={() => setNotice('Respuesta enviada. El trámite volvió a quien pidió la subsanación.')}

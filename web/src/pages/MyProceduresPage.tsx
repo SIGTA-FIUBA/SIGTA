@@ -100,7 +100,14 @@ export function MyProceduresPage() {
         </Alert>
       )}
       {myProcedures.isSuccess && myProcedures.data.length === 0 && (
-        <EmptyState title="Sin trámites" text="Los trámites se inician desde el catálogo." />
+        <EmptyState
+          title="Sin trámites"
+          text={
+            user?.staff === true
+              ? 'Los trámites se inician desde el catálogo.'
+              : 'Los trámites que inicies aparecen acá, también cuando se cierren.'
+          }
+        />
       )}
       {myProcedures.isSuccess && myProcedures.data.length > 0 && found.length === 0 && (
         <Text c="dimmed">Ningún trámite coincide con “{search}”.</Text>

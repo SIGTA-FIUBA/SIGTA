@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../../src/api/schema'
 import { ProcedurePage } from '../../src/pages/ProcedurePage'
@@ -99,10 +99,14 @@ async function sentPosts(fetch: ReturnType<typeof stubPost>) {
   return Promise.all(posts.map(async (request) => ({ url: request.url, body: await request.json() })))
 }
 
-function renderPage(state?: unknown) {
-  const router = createMemoryRouter([{ path: '/procedures/:id', element: <ProcedurePage /> }], {
-    initialEntries: [{ pathname: '/procedures/P-1', state }],
-  })
+function renderPage(state?: unknown, staff = true) {
+  const user = { id: 'u1', email: 'u@fi.uba.ar', name: 'Persona', staff, administrator: false }
+  const router = createMemoryRouter(
+    [{ element: <Outlet context={user} />, children: [{ path: '/procedures/:id', element: <ProcedurePage /> }] }],
+    {
+      initialEntries: [{ pathname: '/procedures/P-1', state }],
+    },
+  )
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -500,6 +504,20 @@ describe('ProcedurePage', () => {
     expect((await screen.findByRole('link', { name: 'Volver a Mis trámites' })).getAttribute('href')).toBe(
       '/my-procedures',
     )
+  })
+
+  it('names the pages it leads back to as the menu of an applicant does', async () => {
+    stubApi(200, detail)
+    renderPage({ from: '/my-procedures' }, false)
+
+    expect(await screen.findByRole('link', { name: 'Volver al historial' })).toHaveAttribute('href', '/my-procedures')
+  })
+
+  it('leads an applicant back to their procedures, their home', async () => {
+    stubApi(200, detail)
+    renderPage(undefined, false)
+
+    expect(await screen.findByRole('link', { name: 'Volver a Mis trámites' })).toHaveAttribute('href', '/')
   })
 })
 
