@@ -40,6 +40,17 @@ describe('routes', () => {
     expect(router.state.location.pathname).toBe('/login')
   })
 
+  it('brings a visitor back to the page they asked for after the login', async () => {
+    stubApi({ session: false })
+    const router = renderAt('/procedures/P-7?tab=history')
+
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute(
+      'href',
+      '/api/auth/login?return_to=%2Fprocedures%2FP-7%3Ftab%3Dhistory',
+    )
+    expect(router.state.location.pathname).toBe('/login')
+  })
+
   it('shows the catalog to a visitor without a session', async () => {
     stubApi({ session: false })
     const router = renderAt('/catalog')

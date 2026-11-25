@@ -1,12 +1,15 @@
-import { redirect } from 'react-router'
+import { redirect, useSearchParams, type LoaderFunctionArgs } from 'react-router'
 import { api } from './client'
 
 // requireSession guards the pages that need a session: without one, the
-// browser goes to the login page. It returns the person with the session.
-export async function requireSession() {
+// browser goes to the login page, which logs in back to the page it asked for
+// (useLoginUrl). It returns the person with the session.
+export async function requireSession({ request }: LoaderFunctionArgs) {
   const user = await optionalSession()
   if (user === null) {
-    throw redirect('/login')
+    const { pathname, search } = new URL(request.url)
+    const page = pathname + search
+    throw redirect(page === '/' ? '/login' : `/login?${new URLSearchParams({ return_to: page })}`)
   }
   return user
 }
@@ -44,6 +47,15 @@ export const loginUrl = '/api/auth/login'
 // as the form of the procedure a visitor asked to start.
 export function loginUrlTo(page: string) {
   return `${loginUrl}?${new URLSearchParams({ return_to: page })}`
+}
+
+// useLoginUrl is the login of the public pages: back to the page that sent the
+// person to log in (requireSession), if one did. The backend checks that it is
+// a page of SIGTA.
+export function useLoginUrl() {
+  const [params] = useSearchParams()
+  const page = params.get('return_to')
+  return page ? loginUrlTo(page) : loginUrl
 }
 
 // logout closes the session and reports whether the API did.

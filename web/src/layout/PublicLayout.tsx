@@ -2,7 +2,7 @@ import { Anchor, Button, Group, Image, Paper, Stack } from '@mantine/core'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useLocation, useOutlet } from 'react-router'
-import { loginUrl } from '../api/session'
+import { useLoginUrl } from '../api/session'
 import { move, swap } from '../theme/motion'
 import { glide, isPlainClick } from './glide'
 
@@ -26,6 +26,7 @@ function Kept({ children }: { children: ReactNode }) {
 // is the one of the landing (landing.module.css, the landing-* variants).
 export function PublicLayout() {
   const { pathname } = useLocation()
+  const login = useLoginUrl()
   // The pages read the person from the outlet; here there is none.
   const outlet = useOutlet(null)
   // A link to the page the person is already on takes them to its top,
@@ -68,7 +69,7 @@ export function PublicLayout() {
             )
           })}
         </Group>
-        <Button component="a" href={loginUrl} variant="landing-login">
+        <Button component="a" href={login} variant="landing-login">
           Iniciar sesión
         </Button>
       </Group>

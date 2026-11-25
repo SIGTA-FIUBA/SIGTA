@@ -34,10 +34,17 @@ describe('LoginPage', () => {
     renderAt('/login')
 
     const inbox = screen.getByRole('link', { name: 'Bandeja de trámites' })
-    expect(inbox).toHaveAttribute('href', '/api/auth/login')
+    expect(inbox).toHaveAttribute('href', '/api/auth/login?return_to=%2Finbox')
     expect(inbox).toHaveAccessibleDescription(/^Para el personal/)
     expect(screen.getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('href', '/catalog')
     expect(screen.getByRole('link', { name: 'Administración de SIGTA' })).toHaveAttribute('href', '/about')
+  })
+
+  it('logs in back to the page that sent the visitor here', () => {
+    const { container } = renderAt('/login?return_to=%2Fmy-procedures')
+
+    const arrow = container.querySelector('[aria-hidden] a[title="Iniciar sesión"]')
+    expect(arrow).toHaveAttribute('href', '/api/auth/login?return_to=%2Fmy-procedures')
   })
 
   it('glides to what SIGTA offers from "Conocé SIGTA" and from its band', () => {

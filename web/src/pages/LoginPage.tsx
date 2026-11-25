@@ -2,7 +2,7 @@ import { Alert, Button, Image, Paper, SimpleGrid, Stack, Text, Title } from '@ma
 import { Fragment, useId, useRef, type MouseEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { components } from '../api/schema'
-import { loginUrl } from '../api/session'
+import { loginUrl, loginUrlTo, useLoginUrl } from '../api/session'
 import { Icon, type IconName } from '../components/Icon/Icon'
 import { principles, staffHowTo } from '../content/platform'
 import { glide, isPlainClick } from '../layout/glide'
@@ -45,7 +45,7 @@ const offers: Offer[] = [
     lines: 1,
     text: 'Para el personal: revisá los trámites en curso.',
     tone: 'outline',
-    to: loginUrl,
+    to: loginUrlTo('/inbox'),
   },
   {
     icon: 'search',
@@ -96,7 +96,7 @@ function OfferCard({ offer }: { offer: Offer }) {
     <Paper
       component={Link}
       to={offer.to}
-      reloadDocument={offer.to === loginUrl}
+      reloadDocument={offer.to.startsWith(loginUrl)}
       variant="landing-card"
       mod={{ tone: offer.tone }}
       aria-labelledby={`${id}-title`}
@@ -125,6 +125,7 @@ function OfferCard({ offer }: { offer: Offer }) {
 // about SIGTA. The keyboard has those links already, so they are not tab
 // stops.
 function Collage() {
+  const login = useLoginUrl()
   return (
     <Paper variant="landing-collage" aria-hidden>
       <Image variant="landing-hall" src="/photos/portada-pasillo.webp" alt="" />
@@ -136,7 +137,7 @@ function Collage() {
         <Icon name="plus" size="fill" weight={2.5} />
       </Paper>
       <Image variant="landing-mate" src="/photos/portada-mate.webp" alt="" />
-      <Paper component="a" href={loginUrl} variant="landing-arrow" tabIndex={-1} title="Iniciar sesión">
+      <Paper component="a" href={login} variant="landing-arrow" tabIndex={-1} title="Iniciar sesión">
         <Icon name="arrow-right" size="fill" weight={2} />
       </Paper>
     </Paper>
