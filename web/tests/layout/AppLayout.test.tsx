@@ -141,7 +141,7 @@ describe('AppLayout', () => {
     expect(within(menu).getByRole('link', { name: 'Catálogo de trámites' })).toHaveAttribute('data-active', 'true')
   })
 
-  it('fixes the search and the start of a procedure at the top for an applicant', async () => {
+  it('fixes the search, the bell and the start of a procedure at the top for an applicant', async () => {
     stubApi({ session: true })
     renderAt('/catalog')
 
@@ -153,6 +153,7 @@ describe('AppLayout', () => {
       expect(start).toHaveAttribute('href', '/new')
     }
     expect(screen.getAllByRole('button', { name: /^Buscar/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /^Notificaciones/ }).length).toBeGreaterThan(0)
     // The search is at the top, so the menu does not repeat it.
     expect(within(menu).queryByRole('button', { name: /^Buscar/ })).not.toBeInTheDocument()
   })
@@ -165,12 +166,13 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
   })
 
-  it('leaves the start of a procedure out of the pages of the staff', async () => {
+  it('leaves the start of a procedure and the bell out of the pages of the staff', async () => {
     stubApi({ session: true, account: { ...user, staff: true } })
     renderAt('/')
 
     await screen.findByRole('heading', { level: 1, name: 'Inicio' })
     expect(screen.queryByRole('link', { name: 'Iniciar trámite' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Notificaciones/ })).not.toBeInTheDocument()
     const menu = screen.getByRole('navigation', { name: 'Menú principal' })
     expect(within(menu).getByRole('button', { name: /^Buscar/ })).toBeInTheDocument()
   })

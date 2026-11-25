@@ -31,6 +31,7 @@ import { move } from '../theme/motion'
 import { tokens } from '../theme/tokens'
 import { AppHeader } from './AppHeader'
 import { AppSearch } from './AppSearch'
+import { NotificationsBell } from './NotificationsBell'
 import { PublicLayout } from './PublicLayout'
 import { UserMenu } from './UserMenu'
 
@@ -178,8 +179,8 @@ export function AppLayout() {
     )
   }
 
-  // An applicant has the search and the start of a procedure in the top bar
-  // of every page, so the menu does not repeat the search; the start, but on
+  // An applicant has the search, the bell and the start of a procedure in the
+  // top bar of every page, so the menu does not repeat the search; the start, but on
   // the pages that start one.
   const offerStart = !staff && pathname !== '/new' && !/^\/catalog\/[^/]+\/start/.test(pathname)
 
@@ -218,6 +219,7 @@ export function AppLayout() {
                 <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Buscar" onClick={openSearch}>
                   <Icon name="search" />
                 </ActionIcon>
+                {!staff && <NotificationsBell />}
                 {offerStart && (
                   <ActionIcon component={Link} to="/new" size="lg" aria-label="Iniciar trámite">
                     <Icon name="plus" />
@@ -230,7 +232,7 @@ export function AppLayout() {
         {!staff && (
           <Box visibleFrom="sm" h="100%" px={tokens.layout.pagePadding}>
             <Container px={0} h="100%">
-              <Group component="search" h="100%" justify="space-between" wrap="nowrap" aria-label="Buscar e iniciar">
+              <Group h="100%" justify="space-between" wrap="nowrap">
                 <Input
                   component="button"
                   pointer
@@ -244,11 +246,14 @@ export function AppLayout() {
                 >
                   <Input.Placeholder>Buscar un trámite</Input.Placeholder>
                 </Input>
-                {offerStart && (
-                  <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
-                    Iniciar trámite
-                  </Button>
-                )}
+                <Group gap="sm" wrap="nowrap">
+                  <NotificationsBell />
+                  {offerStart && (
+                    <Button component={Link} to="/new" leftSection={<Icon name="plus" size={16} />}>
+                      Iniciar trámite
+                    </Button>
+                  )}
+                </Group>
               </Group>
             </Container>
           </Box>
